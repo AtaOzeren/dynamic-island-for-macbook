@@ -1,3 +1,11 @@
-# Local editor, OS, and agent state
+# Build & Local Editor Artifacts
+.build/
+.swiftpm/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/
+.DS_Store
+
+# Local agent & memory state
 .omo
 .serena
