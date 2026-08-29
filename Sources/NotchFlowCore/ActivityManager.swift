@@ -23,6 +23,11 @@ public final class ActivityManager {
 
     public var onBecomeIdle: (() -> Void)?
 
+    /// Fired after every mutation of the active set — registration, in-place
+    /// update, and removal — so a presenter can re-read `activeActivities`
+    /// without polling.
+    public var onActivitiesChanged: (() -> Void)?
+
     public init(
         compactCapacity: Int = 3,
         sleep: @escaping Sleep = { duration in
@@ -81,6 +86,8 @@ public final class ActivityManager {
     }
 
     private func store(_ activity: any Activity, registrationTime: Date) {
+        defer { onActivitiesChanged?() }
+
         dismissTasks[activity.identity]?.cancel()
         nextGeneration += 1
 
@@ -112,6 +119,8 @@ public final class ActivityManager {
         entries[identity] = nil
         dismissTasks[identity]?.cancel()
         dismissTasks[identity] = nil
+
+        onActivitiesChanged?()
 
         if entries.isEmpty {
             onBecomeIdle?()

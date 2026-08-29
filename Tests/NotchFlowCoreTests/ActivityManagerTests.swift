@@ -191,6 +191,33 @@ struct ActivityManagerTests {
         manager.end(ActivityIdentity("non-existent"), at: date(5))
         #expect(idleSignalCount == 1)
     }
+
+    @Test("signals every change to the active set")
+    func changeSignalOnEveryMutation() {
+        let manager = ActivityManager()
+        var changeSignalCount = 0
+        manager.onActivitiesChanged = {
+            changeSignalCount += 1
+        }
+
+        let activity = StubManagerActivity(
+            identity: ActivityIdentity("timer.focus"),
+            kind: .timer,
+            priority: .normal
+        )
+
+        manager.register(activity, at: date(1))
+        #expect(changeSignalCount == 1)
+
+        manager.update(activity, at: date(2))
+        #expect(changeSignalCount == 2)
+
+        manager.end(activity.identity, at: date(3))
+        #expect(changeSignalCount == 3)
+
+        manager.end(ActivityIdentity("non-existent"), at: date(4))
+        #expect(changeSignalCount == 3)
+    }
 }
 
 private struct StubManagerActivity: Activity {
