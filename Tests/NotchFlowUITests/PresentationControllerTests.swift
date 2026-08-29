@@ -29,7 +29,10 @@ struct PresentationControllerTests {
         let mouse: FakeMouseLocationObserver
     }
 
-    private static func makeHarness(screen: ScreenDescription? = notchedScreen) -> Harness {
+    private static func makeHarness(
+        screen: ScreenDescription? = notchedScreen,
+        reduceMotion: Bool = false
+    ) -> Harness {
         let manager = ActivityManager()
         let panel = NotchPanel(metrics: metrics, content: Color.clear)
         let mouse = FakeMouseLocationObserver()
@@ -38,6 +41,7 @@ struct PresentationControllerTests {
             manager: manager,
             metrics: metrics,
             mouse: mouse,
+            reduceMotion: FakeReduceMotion(prefersReducedMotion: reduceMotion),
             screen: { screen }
         )
         controller.start()
@@ -349,6 +353,92 @@ struct PresentationControllerTests {
 
         #expect(observed == [true, false])
     }
+
+    @Test("starts with nothing to animate")
+    func startsUnanimated() {
+        let harness = Self.makeHarness()
+
+        #expect(harness.controller.transition == .none)
+        #expect(harness.controller.peek == .none)
+    }
+
+    @Test("ordering in on the first activity animates nothing")
+    func orderingInIsUnanimated() {
+        let harness = Self.makeHarness()
+
+        harness.manager.register(Self.activity("timer.focus"))
+
+        #expect(harness.controller.transition == .none)
+    }
+
+    @Test("ordering out on the last activity animates nothing")
+    func orderingOutIsUnanimated() {
+        let harness = Self.makeHarness()
+        let activity = Self.activity("timer.focus")
+        harness.manager.register(activity)
+        harness.controller.expand()
+
+        harness.manager.end(activity.identity)
+
+        #expect(harness.controller.state == .hidden)
+        #expect(harness.controller.transition == .none)
+        #expect(harness.controller.peek == .none)
+    }
+
+    @Test("expanding and collapsing run the spring")
+    func expandAndCollapseSpring() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.controller.expand()
+        #expect(harness.controller.transition == .spring(response: 0.35, dampingFraction: 0.8))
+
+        harness.controller.collapse()
+        #expect(harness.controller.transition == .spring(response: 0.35, dampingFraction: 0.8))
+    }
+
+    @Test("hovering the pill runs the peek")
+    func hoverPeeks() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+
+        #expect(harness.controller.peek == .easeOut(duration: 0.15))
+    }
+
+    @Test("Reduce Motion cross-fades every transition instead of springing")
+    func reduceMotionCrossFades() {
+        let harness = Self.makeHarness(reduceMotion: true)
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        #expect(harness.controller.peek.movesGeometry == false)
+
+        harness.controller.expand()
+        #expect(harness.controller.transition.movesGeometry == false)
+        #expect(harness.controller.transition != .none)
+    }
+
+    @Test("the curve is settled before the state change is published")
+    func curveIsSettledBeforePublishing() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+        var observed: [IslandAnimationCurve] = []
+        harness.controller.onStateChange = { [weak controller = harness.controller] _ in
+            guard let controller else { return }
+            observed.append(controller.transition)
+        }
+
+        harness.controller.expand()
+
+        #expect(observed == [.spring(response: 0.35, dampingFraction: 0.8)])
+    }
+}
+
+@MainActor
+private struct FakeReduceMotion: ReduceMotionQuerying {
+    let prefersReducedMotion: Bool
 }
 
 @MainActor

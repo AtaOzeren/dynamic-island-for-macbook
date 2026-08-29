@@ -29,6 +29,8 @@ public final class PresentationController {
     private let metrics: PanelMetrics
     private let mouse: any MouseLocationObserving
     private let screen: ScreenProvider
+    private let motion: IslandMotion
+    private let reduceMotion: any ReduceMotionQuerying
 
     /// The pill's hit area on the screen the panel was last ordered in on, which
     /// is the only region a collapsed panel may accept a click in.
@@ -37,10 +39,21 @@ public final class PresentationController {
     public private(set) var state: PresentationState = .hidden {
         didSet {
             guard state != oldValue else { return }
+            transition = islandAnimationCurve(
+                from: oldValue,
+                to: state,
+                motion: motion,
+                reduceMotion: reduceMotion.prefersReducedMotion
+            )
             onStateChange?(state)
             synchronizeMouseHandling()
         }
     }
+
+    /// How the most recent state change should be drawn. Assigned before
+    /// `onStateChange` fires so a view reacting to the new state already knows
+    /// which curve carried it there, rather than having to re-derive it.
+    public private(set) var transition: IslandAnimationCurve = .none
 
     /// Whether the pointer is over the compact pill. Distinct from `state`: the
     /// pill peeks on hover without committing to `.expanded`, so this can be true
@@ -48,10 +61,19 @@ public final class PresentationController {
     public private(set) var isHovered = false {
         didSet {
             guard isHovered != oldValue else { return }
+            peek = islandPeekCurve(
+                in: state,
+                motion: motion,
+                reduceMotion: reduceMotion.prefersReducedMotion
+            )
             onHoverChange?(isHovered)
             synchronizeMouseHandling()
         }
     }
+
+    /// How the most recent hover change should be drawn, on the same
+    /// assigned-before-the-callback contract as `transition`.
+    public private(set) var peek: IslandAnimationCurve = .none
 
     public var onStateChange: ((PresentationState) -> Void)?
     public var onHoverChange: ((Bool) -> Void)?
@@ -61,12 +83,16 @@ public final class PresentationController {
         manager: ActivityManager,
         metrics: PanelMetrics = .default,
         mouse: any MouseLocationObserving,
+        motion: IslandMotion = .default,
+        reduceMotion: any ReduceMotionQuerying = SystemReduceMotion(),
         screen: @escaping ScreenProvider
     ) {
         self.panel = panel
         self.manager = manager
         self.metrics = metrics
         self.mouse = mouse
+        self.motion = motion
+        self.reduceMotion = reduceMotion
         self.screen = screen
     }
 
@@ -116,11 +142,14 @@ public final class PresentationController {
         }
     }
 
+    /// Hidden is entered before hover is dropped so the hover release resolves
+    /// its curve against `.hidden` and animates nothing. Clearing hover first
+    /// would schedule a peek-out on a window that has already been ordered out.
     private func hide() {
         mouse.stopObserving()
         panel.orderOut(nil)
-        isHovered = false
         state = .hidden
+        isHovered = false
     }
 
     /// Hover only decides hit-testing while the pill is the whole target. Once
