@@ -26,6 +26,7 @@
 		F10000022C81000000000006 /* MusicBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicBackend.swift; sourceTree = "<group>"; };
 		F10000022C81000000000007 /* URLSchemeReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSchemeReceiver.swift; sourceTree = "<group>"; };
 		F10000022C81000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F10000022C81000000000009 /* NotchFlow-AppStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "NotchFlow-AppStore.entitlements"; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -60,6 +61,7 @@
 				F10000022C81000000000006 /* MusicBackend.swift */,
 				F10000022C81000000000007 /* URLSchemeReceiver.swift */,
 				F10000022C81000000000008 /* Info.plist */,
+				F10000022C81000000000009 /* NotchFlow-AppStore.entitlements */,
 			);
 			path = NotchFlow;
 			sourceTree = "<group>";
@@ -437,6 +439,7 @@
 		F100000C2C81000000000003 /* AppStore */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = "NotchFlow-AppStore.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
