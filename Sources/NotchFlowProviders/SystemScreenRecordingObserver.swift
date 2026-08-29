@@ -22,7 +22,7 @@ import Foundation
 /// Nothing here polls. Both notifications are edges, and the running-application
 /// list is read once at start to establish the state the app launched into.
 @MainActor
-public final class SystemScreenRecordingObserver: ScreenRecordingObserving {
+public final class SystemScreenRecordingObserver: RecordingObserving {
     /// The system screen-recording UI, which stays running for the duration of
     /// a screenshot-toolbar recording.
     public static let systemRecorderBundleIdentifiers: Set<String> = [
@@ -35,7 +35,7 @@ public final class SystemScreenRecordingObserver: ScreenRecordingObserving {
     private let now: () -> Date
 
     private let subscriptions = NotificationSubscriptionBag()
-    private var session: ScreenRecordingSession?
+    private var latch = RecordingSessionLatch()
 
     public convenience init() {
         self.init(
@@ -61,7 +61,7 @@ public final class SystemScreenRecordingObserver: ScreenRecordingObserving {
         self.now = now
     }
 
-    public func startObserving(_ observer: @escaping ScreenRecordingSessionObserver) {
+    public func startObserving(_ observer: @escaping RecordingSessionObserver) {
         stopObserving()
 
         subscribe(to: NSWorkspace.didLaunchApplicationNotification, notifying: observer)
@@ -75,12 +75,12 @@ public final class SystemScreenRecordingObserver: ScreenRecordingObserving {
 
     public func stopObserving() {
         subscriptions.removeAll()
-        session = nil
+        latch.reset()
     }
 
     private func subscribe(
         to name: Notification.Name,
-        notifying observer: @escaping ScreenRecordingSessionObserver
+        notifying observer: @escaping RecordingSessionObserver
     ) {
         let token = workspaceCenter.addObserver(forName: name, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { [weak self] in
@@ -91,24 +91,11 @@ public final class SystemScreenRecordingObserver: ScreenRecordingObserving {
         subscriptions.add(token, to: workspaceCenter)
     }
 
-    /// The start instant is stamped when the session first appears and carried
-    /// unchanged afterwards, so the elapsed counter measures the recording and
-    /// not the time since the last notification.
-    private func emitCurrentState(to observer: @escaping ScreenRecordingSessionObserver) {
+    private func emitCurrentState(to observer: @escaping RecordingSessionObserver) {
         let isRecording = runningBundleIdentifiers().isDisjoint(with: recorderBundleIdentifiers) == false
 
-        guard isRecording else {
-            guard session != nil else { return }
+        guard latch.update(isRecording: isRecording, at: now) else { return }
 
-            session = nil
-            observer(nil)
-            return
-        }
-
-        guard session == nil else { return }
-
-        let started = ScreenRecordingSession(startedAt: now())
-        session = started
-        observer(started)
+        observer(latch.session)
     }
 }

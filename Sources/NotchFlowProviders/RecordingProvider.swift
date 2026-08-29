@@ -1,12 +1,13 @@
 import Foundation
 import NotchFlowCore
 
-/// A screen capture the system is reporting as in progress.
+/// A capture — of the screen or of the microphone — that the system is
+/// reporting as in progress.
 ///
-/// It carries only a start instant: the public signal in
-/// `docs/12-api-feasibility-matrix.md` reports *that* the screen is being
+/// It carries only a start instant: the public signals in
+/// `docs/12-api-feasibility-matrix.md` report *that* something is being
 /// captured, never by which app, so there is no recorder identity to carry.
-public struct ScreenRecordingSession: Equatable, Sendable {
+public struct RecordingSession: Equatable, Sendable {
     public let startedAt: Date
 
     public init(startedAt: Date) {
@@ -16,10 +17,15 @@ public struct ScreenRecordingSession: Equatable, Sendable {
 
 /// Called with the capture session as it stands, or `nil` once nothing the
 /// signal can see is capturing.
-public typealias ScreenRecordingSessionObserver = @MainActor (ScreenRecordingSession?) -> Void
+public typealias RecordingSessionObserver = @MainActor (RecordingSession?) -> Void
 
-/// The seam between "however the system tells us the screen is being captured"
+/// The seam between "however the system tells us something is being captured"
 /// and "how that becomes a `RecordingActivity`".
+///
+/// One protocol serves both capture sources because both answer the same
+/// question — is a capture running, and since when — and differ only in which
+/// system signal answers it. That difference lives in the conformance, so the
+/// activity, priority and teardown logic is written and tested once.
 ///
 /// Split out for the reason `docs/06-activity-providers.md` gives: the system
 /// query is exercisable only on real hardware, while the activity, priority and
@@ -27,8 +33,8 @@ public typealias ScreenRecordingSessionObserver = @MainActor (ScreenRecordingSes
 /// Conformances are event-driven; one that polls violates
 /// `docs/02-performance-contract.md`.
 @MainActor
-public protocol ScreenRecordingObserving: AnyObject {
-    func startObserving(_ observer: @escaping ScreenRecordingSessionObserver)
+public protocol RecordingObserving: AnyObject {
+    func startObserving(_ observer: @escaping RecordingSessionObserver)
     func stopObserving()
 }
 
@@ -37,8 +43,13 @@ public protocol ScreenRecordingObserving: AnyObject {
 /// describing absence, per the teardown rule in `docs/06-activity-providers.md`.
 public typealias RecordingActivityObserver = @MainActor (RecordingActivity?) -> Void
 
-/// Turns the system's screen-capture signal into the indicator the manager
-/// registers, per `docs/06-activity-providers.md`.
+/// Turns one system capture signal into the indicator the manager registers,
+/// per `docs/06-activity-providers.md`.
+///
+/// Which capture it reports is the `source` it is constructed with, paired with
+/// the observer that can see that source: screen recording and microphone
+/// recording produce separate instances, and `RecordingActivity` gives each its
+/// own identity so a live microphone never displaces a live screen capture.
 ///
 /// Session start and end are event-driven off the underlying observer; the only
 /// wakeup this provider owns is the one that redraws the elapsed counter, and it
@@ -48,8 +59,9 @@ public typealias RecordingActivityObserver = @MainActor (RecordingActivity?) -> 
 /// timestamp, suspending that wakeup suspends the *display refresh* and never
 /// the count.
 @MainActor
-public final class ScreenRecordingProvider {
-    private let sessions: any ScreenRecordingObserving
+public final class RecordingProvider {
+    private let source: RecordingSource
+    private let sessions: any RecordingObserving
     private let scheduler: any TickScheduling
     private let now: () -> Date
 
@@ -58,10 +70,12 @@ public final class ScreenRecordingProvider {
     private var isPanelVisible = false
 
     public init(
-        sessions: any ScreenRecordingObserving,
+        source: RecordingSource,
+        sessions: any RecordingObserving,
         scheduler: any TickScheduling = DispatchTickScheduler(),
         now: @escaping () -> Date = Date.init
     ) {
+        self.source = source
         self.sessions = sessions
         self.scheduler = scheduler
         self.now = now
@@ -100,9 +114,9 @@ public final class ScreenRecordingProvider {
     /// so a redundant re-emission of a running session re-reads the counter
     /// instead of restarting it — the session, not the notification, is what
     /// the elapsed time is measured from.
-    private func apply(_ session: ScreenRecordingSession?) {
+    private func apply(_ session: RecordingSession?) {
         activity = session.map {
-            RecordingActivity(source: .screen, startedAt: $0.startedAt, at: now())
+            RecordingActivity(source: source, startedAt: $0.startedAt, at: now())
         }
 
         emit()

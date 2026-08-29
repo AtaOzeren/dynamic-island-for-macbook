@@ -4,15 +4,14 @@ import Testing
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
-/// The provider half of the screen recording indicator: session start and stop
+/// The provider half of both recording indicators: session start and stop
 /// become an activity and its absence, and the redraw wakeup exists only while
 /// something is on screen to redraw. The fake session source stands in for the
-/// permission-gated system signal, which — per
-/// `docs/06-activity-providers.md` — is the part that can only be exercised on
-/// hardware.
-@Suite("ScreenRecordingProvider")
+/// system signals, which — per `docs/06-activity-providers.md` — are the part
+/// that can only be exercised on hardware.
+@Suite("RecordingProvider")
 @MainActor
-struct ScreenRecordingProviderTests {
+struct RecordingProviderTests {
     private static let start = Date(timeIntervalSinceReferenceDate: 0)
 
     private final class Clock {
@@ -28,8 +27,8 @@ struct ScreenRecordingProviderTests {
     }
 
     private struct Fixture {
-        let provider: ScreenRecordingProvider
-        let sessions: FakeScreenRecordingObserver
+        let provider: RecordingProvider
+        let sessions: FakeRecordingObserver
         let scheduler: FakeTickScheduler
         let clock: Clock
     }
@@ -38,12 +37,14 @@ struct ScreenRecordingProviderTests {
     /// configuration in which ticking is legal, so every "must not tick" case
     /// is one deviation from it.
     private static func makeVisibleProvider(
+        source: RecordingSource = .screen,
         onActivity: @escaping RecordingActivityObserver = { _ in }
     ) -> Fixture {
-        let sessions = FakeScreenRecordingObserver()
+        let sessions = FakeRecordingObserver()
         let scheduler = FakeTickScheduler()
         let clock = Clock(start)
-        let provider = ScreenRecordingProvider(
+        let provider = RecordingProvider(
+            source: source,
             sessions: sessions,
             scheduler: scheduler,
             now: { clock.date }
@@ -69,7 +70,7 @@ struct ScreenRecordingProviderTests {
         var emissions: [RecordingActivity?] = []
         let fixture = Self.makeVisibleProvider { emissions.append($0) }
 
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
 
         #expect(fixture.provider.currentActivity?.source == .screen)
         #expect(fixture.provider.currentActivity?.elapsed == .zero)
@@ -84,7 +85,7 @@ struct ScreenRecordingProviderTests {
         var emissions: [RecordingActivity?] = []
         let fixture = Self.makeVisibleProvider { emissions.append($0) }
 
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
         fixture.sessions.emit(nil)
 
         #expect(fixture.provider.currentActivity == nil)
@@ -97,7 +98,7 @@ struct ScreenRecordingProviderTests {
     @Test("keeps the original start instant when the same session re-emits")
     func repeatedEmissionKeepsTheCounterRunning() {
         let fixture = Self.makeVisibleProvider()
-        let session = ScreenRecordingSession(startedAt: Self.start)
+        let session = RecordingSession(startedAt: Self.start)
 
         fixture.sessions.emit(session)
         fixture.clock.advance(30)
@@ -110,9 +111,9 @@ struct ScreenRecordingProviderTests {
     func newSessionRestartsTheCount() {
         let fixture = Self.makeVisibleProvider()
 
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
         fixture.clock.advance(30)
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: fixture.clock.date))
+        fixture.sessions.emit(RecordingSession(startedAt: fixture.clock.date))
 
         #expect(fixture.provider.currentActivity?.elapsed == .zero)
     }
@@ -121,7 +122,7 @@ struct ScreenRecordingProviderTests {
     func armsAWakeupWhileVisible() {
         let fixture = Self.makeVisibleProvider()
 
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
 
         #expect(fixture.provider.hasTickSource)
     }
@@ -131,7 +132,7 @@ struct ScreenRecordingProviderTests {
     @Test("cancels the wakeup when the panel hides and rearms when it returns")
     func wakeupFollowsPanelVisibility() {
         let fixture = Self.makeVisibleProvider()
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
 
         fixture.provider.setPanelVisible(false)
         #expect(fixture.provider.hasTickSource == false)
@@ -145,7 +146,7 @@ struct ScreenRecordingProviderTests {
     @Test("counts correctly across a stretch with no wakeups at all")
     func countSurvivesAHiddenPanel() {
         let fixture = Self.makeVisibleProvider()
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
 
         fixture.provider.setPanelVisible(false)
         fixture.clock.advance(3600)
@@ -159,7 +160,7 @@ struct ScreenRecordingProviderTests {
     @Test("advances the displayed time on each wakeup")
     func tickAdvancesTheDisplayedTime() {
         let fixture = Self.makeVisibleProvider()
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
 
         fixture.clock.advance(1)
         fixture.scheduler.fire()
@@ -170,24 +171,59 @@ struct ScreenRecordingProviderTests {
     @Test("drops its wakeup and its session subscription when observation stops")
     func stopObservingReleasesEverything() {
         let fixture = Self.makeVisibleProvider()
-        fixture.sessions.emit(ScreenRecordingSession(startedAt: Self.start))
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
 
         fixture.provider.stopObserving()
 
         #expect(fixture.provider.hasTickSource == false)
         #expect(fixture.sessions.isObserving == false)
     }
+
+    @Test("reports the source it was built for")
+    func audioSourceProducesAnAudioActivity() {
+        let fixture = Self.makeVisibleProvider(source: .audio)
+
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
+
+        #expect(fixture.provider.currentActivity?.source == .audio)
+    }
+
+    /// Screen and microphone capture are concurrent facts, so the two providers
+    /// must produce activities the manager can hold at once. Sharing an identity
+    /// would let one silently replace the other in the island.
+    @Test("gives each source its own activity identity")
+    func sourcesDoNotShareAnIdentity() {
+        let screen = Self.makeVisibleProvider(source: .screen)
+        let audio = Self.makeVisibleProvider(source: .audio)
+
+        screen.sessions.emit(RecordingSession(startedAt: Self.start))
+        audio.sessions.emit(RecordingSession(startedAt: Self.start))
+
+        #expect(screen.provider.currentActivity?.identity != audio.provider.currentActivity?.identity)
+    }
+
+    /// A microphone that was already live when NotchFlow launched has been live
+    /// since before the first emission, and the counter must say so.
+    @Test("counts from the session's start instant, not from when it was told")
+    func countsFromTheSessionStartRatherThanTheEmission() {
+        let fixture = Self.makeVisibleProvider(source: .audio)
+
+        fixture.clock.advance(90)
+        fixture.sessions.emit(RecordingSession(startedAt: Self.start))
+
+        #expect(fixture.provider.currentActivity?.elapsed == .seconds(90))
+    }
 }
 
 /// The seam's test double: a session source the test drives directly, standing
 /// in for the system signal that needs real hardware.
 @MainActor
-private final class FakeScreenRecordingObserver: ScreenRecordingObserving {
-    private var observer: ScreenRecordingSessionObserver?
+private final class FakeRecordingObserver: RecordingObserving {
+    private var observer: RecordingSessionObserver?
 
     var isObserving: Bool { observer != nil }
 
-    func startObserving(_ observer: @escaping ScreenRecordingSessionObserver) {
+    func startObserving(_ observer: @escaping RecordingSessionObserver) {
         self.observer = observer
     }
 
@@ -195,7 +231,7 @@ private final class FakeScreenRecordingObserver: ScreenRecordingObserving {
         observer = nil
     }
 
-    func emit(_ session: ScreenRecordingSession?) {
+    func emit(_ session: RecordingSession?) {
         observer?(session)
     }
 }
