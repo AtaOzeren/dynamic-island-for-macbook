@@ -26,24 +26,47 @@ public final class PresentationController {
 
     private let panel: NotchPanel
     private let manager: ActivityManager
+    private let metrics: PanelMetrics
+    private let mouse: any MouseLocationObserving
     private let screen: ScreenProvider
+
+    /// The pill's hit area on the screen the panel was last ordered in on, which
+    /// is the only region a collapsed panel may accept a click in.
+    private var hitRect: CGRect = .zero
 
     public private(set) var state: PresentationState = .hidden {
         didSet {
             guard state != oldValue else { return }
             onStateChange?(state)
+            synchronizeMouseHandling()
+        }
+    }
+
+    /// Whether the pointer is over the compact pill. Distinct from `state`: the
+    /// pill peeks on hover without committing to `.expanded`, so this can be true
+    /// while compact.
+    public private(set) var isHovered = false {
+        didSet {
+            guard isHovered != oldValue else { return }
+            onHoverChange?(isHovered)
+            synchronizeMouseHandling()
         }
     }
 
     public var onStateChange: ((PresentationState) -> Void)?
+    public var onHoverChange: ((Bool) -> Void)?
 
     public init(
         panel: NotchPanel,
         manager: ActivityManager,
+        metrics: PanelMetrics = .default,
+        mouse: any MouseLocationObserving,
         screen: @escaping ScreenProvider
     ) {
         self.panel = panel
         self.manager = manager
+        self.metrics = metrics
+        self.mouse = mouse
         self.screen = screen
     }
 
@@ -85,12 +108,30 @@ public final class PresentationController {
     private func show() {
         guard let screen = screen() else { return }
         panel.reposition(on: screen)
+        hitRect = compactHitRect(for: screen, metrics: metrics)
         panel.orderFrontRegardless()
         state = .compact
+        mouse.startObserving { [weak self] location in
+            self?.pointerMoved(to: location)
+        }
     }
 
     private func hide() {
+        mouse.stopObserving()
         panel.orderOut(nil)
+        isHovered = false
         state = .hidden
+    }
+
+    /// Hover only decides hit-testing while the pill is the whole target. Once
+    /// expanded the panel must keep accepting the mouse wherever the pointer
+    /// goes, because the click that collapses it lands outside its own bounds.
+    private func pointerMoved(to location: CGPoint) {
+        guard state != .expanded else { return }
+        isHovered = hitRect.contains(location)
+    }
+
+    private func synchronizeMouseHandling() {
+        panel.ignoresMouseEvents = state != .expanded && isHovered == false
     }
 }

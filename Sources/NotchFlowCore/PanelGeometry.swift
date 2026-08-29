@@ -15,10 +15,26 @@ public struct PanelMetrics: Equatable, Sendable {
     /// Space reserved at the bottom of the screen so the expanded panel stays
     /// clear of the Dock.
     public let minimumBottomInset: CGFloat
+    /// How far past the notch the compact pill may grow, and therefore how far
+    /// past it the pointer still counts as hovering. Peeking widens the pill
+    /// before the user clicks, so the hover target has to cover the peeked size
+    /// or the pill would flicker at its own edge.
+    public let compactHitPadding: CGFloat
+    /// The compact pill's size on a screen with no notch, where there is no
+    /// hardware rectangle to inherit — the degraded mode from
+    /// `docs/03-display-and-notch.md`.
+    public let compactFallbackSize: CGSize
 
-    public init(maximumExpandedSize: CGSize, minimumBottomInset: CGFloat) {
+    public init(
+        maximumExpandedSize: CGSize,
+        minimumBottomInset: CGFloat,
+        compactHitPadding: CGFloat = 8,
+        compactFallbackSize: CGSize = CGSize(width: 200, height: 32)
+    ) {
         self.maximumExpandedSize = maximumExpandedSize
         self.minimumBottomInset = minimumBottomInset
+        self.compactHitPadding = compactHitPadding
+        self.compactFallbackSize = compactFallbackSize
     }
 }
 
@@ -44,6 +60,37 @@ public func panelFrame(
     let originX = clamp(centreX - width / 2, lowerBound: bounds.minX, upperBound: bounds.maxX - width)
 
     return CGRect(x: originX, y: bounds.maxY - height, width: width, height: height)
+}
+
+/// The compact pill's hover and click target on `screen`, in screen coordinates.
+///
+/// The panel's own frame is allocated at the maximum expanded size and is mostly
+/// empty while collapsed, so this — not the window frame — is the rectangle
+/// `docs/04-overlay-window.md` means by "the compact pill's hit area". A pointer
+/// outside it leaves the panel click-through, which is what lets a menu-bar item
+/// beside the notch stay clickable. The result is always contained by
+/// `panelFrame(for:metrics:)`.
+public func compactHitRect(
+    for screen: ScreenDescription,
+    metrics: PanelMetrics = .default
+) -> CGRect {
+    let panel = panelFrame(for: screen, metrics: metrics)
+    let pill = notchRect(for: screen) ?? CGRect(
+        x: screen.frame.midX - metrics.compactFallbackSize.width / 2,
+        y: screen.frame.maxY - metrics.compactFallbackSize.height,
+        width: metrics.compactFallbackSize.width,
+        height: metrics.compactFallbackSize.height
+    )
+
+    let width = min(pill.width + metrics.compactHitPadding * 2, panel.width)
+    let height = min(pill.height + metrics.compactHitPadding, panel.height)
+    let originX = clamp(
+        pill.midX - width / 2,
+        lowerBound: panel.minX,
+        upperBound: panel.maxX - width
+    )
+
+    return CGRect(x: originX, y: panel.maxY - height, width: width, height: height)
 }
 
 private func clamp(_ value: CGFloat, lowerBound: CGFloat, upperBound: CGFloat) -> CGFloat {

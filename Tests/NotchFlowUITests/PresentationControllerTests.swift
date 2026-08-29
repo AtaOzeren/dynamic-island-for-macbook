@@ -26,18 +26,32 @@ struct PresentationControllerTests {
         let manager: ActivityManager
         let panel: NotchPanel
         let controller: PresentationController
+        let mouse: FakeMouseLocationObserver
     }
 
     private static func makeHarness(screen: ScreenDescription? = notchedScreen) -> Harness {
         let manager = ActivityManager()
         let panel = NotchPanel(metrics: metrics, content: Color.clear)
+        let mouse = FakeMouseLocationObserver()
         let controller = PresentationController(
             panel: panel,
             manager: manager,
+            metrics: metrics,
+            mouse: mouse,
             screen: { screen }
         )
         controller.start()
-        return Harness(manager: manager, panel: panel, controller: controller)
+        return Harness(manager: manager, panel: panel, controller: controller, mouse: mouse)
+    }
+
+    private static var insideTheHitRect: CGPoint {
+        let hit = compactHitRect(for: notchedScreen, metrics: metrics)
+        return CGPoint(x: hit.midX, y: hit.midY)
+    }
+
+    private static var overTheMenuBarBesideTheNotch: CGPoint {
+        let hit = compactHitRect(for: notchedScreen, metrics: metrics)
+        return CGPoint(x: hit.minX - 1, y: hit.midY)
     }
 
     private static func activity(_ name: String) -> StubPresentedActivity {
@@ -186,6 +200,173 @@ struct PresentationControllerTests {
 
         #expect(harness.controller.state == .hidden)
         #expect(harness.panel.isVisible == false)
+    }
+
+    @Test("stays click-through while hidden so nothing intercepts a menu-bar click")
+    func hiddenIsClickThrough() {
+        let harness = Self.makeHarness()
+
+        #expect(harness.panel.ignoresMouseEvents)
+        #expect(harness.controller.isHovered == false)
+    }
+
+    @Test("stays click-through in plain compact, where most of the frame draws nothing")
+    func compactIsClickThrough() {
+        let harness = Self.makeHarness()
+
+        harness.manager.register(Self.activity("timer.focus"))
+
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("accepts the mouse while the pointer is over the compact pill")
+    func hoverAcceptsTheMouse() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+
+        #expect(harness.controller.isHovered)
+        #expect(harness.panel.ignoresMouseEvents == false)
+    }
+
+    @Test("returns to click-through when the pointer leaves the pill without clicking")
+    func leavingRevertsToClickThrough() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.mouse.move(to: Self.insideTheHitRect)
+
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+
+        #expect(harness.controller.isHovered == false)
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("leaves a menu-bar click beside the notch untouched while compact")
+    func menuBarBesideTheNotchStaysClickable() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("accepts the mouse across the whole panel while expanded")
+    func expandedAcceptsTheMouse() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.controller.expand()
+
+        #expect(harness.panel.ignoresMouseEvents == false)
+    }
+
+    @Test("keeps accepting the mouse when the pointer leaves an expanded panel, so click-outside can collapse it")
+    func expandedIgnoresHover() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.controller.expand()
+
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+
+        #expect(harness.controller.state == .expanded)
+        #expect(harness.panel.ignoresMouseEvents == false)
+    }
+
+    @Test("reverts to click-through when collapsing away from the pointer")
+    func collapsingRevertsToClickThrough() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.controller.expand()
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+
+        harness.controller.collapse()
+
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("stays accepting the mouse when collapsing under a pointer still on the pill")
+    func collapsingUnderThePointerKeepsHover() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.mouse.move(to: Self.insideTheHitRect)
+        harness.controller.expand()
+
+        harness.controller.collapse()
+
+        #expect(harness.controller.isHovered)
+        #expect(harness.panel.ignoresMouseEvents == false)
+    }
+
+    @Test("drops hover and click-through the moment the last activity ends")
+    func hidingClearsHover() {
+        let harness = Self.makeHarness()
+        let activity = Self.activity("timer.focus")
+        harness.manager.register(activity)
+        harness.mouse.move(to: Self.insideTheHitRect)
+
+        harness.manager.end(activity.identity)
+
+        #expect(harness.controller.isHovered == false)
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("watches the pointer only while the window is on screen")
+    func observesTheMouseOnlyWhileVisible() {
+        let harness = Self.makeHarness()
+        #expect(harness.mouse.isObserving == false)
+        let activity = Self.activity("timer.focus")
+
+        harness.manager.register(activity)
+        #expect(harness.mouse.isObserving)
+
+        harness.manager.end(activity.identity)
+        #expect(harness.mouse.isObserving == false)
+    }
+
+    @Test("stops watching the pointer once torn down")
+    func stopUnsubscribesTheMouse() {
+        let harness = Self.makeHarness()
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.controller.stop()
+
+        #expect(harness.mouse.isObserving == false)
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("publishes every hover change exactly once")
+    func publishesHoverChanges() {
+        let harness = Self.makeHarness()
+        var observed: [Bool] = []
+        harness.controller.onHoverChange = { observed.append($0) }
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        harness.mouse.move(to: Self.insideTheHitRect)
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+
+        #expect(observed == [true, false])
+    }
+}
+
+@MainActor
+private final class FakeMouseLocationObserver: MouseLocationObserving {
+    private var observer: MouseLocationObserver?
+
+    var isObserving: Bool { observer != nil }
+
+    func startObserving(_ observer: @escaping MouseLocationObserver) {
+        self.observer = observer
+    }
+
+    func stopObserving() {
+        observer = nil
+    }
+
+    func move(to location: CGPoint) {
+        observer?(location)
     }
 }
 

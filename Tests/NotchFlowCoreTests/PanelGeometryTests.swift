@@ -141,4 +141,61 @@ struct PanelGeometryTests {
                 == panelFrame(for: screen, metrics: Self.metrics)
         )
     }
+
+    @Test("hugs the notch with the hover target, padded on every side the pill can grow")
+    func hitRectHugsTheNotch() {
+        let screen = Self.notchedScreen()
+        let notch = notchRect(for: screen)!
+        let hit = compactHitRect(for: screen, metrics: Self.metrics)
+
+        #expect(hit.midX == notch.midX)
+        #expect(hit.maxY == screen.frame.maxY)
+        #expect(hit.width == notch.width + Self.metrics.compactHitPadding * 2)
+        #expect(hit.height == notch.height + Self.metrics.compactHitPadding)
+    }
+
+    @Test("keeps the hover target inside the panel frame it lives in")
+    func hitRectStaysInsideThePanel() {
+        let screen = Self.notchedScreen()
+
+        #expect(
+            panelFrame(for: screen, metrics: Self.metrics)
+                .contains(compactHitRect(for: screen, metrics: Self.metrics))
+        )
+    }
+
+    @Test("centres the hover target on the menu bar when the screen has no notch")
+    func hitRectFallsBackToMenuBarCentre() {
+        let screen = Self.externalScreen()
+        let hit = compactHitRect(for: screen, metrics: Self.metrics)
+
+        #expect(hit.midX == screen.frame.midX)
+        #expect(hit.maxY == screen.frame.maxY)
+        #expect(hit.isEmpty == false)
+    }
+
+    @Test("never lets the hover target spill off a narrow screen")
+    func hitRectClampsToScreen() {
+        let narrowScreen = Self.notchedScreen(
+            frame: CGRect(x: 0, y: 0, width: 220, height: 982),
+            notchWidth: 200
+        )
+
+        let hit = compactHitRect(for: narrowScreen, metrics: Self.metrics)
+
+        #expect(narrowScreen.frame.contains(hit))
+        #expect(panelFrame(for: narrowScreen, metrics: Self.metrics).contains(hit))
+    }
+
+    @Test("is expressed in the coordinate space of a screen with a non-zero origin")
+    func hitRectRespectsScreenOrigin() {
+        let screen = Self.externalScreen(
+            frame: CGRect(x: -2560, y: 200, width: 2560, height: 1440)
+        )
+
+        let hit = compactHitRect(for: screen, metrics: Self.metrics)
+
+        #expect(hit.midX == -1280)
+        #expect(hit.maxY == 1640)
+    }
 }
