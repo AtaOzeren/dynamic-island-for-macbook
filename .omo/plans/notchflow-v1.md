@@ -420,7 +420,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (CI):** Structural tests per state; on hardware, drive all seven states and screenshot each. Evidence: `.omo/evidence/task-52-notchflow-v1/`.
   - **Commit:** `feat(ai): add AI agent activity and views`
 
-- [ ] 53. Implement agent detection
+- [x] 53. Implement agent detection
   - Detect which of Claude Code, Codex CLI, and OpenCode are present, in a way that works in both builds (and degrades to "unknown, offer manual setup" when the sandbox prevents inspection).
   - **Acceptance:** Present agents are detected in the Direct build; the App Store build offers manual setup rather than failing.
   - **QA (HW):** Run in both configurations with at least one agent installed; confirm the expected path in each. Evidence: `.omo/evidence/task-53-notchflow-v1.log`.

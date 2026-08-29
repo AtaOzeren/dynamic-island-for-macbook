@@ -14,3 +14,6 @@ Custom URL delivery belongs in the app target via SwiftUI `.onOpenURL`; the reus
 
 ## [2026-08-30] Task: todo-51
 The HTTP fallback uses `NWParameters.requiredLocalEndpoint` with `127.0.0.1:0`, then publishes `NWListener.port` only after the listener reaches `.ready`. Enablement is an injected set of agent IDs: an empty set cancels the listener, closes active connections, and removes the discovery file without consulting UserDefaults. Request bodies flow through the shared `IPCMessageValidator`, while the core policy owns route, enabled-agent, size, and per-session interval gates. Xcode target configurations must explicitly set `CODE_SIGN_ENTITLEMENTS`; only the sandboxed AppStore plist carries `com.apple.security.network.server`.
+
+## [2026-08-30] Task: todo-53
+Agent detection is a one-shot query over the documented configuration paths: `~/.claude/settings.json`, `~/.codex/config.toml`, and `~/.config/opencode/plugin`. The probe uses throwing filesystem metadata lookup rather than `fileExists`, preserving the distinction between a missing path (`notInstalled`) and sandbox-denied inspection (`unknown`, so the UI can offer manual setup). A closure seam keeps all three outcomes hermetic in tests, while deriving the result from `IPCAgentID.allCases` guarantees a complete V1 mapping.
