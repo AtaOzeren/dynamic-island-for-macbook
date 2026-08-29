@@ -77,8 +77,12 @@ public final class SystemScreenChangeObserver: ScreenChangeObserving {
 }
 
 /// Owns the notification tokens so they are released both on `stopObserving` and
-/// when the observer itself is deallocated, without a main-actor-isolated `deinit`.
-private final class NotificationSubscriptionBag: @unchecked Sendable {
+/// when the owner itself is deallocated, without a main-actor-isolated `deinit`.
+///
+/// Shared by every notification-backed observer in this module: unsubscribing is
+/// the one piece of their lifecycle that is easy to get subtly wrong, so it has
+/// exactly one implementation.
+final class NotificationSubscriptionBag: @unchecked Sendable {
     private var tokens: [(center: NotificationCenter, token: any NSObjectProtocol)] = []
 
     func add(_ token: any NSObjectProtocol, to center: NotificationCenter) {
