@@ -10,6 +10,7 @@
 		F10000012C81000000000001 /* NotchFlowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000001 /* NotchFlowApp.swift */; };
 		F10000012C81000000000005 /* SystemNowPlayingBridge+Direct.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */; };
 		F10000012C81000000000006 /* MediaRemoteMusicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */; };
+		F10000012C81000000000007 /* MusicBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000006 /* MusicBackend.swift */; };
 		F10000012C81000000000002 /* NotchFlowCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000001 /* NotchFlowCore */; };
 		F10000012C81000000000003 /* NotchFlowProviders in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000002 /* NotchFlowProviders */; };
 		F10000012C81000000000004 /* NotchFlowUI in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000003 /* NotchFlowUI */; };
@@ -21,6 +22,7 @@
 		F10000022C81000000000003 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Package.swift; path = Package.swift; sourceTree = "<group>"; };
 		F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SystemNowPlayingBridge+Direct.swift"; sourceTree = "<group>"; };
 		F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRemoteMusicProvider.swift; sourceTree = "<group>"; };
+		F10000022C81000000000006 /* MusicBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicBackend.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +54,7 @@
 				F10000022C81000000000001 /* NotchFlowApp.swift */,
 				F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */,
 				F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */,
+				F10000022C81000000000006 /* MusicBackend.swift */,
 			);
 			path = NotchFlow;
 			sourceTree = "<group>";
@@ -132,6 +135,7 @@
 				F10000012C81000000000001 /* NotchFlowApp.swift in Sources */,
 				F10000012C81000000000005 /* SystemNowPlayingBridge+Direct.swift in Sources */,
 				F10000012C81000000000006 /* MediaRemoteMusicProvider.swift in Sources */,
+				F10000012C81000000000007 /* MusicBackend.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

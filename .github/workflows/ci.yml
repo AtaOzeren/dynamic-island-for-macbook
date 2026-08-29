@@ -33,6 +33,9 @@ jobs:
       - name: Build Direct Configuration
         run: xcodebuild -scheme "NotchFlow (Direct)" -destination "platform=macOS" build
 
+      - name: Assert Music Backend Differs Per Configuration
+        run: ./scripts/check-music-backend.sh
+
       - name: Run Forbidden Symbol Guard on App Store Binary
         run: |
           APPSTORE_BIN=$(find ~/Library/Developer/Xcode/DerivedData -name "NotchFlow" -path "*/AppStore/*" -type f | head -n 1)
