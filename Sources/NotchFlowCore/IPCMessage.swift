@@ -4,6 +4,20 @@ public enum IPCAgentID: String, Codable, CaseIterable, Equatable, Sendable {
     case claudeCode = "claude-code"
     case codex
     case opencode
+
+    /// What the island calls the agent — the short form the state table in
+    /// `docs/07-ai-integration.md` uses ("Claude", not "claude-code").
+    ///
+    /// Separate from `rawValue` on purpose: the raw values are the wire
+    /// contract's `agentId` enum and cannot be reworded for display without
+    /// breaking every installed hook script.
+    public var displayName: String {
+        switch self {
+        case .claudeCode: "Claude"
+        case .codex: "Codex"
+        case .opencode: "OpenCode"
+        }
+    }
 }
 
 public struct IPCMessage: Codable, Equatable, Sendable {

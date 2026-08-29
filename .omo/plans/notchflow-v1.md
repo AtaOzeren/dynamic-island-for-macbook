@@ -414,7 +414,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (HW):** Confirm the listening socket's bind address; attempt a connection from a non-loopback address and assert refusal; disable all integrations and assert the socket is gone. Evidence: `.omo/evidence/task-51-notchflow-v1.log`.
   - **Commit:** `feat(ai): add loopback event listener`
 
-- [ ] 52. Implement the AI activity and its views
+- [x] 52. Implement the AI activity and its views
   - Compact and expanded renderings for all seven states, the agent label, the tool name, optional progress, and the primary action that activates the originating app.
   - **Acceptance:** Every state renders distinctly; the completed and error states auto-dismiss per `docs/05`.
   - **QA (CI):** Structural tests per state; on hardware, drive all seven states and screenshot each. Evidence: `.omo/evidence/task-52-notchflow-v1/`.
