@@ -20,6 +20,16 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         accessibilityLabel = compactAccessibilityLabel(activity.kind)
     }
 
+    /// For activities whose per-instance detail outgrows the kind-based label —
+    /// music announces "Windowlicker — Aphex Twin", not "Music".
+    init(activity: any Activity, accessibilityLabel: String) {
+        id = activity.identity.rawValue
+        symbolName = compactSymbolName(activity.kind)
+        label = nil
+        overflowCount = nil
+        self.accessibilityLabel = accessibilityLabel
+    }
+
     fileprivate init(overflowCount: Int) {
         id = Self.overflowIdentifier
         symbolName = "ellipsis"
