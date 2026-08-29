@@ -129,6 +129,8 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
 /// The compact pill: activity icons hugging both edges of the notch, with the
 /// notch's own width held open between them.
 public struct CompactActivityView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     private let presentation: CompactActivityPresentation
     private let notchSize: CGSize
     private let metrics: CompactPillMetrics
@@ -151,6 +153,8 @@ public struct CompactActivityView: View {
             metrics: metrics
         )
 
+        let surface = islandCompactSurface(scheme: colorScheme.islandColorScheme)
+
         HStack(spacing: metrics.slotSpacing) {
             slotRow(layout.leading)
             Color.clear.frame(width: notchSize.width)
@@ -158,7 +162,11 @@ public struct CompactActivityView: View {
         }
         .padding(.horizontal, metrics.edgeInset)
         .frame(width: size.width, height: size.height)
-        .background(.black, in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+        .foregroundStyle(surface.foreground.style)
+        .background {
+            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+        }
+        .environment(\.colorScheme, surface.foreground == .onDark ? .dark : .light)
     }
 
     private func slotRow(_ slots: [CompactSlot]) -> some View {
@@ -180,7 +188,6 @@ public struct CompactActivityView: View {
                     .font(.system(size: metrics.symbolSize, weight: .medium))
             }
         }
-        .foregroundStyle(.white)
         .frame(width: metrics.slotWidth)
         .accessibilityLabel(slot.accessibilityLabel)
     }

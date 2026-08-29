@@ -18,7 +18,11 @@ public final class NotchPanel: NSPanel {
 
     private let metrics: PanelMetrics
 
-    public init(metrics: PanelMetrics = .default, content: some View) {
+    public init(
+        metrics: PanelMetrics = .default,
+        appearance: AppearancePreference = .auto,
+        content: some View
+    ) {
         self.metrics = metrics
         super.init(
             contentRect: CGRect(origin: .zero, size: metrics.maximumExpandedSize),
@@ -46,6 +50,18 @@ public final class NotchPanel: NSPanel {
         animationBehavior = .none
 
         contentView = NSHostingView(rootView: content)
+        applyAppearance(appearance)
+    }
+
+    /// Restyles the live panel to `preference`.
+    ///
+    /// The panel is never recreated for an appearance change: assigning
+    /// `appearance` propagates a new `effectiveAppearance` down to the hosting
+    /// view, which is what `docs/04-overlay-window.md` requires — the island
+    /// switches scheme without being reordered, so a change while expanded does
+    /// not blink the window out and back.
+    public func applyAppearance(_ preference: AppearancePreference) {
+        appearance = preference.nsAppearance
     }
 
     /// A click on the island must never take focus from the app the user is

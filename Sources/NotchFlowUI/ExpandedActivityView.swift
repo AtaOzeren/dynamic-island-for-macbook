@@ -106,6 +106,9 @@ public func expandedPanelOverflowsWindow(
 /// from the notch, per the expanded row of the state table in
 /// `docs/04-overlay-window.md`.
 public struct ExpandedActivityView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     private let activities: [any Activity]
     private let metrics: ExpandedPanelMetrics
     private let panelMetrics: PanelMetrics
@@ -136,10 +139,18 @@ public struct ExpandedActivityView: View {
             panelMetrics: panelMetrics
         )
 
+        let surface = islandExpandedSurface(
+            scheme: colorScheme.islandColorScheme,
+            reduceTransparency: reduceTransparency
+        )
+
         rowList(rows)
             .padding(metrics.contentInset)
             .frame(width: size.width, height: size.height, alignment: .top)
-            .background(.black, in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+            .foregroundStyle(surface.foreground.style)
+            .background {
+                surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+            }
             .modifier(ScrollWhenTaller(isEnabled: scrolls))
     }
 
@@ -167,7 +178,6 @@ public struct ExpandedActivityView: View {
                 primaryActionButton(action, for: row)
             }
         }
-        .foregroundStyle(.white)
         .frame(height: metrics.rowHeight)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(row.accessibilityLabel)
