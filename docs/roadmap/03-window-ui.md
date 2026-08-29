@@ -1,7 +1,7 @@
 # Phase 3: Window and UI
 
 **Todos:** 33-40
-**Status:** IN PROGRESS (33-34 done)
+**Status:** IN PROGRESS (33-37 done)
 **Depends on:** Phase 2 (Core, under TDD) — specifically the geometry functions, the activity model, and the idle signal that this phase's window and views subscribe to.
 **Blocks:** Phase 4 (Activity Providers) needs the view containers built here to render provider-specific compact/expanded views. Phase 6 (Settings, Localization, Polish) needs a working window before it can wire appearance and accessibility settings into it.
 
