@@ -1,0 +1,31 @@
+disabled_rules:
+  - trailing_whitespace
+opt_in_rules:
+  - strict_file_private
+  - force_unwrapping
+  - empty_count
+  - explicit_init
+
+included:
+  - Sources
+  - Tests
+  - NotchFlow
+
+excluded:
+  - .build
+  - DerivedData
+
+custom_rules:
+  no_raw_string_in_views:
+    name: "User-Visible String Literal in View"
+    regex: 'Text\("[^"]+"\)'
+    message: "Avoid raw string literals in SwiftUI views; use String(localized:) or LocalizedStringKey."
+    severity: warning
+
+line_length:
+  warning: 140
+  error: 200
+
+file_length:
+  warning: 250
+  error: 350
