@@ -20,11 +20,13 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         accessibilityLabel = compactAccessibilityLabel(activity.kind)
     }
 
-    /// For activities whose per-instance detail outgrows the kind-based label —
-    /// music announces "Windowlicker — Aphex Twin", not "Music".
-    init(activity: any Activity, accessibilityLabel: String) {
+    /// For activities whose per-instance detail outgrows what the kind alone can
+    /// say — music announces "Windowlicker — Aphex Twin" rather than "Music", and
+    /// charging draws a full battery rather than the shared bolt once the charge
+    /// is done. Omitting `symbolName` keeps the kind's glyph.
+    init(activity: any Activity, symbolName: String? = nil, accessibilityLabel: String) {
         id = activity.identity.rawValue
-        symbolName = compactSymbolName(activity.kind)
+        self.symbolName = symbolName ?? compactSymbolName(activity.kind)
         label = nil
         overflowCount = nil
         self.accessibilityLabel = accessibilityLabel
