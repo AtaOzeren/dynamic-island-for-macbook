@@ -1,4 +1,4 @@
-public enum ActivityKind: Hashable, Sendable {
+public enum ActivityKind: Hashable, CaseIterable, Sendable {
     case music
     case timer
     case recording
