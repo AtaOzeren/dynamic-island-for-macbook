@@ -11,6 +11,7 @@ struct NotchFlowApp: App {
     private let musicProvider: any MusicProvider
     private let manager = ActivityManager()
     private let registry: ActivityProviderRegistry
+    private let urlSchemeReceiver = URLSchemeReceiver()
 
     init() {
         let musicProvider = makeMusicProvider()
@@ -44,6 +45,9 @@ struct NotchFlowApp: App {
             /// Stands in for the about pane until todo 60 builds the settings
             /// window; the backend name is the part that must survive that move.
             Text(verbatim: "NotchFlow — music backend: \(musicProvider.backendName)")
+                .onOpenURL { url in
+                    urlSchemeReceiver.handle(url)
+                }
         }
     }
 }

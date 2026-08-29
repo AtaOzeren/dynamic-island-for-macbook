@@ -60,6 +60,7 @@ let package = Package(
                 "NotchFlowUI"
             ],
             path: "NotchFlow",
+            exclude: ["Info.plist"],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
             ]

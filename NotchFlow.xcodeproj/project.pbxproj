@@ -11,6 +11,7 @@
 		F10000012C81000000000005 /* SystemNowPlayingBridge+Direct.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */; };
 		F10000012C81000000000006 /* MediaRemoteMusicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */; };
 		F10000012C81000000000007 /* MusicBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000006 /* MusicBackend.swift */; };
+		F10000012C81000000000008 /* URLSchemeReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000007 /* URLSchemeReceiver.swift */; };
 		F10000012C81000000000002 /* NotchFlowCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000001 /* NotchFlowCore */; };
 		F10000012C81000000000003 /* NotchFlowProviders in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000002 /* NotchFlowProviders */; };
 		F10000012C81000000000004 /* NotchFlowUI in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000003 /* NotchFlowUI */; };
@@ -23,6 +24,8 @@
 		F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SystemNowPlayingBridge+Direct.swift"; sourceTree = "<group>"; };
 		F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRemoteMusicProvider.swift; sourceTree = "<group>"; };
 		F10000022C81000000000006 /* MusicBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicBackend.swift; sourceTree = "<group>"; };
+		F10000022C81000000000007 /* URLSchemeReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSchemeReceiver.swift; sourceTree = "<group>"; };
+		F10000022C81000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +58,8 @@
 				F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */,
 				F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */,
 				F10000022C81000000000006 /* MusicBackend.swift */,
+				F10000022C81000000000007 /* URLSchemeReceiver.swift */,
+				F10000022C81000000000008 /* Info.plist */,
 			);
 			path = NotchFlow;
 			sourceTree = "<group>";
@@ -76,6 +81,7 @@
 			buildPhases = (
 				F10000082C81000000000001 /* Sources */,
 				F10000042C81000000000001 /* Frameworks */,
+				F100000D2C81000000000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -127,6 +133,16 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		F100000D2C81000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		F10000082C81000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -136,6 +152,7 @@
 				F10000012C81000000000005 /* SystemNowPlayingBridge+Direct.swift in Sources */,
 				F10000012C81000000000006 /* MediaRemoteMusicProvider.swift in Sources */,
 				F10000012C81000000000007 /* MusicBackend.swift in Sources */,
+				F10000012C81000000000008 /* URLSchemeReceiver.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -385,7 +402,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NotchFlow/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -402,7 +420,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NotchFlow/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -419,7 +438,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NotchFlow/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -436,7 +456,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = NotchFlow/Info.plist;
 				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
