@@ -7,9 +7,8 @@ public typealias NowPlayingObserver = @MainActor (NowPlaying?) -> Void
 /// The seam between "however we learn about now-playing" and "how we turn that
 /// into a `MusicActivity`", per `docs/06-activity-providers.md`.
 ///
-/// Exactly one conformance is compiled into any given build — ScriptingBridge
-/// for the App Store configuration (todo 42), MediaRemote for Direct (todo 43) —
-/// and nothing above this protocol can tell which. Emissions are event-driven:
+/// Exactly one conformance is compiled into any given build, and nothing above
+/// this protocol can tell which backend it uses. Emissions are event-driven:
 /// a conformance that polls violates the performance contract in
 /// `docs/02-performance-contract.md`.
 @MainActor
