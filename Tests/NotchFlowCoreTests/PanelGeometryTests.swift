@@ -1,0 +1,144 @@
+import CoreGraphics
+import Testing
+@testable import NotchFlowCore
+
+@Suite("PanelGeometry")
+struct PanelGeometryTests {
+    private static let metrics = PanelMetrics(
+        maximumExpandedSize: CGSize(width: 640, height: 260),
+        minimumBottomInset: 120
+    )
+
+    private static func notchedScreen(
+        frame: CGRect = CGRect(x: 0, y: 0, width: 1512, height: 982),
+        topInset: CGFloat = 37,
+        notchWidth: CGFloat = 200
+    ) -> ScreenDescription {
+        let notchOriginX = frame.midX - notchWidth / 2
+        return ScreenDescription(
+            frame: frame,
+            safeAreaInsets: ScreenSafeAreaInsets(top: topInset),
+            auxiliaryTopLeftArea: CGRect(
+                x: frame.minX,
+                y: frame.maxY - topInset,
+                width: notchOriginX - frame.minX,
+                height: topInset
+            ),
+            auxiliaryTopRightArea: CGRect(
+                x: notchOriginX + notchWidth,
+                y: frame.maxY - topInset,
+                width: frame.maxX - (notchOriginX + notchWidth),
+                height: topInset
+            ),
+            isBuiltIn: true
+        )
+    }
+
+    private static func externalScreen(
+        frame: CGRect = CGRect(x: 1512, y: 0, width: 2560, height: 1440)
+    ) -> ScreenDescription {
+        ScreenDescription(
+            frame: frame,
+            safeAreaInsets: .zero,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil,
+            isBuiltIn: false
+        )
+    }
+
+    @Test("centres the panel on the notch")
+    func centresOnNotch() {
+        let screen = Self.notchedScreen()
+        let frame = panelFrame(for: screen, metrics: Self.metrics)
+
+        #expect(frame.midX == notchRect(for: screen)?.midX)
+    }
+
+    @Test("sits flush against the top of the screen so content can hug the notch")
+    func flushWithScreenTop() {
+        let screen = Self.notchedScreen()
+        let frame = panelFrame(for: screen, metrics: Self.metrics)
+
+        #expect(frame.maxY == screen.frame.maxY)
+    }
+
+    @Test("uses the maximum expanded size when the screen has room for it")
+    func usesMaximumExpandedSize() {
+        let frame = panelFrame(for: Self.notchedScreen(), metrics: Self.metrics)
+
+        #expect(frame.size == Self.metrics.maximumExpandedSize)
+    }
+
+    @Test("centres on the menu bar when the screen has no notch")
+    func fallsBackToMenuBarCentre() {
+        let screen = Self.externalScreen()
+        let frame = panelFrame(for: screen, metrics: Self.metrics)
+
+        #expect(frame.midX == screen.frame.midX)
+        #expect(frame.maxY == screen.frame.maxY)
+        #expect(frame.size == Self.metrics.maximumExpandedSize)
+    }
+
+    @Test("keeps the panel clear of the Dock on a short screen")
+    func clampsHeightAboveTheDock() {
+        let shortScreen = Self.notchedScreen(
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 300)
+        )
+
+        let frame = panelFrame(for: shortScreen, metrics: Self.metrics)
+
+        #expect(frame.height == shortScreen.frame.height - Self.metrics.minimumBottomInset)
+        #expect(frame.minY == shortScreen.frame.minY + Self.metrics.minimumBottomInset)
+    }
+
+    @Test("never grows wider than the screen")
+    func clampsWidthToScreen() {
+        let narrowScreen = Self.notchedScreen(
+            frame: CGRect(x: 0, y: 0, width: 480, height: 982),
+            notchWidth: 160
+        )
+
+        let frame = panelFrame(for: narrowScreen, metrics: Self.metrics)
+
+        #expect(frame.width == narrowScreen.frame.width)
+        #expect(frame.minX == narrowScreen.frame.minX)
+    }
+
+    @Test("stays inside a screen whose notch sits off centre")
+    func clampsHorizontallyIntoScreenBounds() {
+        let screen = ScreenDescription(
+            frame: CGRect(x: 0, y: 0, width: 900, height: 982),
+            safeAreaInsets: ScreenSafeAreaInsets(top: 37),
+            auxiliaryTopLeftArea: CGRect(x: 0, y: 945, width: 40, height: 37),
+            auxiliaryTopRightArea: CGRect(x: 240, y: 945, width: 660, height: 37),
+            isBuiltIn: true
+        )
+
+        let frame = panelFrame(for: screen, metrics: Self.metrics)
+
+        #expect(frame.minX == screen.frame.minX)
+        #expect(screen.frame.contains(frame))
+    }
+
+    @Test("is expressed in the coordinate space of a screen with a non-zero origin")
+    func respectsScreenOrigin() {
+        let screen = Self.externalScreen(
+            frame: CGRect(x: -2560, y: 200, width: 2560, height: 1440)
+        )
+
+        let frame = panelFrame(for: screen, metrics: Self.metrics)
+
+        #expect(frame.maxY == 1640)
+        #expect(frame.midX == -1280)
+    }
+
+    @Test("returns the same frame for the same screen")
+    func isPure() {
+        let screen = Self.notchedScreen()
+
+        #expect(
+            panelFrame(for: screen, metrics: Self.metrics)
+                == panelFrame(for: screen, metrics: Self.metrics)
+        )
+    }
+}

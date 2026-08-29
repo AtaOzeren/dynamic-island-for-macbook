@@ -100,6 +100,33 @@ private final class NotificationSubscriptionBag: @unchecked Sendable {
 
 extension DisplayDescription {
     init(_ screen: NSScreen) {
-        self.init(name: screen.localizedName, isBuiltIn: screen.safeAreaInsets.top > 0)
+        self.init(name: screen.localizedName, isBuiltIn: screen.isBuiltIn)
+    }
+}
+
+extension ScreenDescription {
+    /// Translates a live `NSScreen` into the geometry shape the core reasons
+    /// about, so `NotchFlowCore` and `NotchFlowUI` never touch `NSScreen`.
+    public init(_ screen: NSScreen) {
+        self.init(
+            frame: screen.frame,
+            safeAreaInsets: ScreenSafeAreaInsets(top: screen.safeAreaInsets.top),
+            auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
+            auxiliaryTopRightArea: screen.auxiliaryTopRightArea,
+            isBuiltIn: screen.isBuiltIn
+        )
+    }
+}
+
+extension NSScreen {
+    /// A screen is built in when the window server says its display is; the
+    /// safe-area inset is the fallback for the rare screen that reports no
+    /// display number.
+    fileprivate var isBuiltIn: Bool {
+        let screenNumber = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
+        guard let displayID = screenNumber?.uint32Value else {
+            return safeAreaInsets.top > 0
+        }
+        return CGDisplayIsBuiltin(displayID) != 0
     }
 }
