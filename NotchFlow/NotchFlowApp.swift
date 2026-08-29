@@ -9,17 +9,34 @@ struct NotchFlowApp: App {
     /// The composition root's single music backend, selected at compile time by
     /// `makeMusicProvider()`.
     private let musicProvider: any MusicProvider
+    private let manager = ActivityManager()
+    private let registry: ActivityProviderRegistry
 
     init() {
-        musicProvider = makeMusicProvider()
+        let musicProvider = makeMusicProvider()
+        self.musicProvider = musicProvider
+
+        // Every provider enabled, matching the documented defaults until the
+        // settings store (todo 59) can supply the user's actual choices; the
+        // registry takes the set as a parameter precisely so that swap is a
+        // one-line change here rather than a change to the wiring.
+        registry = ProviderComposition.makeRegistry(
+            musicProvider: musicProvider,
+            timerProvider: TimerProvider(),
+            enabledIdentifiers: Set(ActivityProviderIdentifier.allCases)
+        )
 
         // The build's backend, reportable without a window, so CI can assert the
         // two configurations differ and a support conversation can ask for one
-        // line of output rather than a screenshot.
+        // line of output rather than a screenshot. It exits before observation
+        // starts: a probe that registered with the system power and recording
+        // sources would be doing the work this todo exists to make conditional.
         if CommandLine.arguments.contains("--print-music-backend") {
             print(musicProvider.backendName)
             exit(EXIT_SUCCESS)
         }
+
+        registry.startObserving(into: manager)
     }
 
     var body: some Scene {

@@ -60,7 +60,7 @@ public typealias RecordingActivityObserver = @MainActor (RecordingActivity?) -> 
 /// the count.
 @MainActor
 public final class RecordingProvider {
-    private let source: RecordingSource
+    public let source: RecordingSource
     private let sessions: any RecordingObserving
     private let scheduler: any TickScheduling
     private let now: () -> Date
