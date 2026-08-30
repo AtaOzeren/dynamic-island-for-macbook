@@ -103,7 +103,7 @@ final class NotificationSubscriptionBag: @unchecked Sendable {
 }
 
 extension DisplayDescription {
-    init(_ screen: NSScreen) {
+    public init(_ screen: NSScreen) {
         self.init(name: screen.localizedName, isBuiltIn: screen.isBuiltIn)
     }
 }

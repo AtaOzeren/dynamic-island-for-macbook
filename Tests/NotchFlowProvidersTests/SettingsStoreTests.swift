@@ -115,6 +115,49 @@ struct SettingsStoreTests {
         #expect(store.aiIntegrationPreferences == preferences)
     }
 
+    @Test("persists general preferences through their value seam")
+    func roundTripsGeneralPreferences() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+        let preferences = GeneralPreferences(
+            displayTarget: .named("Studio Display"),
+            launchAtLogin: true,
+            appearance: .dark,
+            reducedMotionOverride: false
+        )
+
+        store.generalPreferences = preferences
+
+        #expect(store.generalPreferences == preferences)
+        #expect(store[.displayTarget] == .named("Studio Display"))
+        #expect(store[.appearance] == .dark)
+    }
+
+    /// Clearing the override must remove the key, not store `false` — `false`
+    /// means "never reduce", which is a different setting from "follow system".
+    @Test("clearing the motion override restores the follow-system default")
+    func clearsMotionOverride() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+        store.generalPreferences = GeneralPreferences(reducedMotionOverride: true)
+
+        store.generalPreferences = GeneralPreferences(reducedMotionOverride: nil)
+
+        #expect(store[.reducedMotionOverride] == nil)
+    }
+
+    @Test("writing the enabled set switches every provider key")
+    func writesProviderEnablementAsASet() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+
+        store.enabledProviderIdentifiers = [.music, .charging]
+
+        #expect(store.enabledProviderIdentifiers == [.music, .charging])
+        #expect(store[.showMusic])
+        #expect(!store[.showTimer])
+        #expect(!store[.showScreenRecording])
+        #expect(!store[.showAudioRecording])
+        #expect(store[.showCharging])
+    }
+
     @Test("derives provider enablement from the five provider keys")
     func derivesProviderEnablement() {
         let store = SettingsStore(storage: DictionarySettingsStorage())

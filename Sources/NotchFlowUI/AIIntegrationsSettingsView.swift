@@ -1,38 +1,5 @@
-import CoreGraphics
 import NotchFlowCore
 import SwiftUI
-
-/// The AI Integrations pane's fixed visual budget, the counterpart to
-/// `ManualSetupMetrics` — one edit changes the pane's density.
-public struct AIIntegrationsSettingsMetrics: Equatable, Sendable {
-    public static let `default` = AIIntegrationsSettingsMetrics()
-
-    public let contentInset: CGFloat
-    public let sectionSpacing: CGFloat
-    public let rowSpacing: CGFloat
-    public let titleSize: CGFloat
-    public let bodySize: CGFloat
-    public let footnoteSize: CGFloat
-    public let width: CGFloat
-
-    public init(
-        contentInset: CGFloat = 20,
-        sectionSpacing: CGFloat = 16,
-        rowSpacing: CGFloat = 8,
-        titleSize: CGFloat = 15,
-        bodySize: CGFloat = 12,
-        footnoteSize: CGFloat = 11,
-        width: CGFloat = 440
-    ) {
-        self.contentInset = contentInset
-        self.sectionSpacing = sectionSpacing
-        self.rowSpacing = rowSpacing
-        self.titleSize = titleSize
-        self.bodySize = bodySize
-        self.footnoteSize = footnoteSize
-        self.width = width
-    }
-}
 
 /// The AI Integrations pane: one switch per agent, one per event class.
 ///
@@ -42,11 +9,11 @@ public struct AIIntegrationsSettingsMetrics: Equatable, Sendable {
 /// enabled, which is exactly the bug the toggles exist to prevent.
 public struct AIIntegrationsSettingsView: View {
     @Binding private var preferences: AIIntegrationPreferences
-    private let metrics: AIIntegrationsSettingsMetrics
+    private let metrics: SettingsPaneMetrics
 
     public init(
         preferences: Binding<AIIntegrationPreferences>,
-        metrics: AIIntegrationsSettingsMetrics = .default
+        metrics: SettingsPaneMetrics = .default
     ) {
         self._preferences = preferences
         self.metrics = metrics
@@ -79,14 +46,14 @@ public struct AIIntegrationsSettingsView: View {
             Divider()
             eventSection
         }
-        .padding(metrics.contentInset)
-        .frame(width: metrics.width, alignment: .leading)
+        .settingsPaneFrame(metrics)
     }
 
     private var agentSection: some View {
-        section(
+        SettingsSection(
             title: "Agents",
-            caption: "NotchFlow shows nothing for an agent until you enable it here."
+            caption: "NotchFlow shows nothing for an agent until you enable it here.",
+            metrics: metrics
         ) {
             ForEach(IPCAgentID.allCases, id: \.self) { agentID in
                 Toggle(agentID.displayName, isOn: binding(for: agentID))
@@ -95,32 +62,15 @@ public struct AIIntegrationsSettingsView: View {
     }
 
     private var eventSection: some View {
-        section(
+        SettingsSection(
             title: "Events",
-            caption: "A disabled event never reaches the notch — it is dropped on arrival."
+            caption: "A disabled event never reaches the notch — it is dropped on arrival.",
+            metrics: metrics
         ) {
             ForEach(AIEventClass.allCases, id: \.self) { eventClass in
                 Toggle(eventClass.displayName, isOn: binding(for: eventClass))
             }
         }
         .disabled(!isEventSectionEnabled)
-    }
-
-    private func section(
-        title: String,
-        caption: String,
-        @ViewBuilder rows: () -> some View
-    ) -> some View {
-        VStack(alignment: .leading, spacing: metrics.rowSpacing) {
-            Text(title)
-                .font(.system(size: metrics.titleSize, weight: .semibold))
-            Text(caption)
-                .font(.system(size: metrics.footnoteSize))
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            rows()
-                .font(.system(size: metrics.bodySize))
-                .toggleStyle(.switch)
-        }
     }
 }

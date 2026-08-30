@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import NotchFlowCore
 import NotchFlowProviders
@@ -15,6 +16,9 @@ struct NotchFlowApp: App {
     private let urlSchemeReceiver = URLSchemeReceiver()
 
     @State private var aiPreferences: AIIntegrationPreferences
+    @State private var generalPreferences: GeneralPreferences
+    @State private var enabledIdentifiers: Set<ActivityProviderIdentifier>
+    @State private var languageOverride: String?
 
     init() {
         let musicProvider = makeMusicProvider()
@@ -22,6 +26,9 @@ struct NotchFlowApp: App {
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
         _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)
+        _generalPreferences = State(initialValue: settingsStore.generalPreferences)
+        _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
+        _languageOverride = State(initialValue: settingsStore[.languageOverride])
 
         let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
@@ -48,13 +55,14 @@ struct NotchFlowApp: App {
 
     var body: some Scene {
         Settings {
-            VStack(alignment: .leading) {
-                AIIntegrationsSettingsView(preferences: $aiPreferences)
-
-                /// Stands in for the about pane until todo 60 builds the settings
-                /// window; the backend name is the part that must survive that move.
-                Text(verbatim: "NotchFlow — music backend: \(musicProvider.backendName)")
-            }
+            SettingsWindowView(
+                general: $generalPreferences,
+                enabledIdentifiers: $enabledIdentifiers,
+                aiPreferences: $aiPreferences,
+                languageOverride: $languageOverride,
+                availableDisplays: NSScreen.screens.map(DisplayDescription.init),
+                information: aboutInformation
+            )
             .onOpenURL { url in
                 urlSchemeReceiver.handle(url)
             }
@@ -62,6 +70,24 @@ struct NotchFlowApp: App {
                 settingsStore.aiIntegrationPreferences = preferences
                 urlSchemeReceiver.preferences = preferences
             }
+            .onChange(of: generalPreferences) { _, preferences in
+                settingsStore.generalPreferences = preferences
+            }
+            .onChange(of: enabledIdentifiers) { _, identifiers in
+                settingsStore.enabledProviderIdentifiers = identifiers
+            }
+            .onChange(of: languageOverride) { _, override in
+                settingsStore[.languageOverride] = override
+            }
         }
+    }
+
+    private var aboutInformation: AboutInformation {
+        let info = Bundle.main.infoDictionary
+        return AboutInformation(
+            version: info?["CFBundleShortVersionString"] as? String ?? "—",
+            build: info?["CFBundleVersion"] as? String ?? "—",
+            musicBackendName: musicProvider.backendName
+        )
     }
 }

@@ -105,8 +105,35 @@ public final class SettingsStore {
         }
     }
 
+    public var generalPreferences: GeneralPreferences {
+        get {
+            GeneralPreferences(
+                displayTarget: self[.displayTarget],
+                launchAtLogin: self[.launchAtLogin],
+                appearance: self[.appearance],
+                reducedMotionOverride: self[.reducedMotionOverride]
+            )
+        }
+        set {
+            self[.displayTarget] = newValue.displayTarget
+            self[.launchAtLogin] = newValue.launchAtLogin
+            self[.appearance] = newValue.appearance
+            self[.reducedMotionOverride] = newValue.reducedMotionOverride
+        }
+    }
+
+    /// Written as a whole set rather than one switch at a time so the pane and
+    /// the registry cannot disagree mid-edit: every absent identifier is off,
+    /// which is the same rule `enabledProviderIdentifiers` reads back.
     public var enabledProviderIdentifiers: Set<ActivityProviderIdentifier> {
-        Set(ActivityProviderIdentifier.allCases.filter(isProviderEnabled))
+        get {
+            Set(ActivityProviderIdentifier.allCases.filter(isProviderEnabled))
+        }
+        set {
+            for identifier in ActivityProviderIdentifier.allCases {
+                self[key(for: identifier)] = newValue.contains(identifier)
+            }
+        }
     }
 
     public func observeProviderEnablement(

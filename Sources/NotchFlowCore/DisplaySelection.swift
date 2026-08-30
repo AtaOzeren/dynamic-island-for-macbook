@@ -8,7 +8,7 @@ public struct DisplayDescription: Equatable, Sendable {
     }
 }
 
-public enum DisplayPreference: Equatable, Sendable {
+public enum DisplayPreference: Equatable, Hashable, Sendable {
     case automatic
     case builtIn
     case named(String)
