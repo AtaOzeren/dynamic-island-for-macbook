@@ -14,6 +14,7 @@
 		F10000012C81000000000008 /* URLSchemeReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000007 /* URLSchemeReceiver.swift */; };
 		F10000012C81000000000009 /* OnboardingPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000010 /* OnboardingPresenter.swift */; };
 		F10000012C81000000000010 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000011 /* Localizable.xcstrings */; };
+		F10000012C81000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000012 /* Assets.xcassets */; };
 		F10000012C81000000000002 /* NotchFlowCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000001 /* NotchFlowCore */; };
 		F10000012C81000000000003 /* NotchFlowProviders in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000002 /* NotchFlowProviders */; };
 		F10000012C81000000000004 /* NotchFlowUI in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000003 /* NotchFlowUI */; };
@@ -31,6 +32,7 @@
 		F10000022C81000000000009 /* NotchFlow-AppStore.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "NotchFlow-AppStore.entitlements"; sourceTree = SOURCE_ROOT; };
 		F10000022C81000000000010 /* OnboardingPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPresenter.swift; sourceTree = "<group>"; };
 		F10000022C81000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		F10000022C81000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,6 +68,7 @@
 				F10000022C81000000000007 /* URLSchemeReceiver.swift */,
 				F10000022C81000000000010 /* OnboardingPresenter.swift */,
 				F10000022C81000000000011 /* Localizable.xcstrings */,
+				F10000022C81000000000012 /* Assets.xcassets */,
 				F10000022C81000000000008 /* Info.plist */,
 				F10000022C81000000000009 /* NotchFlow-AppStore.entitlements */,
 			);
@@ -148,6 +151,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F10000012C81000000000010 /* Localizable.xcstrings in Resources */,
+				F10000012C81000000000011 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -412,6 +416,7 @@
 		F100000C2C81000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
@@ -430,6 +435,7 @@
 		F100000C2C81000000000002 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
@@ -449,6 +455,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = "NotchFlow-AppStore.entitlements";
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
@@ -467,6 +474,7 @@
 		F100000C2C81000000000004 /* Direct */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;

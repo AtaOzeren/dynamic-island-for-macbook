@@ -29,6 +29,8 @@ jobs:
 
       - name: Run Translation Guard
         run: ./scripts/check-translations.sh
+      - name: Run Asset Guard
+        run: ./scripts/check-assets.sh
 
       - name: Build App Store Configuration
         run: xcodebuild -scheme "NotchFlow (App Store)" -destination "platform=macOS" build
