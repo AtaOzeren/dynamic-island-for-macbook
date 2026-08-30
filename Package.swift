@@ -11,7 +11,7 @@ let package = Package(
         .executable(name: "NotchFlow", targets: ["NotchFlow"]),
         .library(name: "NotchFlowCore", targets: ["NotchFlowCore"]),
         .library(name: "NotchFlowProviders", targets: ["NotchFlowProviders"]),
-        .library(name: "NotchFlowUI", targets: ["NotchFlowUI"])
+        .library(name: "NotchFlowUI", targets: ["NotchFlowUI"]),
     ],
     targets: [
         .target(
@@ -60,14 +60,18 @@ let package = Package(
             dependencies: [
                 "NotchFlowCore",
                 "NotchFlowProviders",
-                "NotchFlowUI"
+                "NotchFlowUI",
             ],
             path: "NotchFlow",
-            exclude: ["Info.plist"],
+            exclude: [
+                "Assets.xcassets",
+                "Info.plist",
+                "Localizable.xcstrings",
+            ],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
             ]
-        )
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

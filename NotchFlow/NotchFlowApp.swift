@@ -30,6 +30,16 @@ struct NotchFlowApp: App {
     init() {
         let automationGate = MusicAutomationGate()
         let musicProvider = makeMusicProvider(gate: automationGate)
+
+        // The build's backend, reportable without a window, so CI can assert the
+        // two configurations differ and a support conversation can ask for one
+        // line of output rather than a screenshot. This must happen before the
+        // automation-access rows query macOS, which can block a headless build.
+        if CommandLine.arguments.contains("--print-music-backend") {
+            print(musicProvider.backendName)
+            exit(EXIT_SUCCESS)
+        }
+
         self.automationGate = automationGate
         _musicAutomation = State(
             initialValue: makeMusicAutomationAccess(gate: automationGate)
@@ -51,16 +61,6 @@ struct NotchFlowApp: App {
         self.registry = registry
         settingsStore.observeProviderEnablement { identifier, isEnabled in
             registry.setEnabled(isEnabled, for: identifier)
-        }
-
-        // The build's backend, reportable without a window, so CI can assert the
-        // two configurations differ and a support conversation can ask for one
-        // line of output rather than a screenshot. It exits before observation
-        // starts: a probe that registered with the system power and recording
-        // sources would be doing the work this todo exists to make conditional.
-        if CommandLine.arguments.contains("--print-music-backend") {
-            print(musicProvider.backendName)
-            exit(EXIT_SUCCESS)
         }
 
         registry.startObserving(into: manager)

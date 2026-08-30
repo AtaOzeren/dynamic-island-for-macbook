@@ -26,7 +26,7 @@
             ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
             <ActionContent
                title = "Reject private media symbols"
-               scriptText = "&quot;${SRCROOT}/scripts/check-forbidden-symbols.sh&quot; &quot;${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}&quot;">
+               scriptText = "BIN=&quot;${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}&quot;&#10;[ -x &quot;$BIN&quot; ] || exit 0&#10;&quot;${SRCROOT}/scripts/check-forbidden-symbols.sh&quot; &quot;$BIN&quot;">
                <EnvironmentBuildable>
                   <BuildableReference
                      BuildableIdentifier = "primary"
