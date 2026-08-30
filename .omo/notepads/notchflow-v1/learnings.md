@@ -6,6 +6,9 @@ _Auto-scaffolded by /start-work. Append new entries below - never overwrite._
 
 ---
 
+## [2026-08-30] Task: F9
+Privacy audits must compare declared entitlements with compiled product paths rather than historical design intent. Purpose strings require both a canonical base plist value and target-registered `InfoPlist.strings` localizations; inspecting the built app resources verifies that Xcode copied the variant group.
+
 ## [2026-08-30] Task: todo-44
 The music backend is selected by `makeMusicProvider()` in `NotchFlow/MusicBackend.swift` — one `#if DIRECT_BUILD` in the app target, per the todo-43 constraint that Xcode compilation conditions never reach SPM targets. `Debug`/`Release` define neither condition and fall through to `AppleScriptMusicProvider`: the private-framework path is opt-in only. `NotchFlow --print-music-backend` prints `backendName` and exits, which is how `scripts/check-music-backend.sh` asserts the two configurations differ in CI without a window server.
 

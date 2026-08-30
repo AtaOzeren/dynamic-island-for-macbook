@@ -55,7 +55,6 @@ NotchFlow hiçbir şey toplamaz. Analitik yok, telemetri yok, cihaz dışına g�
 NotchFlow, izinleri yalnızca o özelliği etkinleştirdiğinizde ister — ilk açılışta asla.
 
 • Apple Events: Müzik kartı için Spotify ve Apple Music'i sorgulamak ve kontrol etmek amacıyla kullanılır.
-• Dosya erişimi: Kanca yükleyicisinin, onayladığınız ajan kanca betiklerini yazması için kullanılır.
 
 Hepsi bu. Kamera yok, mikrofon yok, ekran kaydı yok, erişilebilirlik yok, tam disk erişimi yok.
 

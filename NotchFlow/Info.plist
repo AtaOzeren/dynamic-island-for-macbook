@@ -32,7 +32,7 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.</string>
+	<string>NotchFlow uses Apple Events to show now-playing info and let you control playback for Spotify and Apple Music from the notch.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

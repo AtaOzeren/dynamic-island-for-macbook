@@ -558,11 +558,11 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
 
 ## Final verification wave
 
-- [ ] F1. Full clean build of both configurations from a fresh checkout
+- [x] F1. Full clean build of both configurations from a fresh checkout
   - Clone into a clean directory, build `AppStore` and `Direct`, and run all guards and lints. Assert zero warnings in the app targets.
   - Evidence: `.omo/evidence/final-F1-notchflow-v1.log`
 
-- [ ] F2. Complete automated test suite with coverage
+- [x] F2. Complete automated test suite with coverage
   - Run every test target; assert all pass and that `NotchFlowCore` line coverage meets the threshold set in `docs/11`.
   - Evidence: `.omo/evidence/final-F2-notchflow-v1.log`
 

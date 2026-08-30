@@ -171,7 +171,7 @@ NotchFlow never edits an agent's configuration file silently. The installer flow
 
 ### Sandbox note
 
-The App Store build's App Sandbox does not permit writing to `~/.claude` or `~/.codex` without the user granting access to that specific location. In the App Store build, the installer opens an `NSOpenPanel` scoped to the target file, and on approval stores a security-scoped bookmark so it can write again later (for example, on uninstall) without asking again. The Direct build has no sandbox restriction on the home directory and may write directly once the user consents in-app. In both builds, if the user declines to grant write access, NotchFlow still shows the exact snippet in a copyable text view so the user can add it by hand.
+The App Store build's App Sandbox does not permit writing to `~/.claude` or `~/.codex`, and it has no user-selected-file entitlement or file-picker flow. It therefore shows each hook or plugin as a copyable snippet for manual installation. The Direct build has no sandbox restriction on the home directory and may write directly once the user consents in-app; if the user declines, it also leaves the snippet available for manual installation.
 
 ## Privacy
 

@@ -16,6 +16,7 @@
 		F10000012C81000000000010 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000011 /* Localizable.xcstrings */; };
 		F10000012C81000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000012 /* Assets.xcassets */; };
 		F10000012C81000000000012 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000013 /* AppIntents.framework */; };
+		F10000012C81000000000013 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = F10000052C81000000000005 /* InfoPlist.strings */; };
 		F10000012C81000000000002 /* NotchFlowCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000001 /* NotchFlowCore */; };
 		F10000012C81000000000003 /* NotchFlowProviders in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000002 /* NotchFlowProviders */; };
 		F10000012C81000000000004 /* NotchFlowUI in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000003 /* NotchFlowUI */; };
@@ -35,6 +36,8 @@
 		F10000022C81000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F10000022C81000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F10000022C81000000000013 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
+		F10000022C81000000000014 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F10000022C81000000000015 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = tr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -71,6 +74,7 @@
 				F10000022C81000000000007 /* URLSchemeReceiver.swift */,
 				F10000022C81000000000010 /* OnboardingPresenter.swift */,
 				F10000022C81000000000011 /* Localizable.xcstrings */,
+				F10000052C81000000000005 /* InfoPlist.strings */,
 				F10000022C81000000000012 /* Assets.xcassets */,
 				F10000022C81000000000008 /* Info.plist */,
 				F10000022C81000000000009 /* NotchFlow-AppStore.entitlements */,
@@ -154,6 +158,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F10000012C81000000000010 /* Localizable.xcstrings in Resources */,
+				F10000012C81000000000013 /* InfoPlist.strings in Resources */,
 				F10000012C81000000000011 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -423,7 +428,6 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -444,7 +448,6 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -468,7 +471,6 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -492,7 +494,6 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = NotchFlow/Info.plist;
-				INFOPLIST_KEY_NSAppleEventsUsageDescription = "Fills the notch island with the track Spotify or Music is playing, and lets its buttons control playback.";
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -532,6 +533,18 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin PBXVariantGroup section */
+		F10000052C81000000000005 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				F10000022C81000000000014 /* InfoPlist.strings */,
+				F10000022C81000000000015 /* InfoPlist.strings */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCLocalSwiftPackageReference section */
 		F100000A2C81000000000001 /* XCLocalSwiftPackageReference */ = {

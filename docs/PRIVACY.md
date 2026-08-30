@@ -31,12 +31,11 @@ NotchFlow does not make any outbound network connections of its own. Update chec
 
 ## Permissions NotchFlow requests
 
-NotchFlow requests permissions lazily, only when you turn on the specific feature that needs them. Nothing is requested at first launch.
+The App Store build requests Apple Events permission lazily, only when you turn on the music feature. The Direct build uses MediaRemote and does not request Apple Events permission. Nothing is requested at first launch.
 
 | Permission | Why it's needed | When it's requested |
 |---|---|---|
-| Apple Events | To query and control Spotify and Apple Music for the music activity card | The first time you play a track from a supported app after enabling the music provider |
-| File access (hook installer) | To write the small hook scripts that let AI agents report their status to NotchFlow | When you explicitly approve a hook installation for a specific agent config file |
+| Apple Events (App Store build only) | To query and control Spotify and Apple Music for the music activity card | The first time you play a track from a supported app after enabling the music provider |
 
 NotchFlow does not request and has no code path that would need: Camera, Microphone, Screen Recording, Accessibility, Full Disk Access, Contacts, or Location.
 
@@ -49,8 +48,7 @@ The screen-recording and microphone-recording indicators in NotchFlow observe th
 Everything NotchFlow knows stays on your Mac:
 
 - **Settings** are stored in `UserDefaults` in the app's sandbox container.
-- **Security-scoped bookmarks** for hook installer file access are stored in the sandbox container and are used only to write or remove the specific files you approved.
-- **No other persistent data** is written outside the sandbox container.
+- **No persistent data** is written outside the sandbox container.
 
 ---
 

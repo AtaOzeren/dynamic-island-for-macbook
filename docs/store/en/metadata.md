@@ -124,7 +124,6 @@ NotchFlow does not use any private framework or private API in the App Store bui
 PERMISSIONS
 • Apple Events (NSAppleEventsUsageDescription): used to query now-playing state and send playback commands to Spotify and Apple Music.
 • com.apple.security.network.server: used for the loopback HTTP listener that receives status events from AI coding agents running locally. The listener is bound to 127.0.0.1 only.
-• User-selected file access: used by the hook installer to write small hook scripts to agent config files (e.g., ~/.claude/settings.json) that the user explicitly selects via NSOpenPanel.
 
 TESTING THE APP
 To see the music card: open Spotify or Apple Music and play a track. Grant Apple Events permission when prompted.

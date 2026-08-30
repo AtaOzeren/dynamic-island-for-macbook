@@ -13,9 +13,8 @@ Each entitlement below is requested only where the corresponding feature needs i
 | Entitlement | App Store build | Direct build | Justification | User-visible consequence |
 |---|---|---|---|---|
 | App Sandbox | On | On where possible; hardened runtime is the primary constraint (see `10-build-and-distribution.md`) | Required for App Store distribution; kept on for the Direct build as defense in depth wherever a private-framework dependency doesn't force it off | The app cannot touch files or processes outside its container without one of the entitlements below |
-| `com.apple.security.automation.apple-events` (with `NSAppleEventsUsageDescription`) | On | On | Needed for the AppleScript music provider to query and control Spotify and Apple Music, the only music integration path available inside the sandbox | First control of a supported music app triggers one system Apple Events permission prompt per target app |
+| `com.apple.security.automation.apple-events` (with `NSAppleEventsUsageDescription`) | On | Not needed — Direct's music path is MediaRemote | Needed for the App Store build's AppleScript music provider to query and control Spotify and Apple Music inside the sandbox; the unsandboxed Direct build neither instantiates that provider nor requires this entitlement | In the App Store build, first control of a supported music app triggers one system Apple Events permission prompt per target app; the Direct build shows no Apple Events prompt |
 | `com.apple.security.network.server` | On | Not needed | The loopback HTTP listener for AI agent IPC needs this entitlement to bind a socket at all inside the sandbox | No visible prompt; the entitlement is declared at build time, not requested at runtime |
-| User-selected file access (`com.apple.security.files.user-selected.read-write`) | On | Not needed (unsandboxed Direct build writes directly) | The hook installer needs write access to files like `~/.claude/settings.json` that live outside the sandbox container | An `NSOpenPanel` scoped to the target file appears the first time the user approves a hook installation; a security-scoped bookmark is stored so NotchFlow can write again later (for example, to uninstall) without asking twice |
 
 ### Not requested
 
@@ -33,11 +32,11 @@ The screen and audio recording indicators (see `00-product-overview.md` and `06-
 
 ## Permission request flow
 
-Nothing is requested at launch. NotchFlow's first run shows the notch UI with zero activities and asks for nothing. Each permission in the table above is requested lazily, at the exact moment the user turns on the specific feature that needs it:
+Nothing is requested at launch. NotchFlow's first run shows the notch UI with zero activities and asks for nothing. The App Store build requests Apple Events permission lazily, at the exact moment the user turns on the music feature. The Direct build uses MediaRemote and requests no Apple Events permission.
 
-1. The user enables the feature (for example, adds a Claude Code hook, or plays a track from a supported music app for the first time).
+1. The user enables the feature (for example, plays a track from a supported music app for the first time).
 2. NotchFlow shows a plain-language explanation of what is about to be requested and why, in its own UI, before the system prompt appears.
-3. The system permission prompt (Apple Events, or the file picker for the hook installer) is shown.
+3. The system Apple Events permission prompt is shown.
 4. If the user denies or cancels, the feature that needed the permission is disabled and NotchFlow says so in place, in that feature's settings row — it does not nag, re-prompt on a timer, or block unrelated features.
 
 Every feature degrades gracefully when its permission is denied. A denied Apple Events prompt for one music app disables control of that app only; the rest of NotchFlow, including any other music app, timers, recording indicators, charging state, and AI status, keeps working normally.
