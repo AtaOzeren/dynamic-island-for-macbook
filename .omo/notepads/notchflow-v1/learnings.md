@@ -15,6 +15,9 @@ Custom URL delivery belongs in the app target via SwiftUI `.onOpenURL`; the reus
 ## [2026-08-30] Task: todo-51
 The HTTP fallback uses `NWParameters.requiredLocalEndpoint` with `127.0.0.1:0`, then publishes `NWListener.port` only after the listener reaches `.ready`. Enablement is an injected set of agent IDs: an empty set cancels the listener, closes active connections, and removes the discovery file without consulting UserDefaults. Request bodies flow through the shared `IPCMessageValidator`, while the core policy owns route, enabled-agent, size, and per-session interval gates. Xcode target configurations must explicitly set `CODE_SIGN_ENTITLEMENTS`; only the sandboxed AppStore plist carries `com.apple.security.network.server`.
 
+## [2026-08-30] Task: todo-68
+Ad-hoc Xcode signing injects `com.apple.security.get-task-allow` unless `CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO`; disabling that injection makes `codesign -d --entitlements - --xml` a reliable exact-set check for local packaging QA. Scheme build post-actions can run a channel-only guard with the built target's environment, so the App Store symbol check stays out of Direct builds.
+
 ## [2026-08-30] Task: todo-56
 OpenCode discovers user plugins by file-tree convention, so installation is a drop at `~/.config/opencode/plugins/notchflow.ts`, not a settings merge. Keep generation centralized in `HookSnippetGenerator`, back up only a pre-existing destination file, restore it byte-for-byte on uninstall, and prune parent directories only when empty so unrelated plugins and user configuration survive.
 

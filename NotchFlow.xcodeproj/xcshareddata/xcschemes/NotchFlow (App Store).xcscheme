@@ -21,6 +21,24 @@
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
+      <PostActions>
+         <ExecutionAction
+            ActionType = "Xcode.IDEStandardExecutionActionsCore.ExecutionActionType.ShellScriptAction">
+            <ActionContent
+               title = "Reject private media symbols"
+               scriptText = "&quot;${SRCROOT}/scripts/check-forbidden-symbols.sh&quot; &quot;${TARGET_BUILD_DIR}/${EXECUTABLE_PATH}&quot;">
+               <EnvironmentBuildable>
+                  <BuildableReference
+                     BuildableIdentifier = "primary"
+                     BlueprintIdentifier = "F10000062C81000000000001"
+                     BuildableName = "NotchFlow.app"
+                     BlueprintName = "NotchFlow"
+                     ReferencedContainer = "container:NotchFlow.xcodeproj">
+                  </BuildableReference>
+               </EnvironmentBuildable>
+            </ActionContent>
+         </ExecutionAction>
+      </PostActions>
    </BuildAction>
    <TestAction
       buildConfiguration = "AppStore"
