@@ -16,13 +16,24 @@ struct NotchFlowApp: App {
     private let urlSchemeReceiver = URLSchemeReceiver()
     private let onboardingPresenter = OnboardingPresenter()
 
+    /// The one gate both the music backend and the Activities pane consult, so
+    /// the button the user presses and the permission the provider is blocked on
+    /// are the same fact.
+    private let automationGate: MusicAutomationGate
+
     @State private var aiPreferences: AIIntegrationPreferences
     @State private var generalPreferences: GeneralPreferences
     @State private var enabledIdentifiers: Set<ActivityProviderIdentifier>
     @State private var languageOverride: String?
+    @State private var musicAutomation: [MusicAutomationAccess]
 
     init() {
-        let musicProvider = makeMusicProvider()
+        let automationGate = MusicAutomationGate()
+        let musicProvider = makeMusicProvider(gate: automationGate)
+        self.automationGate = automationGate
+        _musicAutomation = State(
+            initialValue: makeMusicAutomationAccess(gate: automationGate)
+        )
         let settingsStore = SettingsStore()
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
@@ -103,7 +114,9 @@ struct NotchFlowApp: App {
                 aiPreferences: $aiPreferences,
                 languageOverride: $languageOverride,
                 availableDisplays: NSScreen.screens.map(DisplayDescription.init),
-                information: aboutInformation
+                information: aboutInformation,
+                musicAutomation: $musicAutomation,
+                onRequestAutomation: requestAutomation
             )
             .onOpenURL { url in
                 urlSchemeReceiver.handle(url)
@@ -122,6 +135,18 @@ struct NotchFlowApp: App {
                 settingsStore[.languageOverride] = override
             }
         }
+    }
+
+    /// The only place in NotchFlow that can raise a system permission prompt,
+    /// and it runs solely from the button in the Activities pane.
+    ///
+    /// Every row is re-read afterwards, not just the one asked for, because the
+    /// System Settings pane the denied row points at can change any target's
+    /// answer while NotchFlow is running — refreshing one would leave the other
+    /// row asserting something the system no longer agrees with.
+    private func requestAutomation(_ target: MusicPlayerTarget) {
+        automationGate.requestAccess(for: target)
+        musicAutomation = makeMusicAutomationAccess(gate: automationGate)
     }
 
     private var aboutInformation: AboutInformation {

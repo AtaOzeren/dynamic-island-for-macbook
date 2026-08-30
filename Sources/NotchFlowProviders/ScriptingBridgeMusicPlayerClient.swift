@@ -48,14 +48,17 @@ final class ScriptingBridgeMusicPlayerClient: MusicPlayerQuerying {
     private static let pausedState = fourCharCode("kPSp")
 
     private let runningBundleIdentifiers: () -> Set<String>
+    private let gate: MusicAutomationGate
     private let errorSuppressor = ScriptingBridgeErrorSuppressor()
     private var applications: [MusicPlayerTarget: SBApplication] = [:]
 
     init(
+        gate: MusicAutomationGate = MusicAutomationGate(),
         runningBundleIdentifiers: @escaping () -> Set<String> = {
             Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
         }
     ) {
+        self.gate = gate
         self.runningBundleIdentifiers = runningBundleIdentifiers
     }
 
@@ -91,8 +94,16 @@ final class ScriptingBridgeMusicPlayerClient: MusicPlayerQuerying {
     /// round-trip and the app it points at outlives any single notification.
     /// The running check is repeated on every call regardless, so a cached
     /// proxy to a quit app answers `nil` rather than relaunching it.
+    ///
+    /// The gate is consulted after the running check and before the proxy,
+    /// because this is the last point where "no Apple Event is sent" is still
+    /// true: an unpermitted target has to answer `nil` from here, which the
+    /// snapshot path already reads as "not playing" and the transport path as a
+    /// dropped command. That is where the permission flow's graceful degradation
+    /// actually happens.
     private func player(for target: MusicPlayerTarget) -> ScriptingBridgePlayer? {
         guard runningBundleIdentifiers().contains(target.bundleIdentifier) else { return nil }
+        guard gate.canQuery(target) else { return nil }
 
         if let cached = applications[target] {
             return cached as? ScriptingBridgePlayer

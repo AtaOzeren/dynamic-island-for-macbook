@@ -39,11 +39,13 @@ public struct SettingsWindowView: View {
     @Binding private var enabledIdentifiers: Set<ActivityProviderIdentifier>
     @Binding private var aiPreferences: AIIntegrationPreferences
     @Binding private var languageOverride: String?
+    @Binding private var musicAutomation: [MusicAutomationAccess]
 
     private let availableDisplays: [DisplayDescription]
     private let information: AboutInformation
     private let languages: [LanguageOption]
     private let metrics: SettingsPaneMetrics
+    private let onRequestAutomation: (MusicPlayerTarget) -> Void
 
     @State private var selectedTab: SettingsTab = .general
 
@@ -55,16 +57,20 @@ public struct SettingsWindowView: View {
         availableDisplays: [DisplayDescription],
         information: AboutInformation,
         languages: [LanguageOption] = [.systemDefault],
-        metrics: SettingsPaneMetrics = .default
+        musicAutomation: Binding<[MusicAutomationAccess]> = .constant([]),
+        metrics: SettingsPaneMetrics = .default,
+        onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in }
     ) {
         self._general = general
         self._enabledIdentifiers = enabledIdentifiers
         self._aiPreferences = aiPreferences
         self._languageOverride = languageOverride
+        self._musicAutomation = musicAutomation
         self.availableDisplays = availableDisplays
         self.information = information
         self.languages = languages
         self.metrics = metrics
+        self.onRequestAutomation = onRequestAutomation
     }
 
     public var body: some View {
@@ -92,7 +98,12 @@ public struct SettingsWindowView: View {
                 metrics: metrics
             )
         case .activities:
-            ActivitiesSettingsView(enabledIdentifiers: $enabledIdentifiers, metrics: metrics)
+            ActivitiesSettingsView(
+                enabledIdentifiers: $enabledIdentifiers,
+                musicAutomation: $musicAutomation,
+                metrics: metrics,
+                onRequestAutomation: onRequestAutomation
+            )
         case .aiIntegrations:
             AIIntegrationsSettingsView(preferences: $aiPreferences, metrics: metrics)
         case .about:

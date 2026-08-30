@@ -1,44 +1,6 @@
 import Foundation
 import NotchFlowCore
 
-/// The two scriptable players the App Store build is allowed to talk to.
-///
-/// The list is closed on purpose. `docs/06-activity-providers.md` scopes the
-/// `com.apple.security.scripting-targets` entitlement to exactly these two
-/// bundle identifiers, so a third case here would be a case the sandbox refuses
-/// to serve — the enum is the entitlement, expressed in Swift.
-public enum MusicPlayerTarget: CaseIterable, Hashable, Sendable {
-    case spotify
-    case appleMusic
-
-    public var bundleIdentifier: String {
-        switch self {
-        case .spotify: "com.spotify.client"
-        case .appleMusic: "com.apple.Music"
-        }
-    }
-
-    /// The name shown as the audio source. Deliberately not derived from the
-    /// bundle identifier: this is user-visible text, and "Music" is what the app
-    /// is called.
-    public var displayName: String {
-        switch self {
-        case .spotify: "Spotify"
-        case .appleMusic: "Music"
-        }
-    }
-
-    /// The distributed notification the app posts on track and play-state
-    /// change, per `docs/06-activity-providers.md`. It is a wake-up signal only:
-    /// its payload is not trusted for state, which is read back from the app.
-    public var playbackNotificationName: Notification.Name {
-        switch self {
-        case .spotify: Notification.Name("com.spotify.client.PlaybackStateChanged")
-        case .appleMusic: Notification.Name("com.apple.Music.playerInfo")
-        }
-    }
-}
-
 /// One player's answer about what it is playing right now.
 ///
 /// A stopped player has no snapshot rather than a snapshot describing silence,
@@ -107,9 +69,14 @@ public final class AppleScriptMusicProvider: MusicProvider {
         let target: MusicPlayerTarget
     }
 
-    public convenience init() {
+    /// The gate is a parameter rather than a detail of the client because the
+    /// settings pane has to read and drive the very same permission state the
+    /// provider is gated on. Two gates would let the pane offer a prompt for a
+    /// target the provider had already recorded as explained, which is the
+    /// double-ask the permission flow forbids.
+    public convenience init(gate: MusicAutomationGate = MusicAutomationGate()) {
         self.init(
-            players: ScriptingBridgeMusicPlayerClient(),
+            players: ScriptingBridgeMusicPlayerClient(gate: gate),
             notifications: DistributedNotificationCenter.default()
         )
     }

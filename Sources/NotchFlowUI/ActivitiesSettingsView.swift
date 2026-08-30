@@ -8,14 +8,40 @@ import SwiftUI
 /// what disappears.
 public struct ActivitiesSettingsView: View {
     @Binding private var enabledIdentifiers: Set<ActivityProviderIdentifier>
+    @Binding private var musicAutomation: [MusicAutomationAccess]
+
     private let metrics: SettingsPaneMetrics
+    private let onRequestAutomation: (MusicPlayerTarget) -> Void
 
     public init(
         enabledIdentifiers: Binding<Set<ActivityProviderIdentifier>>,
-        metrics: SettingsPaneMetrics = .default
+        musicAutomation: Binding<[MusicAutomationAccess]> = .constant([]),
+        metrics: SettingsPaneMetrics = .default,
+        onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in }
     ) {
         self._enabledIdentifiers = enabledIdentifiers
+        self._musicAutomation = musicAutomation
         self.metrics = metrics
+        self.onRequestAutomation = onRequestAutomation
+    }
+
+    /// The permission rows are shown only under a Music switch that is on.
+    ///
+    /// Step 4 of the flow in `docs/09-security-privacy-permissions.md` requires
+    /// the explanation to appear "in place, in that feature's settings row", and
+    /// a permission notice under a feature the user has switched off is not that
+    /// — it is an unrelated feature being blocked, which the same paragraph
+    /// rules out.
+    public var isMusicAutomationSectionVisible: Bool {
+        enabledIdentifiers.contains(.music) && !musicAutomation.isEmpty
+    }
+
+    public var automationRows: [MusicAutomationAccess] {
+        musicAutomation
+    }
+
+    public func requestAutomation(for target: MusicPlayerTarget) {
+        onRequestAutomation(target)
     }
 
     public func binding(for identifier: ActivityProviderIdentifier) -> Binding<Bool> {
@@ -32,6 +58,17 @@ public struct ActivitiesSettingsView: View {
     }
 
     public var body: some View {
+        VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
+            activitiesSection
+            if isMusicAutomationSectionVisible {
+                Divider()
+                musicAutomationSection
+            }
+        }
+        .settingsPaneFrame(metrics)
+    }
+
+    private var activitiesSection: some View {
         SettingsSection(
             title: "Activities",
             caption: "A switched-off activity stops being observed, not just hidden.",
@@ -48,6 +85,32 @@ public struct ActivitiesSettingsView: View {
                 }
             }
         }
-        .settingsPaneFrame(metrics)
+    }
+
+    private var musicAutomationSection: some View {
+        SettingsSection(
+            title: "Music control",
+            caption: "NotchFlow asks macOS for each player separately, and only when you press the button.",
+            metrics: metrics
+        ) {
+            ForEach(automationRows, id: \.target) { access in
+                automationRow(access)
+            }
+        }
+    }
+
+    private func automationRow(_ access: MusicAutomationAccess) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(access.target.displayName)
+            Text(access.explanation)
+                .font(.system(size: metrics.footnoteSize))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if let actionTitle = access.actionTitle {
+                Button(actionTitle) { requestAutomation(for: access.target) }
+                    .font(.system(size: metrics.footnoteSize))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
