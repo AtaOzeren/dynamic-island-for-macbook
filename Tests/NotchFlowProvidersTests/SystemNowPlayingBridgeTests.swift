@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
@@ -20,7 +21,7 @@ struct SystemNowPlayingBridgeTests {
             Self.keys.artist: "Aphex Twin",
             Self.keys.album: "Windowlicker EP",
             Self.keys.sourceApplicationName: "Safari",
-            Self.keys.playbackRate: 1
+            Self.keys.playbackRate: 1,
         ]
 
         let snapshot = SystemNowPlayingSnapshot.parse(dictionary: dictionary, keys: Self.keys)

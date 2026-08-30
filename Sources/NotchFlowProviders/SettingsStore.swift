@@ -52,7 +52,9 @@ public final class SettingsStore {
     ) {
         self.storage = storage
         registerDefaults()
-        migrations.forEach { $0.run(on: storage) }
+        for migration in migrations {
+            migration.run(on: storage)
+        }
     }
 
     public subscript<Value>(key: SettingsKey<Value>) -> Value {

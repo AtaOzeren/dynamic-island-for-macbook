@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
@@ -28,23 +29,25 @@ struct AgentDetectorTests {
         let detector = Self.detector(existingPaths: [
             "/Users/tester/.claude/settings.json",
             "/Users/tester/.codex/config.toml",
-            "/Users/tester/.config/opencode/plugin"
+            "/Users/tester/.config/opencode/plugin",
         ])
 
-        #expect(detector.detect() == [
-            .claudeCode: .installed,
-            .codex: .installed,
-            .opencode: .installed
-        ])
+        #expect(
+            detector.detect() == [
+                .claudeCode: .installed,
+                .codex: .installed,
+                .opencode: .installed,
+            ])
     }
 
     @Test("reports every supported agent as not installed when paths are missing")
     func reportsMissingAgents() {
-        #expect(Self.detector().detect() == [
-            .claudeCode: .notInstalled,
-            .codex: .notInstalled,
-            .opencode: .notInstalled
-        ])
+        #expect(
+            Self.detector().detect() == [
+                .claudeCode: .notInstalled,
+                .codex: .notInstalled,
+                .opencode: .notInstalled,
+            ])
     }
 
     @Test("reports only the blocked agent as unknown")
@@ -54,11 +57,12 @@ struct AgentDetectorTests {
             inaccessiblePaths: ["/Users/tester/.claude/settings.json"]
         )
 
-        #expect(detector.detect() == [
-            .claudeCode: .unknown,
-            .codex: .installed,
-            .opencode: .notInstalled
-        ])
+        #expect(
+            detector.detect() == [
+                .claudeCode: .unknown,
+                .codex: .installed,
+                .opencode: .notInstalled,
+            ])
     }
 
     @Test("returns exactly one result for every supported agent")

@@ -78,10 +78,11 @@ public final class ActivityManager {
             ActivityOrderingKey(
                 priority: left.activity.priority,
                 startTime: left.registrationTime
-            ) < ActivityOrderingKey(
-                priority: right.activity.priority,
-                startTime: right.registrationTime
             )
+                < ActivityOrderingKey(
+                    priority: right.activity.priority,
+                    startTime: right.registrationTime
+                )
         }
     }
 

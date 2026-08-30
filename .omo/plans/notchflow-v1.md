@@ -538,7 +538,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (CI):** Run the cask audit; capture output. Evidence: `.omo/evidence/task-71-notchflow-v1.log`.
   - **Commit:** `build: add homebrew cask definition`
 
-- [ ] 72. Prepare the App Store submission — BLOCKED-ON-MEMBERSHIP
+- [x] 72. Prepare the App Store submission — BLOCKED-ON-MEMBERSHIP
   - Archive the App Store configuration, run the full validation locally, and assemble screenshots and metadata. Actual upload waits on the membership.
   - **Acceptance:** A validated archive exists locally with zero validation errors; the screenshot set is complete for every required size.
   - **QA (HW):** Produce the archive and run validation; capture the report. Evidence: `.omo/evidence/task-72-notchflow-v1/`.

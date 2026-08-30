@@ -1,5 +1,6 @@
 import CoreGraphics
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("PanelGeometry")
@@ -143,9 +144,9 @@ struct PanelGeometryTests {
     }
 
     @Test("hugs the notch with the hover target, padded on every side the pill can grow")
-    func hitRectHugsTheNotch() {
+    func hitRectHugsTheNotch() throws {
         let screen = Self.notchedScreen()
-        let notch = notchRect(for: screen)!
+        let notch = try #require(notchRect(for: screen))
         let hit = compactHitRect(for: screen, metrics: Self.metrics)
 
         #expect(hit.midX == notch.midX)

@@ -119,7 +119,7 @@ public actor LoopbackHTTPListener {
                         return
                     }
                     startup.succeed(port.rawValue)
-                case let .failed(error):
+                case .failed(let error):
                     startup.fail(.failedToStart(error.localizedDescription))
                 case .cancelled:
                     startup.fail(.failedToStart("Listener was cancelled before becoming ready"))
@@ -188,9 +188,9 @@ public actor LoopbackHTTPListener {
             receive(on: read.connection, parser: parser)
         case .incomplete:
             respond(status: 400, on: read.connection)
-        case let .rejected(reason):
+        case .rejected(let reason):
             respond(status: Self.status(for: reason), on: read.connection)
-        case let .request(request):
+        case .request(let request):
             await handle(request, on: read.connection)
         }
     }
@@ -202,12 +202,12 @@ public actor LoopbackHTTPListener {
         }
 
         switch policy.evaluate(request.body) {
-        case let .accepted(message):
+        case .accepted(let message):
             await sink(message)
             respond(status: 204, on: connection)
         case .ignored:
             respond(status: 204, on: connection)
-        case let .rejected(rejection):
+        case .rejected(let rejection):
             respond(status: Self.status(for: rejection), on: connection)
         }
     }
@@ -217,10 +217,12 @@ public actor LoopbackHTTPListener {
         let response = Data(
             "HTTP/1.1 \(status) \(reason)\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8
         )
-        connection.send(content: response, completion: .contentProcessed { [weak self, weak connection] _ in
-            guard let self, let connection else { return }
-            Task { await self.close(connection) }
-        })
+        connection.send(
+            content: response,
+            completion: .contentProcessed { [weak self, weak connection] _ in
+                guard let self, let connection else { return }
+                Task { await self.close(connection) }
+            })
     }
 
     private func close(_ connection: NWConnection) {

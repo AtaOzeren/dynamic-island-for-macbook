@@ -20,7 +20,8 @@ final class URLSchemeReceiver {
 
     func handle(_ url: URL) {
         guard let message = try? IPCURLParser().parse(url),
-              preferences.allows(message) else {
+            preferences.allows(message)
+        else {
             return
         }
         onMessage?(message)

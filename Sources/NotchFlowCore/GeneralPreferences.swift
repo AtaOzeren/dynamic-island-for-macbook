@@ -34,11 +34,11 @@ public struct GeneralPreferences: Equatable, Sendable {
     }
 }
 
-public extension SettingsAppearance {
+extension SettingsAppearance {
     /// What the General pane calls this choice, kept beside the enum for the
     /// same reason `AIEventClass.displayName` is: the pane never invents a label
     /// a future case would silently miss.
-    var displayName: String {
+    public var displayName: String {
         switch self {
         case .auto: localized("Automatic")
         case .light: localized("Light")

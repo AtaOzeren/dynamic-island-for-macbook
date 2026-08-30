@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 

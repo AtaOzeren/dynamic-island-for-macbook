@@ -135,8 +135,8 @@ public struct AIAgentActivity: Activity, Equatable {
     }
 }
 
-private extension Double {
-    func clamped(to range: ClosedRange<Double>) -> Double {
+extension Double {
+    fileprivate func clamped(to range: ClosedRange<Double>) -> Double {
         min(max(self, range.lowerBound), range.upperBound)
     }
 }

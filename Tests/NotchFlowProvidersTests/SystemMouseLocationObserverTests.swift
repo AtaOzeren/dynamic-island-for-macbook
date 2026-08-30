@@ -1,6 +1,7 @@
 import AppKit
 import CoreGraphics
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
@@ -61,13 +62,13 @@ struct SystemMouseLocationObserverTests {
     }
 
     @Test("watches movement and drags, never keyboard events that would need Accessibility")
-    func watchesMovementOnly() {
+    func watchesMovementOnly() throws {
         let spy = MonitorSpy()
         let observer = makeObserver(spy: spy)
 
         observer.startObserving { _ in }
 
-        let mask = try! #require(spy.masks.first)
+        let mask = try #require(spy.masks.first)
         #expect(mask.contains(.mouseMoved))
         #expect(mask.contains(.leftMouseDragged))
         #expect(mask.contains(.keyDown) == false)

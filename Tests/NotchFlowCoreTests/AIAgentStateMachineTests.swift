@@ -1,20 +1,22 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("AIAgentStateMachine")
 struct AIAgentStateMachineTests {
     @Test("defines the seven documented agent states")
     func states() {
-        #expect(AIAgentState.allCases == [
-            .idle,
-            .thinking,
-            .working,
-            .usingTool,
-            .waitingForUser,
-            .completed,
-            .error
-        ])
+        #expect(
+            AIAgentState.allCases == [
+                .idle,
+                .thinking,
+                .working,
+                .usingTool,
+                .waitingForUser,
+                .completed,
+                .error,
+            ])
     }
 
     @Test("accepts every legal state transition")
@@ -129,7 +131,7 @@ struct AIAgentStateMachineTests {
         Transition(.completed, .idle),
         Transition(.completed, .thinking),
         Transition(.error, .idle),
-        Transition(.error, .thinking)
+        Transition(.error, .thinking),
     ]
 
     private func date(_ seconds: TimeInterval) -> Date {

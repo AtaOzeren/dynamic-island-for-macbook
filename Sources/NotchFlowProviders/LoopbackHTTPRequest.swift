@@ -32,7 +32,7 @@ struct LoopbackHTTPRequestParser {
         }
 
         let headerData = bytes[..<headerRange.lowerBound]
-        guard let header = String(data: headerData, encoding: .utf8) else {
+        guard let header = String(bytes: headerData, encoding: .utf8) else {
             return .rejected(.invalidPayload)
         }
         let lines = header.components(separatedBy: "\r\n")
@@ -41,7 +41,8 @@ struct LoopbackHTTPRequestParser {
         }
         let requestParts = requestLine.split(separator: " ", omittingEmptySubsequences: true)
         guard requestParts.count == 3,
-              requestParts[2].hasPrefix("HTTP/1.") else {
+            requestParts[2].hasPrefix("HTTP/1.")
+        else {
             return .rejected(.invalidPayload)
         }
 
@@ -53,8 +54,9 @@ struct LoopbackHTTPRequestParser {
             }
             if fields[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length" {
                 guard contentLength == nil,
-                      let parsedLength = Int(fields[1].trimmingCharacters(in: .whitespaces)),
-                      parsedLength >= 0 else {
+                    let parsedLength = Int(fields[1].trimmingCharacters(in: .whitespaces)),
+                    parsedLength >= 0
+                else {
                     return .rejected(.invalidPayload)
                 }
                 contentLength = parsedLength

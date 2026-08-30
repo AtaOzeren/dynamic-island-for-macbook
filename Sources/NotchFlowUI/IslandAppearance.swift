@@ -1,10 +1,11 @@
 import AppKit
-import enum NotchFlowCore.SettingsAppearance
 import SwiftUI
+
+import enum NotchFlowCore.SettingsAppearance
 
 public typealias AppearancePreference = SettingsAppearance
 
-public extension SettingsAppearance {
+extension SettingsAppearance {
     /// The appearance to force on the panel, or `nil` to keep inheriting from
     /// the application.
     ///
@@ -12,7 +13,7 @@ public extension SettingsAppearance {
     /// an inherited `nil` lets AppKit re-resolve the panel when the system flips
     /// between light and dark, whereas a pinned value would freeze the island in
     /// whichever scheme happened to be active when the panel was built.
-    var nsAppearance: NSAppearance? {
+    public var nsAppearance: NSAppearance? {
         switch self {
         case .auto: nil
         case .light: NSAppearance(named: .aqua)
@@ -82,7 +83,7 @@ public enum IslandSurface: Equatable, Sendable {
     public var foreground: IslandForeground {
         switch self {
         case .notchBlack: .onDark
-        case let .material(scheme), let .solid(scheme):
+        case .material(let scheme), .solid(let scheme):
             switch scheme {
             case .light: .onLight
             case .dark: .onDark
@@ -150,7 +151,7 @@ extension IslandSurface {
             shape.fill(.black)
         case .material:
             shape.fill(.ultraThinMaterial)
-        case let .solid(scheme):
+        case .solid(let scheme):
             shape.fill(scheme == .dark ? Color.black : Color.white)
         }
     }

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("AI integration preferences")
@@ -11,7 +12,9 @@ struct AIIntegrationPreferencesTests {
         IPCMessage(
             schemaVersion: "1.0",
             agentId: agentID,
-            sessionId: UUID(uuidString: "9E1C8518-9DA0-4E93-8313-2637D4E5769F")!,
+            sessionId: UUID(
+                uuid: (0x9E, 0x1C, 0x85, 0x18, 0x9D, 0xA0, 0x4E, 0x93, 0x83, 0x13, 0x26, 0x37, 0xD4, 0xE5, 0x76, 0x9F)
+            ),
             state: state,
             detail: "Running tests",
             toolName: nil,

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
@@ -36,7 +37,7 @@ struct ProviderCompositionTests {
                         scheduler: FakeTickScheduler(),
                         now: { Date(timeIntervalSince1970: 0) }
                     )
-                )
+                ),
             ],
             enabledIdentifiers: enabled
         )
@@ -63,9 +64,10 @@ struct ProviderCompositionTests {
         fixture.registry.setEnabled(false, for: .charging)
 
         #expect(fixture.power.isObserving == false)
-        #expect(fixture.manager.activeActivities.map(\.identity) == [
-            RecordingActivity.identity(for: .screen)
-        ])
+        #expect(
+            fixture.manager.activeActivities.map(\.identity) == [
+                RecordingActivity.identity(for: .screen)
+            ])
     }
 
     @Test("never observes a provider disabled before the registry starts")

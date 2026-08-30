@@ -125,7 +125,8 @@ public final class SystemPowerSourceObserver: PowerSourceObserving {
             return .onBattery
         }
 
-        let internalBattery = sources
+        let internalBattery =
+            sources
             .compactMap { IOPSGetPowerSourceDescription(blob, $0)?.takeUnretainedValue() as? [String: Any] }
             .first { $0[kIOPSTypeKey] as? String == kIOPSInternalBatteryType }
 

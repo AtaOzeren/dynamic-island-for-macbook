@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowProviders
 
 @Suite("ClaudeCodeHookInstaller")
@@ -21,7 +22,9 @@ struct ClaudeCodeHookInstallerTests {
 
         #expect(fileSystem.createdDirectories == [Self.settingsURL.deletingLastPathComponent()])
         let installed = try #require(fileSystem.text(at: Self.settingsURL))
-        #expect(try jsonObject(from: Data(installed.utf8)) as NSDictionary == jsonObject(from: Data(proposal.utf8)) as NSDictionary)
+        #expect(
+            try jsonObject(from: Data(installed.utf8)) as NSDictionary == jsonObject(from: Data(proposal.utf8))
+                as NSDictionary)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(try hookCommands(in: proposal).count == 1)
         #expect(try hookCommands(in: proposal).first?.hasSuffix(" &") == true)

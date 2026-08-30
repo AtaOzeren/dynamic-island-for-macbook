@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
@@ -164,9 +165,10 @@ struct SettingsStoreTests {
         store[.showTimer] = false
         store[.showAudioRecording] = false
 
-        #expect(store.enabledProviderIdentifiers == [
-            .music, .screenRecording, .charging
-        ])
+        #expect(
+            store.enabledProviderIdentifiers == [
+                .music, .screenRecording, .charging,
+            ])
     }
 
     @Test("propagates provider key changes as provider enablement")

@@ -56,7 +56,7 @@ public struct MusicPresentation: Equatable, Sendable {
                 command: .nextTrack,
                 symbolName: "forward.fill",
                 accessibilityLabel: localized("Next track")
-            )
+            ),
         ]
     }
 

@@ -35,14 +35,14 @@ public enum AIEventClass: String, CaseIterable, Equatable, Hashable, Sendable {
     }
 }
 
-public extension AIAgentState {
+extension AIAgentState {
     /// The event class a user switch can silence this state through, or `nil`
     /// when no documented switch names it.
     ///
     /// `working` and `idle` return `nil` deliberately: the settings table gives
     /// neither a toggle, and inventing one here would let a user silence the
     /// state that *ends* an activity, stranding a stale agent card in the notch.
-    var eventClass: AIEventClass? {
+    public var eventClass: AIEventClass? {
         switch self {
         case .thinking: .taskStarted
         case .completed: .taskCompleted

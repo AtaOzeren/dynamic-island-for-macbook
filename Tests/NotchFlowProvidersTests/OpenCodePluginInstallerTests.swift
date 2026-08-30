@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowProviders
 
 @Suite("OpenCodePluginInstaller")
@@ -168,6 +169,6 @@ private final class InMemoryOpenCodePluginFileSystem: OpenCodePluginFileSystem,
     }
 
     func text(at url: URL) -> String? {
-        files[url].flatMap { String(data: $0, encoding: .utf8) }
+        files[url].flatMap { String(bytes: $0, encoding: .utf8) }
     }
 }

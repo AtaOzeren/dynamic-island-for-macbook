@@ -59,8 +59,9 @@ public struct TimerPresentation: Equatable, Sendable {
         return [
             isRunning
                 ? TimerControl(command: .pause, symbolName: "pause.fill", accessibilityLabel: localized("Pause timer"))
-                : TimerControl(command: .resume, symbolName: "play.fill", accessibilityLabel: localized("Resume timer")),
-            Self.stopControl(label: localized("Stop timer"), symbolName: "stop.fill")
+                : TimerControl(
+                    command: .resume, symbolName: "play.fill", accessibilityLabel: localized("Resume timer")),
+            Self.stopControl(label: localized("Stop timer"), symbolName: "stop.fill"),
         ]
     }
 

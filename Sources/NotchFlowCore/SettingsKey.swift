@@ -36,8 +36,8 @@ public struct SettingsKey<Value: Equatable & Sendable>: Equatable, Hashable, Sen
     }
 }
 
-public extension SettingsKey where Value == DisplayPreference {
-    static var displayTarget: Self {
+extension SettingsKey where Value == DisplayPreference {
+    public static var displayTarget: Self {
         SettingsKey(
             path: "display.target",
             defaultValue: .automatic,
@@ -63,8 +63,8 @@ public extension SettingsKey where Value == DisplayPreference {
     }
 }
 
-public extension SettingsKey where Value == SettingsAppearance {
-    static var appearance: Self {
+extension SettingsKey where Value == SettingsAppearance {
+    public static var appearance: Self {
         rawRepresentableKey(
             path: "general.appearance",
             defaultValue: SettingsAppearance.auto
@@ -72,40 +72,40 @@ public extension SettingsKey where Value == SettingsAppearance {
     }
 }
 
-public extension SettingsKey where Value == Bool {
-    static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
-    static var showMusic: Self { boolKey(path: "providers.music.enabled", defaultValue: true) }
-    static var showTimer: Self { boolKey(path: "providers.timer.enabled", defaultValue: true) }
-    static var showScreenRecording: Self {
+extension SettingsKey where Value == Bool {
+    public static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
+    public static var showMusic: Self { boolKey(path: "providers.music.enabled", defaultValue: true) }
+    public static var showTimer: Self { boolKey(path: "providers.timer.enabled", defaultValue: true) }
+    public static var showScreenRecording: Self {
         boolKey(path: "providers.screenRecording.enabled", defaultValue: true)
     }
-    static var showAudioRecording: Self {
+    public static var showAudioRecording: Self {
         boolKey(path: "providers.audioRecording.enabled", defaultValue: true)
     }
-    static var showCharging: Self { boolKey(path: "providers.charging.enabled", defaultValue: true) }
-    static var enableClaudeCode: Self {
+    public static var showCharging: Self { boolKey(path: "providers.charging.enabled", defaultValue: true) }
+    public static var enableClaudeCode: Self {
         boolKey(path: "ai.agents.claudeCode.enabled", defaultValue: false)
     }
-    static var enableCodex: Self { boolKey(path: "ai.agents.codex.enabled", defaultValue: false) }
-    static var enableOpenCode: Self {
+    public static var enableCodex: Self { boolKey(path: "ai.agents.codex.enabled", defaultValue: false) }
+    public static var enableOpenCode: Self {
         boolKey(path: "ai.agents.openCode.enabled", defaultValue: false)
     }
-    static var showAITaskStarted: Self { boolKey(path: "ai.events.taskStarted", defaultValue: true) }
-    static var showAITaskCompleted: Self {
+    public static var showAITaskStarted: Self { boolKey(path: "ai.events.taskStarted", defaultValue: true) }
+    public static var showAITaskCompleted: Self {
         boolKey(path: "ai.events.taskCompleted", defaultValue: true)
     }
-    static var showAITaskError: Self { boolKey(path: "ai.events.taskError", defaultValue: true) }
-    static var showAINeedsInput: Self { boolKey(path: "ai.events.needsInput", defaultValue: true) }
-    static var showAIToolActivity: Self {
+    public static var showAITaskError: Self { boolKey(path: "ai.events.taskError", defaultValue: true) }
+    public static var showAINeedsInput: Self { boolKey(path: "ai.events.needsInput", defaultValue: true) }
+    public static var showAIToolActivity: Self {
         boolKey(path: "ai.events.toolActivity", defaultValue: false)
     }
-    static var hasCompletedOnboarding: Self {
+    public static var hasCompletedOnboarding: Self {
         boolKey(path: "general.hasCompletedOnboarding", defaultValue: false)
     }
 }
 
-public extension SettingsKey where Value == Bool? {
-    static var reducedMotionOverride: Self {
+extension SettingsKey where Value == Bool? {
+    public static var reducedMotionOverride: Self {
         SettingsKey(
             path: "general.reducedMotionOverride",
             defaultValue: nil,
@@ -115,8 +115,8 @@ public extension SettingsKey where Value == Bool? {
     }
 }
 
-public extension SettingsKey where Value == String? {
-    static var languageOverride: Self {
+extension SettingsKey where Value == String? {
+    public static var languageOverride: Self {
         SettingsKey(
             path: "general.languageOverride",
             defaultValue: nil,

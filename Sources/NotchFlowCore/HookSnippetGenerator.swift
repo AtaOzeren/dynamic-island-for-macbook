@@ -12,7 +12,8 @@ public struct HookSnippetGenerator: Sendable {
     }
 
     public func claudeCodeSettingsFragment() throws -> String {
-        let command = "\(try shellSingleQuotedNotifierPath()) --agent claude-code "
+        let command =
+            "\(try shellSingleQuotedNotifierPath()) --agent claude-code "
             + #"--state usingTool --session "$CLAUDE_SESSION_ID" &"#
         let fragment: [String: Any] = [
             "hooks": [
@@ -21,7 +22,7 @@ public struct HookSnippetGenerator: Sendable {
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": command
+                                "command": command,
                             ]
                         ]
                     ]
@@ -33,7 +34,7 @@ public struct HookSnippetGenerator: Sendable {
             withJSONObject: fragment,
             options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         )
-        guard let output = String(data: data, encoding: .utf8) else {
+        guard let output = String(bytes: data, encoding: .utf8) else {
             throw HookSnippetGenerationError.invalidNotifierExecutablePath
         }
         return output + "\n"
@@ -46,50 +47,50 @@ public struct HookSnippetGenerator: Sendable {
 
     public func openCodePluginFile() -> String {
         return """
-        import type { Plugin } from "@opencode-ai/plugin"
-        import { spawn } from "node:child_process"
+            import type { Plugin } from "@opencode-ai/plugin"
+            import { spawn } from "node:child_process"
 
-        const notifierExecutablePath = \(Self.jsonLiteral(notifierExecutablePath))
+            const notifierExecutablePath = \(Self.jsonLiteral(notifierExecutablePath))
 
-        const notify = (state: string, sessionId: string) => {
-          const child = spawn(
-            notifierExecutablePath,
-            ["--agent", "opencode", "--state", state, "--session", sessionId],
-            { detached: true, stdio: "ignore" },
-          )
-          child.unref()
-        }
-
-        export const NotchFlowPlugin: Plugin = async () => ({
-          event: async ({ event }) => {
-            switch (event.type) {
-              case "session.created":
-                notify("thinking", event.properties.info.id)
-                break
-              case "session.idle":
-                notify("completed", event.properties.sessionID)
-                break
-              case "session.error":
-                notify("error", event.properties.sessionID)
-                break
+            const notify = (state: string, sessionId: string) => {
+              const child = spawn(
+                notifierExecutablePath,
+                ["--agent", "opencode", "--state", state, "--session", sessionId],
+                { detached: true, stdio: "ignore" },
+              )
+              child.unref()
             }
-          },
-          "tool.execute.before": async (input) => {
-            notify("usingTool", input.sessionID)
-          },
-          "tool.execute.after": async (input) => {
-            notify("working", input.sessionID)
-          },
-        })
 
-        """
+            export const NotchFlowPlugin: Plugin = async () => ({
+              event: async ({ event }) => {
+                switch (event.type) {
+                  case "session.created":
+                    notify("thinking", event.properties.info.id)
+                    break
+                  case "session.idle":
+                    notify("completed", event.properties.sessionID)
+                    break
+                  case "session.error":
+                    notify("error", event.properties.sessionID)
+                    break
+                }
+              },
+              "tool.execute.before": async (input) => {
+                notify("usingTool", input.sessionID)
+              },
+              "tool.execute.after": async (input) => {
+                notify("working", input.sessionID)
+              },
+            })
+
+            """
     }
 
     private func shellSingleQuotedNotifierPath() throws -> String {
         guard !notifierExecutablePath.isEmpty,
-              notifierExecutablePath.unicodeScalars.allSatisfy({
-                  !CharacterSet.controlCharacters.contains($0)
-              })
+            notifierExecutablePath.unicodeScalars.allSatisfy({
+                !CharacterSet.controlCharacters.contains($0)
+            })
         else {
             throw HookSnippetGenerationError.invalidNotifierExecutablePath
         }

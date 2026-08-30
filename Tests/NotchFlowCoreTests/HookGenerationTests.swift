@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("HookGeneration")
@@ -19,12 +20,12 @@ struct HookGenerationTests {
         let hookGroup = try #require(preToolUse.first)
         let commands = try #require(hookGroup["hooks"] as? [[String: String]])
         let command = try #require(commands.first)
+        let expectedCommand =
+            #"'/Applications/Notch "Flow"/bin/notchflow-notify' --agent claude-code "#
+            + #"--state usingTool --session "$CLAUDE_SESSION_ID" &"#
 
         #expect(command["type"] == "command")
-        #expect(
-            command["command"]
-                == #"'/Applications/Notch "Flow"/bin/notchflow-notify' --agent claude-code --state usingTool --session "$CLAUDE_SESSION_ID" &"#
-        )
+        #expect(command["command"] == expectedCommand)
     }
 
     @Test("generates a valid Codex notify fragment")

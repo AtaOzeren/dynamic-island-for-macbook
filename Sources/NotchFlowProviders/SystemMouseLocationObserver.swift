@@ -19,7 +19,7 @@ public final class SystemMouseLocationObserver: MouseLocationObserving {
         .mouseMoved,
         .leftMouseDragged,
         .rightMouseDragged,
-        .otherMouseDragged
+        .otherMouseDragged,
     ]
 
     private let install: (NSEvent.EventTypeMask, @escaping @MainActor (CGPoint) -> Void) -> [Any]
@@ -30,16 +30,22 @@ public final class SystemMouseLocationObserver: MouseLocationObserving {
             install: { mask, report in
                 var monitors: [Any] = []
 
-                if let global = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: { event in
-                    MainActor.assumeIsolated { report(event.locationOnScreen) }
-                }) {
+                if let global = NSEvent.addGlobalMonitorForEvents(
+                    matching: mask,
+                    handler: { event in
+                        MainActor.assumeIsolated { report(event.locationOnScreen) }
+                    })
+                {
                     monitors.append(global)
                 }
 
-                if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { event in
-                    MainActor.assumeIsolated { report(event.locationOnScreen) }
-                    return event
-                }) {
+                if let local = NSEvent.addLocalMonitorForEvents(
+                    matching: mask,
+                    handler: { event in
+                        MainActor.assumeIsolated { report(event.locationOnScreen) }
+                        return event
+                    })
+                {
                     monitors.append(local)
                 }
 
@@ -93,12 +99,12 @@ private final class MonitorBag: @unchecked Sendable {
     }
 }
 
-private extension NSEvent {
+extension NSEvent {
     /// Normalizes `NSEvent.locationInWindow` onto global screen coordinates. Local
     /// mouse-moved events are expressed relative to the target window; the
     /// global event carries no window and its location is already global.
     @MainActor
-    var locationOnScreen: CGPoint {
+    fileprivate var locationOnScreen: CGPoint {
         window?.convertPoint(toScreen: locationInWindow) ?? locationInWindow
     }
 }

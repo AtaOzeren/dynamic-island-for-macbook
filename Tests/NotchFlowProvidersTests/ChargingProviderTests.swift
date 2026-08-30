@@ -26,6 +26,7 @@ struct ChargingProviderTests {
 
         var states: [ChargingState?] { values.map { $0?.state } }
         var count: Int { values.count }
+        var isEmpty: Bool { values.isEmpty }
 
         func record(_ activity: ChargingActivity?) {
             values.append(activity)
@@ -47,7 +48,7 @@ struct ChargingProviderTests {
         fixture.source.emit(.onBattery)
 
         #expect(fixture.provider.currentActivity == nil)
-        #expect(fixture.emissions.count == 0)
+        #expect(fixture.emissions.isEmpty)
     }
 
     /// The whole documented happy path in one pass: connecting power registers
@@ -108,7 +109,7 @@ struct ChargingProviderTests {
         fixture.source.emit(.onBattery)
         fixture.source.emit(.onBattery)
 
-        #expect(fixture.emissions.count == 0)
+        #expect(fixture.emissions.isEmpty)
     }
 
     /// Batteries drain below full while still plugged in and resume charging.
@@ -173,7 +174,7 @@ struct ChargingProviderTests {
     func emitsOnlyOnCallbacks() {
         let fixture = Self.makeProvider()
 
-        #expect(fixture.emissions.count == 0)
+        #expect(fixture.emissions.isEmpty)
 
         fixture.source.emit(.pluggedIn)
 

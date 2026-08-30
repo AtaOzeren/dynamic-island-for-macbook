@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 /// The value half of todo 64: what NotchFlow is allowed to do with one music app
@@ -65,7 +66,7 @@ struct MusicAutomationTests {
         let explanations = [
             Self.access(.notDetermined).explanation,
             Self.access(.granted).explanation,
-            Self.access(.denied).explanation
+            Self.access(.denied).explanation,
         ]
 
         for explanation in explanations {

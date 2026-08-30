@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
@@ -97,12 +98,13 @@ struct ProviderRegistrationTests {
         var emissions: [ActivityEmission] = []
 
         registration.startObserving { emissions.append($0) }
-        provider.emit(NowPlaying(
-            title: "Nannou",
-            artist: "Aphex Twin",
-            playbackState: .playing,
-            sourceApplicationName: "Spotify"
-        ))
+        provider.emit(
+            NowPlaying(
+                title: "Nannou",
+                artist: "Aphex Twin",
+                playbackState: .playing,
+                sourceApplicationName: "Spotify"
+            ))
 
         #expect(registration.identifier == .music)
         #expect(emissions.first?.identity == MusicActivity.identity)
@@ -124,10 +126,12 @@ struct ProviderRegistrationTests {
     /// The two recording switches are separate settings rows, so a registration
     /// that read the wrong one would silently wire the microphone indicator to
     /// the screen-recording toggle.
-    @Test("takes its recording identifier from the provider's source", arguments: [
-        (RecordingSource.screen, ActivityProviderIdentifier.screenRecording),
-        (RecordingSource.audio, ActivityProviderIdentifier.audioRecording)
-    ])
+    @Test(
+        "takes its recording identifier from the provider's source",
+        arguments: [
+            (RecordingSource.screen, ActivityProviderIdentifier.screenRecording),
+            (RecordingSource.audio, ActivityProviderIdentifier.audioRecording),
+        ])
     func recordingIdentifierFollowsSource(
         source: RecordingSource,
         expected: ActivityProviderIdentifier
@@ -164,8 +168,8 @@ struct ProviderRegistrationTests {
     }
 }
 
-private extension ActivityEmission {
-    var isEnded: Bool {
+extension ActivityEmission {
+    fileprivate var isEnded: Bool {
         if case .ended = self { return true }
         return false
     }

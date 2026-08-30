@@ -144,7 +144,8 @@ public struct OnboardingWindowView: View {
     private var welcomeStep: some View {
         heading(
             title: localized("Welcome to NotchFlow"),
-            body: localized("""
+            body: localized(
+                """
                 NotchFlow turns the area around your notch into a live activity \
                 surface: what is playing, running timers, screen and audio recording \
                 indicators, charging state, and the status of your AI coding agents.
@@ -156,7 +157,8 @@ public struct OnboardingWindowView: View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             heading(
                 title: localized("Permissions come later"),
-                body: localized("""
+                body: localized(
+                    """
                     NotchFlow asks for nothing right now. Each permission is \
                     requested only when you turn on the feature that needs it, and \
                     only after NotchFlow explains what it is about to ask for.
@@ -189,7 +191,8 @@ public struct OnboardingWindowView: View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             heading(
                 title: localized("You are set up"),
-                body: localized("""
+                body: localized(
+                    """
                     NotchFlow lives in the menu bar. Everything you just saw — \
                     and everything you skipped — can be changed at any time in \
                     Settings.
@@ -204,12 +207,14 @@ public struct OnboardingWindowView: View {
     /// anything: an empty list is a normal outcome, not an error to hide.
     private var agentsBodyText: String {
         flow.detectedAgents.isEmpty
-            ? localized("""
+            ? localized(
+                """
                 No agent configuration was found for Claude Code, Codex CLI, or \
                 OpenCode. You can install a hook later from Settings once one is \
                 set up.
                 """)
-            : localized("""
+            : localized(
+                """
                 NotchFlow found configuration for the agents below. Installing a \
                 hook shows you the exact snippet and asks for approval before \
                 anything is written — nothing is installed until you finish setup.

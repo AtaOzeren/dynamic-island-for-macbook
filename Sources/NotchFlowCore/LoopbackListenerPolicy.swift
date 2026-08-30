@@ -83,7 +83,8 @@ public struct LoopbackListenerPolicy: Sendable {
         }
         let now = configuration.now()
         if let lastAcceptedAt = lastAcceptedAtBySessionID[message.sessionId],
-           now.timeIntervalSince(lastAcceptedAt) < configuration.minimumInterval {
+            now.timeIntervalSince(lastAcceptedAt) < configuration.minimumInterval
+        {
             return .rejected(.rateLimited)
         }
 

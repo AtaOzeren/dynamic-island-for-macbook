@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("IPCMessage")
@@ -154,7 +155,7 @@ struct IPCMessageTests {
             "detail": "Running test suite",
             "toolName": "Bash",
             "progress": 0.5,
-            "timestamp": "2026-08-29T12:00:00Z"
+            "timestamp": "2026-08-29T12:00:00Z",
         ]
         object.merge(replacements) { _, replacement in replacement }
         if let removedField {

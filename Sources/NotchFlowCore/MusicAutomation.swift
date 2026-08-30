@@ -105,7 +105,8 @@ public struct MusicAutomationAccess: Equatable, Sendable {
     public var explanation: String {
         switch status {
         case .notDetermined:
-            localized("""
+            localized(
+                """
                 NotchFlow will ask macOS for permission to control \(target.displayName), \
                 so the notch can show what is playing and its buttons can control playback. \
                 Nothing is sent anywhere; NotchFlow only talks to \(target.displayName) on this Mac.
@@ -113,7 +114,8 @@ public struct MusicAutomationAccess: Equatable, Sendable {
         case .granted:
             localized("NotchFlow can show and control what \(target.displayName) is playing.")
         case .denied:
-            localized("""
+            localized(
+                """
                 \(target.displayName) control is off because macOS permission was declined. \
                 Everything else in NotchFlow keeps working. \
                 To turn it on, allow NotchFlow for \(target.displayName) in \

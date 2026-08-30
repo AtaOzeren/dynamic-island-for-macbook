@@ -1,9 +1,14 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("Loopback listener policy")
 struct LoopbackListenerPolicyTests {
+    private static let defaultSessionID = UUID(
+        uuid: (0x9E, 0x1C, 0x85, 0x18, 0x9D, 0xA0, 0x4E, 0x93, 0x83, 0x13, 0x26, 0x37, 0xD4, 0xE5, 0x76, 0x9F)
+    )
+
     private final class Clock: @unchecked Sendable {
         var now = Date(timeIntervalSinceReferenceDate: 0)
 
@@ -95,8 +100,10 @@ struct LoopbackListenerPolicyTests {
             preferences: .init(enabledAgentIDs: [.claudeCode]),
             configuration: configuration
         )
-        let firstSession = UUID(uuidString: "9E1C8518-9DA0-4E93-8313-2637D4E5769F")!
-        let secondSession = UUID(uuidString: "ABF5A0FC-E8F8-4095-8586-BC88C0F51067")!
+        let firstSession = Self.defaultSessionID
+        let secondSession = UUID(
+            uuid: (0xAB, 0xF5, 0xA0, 0xFC, 0xE8, 0xF8, 0x40, 0x95, 0x85, 0x86, 0xBC, 0x88, 0xC0, 0xF5, 0x10, 0x67)
+        )
 
         #expect(policy.evaluate(Self.payload(sessionID: firstSession)).isAccepted)
         #expect(policy.evaluate(Self.payload(sessionID: firstSession)) == .rejected(.rateLimited))
@@ -128,7 +135,7 @@ struct LoopbackListenerPolicyTests {
 
     private static func payload(
         agentID: String = "claude-code",
-        sessionID: UUID = UUID(uuidString: "9E1C8518-9DA0-4E93-8313-2637D4E5769F")!,
+        sessionID: UUID = defaultSessionID,
         state: String = "working"
     ) -> Data {
         let object: [String: Any] = [
@@ -137,8 +144,12 @@ struct LoopbackListenerPolicyTests {
             "sessionId": sessionID.uuidString,
             "state": state,
             "detail": "Running tests",
-            "timestamp": "2026-08-30T00:00:00Z"
+            "timestamp": "2026-08-30T00:00:00Z",
         ]
-        return try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        do {
+            return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        } catch {
+            preconditionFailure("Test payload must be JSON serializable: \(error)")
+        }
     }
 }

@@ -182,7 +182,7 @@ struct SystemAudioRecordingObserverTests {
 
         fixture.observer.stopObserving()
 
-        #expect(fixture.listeners.count == 0)
+        #expect(fixture.listeners.isEmpty)
     }
 
     /// After teardown the observer owes its former listener nothing, even if
@@ -213,6 +213,7 @@ private final class FakeAudioPropertyListeners: AudioPropertyListening {
     private var blocks: [Key: () -> Void] = [:]
 
     var count: Int { blocks.count }
+    var isEmpty: Bool { blocks.isEmpty }
 
     func listen(
         to property: AudioProperty,

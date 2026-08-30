@@ -18,8 +18,9 @@ public func selectDisplay(
     from availableDisplays: [DisplayDescription],
     preference: DisplayPreference
 ) -> DisplayDescription? {
-    guard let fallbackDisplay = availableDisplays.first(where: \.isBuiltIn)
-        ?? availableDisplays.first
+    guard
+        let fallbackDisplay = availableDisplays.first(where: \.isBuiltIn)
+            ?? availableDisplays.first
     else {
         return nil
     }
@@ -27,7 +28,7 @@ public func selectDisplay(
     switch preference {
     case .automatic, .builtIn:
         return fallbackDisplay
-    case let .named(name):
+    case .named(let name):
         return availableDisplays.first { $0.name == name } ?? fallbackDisplay
     }
 }

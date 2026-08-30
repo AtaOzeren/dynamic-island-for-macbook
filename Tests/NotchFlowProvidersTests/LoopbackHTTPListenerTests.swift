@@ -1,6 +1,7 @@
 import Foundation
-import Testing
 import NotchFlowCore
+import Testing
+
 @testable import NotchFlowProviders
 
 @Suite("Loopback HTTP listener", .serialized)
@@ -115,12 +116,10 @@ struct LoopbackHTTPListenerTests {
     }
 
     private static func post(_ requestParameters: Request) async throws -> HTTPURLResponse {
-        var request = URLRequest(
-            url: URL(
-                string: "http://127.0.0.1:\(requestParameters.port)\(requestParameters.path)"
-            )!,
-            timeoutInterval: 1
+        let url = try #require(
+            URL(string: "http://127.0.0.1:\(requestParameters.port)\(requestParameters.path)")
         )
+        var request = URLRequest(url: url, timeoutInterval: 1)
         request.httpMethod = "POST"
         request.httpBody = requestParameters.body
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -136,8 +135,12 @@ struct LoopbackHTTPListenerTests {
             "sessionId": "9E1C8518-9DA0-4E93-8313-2637D4E5769F",
             "state": "working",
             "detail": "Running tests",
-            "timestamp": "2026-08-30T00:00:00Z"
+            "timestamp": "2026-08-30T00:00:00Z",
         ]
-        return try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        do {
+            return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        } catch {
+            preconditionFailure("Test payload must be JSON serializable: \(error)")
+        }
     }
 }

@@ -1,5 +1,6 @@
 import CoreGraphics
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("Geometry")
@@ -106,18 +107,20 @@ struct GeometryTests {
         let leftArea = CGRect(x: 0, y: 945, width: 719, height: 37)
         let rightArea = CGRect(x: 793, y: 945, width: 719, height: 37)
 
-        #expect(notchRect(
-            frame: frame,
-            safeAreaInsets: insets,
-            auxiliaryTopLeftArea: nil,
-            auxiliaryTopRightArea: rightArea
-        ) == nil)
-        #expect(notchRect(
-            frame: frame,
-            safeAreaInsets: insets,
-            auxiliaryTopLeftArea: leftArea,
-            auxiliaryTopRightArea: nil
-        ) == nil)
+        #expect(
+            notchRect(
+                frame: frame,
+                safeAreaInsets: insets,
+                auxiliaryTopLeftArea: nil,
+                auxiliaryTopRightArea: rightArea
+            ) == nil)
+        #expect(
+            notchRect(
+                frame: frame,
+                safeAreaInsets: insets,
+                auxiliaryTopLeftArea: leftArea,
+                auxiliaryTopRightArea: nil
+            ) == nil)
     }
 
     @Test("returns nil for empty auxiliary areas")
@@ -126,35 +129,39 @@ struct GeometryTests {
         let insets = ScreenSafeAreaInsets(top: 37)
         let validArea = CGRect(x: 793, y: 945, width: 719, height: 37)
 
-        #expect(notchRect(
-            frame: frame,
-            safeAreaInsets: insets,
-            auxiliaryTopLeftArea: .zero,
-            auxiliaryTopRightArea: validArea
-        ) == nil)
-        #expect(notchRect(
-            frame: frame,
-            safeAreaInsets: insets,
-            auxiliaryTopLeftArea: validArea,
-            auxiliaryTopRightArea: CGRect(x: 1_512, y: 945, width: 0, height: 37)
-        ) == nil)
+        #expect(
+            notchRect(
+                frame: frame,
+                safeAreaInsets: insets,
+                auxiliaryTopLeftArea: .zero,
+                auxiliaryTopRightArea: validArea
+            ) == nil)
+        #expect(
+            notchRect(
+                frame: frame,
+                safeAreaInsets: insets,
+                auxiliaryTopLeftArea: validArea,
+                auxiliaryTopRightArea: CGRect(x: 1_512, y: 945, width: 0, height: 37)
+            ) == nil)
     }
 
     @Test("returns nil for degenerate geometry")
     func degenerateGeometry() {
         let insets = ScreenSafeAreaInsets(top: 37)
 
-        #expect(notchRect(
-            frame: .zero,
-            safeAreaInsets: insets,
-            auxiliaryTopLeftArea: CGRect(x: 0, y: 0, width: 719, height: 37),
-            auxiliaryTopRightArea: CGRect(x: 793, y: 0, width: 719, height: 37)
-        ) == nil)
-        #expect(notchRect(
-            frame: CGRect(x: 0, y: 0, width: 1_512, height: 982),
-            safeAreaInsets: insets,
-            auxiliaryTopLeftArea: CGRect(x: 0, y: 945, width: 800, height: 37),
-            auxiliaryTopRightArea: CGRect(x: 793, y: 945, width: 719, height: 37)
-        ) == nil)
+        #expect(
+            notchRect(
+                frame: .zero,
+                safeAreaInsets: insets,
+                auxiliaryTopLeftArea: CGRect(x: 0, y: 0, width: 719, height: 37),
+                auxiliaryTopRightArea: CGRect(x: 793, y: 0, width: 719, height: 37)
+            ) == nil)
+        #expect(
+            notchRect(
+                frame: CGRect(x: 0, y: 0, width: 1_512, height: 982),
+                safeAreaInsets: insets,
+                auxiliaryTopLeftArea: CGRect(x: 0, y: 945, width: 800, height: 37),
+                auxiliaryTopRightArea: CGRect(x: 793, y: 945, width: 719, height: 37)
+            ) == nil)
     }
 }

@@ -41,7 +41,8 @@ struct RecordingActivityTests {
     func advancingIsPathIndependent() {
         let recording = RecordingActivity.started(.audio, at: Self.start)
 
-        let stepped = recording
+        let stepped =
+            recording
             .advanced(to: Self.date(10))
             .advanced(to: Self.date(20))
             .advanced(to: Self.date(30))

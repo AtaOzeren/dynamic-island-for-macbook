@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowProviders
 
@@ -107,7 +108,7 @@ struct MusicAutomationGateTests {
     func explanationIsOfferedOnlyOnce() {
         let (gate, authority, explained) = Self.make(explainerAnswers: false)
 
-        for _ in 0 ..< 5 {
+        for _ in 0..<5 {
             _ = gate.canQuery(.spotify)
         }
 

@@ -75,12 +75,14 @@ public func compactHitRect(
     metrics: PanelMetrics = .default
 ) -> CGRect {
     let panel = panelFrame(for: screen, metrics: metrics)
-    let pill = notchRect(for: screen) ?? CGRect(
-        x: screen.frame.midX - metrics.compactFallbackSize.width / 2,
-        y: screen.frame.maxY - metrics.compactFallbackSize.height,
-        width: metrics.compactFallbackSize.width,
-        height: metrics.compactFallbackSize.height
-    )
+    let pill =
+        notchRect(for: screen)
+        ?? CGRect(
+            x: screen.frame.midX - metrics.compactFallbackSize.width / 2,
+            y: screen.frame.maxY - metrics.compactFallbackSize.height,
+            width: metrics.compactFallbackSize.width,
+            height: metrics.compactFallbackSize.height
+        )
 
     let width = min(pill.width + metrics.compactHitPadding * 2, panel.width)
     let height = min(pill.height + metrics.compactHitPadding, panel.height)

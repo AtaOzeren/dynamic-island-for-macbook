@@ -34,7 +34,7 @@ public struct GeneralSettingsView: View {
         switch preference {
         case .automatic: localized("Automatic")
         case .builtIn: localized("Built-in display")
-        case let .named(name): name
+        case .named(let name): name
         }
     }
 
@@ -113,7 +113,8 @@ public struct GeneralSettingsView: View {
     private var startupSection: some View {
         SettingsSection(
             title: localized("Startup"),
-            caption: localized("NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login."),
+            caption: localized(
+                "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login."),
             metrics: metrics
         ) {
             Toggle(localized("Launch at login"), isOn: launchAtLogin)

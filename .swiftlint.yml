@@ -1,7 +1,10 @@
 disabled_rules:
+  - closure_parameter_position
+  - opening_brace
+  - optional_data_string_conversion
+  - trailing_comma
   - trailing_whitespace
 opt_in_rules:
-  - strict_file_private
   - force_unwrapping
   - empty_count
   - explicit_init
@@ -37,6 +40,36 @@ line_length:
   warning: 140
   error: 200
 
+identifier_name:
+  excluded:
+    - at
+    - id
+
 file_length:
-  warning: 250
+  warning: 400
+  error: 400
+  ignore_comment_only_lines: true
+
+type_body_length:
+  warning: 350
   error: 350
+
+large_tuple:
+  warning: 3
+  error: 3
+
+cyclomatic_complexity:
+  warning: 12
+  error: 12
+
+function_body_length:
+  warning: 60
+  error: 60
+
+force_try:
+  severity: warning
+  excluded:
+    - Tests
+
+force_unwrapping:
+  severity: warning

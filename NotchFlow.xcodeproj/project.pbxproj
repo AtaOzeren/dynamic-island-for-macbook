@@ -15,6 +15,7 @@
 		F10000012C81000000000009 /* OnboardingPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000010 /* OnboardingPresenter.swift */; };
 		F10000012C81000000000010 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000011 /* Localizable.xcstrings */; };
 		F10000012C81000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000012 /* Assets.xcassets */; };
+		F10000012C81000000000012 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000013 /* AppIntents.framework */; };
 		F10000012C81000000000002 /* NotchFlowCore in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000001 /* NotchFlowCore */; };
 		F10000012C81000000000003 /* NotchFlowProviders in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000002 /* NotchFlowProviders */; };
 		F10000012C81000000000004 /* NotchFlowUI in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000003 /* NotchFlowUI */; };
@@ -33,6 +34,7 @@
 		F10000022C81000000000010 /* OnboardingPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPresenter.swift; sourceTree = "<group>"; };
 		F10000022C81000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F10000022C81000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F10000022C81000000000013 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -40,6 +42,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F10000012C81000000000012 /* AppIntents.framework in Frameworks */,
 				F10000012C81000000000002 /* NotchFlowCore in Frameworks */,
 				F10000012C81000000000003 /* NotchFlowProviders in Frameworks */,
 				F10000012C81000000000004 /* NotchFlowUI in Frameworks */,

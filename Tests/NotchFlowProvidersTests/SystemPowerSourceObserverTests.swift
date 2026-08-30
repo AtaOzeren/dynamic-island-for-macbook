@@ -20,7 +20,7 @@ struct PowerSourceDescriptionTests {
     ) -> [String: Any] {
         var description: [String: Any] = [
             kIOPSTypeKey: kIOPSInternalBatteryType,
-            kIOPSPowerSourceStateKey: powerSource
+            kIOPSPowerSourceStateKey: powerSource,
         ]
 
         // Present in every fixture precisely because the classifier must never

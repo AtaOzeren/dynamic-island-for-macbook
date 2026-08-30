@@ -1,5 +1,6 @@
 import SwiftUI
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowUI
 
@@ -76,7 +77,7 @@ struct ActivitiesSettingsViewTests {
     func paneRendersBothTargets() {
         let view = Self.view(automation: [
             Self.access(.granted, .spotify),
-            Self.access(.denied, .appleMusic)
+            Self.access(.denied, .appleMusic),
         ])
 
         #expect(view.isMusicAutomationSectionVisible)

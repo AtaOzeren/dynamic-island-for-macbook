@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("ActivityManager")
@@ -57,7 +58,7 @@ struct ActivityManagerTests {
         )
 
         manager.register(activity, at: date(1))
-        
+
         let updatedActivity = StubManagerActivity(
             identity: ActivityIdentity("timer.focus"),
             kind: .timer,
@@ -108,11 +109,12 @@ struct ActivityManagerTests {
         manager.register(timer, at: date(3))
 
         let identities = manager.activeActivities.map(\.identity)
-        #expect(identities == [
-            ActivityIdentity("timer.pomodoro"),
-            ActivityIdentity("file.copy"),
-            ActivityIdentity("music.track")
-        ])
+        #expect(
+            identities == [
+                ActivityIdentity("timer.pomodoro"),
+                ActivityIdentity("file.copy"),
+                ActivityIdentity("music.track"),
+            ])
     }
 
     @Test("enforces compact slot limit and reports overflow count")

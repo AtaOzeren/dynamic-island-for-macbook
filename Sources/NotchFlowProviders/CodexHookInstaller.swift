@@ -217,7 +217,7 @@ public struct CodexHookInstaller: Sendable {
         from data: Data,
         error: CodexHookInstallerError
     ) throws -> String {
-        guard let text = String(data: data, encoding: .utf8), syntaxValidator(text) else {
+        guard let text = String(bytes: data, encoding: .utf8), syntaxValidator(text) else {
             throw error
         }
         return text

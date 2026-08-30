@@ -29,7 +29,8 @@ public struct ManualSetupInstructions: Equatable, Sendable {
     /// the work is theirs. Kept separate from `steps` so the view can give it
     /// the quieter treatment a subtitle gets.
     public var summary: String {
-        localized("""
+        localized(
+            """
             NotchFlow could not write this file for you. \
             Copy the text below into \(destinationPath) to finish setup.
             """)
@@ -42,7 +43,7 @@ public struct ManualSetupInstructions: Equatable, Sendable {
         [
             localized("Open \(destinationPath) in your editor, creating it if it does not exist."),
             replacementStep,
-            localized("Save the file, then restart \(agent.displayName) so it picks up the change.")
+            localized("Save the file, then restart \(agent.displayName) so it picks up the change."),
         ]
     }
 
@@ -52,7 +53,8 @@ public struct ManualSetupInstructions: Equatable, Sendable {
     private var replacementStep: String {
         switch agent {
         case .claudeCode, .codex:
-            localized("""
+            localized(
+                """
                 Replace the file's entire contents with the text below — \
                 NotchFlow has already merged your existing settings into it.
                 """)

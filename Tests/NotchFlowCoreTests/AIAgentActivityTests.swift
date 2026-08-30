@@ -9,7 +9,9 @@ import Testing
 /// of it is pure logic over injected state, so none of it needs a running agent.
 @Suite("AIAgentActivity")
 struct AIAgentActivityTests {
-    private static let session = UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!
+    private static let session = UUID(
+        uuid: (0x6F, 0x96, 0x19, 0xFF, 0x8B, 0x86, 0xD0, 0x11, 0xB4, 0x2D, 0x00, 0xC0, 0x4F, 0xC9, 0x64, 0xFF)
+    )
 
     private static func activity(
         agent: IPCAgentID = .claudeCode,
@@ -91,7 +93,7 @@ struct AIAgentActivityTests {
                 Self.activity().identity,
                 Self.activity(sessionID: otherSession).identity,
                 Self.activity(agent: .codex).identity,
-                Self.activity(agent: .opencode).identity
+                Self.activity(agent: .opencode).identity,
             ]
         )
 

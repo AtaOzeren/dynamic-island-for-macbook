@@ -159,6 +159,6 @@ public final class MusicAutomationGate {
     }
 }
 
-private extension AutomationPermissionStatus {
-    var isGranted: Bool { self == .granted }
+extension AutomationPermissionStatus {
+    fileprivate var isGranted: Bool { self == .granted }
 }

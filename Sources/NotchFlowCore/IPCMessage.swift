@@ -58,7 +58,7 @@ public struct IPCMessageValidator: Sendable {
         "sessionId",
         "state",
         "detail",
-        "timestamp"
+        "timestamp",
     ]
     private static let allowedFields = Set(requiredFields + ["toolName", "progress"])
     private static let shellMetacharacters = CharacterSet(
@@ -88,7 +88,7 @@ public struct IPCMessageValidator: Sendable {
     }
 
     private func parseFields(from payload: Data) throws -> [String: Any] {
-        guard String(data: payload, encoding: .utf8) != nil else {
+        guard String(bytes: payload, encoding: .utf8) != nil else {
             throw IPCMessageValidationError.malformedPayload
         }
 
@@ -112,7 +112,8 @@ public struct IPCMessageValidator: Sendable {
         if let unexpectedField = fields.keys
             .filter({ !Self.allowedFields.contains($0) })
             .sorted()
-            .first {
+            .first
+        {
             throw IPCMessageValidationError.unexpectedField(unexpectedField)
         }
     }
@@ -135,7 +136,7 @@ public struct IPCMessageValidator: Sendable {
         if let toolName = rawMessage.toolName {
             try validateDisplayText(toolName, field: "toolName")
         }
-        if let progress = rawMessage.progress, !(0 ... 1).contains(progress) {
+        if let progress = rawMessage.progress, !(0...1).contains(progress) {
             throw IPCMessageValidationError.invalidProgress(progress)
         }
         guard let timestamp = parseTimestamp(rawMessage.timestamp) else {
@@ -161,10 +162,12 @@ public struct IPCMessageValidator: Sendable {
                 maximumCharacterCount: Self.maximumDisplayTextCharacterCount
             )
         }
-        guard value.unicodeScalars.allSatisfy({
-            !CharacterSet.controlCharacters.contains($0)
-                && !Self.shellMetacharacters.contains($0)
-        }) else {
+        guard
+            value.unicodeScalars.allSatisfy({
+                !CharacterSet.controlCharacters.contains($0)
+                    && !Self.shellMetacharacters.contains($0)
+            })
+        else {
             throw IPCMessageValidationError.unsafeString(field: field)
         }
     }

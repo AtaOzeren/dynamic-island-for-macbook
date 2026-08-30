@@ -8,10 +8,10 @@ public protocol Activity: Sendable {
     var primaryAction: PrimaryAction? { get }
 }
 
-public extension Activity {
-    var autoDismiss: AutoDismissDescriptor? { nil }
+extension Activity {
+    public var autoDismiss: AutoDismissDescriptor? { nil }
 
     /// An activity with no primary action is inert to clicks beyond the panel's
     /// own expand and collapse, per `docs/05-activity-model.md`.
-    var primaryAction: PrimaryAction? { nil }
+    public var primaryAction: PrimaryAction? { nil }
 }

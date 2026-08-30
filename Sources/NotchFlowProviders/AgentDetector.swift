@@ -23,9 +23,10 @@ public struct AgentDetector: Sendable {
     }
 
     public func detect() -> [IPCAgentID: AgentInstallationStatus] {
-        Dictionary(uniqueKeysWithValues: IPCAgentID.allCases.map { agentID in
-            (agentID, status(for: agentID))
-        })
+        Dictionary(
+            uniqueKeysWithValues: IPCAgentID.allCases.map { agentID in
+                (agentID, status(for: agentID))
+            })
     }
 
     private func status(for agentID: IPCAgentID) -> AgentInstallationStatus {
@@ -52,7 +53,8 @@ public struct AgentDetector: Sendable {
             _ = try FileManager.default.attributesOfItem(atPath: url.path)
             return true
         } catch let error as CocoaError
-            where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile {
+            where error.code == .fileNoSuchFile || error.code == .fileReadNoSuchFile
+        {
             return false
         }
     }

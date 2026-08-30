@@ -1,4 +1,5 @@
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("ProviderRegistry")
@@ -248,10 +249,10 @@ struct ProviderRegistryTests {
     }
 }
 
-private extension ActivityProviderIdentifier {
+extension ActivityProviderIdentifier {
     /// Spells the two recording switches the way the provider does, so a test
     /// reads `.recording(.screen)` next to the `RecordingSource` it stands for.
-    static func recording(_ source: RecordingSource) -> Self {
+    fileprivate static func recording(_ source: RecordingSource) -> Self {
         switch source {
         case .screen: .screenRecording
         case .audio: .audioRecording
@@ -259,8 +260,8 @@ private extension ActivityProviderIdentifier {
     }
 }
 
-private extension ActivityEmission {
-    var isEnded: Bool {
+extension ActivityEmission {
+    fileprivate var isEnded: Bool {
         if case .ended = self { return true }
         return false
     }

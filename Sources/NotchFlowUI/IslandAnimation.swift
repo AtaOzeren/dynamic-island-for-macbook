@@ -63,11 +63,11 @@ public enum IslandAnimationCurve: Equatable, Sendable {
         switch self {
         case .none:
             nil
-        case let .spring(response, dampingFraction):
+        case .spring(let response, let dampingFraction):
             .spring(response: response, dampingFraction: dampingFraction)
-        case let .easeOut(duration):
+        case .easeOut(let duration):
             .easeOut(duration: duration)
-        case let .crossFade(duration):
+        case .crossFade(let duration):
             .linear(duration: duration)
         }
     }

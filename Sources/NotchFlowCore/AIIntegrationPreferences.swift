@@ -18,7 +18,7 @@ public struct AIIntegrationPreferences: Equatable, Sendable {
     public init(
         enabledAgentIDs: Set<IPCAgentID> = [],
         enabledEventClasses: Set<AIEventClass> = [
-            .taskStarted, .taskCompleted, .taskError, .needsInput
+            .taskStarted, .taskCompleted, .taskError, .needsInput,
         ]
     ) {
         self.enabledAgentIDs = enabledAgentIDs

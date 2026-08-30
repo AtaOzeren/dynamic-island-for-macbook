@@ -39,16 +39,16 @@ public func notchRect(
     auxiliaryTopRightArea: CGRect?
 ) -> CGRect? {
     guard isValid(rect: frame),
-          safeAreaInsets.top.isFinite,
-          safeAreaInsets.top > 0,
-          safeAreaInsets.top <= frame.height,
-          let auxiliaryTopLeftArea,
-          let auxiliaryTopRightArea,
-          isValid(rect: auxiliaryTopLeftArea),
-          isValid(rect: auxiliaryTopRightArea),
-          frame.contains(auxiliaryTopLeftArea),
-          frame.contains(auxiliaryTopRightArea),
-          auxiliaryTopLeftArea.maxX < auxiliaryTopRightArea.minX
+        safeAreaInsets.top.isFinite,
+        safeAreaInsets.top > 0,
+        safeAreaInsets.top <= frame.height,
+        let auxiliaryTopLeftArea,
+        let auxiliaryTopRightArea,
+        isValid(rect: auxiliaryTopLeftArea),
+        isValid(rect: auxiliaryTopRightArea),
+        frame.contains(auxiliaryTopLeftArea),
+        frame.contains(auxiliaryTopRightArea),
+        auxiliaryTopLeftArea.maxX < auxiliaryTopRightArea.minX
     else {
         return nil
     }
@@ -82,11 +82,11 @@ public func isNotchedBuiltInDisplay(_ screen: ScreenDescription) -> Bool {
 
 private func isValid(rect: CGRect) -> Bool {
     !rect.isNull
-    && !rect.isInfinite
-    && rect.width > 0
-    && rect.height > 0
-    && rect.origin.x.isFinite
-    && rect.origin.y.isFinite
-    && rect.width.isFinite
-    && rect.height.isFinite
+        && !rect.isInfinite
+        && rect.width > 0
+        && rect.height > 0
+        && rect.origin.x.isFinite
+        && rect.origin.y.isFinite
+        && rect.width.isFinite
+        && rect.height.isFinite
 }

@@ -49,7 +49,8 @@ public struct AIAgentStateMachine: Equatable, Sendable {
 
         state = destination
         lastTransitionAt = date
-        autoDismissAt = destination == .completed
+        autoDismissAt =
+            destination == .completed
             ? date.addingTimeInterval(completedAutoDismissAfter)
             : nil
         return .applied
@@ -69,7 +70,8 @@ public struct AIAgentStateMachine: Equatable, Sendable {
 
     private mutating func applyDuplicateUpdate(at date: Date) -> AIAgentTransitionOutcome {
         guard let lastTransitionAt,
-              date.timeIntervalSince(lastTransitionAt) < duplicateCoalescingInterval else {
+            date.timeIntervalSince(lastTransitionAt) < duplicateCoalescingInterval
+        else {
             self.lastTransitionAt = date
             if state == .completed {
                 autoDismissAt = date.addingTimeInterval(completedAutoDismissAfter)
@@ -80,8 +82,8 @@ public struct AIAgentStateMachine: Equatable, Sendable {
     }
 }
 
-private extension AIAgentState {
-    func canTransition(to destination: AIAgentState) -> Bool {
+extension AIAgentState {
+    fileprivate func canTransition(to destination: AIAgentState) -> Bool {
         switch self {
         case .idle:
             destination == .thinking

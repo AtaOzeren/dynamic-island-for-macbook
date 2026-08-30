@@ -123,11 +123,11 @@ public struct OpenCodePluginInstaller: Sendable {
             notifierExecutablePath: notifierExecutablePath
         ).openCodePluginFile()
         guard !notifierExecutablePath.isEmpty,
-              text.contains("export const NotchFlowPlugin: Plugin"),
-              text.contains("--agent\", \"opencode\""),
-              text.contains("session.created"),
-              text.contains("tool.execute.before"),
-              let data = text.data(using: .utf8)
+            text.contains("export const NotchFlowPlugin: Plugin"),
+            text.contains("--agent\", \"opencode\""),
+            text.contains("session.created"),
+            text.contains("tool.execute.before"),
+            let data = text.data(using: .utf8)
         else {
             throw OpenCodePluginInstallerError.invalidGeneratedPlugin
         }

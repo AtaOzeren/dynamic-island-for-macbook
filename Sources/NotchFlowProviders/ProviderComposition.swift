@@ -28,14 +28,14 @@ public enum ProviderComposition {
                 ),
                 ActivityProviderRegistration.charging(
                     ChargingProvider(source: SystemPowerSourceObserver())
-                )
+                ),
             ],
             enabledIdentifiers: enabledIdentifiers
         )
     }
 }
 
-public extension ActivityProviderRegistry {
+extension ActivityProviderRegistry {
     /// Starts every enabled provider, routing what they emit into the manager.
     ///
     /// `register` rather than `update` for an active emission because the
@@ -43,7 +43,7 @@ public extension ActivityProviderRegistry {
     /// identity is one it holds — so one call covers both first appearance and
     /// every subsequent tick, and an activity re-registered after a disable
     /// still orders correctly against the ones that never went away.
-    func startObserving(into manager: ActivityManager) {
+    public func startObserving(into manager: ActivityManager) {
         startObserving { [weak manager] emission in
             switch emission {
             case .active(let activity):

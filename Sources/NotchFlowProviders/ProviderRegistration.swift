@@ -79,8 +79,8 @@ public final class ActivityProviderRegistration<Emitted: Activity>: ActivityProv
     }
 }
 
-public extension ActivityProviderRegistration where Emitted == MusicActivity {
-    static func music(_ provider: any MusicProvider) -> Self {
+extension ActivityProviderRegistration where Emitted == MusicActivity {
+    public static func music(_ provider: any MusicProvider) -> Self {
         Self(
             identifier: .music,
             start: { emit in
@@ -94,8 +94,8 @@ public extension ActivityProviderRegistration where Emitted == MusicActivity {
 
 }
 
-public extension ActivityProviderRegistration where Emitted == TimerActivity {
-    static func timer(_ provider: TimerProvider) -> Self {
+extension ActivityProviderRegistration where Emitted == TimerActivity {
+    public static func timer(_ provider: TimerProvider) -> Self {
         Self(
             identifier: .timer,
             start: { emit in provider.startObserving(emit) },
@@ -105,10 +105,10 @@ public extension ActivityProviderRegistration where Emitted == TimerActivity {
 
 }
 
-public extension ActivityProviderRegistration where Emitted == RecordingActivity {
+extension ActivityProviderRegistration where Emitted == RecordingActivity {
     /// The identifier follows the provider's own source, so the two recording
     /// registrations cannot be wired to each other's settings switch.
-    static func recording(_ provider: RecordingProvider) -> Self {
+    public static func recording(_ provider: RecordingProvider) -> Self {
         Self(
             identifier: provider.source == .screen ? .screenRecording : .audioRecording,
             start: { emit in provider.startObserving(emit) },
@@ -118,8 +118,8 @@ public extension ActivityProviderRegistration where Emitted == RecordingActivity
 
 }
 
-public extension ActivityProviderRegistration where Emitted == ChargingActivity {
-    static func charging(_ provider: ChargingProvider) -> Self {
+extension ActivityProviderRegistration where Emitted == ChargingActivity {
+    public static func charging(_ provider: ChargingProvider) -> Self {
         Self(
             identifier: .charging,
             start: { emit in provider.startObserving(emit) },

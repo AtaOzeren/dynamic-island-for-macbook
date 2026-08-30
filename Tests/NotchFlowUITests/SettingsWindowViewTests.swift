@@ -1,5 +1,6 @@
 import SwiftUI
 import Testing
+
 @testable import NotchFlowCore
 @testable import NotchFlowUI
 
@@ -34,16 +35,17 @@ struct SettingsWindowViewTests {
             preferences: box.binding,
             availableDisplays: [
                 DisplayDescription(name: "Built-in Retina Display", isBuiltIn: true),
-                DisplayDescription(name: "Studio Display", isBuiltIn: false)
+                DisplayDescription(name: "Studio Display", isBuiltIn: false),
             ]
         )
 
-        #expect(view.displayOptions == [
-            .automatic,
-            .builtIn,
-            .named("Built-in Retina Display"),
-            .named("Studio Display")
-        ])
+        #expect(
+            view.displayOptions == [
+                .automatic,
+                .builtIn,
+                .named("Built-in Retina Display"),
+                .named("Studio Display"),
+            ])
         #expect(view.title(for: .named("Studio Display")) == "Studio Display")
     }
 

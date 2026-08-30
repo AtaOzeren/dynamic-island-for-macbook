@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 @Suite("IPC URL Parser")
@@ -34,7 +35,7 @@ struct IPCURLParserTests {
         components.host = "ai-status"
         components.queryItems = [
             URLQueryItem(name: "payload", value: String(decoding: firstPayload, as: UTF8.self)),
-            URLQueryItem(name: "payload", value: String(decoding: secondPayload, as: UTF8.self))
+            URLQueryItem(name: "payload", value: String(decoding: secondPayload, as: UTF8.self)),
         ]
 
         let message = try IPCURLParser().parse(try #require(components.url))
@@ -117,7 +118,10 @@ struct IPCURLParserTests {
         components.queryItems = [
             URLQueryItem(name: "payload", value: String(decoding: payload, as: UTF8.self))
         ]
-        return components.url!
+        guard let url = components.url else {
+            preconditionFailure("Test URL components must produce a URL")
+        }
+        return url
     }
 
     private func payload(replacing replacements: [String: Any] = [:]) -> Data {
@@ -129,11 +133,15 @@ struct IPCURLParserTests {
             "detail": "Running test suite",
             "toolName": "Bash",
             "progress": 0.5,
-            "timestamp": "2026-08-29T12:00:00Z"
+            "timestamp": "2026-08-29T12:00:00Z",
         ]
         for (key, value) in replacements {
             object[key] = value
         }
-        return try! JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        do {
+            return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+        } catch {
+            preconditionFailure("Test payload must be JSON serializable: \(error)")
+        }
     }
 }
