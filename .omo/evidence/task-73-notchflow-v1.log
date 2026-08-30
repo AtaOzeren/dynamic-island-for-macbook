@@ -1,0 +1,35 @@
+Task 73 — Direct artifact release workflow
+Date: 2026-08-30
+
+Workflow: .github/workflows/release.yml
+- Trigger: push tags matching v*
+- Runner: macos-14 with /Applications/Xcode.app
+- Tests: swift test
+- Build: NotchFlow (Direct), Direct configuration, fresh DerivedData, CODE_SIGNING_ALLOWED=NO
+- Direct guard: check-forbidden-symbols.sh --present
+- Assets: NotchFlow-<tag>-direct.zip and SHA256SUMS.txt
+- Destinations: actions/upload-artifact@v4 and gh release create
+- Signing seam: todo 70 marker before packaging; no credentials or fake secrets
+
+Local dry run:
+- swift test: PASS — 531 tests in 56 suites
+- xcodebuild unsigned Direct clean build: PASS
+- Built app: Build/Products/Direct/NotchFlow.app
+- Direct MediaRemote expectation: PASS
+- ditto zip creation: PASS
+- shasum -a 256 generation and verification: PASS
+- unzip -t archive integrity: PASS
+- Temporary build and package directory removed by trap
+
+Static validation:
+- Ruby YAML parse: PASS
+- bash -n scripts/check-forbidden-symbols.sh: PASS
+- Symbol guard absent/present mode regression checks: PASS
+- actionlint: unavailable; not installed per task constraint
+- YAML LSP: unavailable; not installed per task constraint
+- GitHub Actions schema reviewed against official workflow syntax and artifact documentation
+
+Not executed:
+- No tag was created or pushed.
+- No GitHub Release was published.
+- No signing or notarization was attempted.

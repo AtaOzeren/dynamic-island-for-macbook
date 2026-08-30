@@ -32,3 +32,6 @@ The manual-setup fallback holds no generator of its own: `ManualSetupInstruction
 
 ## [2026-08-30] Task: todo-59
 Settings defaults are registered once from `SettingsKeys.registeredDefaults`; optional nil defaults remain absent because `UserDefaults.register(defaults:)` cannot represent nil. `SettingsKey<Value>` owns each name, default, and codec, while `SettingsStore` owns the storage and typed observation boundary. AI preferences and provider identifiers are derived from their existing enums, so the app composition root can load persisted state and react to provider changes without either receiver or provider calling `UserDefaults` directly.
+
+## [2026-08-30] Task: todo-73
+The pre-membership release path builds `NotchFlow (Direct)` with `CODE_SIGNING_ALLOWED=NO`, verifies the expected MediaRemote linkage, and packages the resulting `.app` with `ditto --keepParent`. Signing and notarization belong immediately before packaging so todo 70 can replace the unsigned seam without changing artifact names, checksum generation, or GitHub Release publication. `scripts/check-forbidden-symbols.sh` defaults to its existing App Store absence assertion and accepts `--present` only for Direct release validation.

@@ -1,0 +1,80 @@
+name: Release Direct
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-direct:
+    name: Build & Release Direct
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Run Swift Package Tests
+        run: swift test
+
+      - name: Build Unsigned Direct App
+        run: |
+          xcodebuild \
+            -scheme "NotchFlow (Direct)" \
+            -configuration Direct \
+            -destination "platform=macOS" \
+            -derivedDataPath "$RUNNER_TEMP/NotchFlow-Release-DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
+
+      - name: Assert Direct Music Backend Is Present
+        run: |
+          ./scripts/check-forbidden-symbols.sh \
+            "$RUNNER_TEMP/NotchFlow-Release-DerivedData/Build/Products/Direct/NotchFlow.app/Contents/MacOS/NotchFlow" \
+            --present
+
+      # TODO(70): Import Developer ID credentials, sign the app, and notarize it here.
+      # Packaging remains intentionally unsigned until those membership-gated secrets exist.
+      - name: Package Direct App
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/NotchFlow-Release-DerivedData/Build/Products/Direct/NotchFlow.app" \
+            "$RUNNER_TEMP/release/NotchFlow-$RELEASE_TAG-direct.zip"
+          (
+            cd "$RUNNER_TEMP/release"
+            shasum -a 256 "NotchFlow-$RELEASE_TAG-direct.zip" > SHA256SUMS.txt
+            shasum -a 256 -c SHA256SUMS.txt
+          )
+
+      - name: Upload Direct Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotchFlow-${{ github.ref_name }}-direct
+          path: |
+            ${{ runner.temp }}/release/NotchFlow-${{ github.ref_name }}-direct.zip
+            ${{ runner.temp }}/release/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP/release/NotchFlow-$RELEASE_TAG-direct.zip" \
+            "$RUNNER_TEMP/release/SHA256SUMS.txt" \
+            --title "NotchFlow $RELEASE_TAG" \
+            --generate-notes \
+            --verify-tag
