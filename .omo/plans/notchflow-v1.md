@@ -352,7 +352,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (CI):** Snapshot or structural tests against a fake provider. Evidence: `.omo/evidence/task-41-notchflow-v1.log`.
   - **Commit:** `feat(music): add music provider protocol and views`
 
-- [ ] 42. Implement `AppleScriptMusicProvider` (App Store build)
+- [x] 42. Implement `AppleScriptMusicProvider` (App Store build)
   - ScriptingBridge against Spotify and Music.app for metadata and transport, driven by the distributed notifications those apps post rather than by polling. Handles the app-not-running and permission-denied cases by producing no activity rather than erroring.
   - **Acceptance:** Track changes in Spotify and Music appear in the island; play/pause/next/previous from the island control the app; denying Automation permission degrades silently.
   - **QA (HW):** With each app in turn, change track, use each transport control, then revoke Automation permission and confirm graceful degradation. Evidence: `.omo/evidence/task-42-notchflow-v1/`.
@@ -426,7 +426,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (HW):** Run in both configurations with at least one agent installed; confirm the expected path in each. Evidence: `.omo/evidence/task-53-notchflow-v1.log`.
   - **Commit:** `feat(ai): detect installed agents`
 
-- [ ] 54. Implement the Claude Code hook installer
+- [x] 54. Implement the Claude Code hook installer
   - Shows the exact proposed change, requires explicit consent, backs up the existing settings file, writes the async hook configuration, and supports full uninstall restoring the backup.
   - **Acceptance:** Installing then uninstalling leaves the settings file byte-identical to the original; the installed hook is async and cannot block the agent.
   - **QA (HW):** Install, diff, run a Claude Code session and observe states in the island, uninstall, and diff against the original. Evidence: `.omo/evidence/task-54-notchflow-v1/`.
@@ -450,7 +450,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (CI):** Assert the UI snippet and the installer output are produced by the same generator and are string-equal. Evidence: `.omo/evidence/task-57-notchflow-v1.log`.
   - **Commit:** `feat(ai): add manual hook setup fallback`
 
-- [ ] 58. Implement per-agent and per-event toggles
+- [x] 58. Implement per-agent and per-event toggles
   - Enable/disable each agent and each event class per `docs/08`; disabled events are dropped at the receiver, not merely hidden.
   - **Acceptance:** A disabled event class produces no activity and no UI work.
   - **QA (HW):** Disable one event class, emit it, and assert no activity is created. Evidence: `.omo/evidence/task-58-notchflow-v1.log`.
@@ -458,7 +458,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
 
 ### Wave 6 — Settings, localization, polish
 
-- [ ] 59. Implement the settings store
+- [x] 59. Implement the settings store
   - Typed `UserDefaults` wrapper with the exact keys and defaults from `docs/08`, plus the migration hook.
   - **Acceptance:** Every documented setting round-trips; first launch produces exactly the documented defaults.
   - **QA (CI):** Tests over a clean defaults domain asserting each default. Evidence: `.omo/evidence/task-59-notchflow-v1.log`.
@@ -470,31 +470,31 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (HW):** Walk every pane and exercise every control; screenshot each pane. Evidence: `.omo/evidence/task-60-notchflow-v1/`.
   - **Commit:** `feat(settings): add settings window`
 
-- [ ] 61. Implement the first-run onboarding flow
+- [x] 61. Implement the first-run onboarding flow
   - Welcome, permission explanation, agent detection and hook offer, done — per `docs/08`.
   - **Acceptance:** Shown exactly once on first launch; skippable; never requests a permission the user has not opted into.
   - **QA (HW):** Reset the defaults domain and launch; confirm the flow and that no permission prompt appears unless a feature is enabled. Evidence: `.omo/evidence/task-61-notchflow-v1/`.
   - **Commit:** `feat(onboarding): add first-run setup flow`
 
-- [ ] 62. Add the String Catalog and extract every user-visible string
+- [x] 62. Add the String Catalog and extract every user-visible string
   - Create the `.xcstrings` catalog; move every user-visible literal into it; add the lint rule enforcement from todo 19.
   - **Acceptance:** The lint rule reports zero hardcoded user-visible strings.
   - **QA (CI):** `swiftlint --strict` passes with the custom rule enabled. Evidence: `.omo/evidence/task-62-notchflow-v1.log`.
   - **Commit:** `feat(i18n): add string catalog and extract strings`
 
-- [ ] 63. Add the Turkish localization
+- [x] 63. Add the Turkish localization
   - Translate every catalog entry; ensure date, duration, and number formatting is locale-driven rather than hardcoded.
   - **Acceptance:** No untranslated key remains; the UI is legible in Turkish without truncation.
   - **QA (CI + HW):** A script asserts zero missing translations; on hardware, run in Turkish and screenshot every surface. Evidence: `.omo/evidence/task-63-notchflow-v1/`.
   - **Commit:** `feat(i18n): add Turkish localization`
 
-- [ ] 64. Implement the permission request flow
+- [x] 64. Implement the permission request flow
   - Lazy, explained, per-feature requests with graceful degradation on denial, per `docs/09`.
   - **Acceptance:** No permission is requested at launch; denying any permission disables only the dependent feature, with an explanatory state in settings.
   - **QA (HW):** Fresh install, launch, confirm no prompts; enable each feature in turn and confirm one explained prompt each; deny each and confirm graceful degradation. Evidence: `.omo/evidence/task-64-notchflow-v1/`.
   - **Commit:** `feat(permissions): add lazy permission flow with graceful degradation`
 
-- [ ] 65. Add the app icon and visual assets
+- [x] 65. Add the app icon and visual assets
   - App icon at all required sizes, status item symbol, and any activity glyphs, in light and dark variants.
   - **Acceptance:** No missing icon size; the status item renders correctly in both appearances and in the menu bar's reduced contrast.
   - **QA (CI + HW):** Asset validation in the build; screenshots of the status item in both appearances. Evidence: `.omo/evidence/task-65-notchflow-v1/`.
@@ -526,7 +526,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (CI):** Consistency check between the privacy policy claims and the entitlements table. Evidence: `.omo/evidence/task-69-notchflow-v1.txt`.
   - **Commit:** `docs(store): add privacy policy and App Store metadata`
 
-- [ ] 70. Implement the Direct build packaging pipeline — BLOCKED-ON-MEMBERSHIP for signing
+- [x] 70. Implement the Direct build packaging pipeline — BLOCKED-ON-MEMBERSHIP for signing
   - Script producing a `.dmg`: build, sign with Developer ID, enable the hardened runtime, submit to `notarytool`, staple, and package. Until the membership exists, the script runs end-to-end with ad-hoc signing and clearly reports the signing steps as skipped.
   - **Acceptance:** The script produces a mountable `.dmg` today; every membership-dependent step is explicitly reported as skipped rather than silently omitted.
   - **QA (HW):** Run the script; mount the `.dmg`; confirm the skipped-step report. Evidence: `.omo/evidence/task-70-notchflow-v1/`.
@@ -544,13 +544,13 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (HW):** Produce the archive and run validation; capture the report. Evidence: `.omo/evidence/task-72-notchflow-v1/`.
   - **Commit:** `build: prepare App Store submission artifacts`
 
-- [ ] 73. Add the release workflow
+- [x] 73. Add the release workflow
   - A tag-triggered GitHub Actions workflow producing the `.dmg`, attaching it to a release, and generating release notes. Signing steps are conditional on the secrets existing, so the workflow is usable before and after the membership.
   - **Acceptance:** A dry-run on a test tag produces an artifact; the workflow does not fail merely because signing secrets are absent.
   - **QA (CI):** Trigger on a test tag; record the run conclusion and artifact. Evidence: `.omo/evidence/task-73-notchflow-v1.txt`.
   - **Commit:** `ci: add release workflow`
 
-- [ ] 74. Reconcile documentation with the implementation
+- [x] 74. Reconcile documentation with the implementation
   - Re-read all 15 documents against the shipped code and correct every divergence. Update `docs/12` with anything learned during implementation, and update `docs/13` if any deferred item's status changed.
   - **Acceptance:** No document contradicts the code. Every API row in `docs/12` reflects what was actually built.
   - **QA (CI):** The docs consistency scripts pass; a reviewer diff of each document against the corresponding implementation is recorded. Evidence: `.omo/evidence/task-74-notchflow-v1.txt`.
