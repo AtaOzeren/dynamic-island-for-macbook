@@ -11,26 +11,27 @@ struct NotchFlowApp: App {
     private let musicProvider: any MusicProvider
     private let manager = ActivityManager()
     private let registry: ActivityProviderRegistry
+    private let settingsStore: SettingsStore
     private let urlSchemeReceiver = URLSchemeReceiver()
 
-    /// Held here rather than in the pane so the switches and the receivers read
-    /// one value; the documented defaults stand in until the settings store
-    /// (todo 59) can persist the user's actual choices.
-    @State private var aiPreferences = AIIntegrationPreferences.default
+    @State private var aiPreferences: AIIntegrationPreferences
 
     init() {
         let musicProvider = makeMusicProvider()
+        let settingsStore = SettingsStore()
         self.musicProvider = musicProvider
+        self.settingsStore = settingsStore
+        _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)
 
-        // Every provider enabled, matching the documented defaults until the
-        // settings store (todo 59) can supply the user's actual choices; the
-        // registry takes the set as a parameter precisely so that swap is a
-        // one-line change here rather than a change to the wiring.
-        registry = ProviderComposition.makeRegistry(
+        let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
             timerProvider: TimerProvider(),
-            enabledIdentifiers: Set(ActivityProviderIdentifier.allCases)
+            enabledIdentifiers: settingsStore.enabledProviderIdentifiers
         )
+        self.registry = registry
+        settingsStore.observeProviderEnablement { identifier, isEnabled in
+            registry.setEnabled(isEnabled, for: identifier)
+        }
 
         // The build's backend, reportable without a window, so CI can assert the
         // two configurations differ and a support conversation can ask for one
@@ -58,6 +59,7 @@ struct NotchFlowApp: App {
                 urlSchemeReceiver.handle(url)
             }
             .onChange(of: aiPreferences, initial: true) { _, preferences in
+                settingsStore.aiIntegrationPreferences = preferences
                 urlSchemeReceiver.preferences = preferences
             }
         }

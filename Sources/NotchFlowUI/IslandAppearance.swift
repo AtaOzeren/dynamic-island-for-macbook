@@ -1,16 +1,10 @@
 import AppKit
+import enum NotchFlowCore.SettingsAppearance
 import SwiftUI
 
-/// The `Appearance` setting from the table in `docs/08-settings-and-localization.md`.
-///
-/// The raw values are the persisted representation for `general.appearance`, so
-/// they are part of the on-disk contract and may not be renamed without a
-/// migration.
-public enum AppearancePreference: String, CaseIterable, Equatable, Sendable {
-    case auto
-    case light
-    case dark
+public typealias AppearancePreference = SettingsAppearance
 
+public extension SettingsAppearance {
     /// The appearance to force on the panel, or `nil` to keep inheriting from
     /// the application.
     ///
@@ -18,7 +12,7 @@ public enum AppearancePreference: String, CaseIterable, Equatable, Sendable {
     /// an inherited `nil` lets AppKit re-resolve the panel when the system flips
     /// between light and dark, whereas a pinned value would freeze the island in
     /// whichever scheme happened to be active when the panel was built.
-    public var nsAppearance: NSAppearance? {
+    var nsAppearance: NSAppearance? {
         switch self {
         case .auto: nil
         case .light: NSAppearance(named: .aqua)

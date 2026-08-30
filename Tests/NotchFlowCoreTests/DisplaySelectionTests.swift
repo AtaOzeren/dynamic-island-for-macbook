@@ -14,6 +14,7 @@ struct DisplaySelectionTests {
     @Test("selects the built-in display automatically or when explicitly chosen")
     func builtInWithExternal() {
         #expect(selectDisplay(from: [studioDisplay, builtIn], preference: .automatic) == builtIn)
+        #expect(selectDisplay(from: [studioDisplay, builtIn], preference: .builtIn) == builtIn)
         #expect(
             selectDisplay(from: [studioDisplay, builtIn], preference: .named(builtIn.name)) == builtIn
         )

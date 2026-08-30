@@ -10,6 +10,7 @@ public struct DisplayDescription: Equatable, Sendable {
 
 public enum DisplayPreference: Equatable, Sendable {
     case automatic
+    case builtIn
     case named(String)
 }
 
@@ -24,7 +25,7 @@ public func selectDisplay(
     }
 
     switch preference {
-    case .automatic:
+    case .automatic, .builtIn:
         return fallbackDisplay
     case let .named(name):
         return availableDisplays.first { $0.name == name } ?? fallbackDisplay
