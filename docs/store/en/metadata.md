@@ -171,10 +171,10 @@ If App Store Connect requires you to enumerate types anyway, set every category 
 
 ## Screenshots
 
-Required sizes for Mac App Store:
+Prepared default-localization set:
 
-- **1280 × 800** (required)
-- **2560 × 1600** (required for Retina)
+- **2560 × 1600 PNG**, five images
+- Files and capture directions: `docs/store/screenshots/README.md`
 
 Suggested screenshot sequence:
 
@@ -184,4 +184,4 @@ Suggested screenshot sequence:
 4. Notch showing the recording indicator
 5. Settings window overview
 
-> Screenshots are not yet produced. See `docs/65-app-icon-and-assets.md` (task 65) for the asset pipeline.
+Validate the final captures with `./scripts/check-app-store-screenshots.sh` before upload. App Store Connect may reuse this default set for Turkish.
