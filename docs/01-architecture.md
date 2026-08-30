@@ -23,7 +23,7 @@ This document specifies the module graph, the dependency rule that keeps it enfo
 
 | Module | Imports | Owns |
 |---|---|---|
-| `NotchFlowCore` | Foundation only | `Activity` protocol, `ActivityManager`, `ActivityPriority`, notch geometry math (pure functions), the AI agent state machine, IPC message types |
+| `NotchFlowCore` | Foundation and CoreGraphics only | `Activity` protocol, `ActivityManager`, `ActivityPriority`, notch geometry math (pure functions), the AI agent state machine, IPC message types |
 | `NotchFlowProviders` | `NotchFlowCore` + system frameworks (MediaRemote/ScriptingBridge, ScreenCaptureKit, AVFoundation, IOKit, etc.) | One provider per activity source; translates OS/IPC events into `Activity` updates |
 | `NotchFlowUI` | `NotchFlowCore` | SwiftUI compact/expanded views, the `NSPanel` controller that positions and orders the overlay window |
 | `NotchFlow` (app target) | All three | Composition root only — wires providers to the manager and the manager to the UI; contains no business logic |
