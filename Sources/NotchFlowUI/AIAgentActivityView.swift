@@ -49,20 +49,20 @@ public struct AIAgentPresentation: Equatable, Sendable {
     /// earns its space in the compact pill.
     public var statusText: String {
         switch state {
-        case .idle: "Idle"
-        case .thinking: "Thinking…"
-        case .working: "Working…"
-        case .usingTool: toolName.map { "Running \($0)…" } ?? "Running tool…"
-        case .waitingForUser: "Needs your input"
-        case .completed: "Task completed"
-        case .error: "Task error"
+        case .idle: localized("Idle")
+        case .thinking: localized("Thinking…")
+        case .working: localized("Working…")
+        case .usingTool: toolName.map { localized("Running \($0)…") } ?? localized("Running tool…")
+        case .waitingForUser: localized("Needs your input")
+        case .completed: localized("Task completed")
+        case .error: localized("Task error")
         }
     }
 
     /// The compact pill's line, per the state table's compact column: the agent
     /// and its status, separated by the table's own middle dot.
     public var compactTitle: String {
-        "\(agentName) · \(statusText)"
+        localized("activity.ai.compactTitle", default: "\(agentName) · \(statusText)")
     }
 
     /// The expanded view's heading. The agent name alone, because the status and
@@ -80,7 +80,7 @@ public struct AIAgentPresentation: Equatable, Sendable {
     /// detail appended when there is one to append.
     public var accessibilityLabel: String {
         guard let detail else { return compactTitle }
-        return "\(compactTitle), \(detail)"
+        return localized("activity.accessibility.headlineAndDetail", default: "\(compactTitle), \(detail)")
     }
 }
 

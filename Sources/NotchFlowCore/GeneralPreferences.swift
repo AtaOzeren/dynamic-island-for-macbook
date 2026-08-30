@@ -40,9 +40,9 @@ public extension SettingsAppearance {
     /// a future case would silently miss.
     var displayName: String {
         switch self {
-        case .auto: "Automatic"
-        case .light: "Light"
-        case .dark: "Dark"
+        case .auto: localized("Automatic")
+        case .light: localized("Light")
+        case .dark: localized("Dark")
         }
     }
 }
@@ -77,9 +77,9 @@ public enum ReducedMotionSetting: String, CaseIterable, Equatable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .followSystem: "Follow system"
-        case .alwaysReduce: "Always reduce"
-        case .neverReduce: "Never reduce"
+        case .followSystem: localized("Follow system")
+        case .alwaysReduce: localized("Always reduce")
+        case .neverReduce: localized("Never reduce")
         }
     }
 }

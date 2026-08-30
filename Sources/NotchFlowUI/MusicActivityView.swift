@@ -24,7 +24,7 @@ public struct MusicTransportControl: Identifiable, Equatable, Sendable {
 public struct MusicPresentation: Equatable, Sendable {
     /// Shown when a backend reports playback it cannot otherwise name — the
     /// island still says something true rather than drawing an empty pill.
-    public static let untitledLabel = "Now Playing"
+    public static var untitledLabel: String { localized("Now Playing") }
 
     public let title: String
     public let subtitle: String?
@@ -49,13 +49,13 @@ public struct MusicPresentation: Equatable, Sendable {
             MusicTransportControl(
                 command: .previousTrack,
                 symbolName: "backward.fill",
-                accessibilityLabel: "Previous track"
+                accessibilityLabel: localized("Previous track")
             ),
             playPauseControl,
             MusicTransportControl(
                 command: .nextTrack,
                 symbolName: "forward.fill",
-                accessibilityLabel: "Next track"
+                accessibilityLabel: localized("Next track")
             )
         ]
     }
@@ -66,7 +66,7 @@ public struct MusicPresentation: Equatable, Sendable {
         let track = [title, subtitle].compactMap(\.self).joined(separator: " — ")
         switch playbackState {
         case .playing: return track
-        case .paused: return "Paused: \(track)"
+        case .paused: return localized("Paused: \(track)")
         }
     }
 
@@ -76,13 +76,13 @@ public struct MusicPresentation: Equatable, Sendable {
             MusicTransportControl(
                 command: .playPause,
                 symbolName: "pause.fill",
-                accessibilityLabel: "Pause"
+                accessibilityLabel: localized("Pause")
             )
         case .paused:
             MusicTransportControl(
                 command: .playPause,
                 symbolName: "play.fill",
-                accessibilityLabel: "Play"
+                accessibilityLabel: localized("Play")
             )
         }
     }

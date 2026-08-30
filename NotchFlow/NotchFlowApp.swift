@@ -41,6 +41,7 @@ struct NotchFlowApp: App {
         _generalPreferences = State(initialValue: settingsStore.generalPreferences)
         _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
         _languageOverride = State(initialValue: settingsStore[.languageOverride])
+        Self.applyLanguageOverride(settingsStore[.languageOverride])
 
         let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
@@ -83,6 +84,26 @@ struct NotchFlowApp: App {
         }
     }
 
+    /// Pins the bundle-lookup language list to the user's override.
+    ///
+    /// `AppleLanguages` is the only lever that reaches every catalog at once —
+    /// Core's, UI's, and the app's — because it is what `Bundle` consults when
+    /// choosing an `.lproj`. Setting it per bundle instead would leave the three
+    /// free to disagree, which reads as a half-translated window.
+    ///
+    /// It must be written before the first lookup, hence the call from `init`:
+    /// `Bundle` caches its resolved language on first use, which is why the
+    /// About pane says the choice takes effect at the next launch. Clearing the
+    /// override removes the key rather than writing an empty list, so the system
+    /// preference — not an empty override — is what the next launch reads.
+    private static func applyLanguageOverride(_ code: String?) {
+        guard let code else {
+            UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+            return
+        }
+        UserDefaults.standard.set([code], forKey: "AppleLanguages")
+    }
+
     /// The agents whose configuration files exist, in the fixed order the
     /// onboarding screen lists them.
     private static func detectedAgents() -> [IPCAgentID] {
@@ -115,6 +136,7 @@ struct NotchFlowApp: App {
                 languageOverride: $languageOverride,
                 availableDisplays: NSScreen.screens.map(DisplayDescription.init),
                 information: aboutInformation,
+                languages: LanguageOption.shipped,
                 musicAutomation: $musicAutomation,
                 onRequestAutomation: requestAutomation
             )

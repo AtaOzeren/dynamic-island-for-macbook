@@ -32,8 +32,8 @@ public struct GeneralSettingsView: View {
 
     public func title(for preference: DisplayPreference) -> String {
         switch preference {
-        case .automatic: "Automatic"
-        case .builtIn: "Built-in display"
+        case .automatic: localized("Automatic")
+        case .builtIn: localized("Built-in display")
         case let .named(name): name
         }
     }
@@ -79,11 +79,11 @@ public struct GeneralSettingsView: View {
 
     private var displaySection: some View {
         SettingsSection(
-            title: "Display",
-            caption: "Automatic follows the display with the notch, then falls back to the built-in screen.",
+            title: localized("Display"),
+            caption: localized("Automatic follows the display with the notch, then falls back to the built-in screen."),
             metrics: metrics
         ) {
-            Picker("Show the island on", selection: displayTarget) {
+            Picker(localized("Show the island on"), selection: displayTarget) {
                 ForEach(displayOptions, id: \.self) { option in
                     Text(title(for: option)).tag(option)
                 }
@@ -93,16 +93,16 @@ public struct GeneralSettingsView: View {
 
     private var appearanceSection: some View {
         SettingsSection(
-            title: "Appearance",
-            caption: "Reduced motion also follows the system accessibility setting unless you override it.",
+            title: localized("Appearance"),
+            caption: localized("Reduced motion also follows the system accessibility setting unless you override it."),
             metrics: metrics
         ) {
-            Picker("Theme", selection: appearance) {
+            Picker(localized("Theme"), selection: appearance) {
                 ForEach(SettingsAppearance.allCases, id: \.self) { option in
                     Text(option.displayName).tag(option)
                 }
             }
-            Picker("Motion", selection: reducedMotion) {
+            Picker(localized("Motion"), selection: reducedMotion) {
                 ForEach(ReducedMotionSetting.allCases, id: \.self) { option in
                     Text(option.displayName).tag(option)
                 }
@@ -112,11 +112,11 @@ public struct GeneralSettingsView: View {
 
     private var startupSection: some View {
         SettingsSection(
-            title: "Startup",
-            caption: "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login.",
+            title: localized("Startup"),
+            caption: localized("NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login."),
             metrics: metrics
         ) {
-            Toggle("Launch at login", isOn: launchAtLogin)
+            Toggle(localized("Launch at login"), isOn: launchAtLogin)
         }
     }
 }

@@ -11,10 +11,10 @@ public enum SettingsTab: String, CaseIterable, Equatable, Hashable, Sendable {
 
     public var displayName: String {
         switch self {
-        case .general: "General"
-        case .activities: "Activities"
-        case .aiIntegrations: "AI Integrations"
-        case .about: "About"
+        case .general: localized("General")
+        case .activities: localized("Activities")
+        case .aiIntegrations: localized("AI Integrations")
+        case .about: localized("About")
         }
     }
 

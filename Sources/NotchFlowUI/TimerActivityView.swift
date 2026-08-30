@@ -53,14 +53,14 @@ public struct TimerPresentation: Equatable, Sendable {
     /// left to pause.
     public var controls: [TimerControl] {
         guard isExpiring == false else {
-            return [Self.stopControl(label: "Dismiss timer", symbolName: "checkmark")]
+            return [Self.stopControl(label: localized("Dismiss timer"), symbolName: "checkmark")]
         }
 
         return [
             isRunning
-                ? TimerControl(command: .pause, symbolName: "pause.fill", accessibilityLabel: "Pause timer")
-                : TimerControl(command: .resume, symbolName: "play.fill", accessibilityLabel: "Resume timer"),
-            Self.stopControl(label: "Stop timer", symbolName: "stop.fill")
+                ? TimerControl(command: .pause, symbolName: "pause.fill", accessibilityLabel: localized("Pause timer"))
+                : TimerControl(command: .resume, symbolName: "play.fill", accessibilityLabel: localized("Resume timer")),
+            Self.stopControl(label: localized("Stop timer"), symbolName: "stop.fill")
         ]
     }
 
@@ -68,10 +68,10 @@ public struct TimerPresentation: Equatable, Sendable {
     /// time spoken in words, prefixed by state only when it is not the expected
     /// one.
     public var accessibilityLabel: String {
-        guard isExpiring == false else { return "Timer finished" }
+        guard isExpiring == false else { return localized("Timer finished") }
 
-        let spoken = "\(title), \(time)"
-        return isRunning ? spoken : "Paused: \(spoken)"
+        let spoken = localized("activity.accessibility.headlineAndDetail", default: "\(title), \(time)")
+        return isRunning ? spoken : localized("Paused: \(spoken)")
     }
 
     private static func stopControl(label: String, symbolName: String) -> TimerControl {
@@ -79,11 +79,11 @@ public struct TimerPresentation: Equatable, Sendable {
     }
 
     private static func title(for activity: TimerActivity) -> String {
-        guard activity.isExpiring == false else { return "Time's up" }
+        guard activity.isExpiring == false else { return localized("Time's up") }
 
         switch activity.mode {
-        case .countdown: return "Countdown"
-        case .stopwatch: return "Stopwatch"
+        case .countdown: return localized("Countdown")
+        case .stopwatch: return localized("Stopwatch")
         }
     }
 

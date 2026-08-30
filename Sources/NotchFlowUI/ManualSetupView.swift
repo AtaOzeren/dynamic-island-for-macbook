@@ -93,7 +93,7 @@ public struct ManualSetupView: View {
     /// What the copy button says, which doubles as the confirmation that the
     /// copy happened — the sheet has no other place to report it.
     public var copyButtonTitle: String {
-        didCopy ? "Copied" : "Copy snippet"
+        didCopy ? localized("Copied") : localized("Copy snippet")
     }
 
     public var body: some View {
@@ -122,7 +122,7 @@ public struct ManualSetupView: View {
         VStack(alignment: .leading, spacing: metrics.stepSpacing) {
             ForEach(Array(instructions.steps.enumerated()), id: \.offset) { index, step in
                 HStack(alignment: .firstTextBaseline, spacing: metrics.stepSpacing) {
-                    Text("\(index + 1).")
+                    Text(localized("manualSetup.stepNumber", default: "\(index + 1)."))
                         .font(.system(size: metrics.bodySize, weight: .semibold).monospacedDigit())
                         .foregroundStyle(.secondary)
                     Text(step)
@@ -148,7 +148,7 @@ public struct ManualSetupView: View {
             RoundedRectangle(cornerRadius: metrics.snippetCornerRadius, style: .continuous)
                 .fill(.quaternary)
         }
-        .accessibilityLabel("Setup snippet for \(instructions.agent.displayName)")
+        .accessibilityLabel(localized("Setup snippet for \(instructions.agent.displayName)"))
     }
 
     private var copyButton: some View {

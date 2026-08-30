@@ -131,7 +131,7 @@ public struct AIAgentActivity: Activity, Equatable {
     /// nobody can hit.
     public var primaryAction: PrimaryAction? {
         guard endsPresentation == false else { return nil }
-        return PrimaryAction(title: "Open \(agent.displayName)", symbolName: "arrow.up.forward")
+        return PrimaryAction(title: localized("Open \(agent.displayName)"), symbolName: "arrow.up.forward")
     }
 }
 

@@ -51,8 +51,8 @@ public struct AIIntegrationsSettingsView: View {
 
     private var agentSection: some View {
         SettingsSection(
-            title: "Agents",
-            caption: "NotchFlow shows nothing for an agent until you enable it here.",
+            title: localized("Agents"),
+            caption: localized("NotchFlow shows nothing for an agent until you enable it here."),
             metrics: metrics
         ) {
             ForEach(IPCAgentID.allCases, id: \.self) { agentID in
@@ -63,8 +63,8 @@ public struct AIIntegrationsSettingsView: View {
 
     private var eventSection: some View {
         SettingsSection(
-            title: "Events",
-            caption: "A disabled event never reaches the notch — it is dropped on arrival.",
+            title: localized("Events"),
+            caption: localized("A disabled event never reaches the notch — it is dropped on arrival."),
             metrics: metrics
         ) {
             ForEach(AIEventClass.allCases, id: \.self) { eventClass in

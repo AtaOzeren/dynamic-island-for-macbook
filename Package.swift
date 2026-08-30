@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "NotchFlow",
+    defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
@@ -17,6 +18,7 @@ let package = Package(
             name: "NotchFlowCore",
             dependencies: [],
             path: "Sources/NotchFlowCore",
+            resources: [.process("Resources")],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
             ]
@@ -43,6 +45,7 @@ let package = Package(
             name: "NotchFlowUI",
             dependencies: ["NotchFlowCore"],
             path: "Sources/NotchFlowUI",
+            resources: [.process("Resources")],
             swiftSettings: [
                 .enableUpcomingFeature("StrictConcurrency")
             ]

@@ -37,7 +37,7 @@ final class OnboardingPresenter: NSObject, NSWindowDelegate {
             backing: .buffered,
             defer: false
         )
-        window.title = "Welcome to NotchFlow"
+        window.title = String(localized: "Welcome to NotchFlow")
         window.titlebarAppearsTransparent = true
         window.isReleasedWhenClosed = false
         window.delegate = self

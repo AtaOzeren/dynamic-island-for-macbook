@@ -22,15 +22,17 @@ public struct ManualSetupInstructions: Equatable, Sendable {
     }
 
     public var title: String {
-        "Set up \(agent.displayName) by hand"
+        localized("Set up \(agent.displayName) by hand")
     }
 
     /// Why the user is reading this at all: the app could not write the file, so
     /// the work is theirs. Kept separate from `steps` so the view can give it
     /// the quieter treatment a subtitle gets.
     public var summary: String {
-        "NotchFlow could not write this file for you. "
-            + "Copy the text below into \(destinationPath) to finish setup."
+        localized("""
+            NotchFlow could not write this file for you. \
+            Copy the text below into \(destinationPath) to finish setup.
+            """)
     }
 
     /// The instructions, in the order they are performed. The snippet itself is
@@ -38,9 +40,9 @@ public struct ManualSetupInstructions: Equatable, Sendable {
     /// paraphrases the text the user has to reproduce exactly.
     public var steps: [String] {
         [
-            "Open \(destinationPath) in your editor, creating it if it does not exist.",
+            localized("Open \(destinationPath) in your editor, creating it if it does not exist."),
             replacementStep,
-            "Save the file, then restart \(agent.displayName) so it picks up the change."
+            localized("Save the file, then restart \(agent.displayName) so it picks up the change.")
         ]
     }
 
@@ -50,10 +52,12 @@ public struct ManualSetupInstructions: Equatable, Sendable {
     private var replacementStep: String {
         switch agent {
         case .claudeCode, .codex:
-            "Replace the file's entire contents with the text below — "
-                + "NotchFlow has already merged your existing settings into it."
+            localized("""
+                Replace the file's entire contents with the text below — \
+                NotchFlow has already merged your existing settings into it.
+                """)
         case .opencode:
-            "Paste the text below as the file's entire contents."
+            localized("Paste the text below as the file's entire contents.")
         }
     }
 }

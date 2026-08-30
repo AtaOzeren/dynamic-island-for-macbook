@@ -105,16 +105,20 @@ public struct MusicAutomationAccess: Equatable, Sendable {
     public var explanation: String {
         switch status {
         case .notDetermined:
-            "NotchFlow will ask macOS for permission to control \(target.displayName), "
-                + "so the notch can show what is playing and its buttons can control playback. "
-                + "Nothing is sent anywhere; NotchFlow only talks to \(target.displayName) on this Mac."
+            localized("""
+                NotchFlow will ask macOS for permission to control \(target.displayName), \
+                so the notch can show what is playing and its buttons can control playback. \
+                Nothing is sent anywhere; NotchFlow only talks to \(target.displayName) on this Mac.
+                """)
         case .granted:
-            "NotchFlow can show and control what \(target.displayName) is playing."
+            localized("NotchFlow can show and control what \(target.displayName) is playing.")
         case .denied:
-            "\(target.displayName) control is off because macOS permission was declined. "
-                + "Everything else in NotchFlow keeps working. "
-                + "To turn it on, allow NotchFlow for \(target.displayName) in "
-                + "System Settings › Privacy & Security › Automation."
+            localized("""
+                \(target.displayName) control is off because macOS permission was declined. \
+                Everything else in NotchFlow keeps working. \
+                To turn it on, allow NotchFlow for \(target.displayName) in \
+                System Settings › Privacy & Security › Automation.
+                """)
         }
     }
 
@@ -123,6 +127,6 @@ public struct MusicAutomationAccess: Equatable, Sendable {
     /// explanation names, and a button that re-prompted into silence is the nag
     /// the flow rules out.
     public var actionTitle: String? {
-        isRequestable ? "Allow \(target.displayName)…" : nil
+        isRequestable ? localized("Allow \(target.displayName)…") : nil
     }
 }

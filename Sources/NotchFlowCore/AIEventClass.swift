@@ -26,11 +26,11 @@ public enum AIEventClass: String, CaseIterable, Equatable, Hashable, Sendable {
     /// from the same layer.
     public var displayName: String {
         switch self {
-        case .taskStarted: "Task started"
-        case .taskCompleted: "Task completed"
-        case .taskError: "Task error"
-        case .needsInput: "Needs input"
-        case .toolActivity: "Tool activity"
+        case .taskStarted: localized("Task started")
+        case .taskCompleted: localized("Task completed")
+        case .taskError: localized("Task error")
+        case .needsInput: localized("Needs input")
+        case .toolActivity: localized("Tool activity")
         }
     }
 }

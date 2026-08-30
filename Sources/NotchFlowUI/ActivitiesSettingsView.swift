@@ -70,8 +70,8 @@ public struct ActivitiesSettingsView: View {
 
     private var activitiesSection: some View {
         SettingsSection(
-            title: "Activities",
-            caption: "A switched-off activity stops being observed, not just hidden.",
+            title: localized("Activities"),
+            caption: localized("A switched-off activity stops being observed, not just hidden."),
             metrics: metrics
         ) {
             ForEach(ActivityProviderIdentifier.allCases, id: \.self) { identifier in
@@ -89,8 +89,8 @@ public struct ActivitiesSettingsView: View {
 
     private var musicAutomationSection: some View {
         SettingsSection(
-            title: "Music control",
-            caption: "NotchFlow asks macOS for each player separately, and only when you press the button.",
+            title: localized("Music control"),
+            caption: localized("NotchFlow asks macOS for each player separately, and only when you press the button."),
             metrics: metrics
         ) {
             ForEach(automationRows, id: \.target) { access in

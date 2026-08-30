@@ -143,40 +143,40 @@ public struct OnboardingWindowView: View {
 
     private var welcomeStep: some View {
         heading(
-            title: "Welcome to NotchFlow",
-            body: """
-            NotchFlow turns the area around your notch into a live activity \
-            surface: what is playing, running timers, screen and audio recording \
-            indicators, charging state, and the status of your AI coding agents.
-            """
+            title: localized("Welcome to NotchFlow"),
+            body: localized("""
+                NotchFlow turns the area around your notch into a live activity \
+                surface: what is playing, running timers, screen and audio recording \
+                indicators, charging state, and the status of your AI coding agents.
+                """)
         )
     }
 
     private var permissionsStep: some View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             heading(
-                title: "Permissions come later",
-                body: """
-                NotchFlow asks for nothing right now. Each permission is \
-                requested only when you turn on the feature that needs it, and \
-                only after NotchFlow explains what it is about to ask for.
-                """
+                title: localized("Permissions come later"),
+                body: localized("""
+                    NotchFlow asks for nothing right now. Each permission is \
+                    requested only when you turn on the feature that needs it, and \
+                    only after NotchFlow explains what it is about to ask for.
+                    """)
             )
-            bullet("Apple Events, so now playing and playback controls work with Spotify and Apple Music.")
-            bullet("Write access to an agent's configuration file, only when you install its hook.")
-            bullet("Recording and charging indicators need no permission at all.")
+            bullet(localized("Apple Events, so now playing and playback controls work with Spotify and Apple Music."))
+            bullet(localized("Write access to an agent's configuration file, only when you install its hook."))
+            bullet(localized("Recording and charging indicators need no permission at all."))
         }
     }
 
     private var agentsStep: some View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             heading(
-                title: "AI coding agents",
+                title: localized("AI coding agents"),
                 body: agentsBodyText
             )
             ForEach(flow.detectedAgents, id: \.self) { agentID in
                 Toggle(
-                    "Install the \(agentID.displayName) hook",
+                    localized("Install the \(agentID.displayName) hook"),
                     isOn: hookOffer(for: agentID)
                 )
                 .toggleStyle(.switch)
@@ -188,14 +188,14 @@ public struct OnboardingWindowView: View {
     private var doneStep: some View {
         VStack(alignment: .leading, spacing: metrics.rowSpacing) {
             heading(
-                title: "You are set up",
-                body: """
-                NotchFlow lives in the menu bar. Everything you just saw — \
-                and everything you skipped — can be changed at any time in \
-                Settings.
-                """
+                title: localized("You are set up"),
+                body: localized("""
+                    NotchFlow lives in the menu bar. Everything you just saw — \
+                    and everything you skipped — can be changed at any time in \
+                    Settings.
+                    """)
             )
-            Button("Open Settings", action: onOpenSettings)
+            Button(localized("Open Settings"), action: onOpenSettings)
                 .font(.system(size: metrics.bodySize))
         }
     }
@@ -204,16 +204,16 @@ public struct OnboardingWindowView: View {
     /// anything: an empty list is a normal outcome, not an error to hide.
     private var agentsBodyText: String {
         flow.detectedAgents.isEmpty
-            ? """
-            No agent configuration was found for Claude Code, Codex CLI, or \
-            OpenCode. You can install a hook later from Settings once one is \
-            set up.
-            """
-            : """
-            NotchFlow found configuration for the agents below. Installing a \
-            hook shows you the exact snippet and asks for approval before \
-            anything is written — nothing is installed until you finish setup.
-            """
+            ? localized("""
+                No agent configuration was found for Claude Code, Codex CLI, or \
+                OpenCode. You can install a hook later from Settings once one is \
+                set up.
+                """)
+            : localized("""
+                NotchFlow found configuration for the agents below. Installing a \
+                hook shows you the exact snippet and asks for approval before \
+                anything is written — nothing is installed until you finish setup.
+                """)
     }
 
     private func heading(title: String, body: String) -> some View {
@@ -239,11 +239,11 @@ public struct OnboardingWindowView: View {
     private var navigation: some View {
         HStack(spacing: metrics.rowSpacing) {
             if flow.canGoBack {
-                Button("Back", action: goBack)
+                Button(localized("Back"), action: goBack)
             }
             Spacer()
             if !flow.isOnFinalStep {
-                Button("Skip", action: skip)
+                Button(localized("Skip"), action: skip)
             }
             Button(primaryButtonTitle, action: advance)
                 .keyboardShortcut(.defaultAction)
@@ -261,7 +261,7 @@ public struct OnboardingWindowView: View {
     }
 
     public var primaryButtonTitle: String {
-        flow.isOnFinalStep ? "Done" : "Continue"
+        flow.isOnFinalStep ? localized("Done") : localized("Continue")
     }
 
     public var isSkippable: Bool {

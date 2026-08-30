@@ -31,9 +31,9 @@ public struct ChargingPresentation: Equatable, Sendable {
     /// difference between a notification and a gauge.
     public var title: String {
         switch state {
-        case .pluggedIn: "Plugged In"
-        case .charging: "Charging"
-        case .fullyCharged: "Fully Charged"
+        case .pluggedIn: localized("Plugged In")
+        case .charging: localized("Charging")
+        case .fullyCharged: localized("Fully Charged")
         }
     }
 

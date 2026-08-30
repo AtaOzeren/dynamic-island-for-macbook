@@ -16,11 +16,22 @@ excluded:
   - DerivedData
 
 custom_rules:
+  # docs/08-settings-and-localization.md: a bare literal in a UI-facing
+  # initializer is not mergeable. Only the initializers whose *first* argument
+  # is user-visible text are matched, which is what keeps the rule quiet on the
+  # SF Symbol names and identifiers that share these call sites — a
+  # `Label(title, systemImage: "gear")` passes because the glyph is not the
+  # first argument, and `systemImage:` is never linguistic.
   no_raw_string_in_views:
     name: "User-Visible String Literal in View"
-    regex: 'Text\("[^"]+"\)'
-    message: "Avoid raw string literals in SwiftUI views; use String(localized:) or LocalizedStringKey."
-    severity: warning
+    regex: '\b(?:Text|Label|Button|Toggle|Picker|Stepper|Menu|Section|LabeledContent|NavigationLink|TextField|SettingsSection)\(\s*"'
+    message: "Avoid raw string literals in SwiftUI views; use localized(\"…\") so the string ships through the String Catalog."
+    severity: error
+  no_raw_string_in_view_modifier:
+    name: "User-Visible String Literal in View Modifier"
+    regex: '\.(?:accessibilityLabel|accessibilityHint|accessibilityValue|navigationTitle|help|alert|confirmationDialog)\(\s*"'
+    message: "Avoid raw string literals in view modifiers; use localized(\"…\") so the string ships through the String Catalog."
+    severity: error
 
 line_length:
   warning: 140

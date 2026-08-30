@@ -25,11 +25,11 @@ public enum ActivityProviderIdentifier: Hashable, CaseIterable, Sendable {
     /// label, so a new provider cannot ship an unlabelled row.
     public var displayName: String {
         switch self {
-        case .music: "Music"
-        case .timer: "Timers and stopwatches"
-        case .screenRecording: "Screen recording"
-        case .audioRecording: "Microphone recording"
-        case .charging: "Charging"
+        case .music: localized("Music")
+        case .timer: localized("Timers and stopwatches")
+        case .screenRecording: localized("Screen recording")
+        case .audioRecording: localized("Microphone recording")
+        case .charging: localized("Charging")
         }
     }
 
@@ -39,11 +39,11 @@ public enum ActivityProviderIdentifier: Hashable, CaseIterable, Sendable {
     /// reads as an accident.
     public var caption: String {
         switch self {
-        case .music: "Now playing, from Apple Music, Spotify, and system media."
-        case .timer: "Countdowns and elapsed time."
-        case .screenRecording: "A reminder while your screen is being captured."
-        case .audioRecording: "A reminder while your microphone is in use."
-        case .charging: "Battery level when you plug in or unplug."
+        case .music: localized("Now playing, from Apple Music, Spotify, and system media.")
+        case .timer: localized("Countdowns and elapsed time.")
+        case .screenRecording: localized("A reminder while your screen is being captured.")
+        case .audioRecording: localized("A reminder while your microphone is in use.")
+        case .charging: localized("Battery level when you plug in or unplug.")
         }
     }
 }

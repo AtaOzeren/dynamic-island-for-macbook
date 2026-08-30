@@ -31,7 +31,41 @@ public struct LanguageOption: Equatable, Hashable, Sendable {
         self.displayName = displayName
     }
 
-    public static let systemDefault = LanguageOption(code: nil, displayName: "System default")
+    public static var systemDefault: LanguageOption {
+        LanguageOption(code: nil, displayName: localized("System default"))
+    }
+
+    /// The languages this build actually ships, read from the catalog rather
+    /// than hardcoded.
+    ///
+    /// A literal list is a second place to remember: adding a language to the
+    /// catalogs and forgetting the list yields a translation no user can
+    /// select, and removing one yields a picker entry that resolves to English.
+    /// `Bundle.module.localizations` cannot drift from the compiled catalog
+    /// because it *is* the compiled catalog.
+    public static var shipped: [LanguageOption] {
+        options(forLanguageCodes: Bundle.module.localizations)
+    }
+
+    /// Named separately from `shipped` so the naming is testable without a
+    /// compiled catalog: SwiftPM copies `.xcstrings` rather than compiling it,
+    /// so under `swift test` `Bundle.module.localizations` reports only the
+    /// source language and `shipped` can never be more than a smoke check.
+    ///
+    /// Each name is the language's own endonym — "Türkçe", not "Turkish" —
+    /// because a user hunting for their language reads the list in that
+    /// language, not in the one the app happens to be running in.
+    static func options(forLanguageCodes codes: [String]) -> [LanguageOption] {
+        codes
+            .filter { $0 != "Base" }
+            .compactMap { code in
+                guard let name = Locale(identifier: code).localizedString(forLanguageCode: code) else {
+                    return nil
+                }
+                return LanguageOption(code: code, displayName: name.localizedCapitalized)
+            }
+            .sorted { $0.displayName < $1.displayName }
+    }
 }
 
 /// The About pane: version, build, music backend, and the language override.
@@ -79,22 +113,22 @@ public struct AboutSettingsView: View {
 
     private var buildSection: some View {
         SettingsSection(
-            title: "NotchFlow",
-            caption: "MIT licensed. Music is read through the backend this build was compiled against.",
+            title: localized("NotchFlow"),
+            caption: localized("MIT licensed. Music is read through the backend this build was compiled against."),
             metrics: metrics
         ) {
-            LabeledContent("Version", value: "\(information.version) (\(information.build))")
-            LabeledContent("Music backend", value: information.musicBackendName)
+            LabeledContent(localized("Version"), value: "\(information.version) (\(information.build))")
+            LabeledContent(localized("Music backend"), value: information.musicBackendName)
         }
     }
 
     private var languageSection: some View {
         SettingsSection(
-            title: "Language",
-            caption: "Takes effect the next time NotchFlow starts.",
+            title: localized("Language"),
+            caption: localized("Takes effect the next time NotchFlow starts."),
             metrics: metrics
         ) {
-            Picker("App language", selection: selectedLanguage) {
+            Picker(localized("App language"), selection: selectedLanguage) {
                 ForEach(languageOptions, id: \.self) { option in
                     Text(option.displayName).tag(option)
                 }

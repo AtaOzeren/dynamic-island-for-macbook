@@ -1,0 +1,307 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ control is off because macOS permission was declined. Everything else in NotchFlow keeps working. To turn it on, allow NotchFlow for %@ in System Settings › Privacy & Security › Automation." : {
+      "comment" : "Activities pane, Apple Events row: shown after the user declined the automation prompt. Placeholders are the player name (Spotify, Music).",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ control is off because macOS permission was declined. Everything else in NotchFlow keeps working. To turn it on, allow NotchFlow for %2$@ in System Settings › Privacy & Security › Automation."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ denetimi, macOS izni reddedildiği için kapalı. NotchFlow'un geri kalanı çalışmayı sürdürüyor. Açmak için Sistem Ayarları › Gizlilik ve Güvenlik › Otomasyon bölümünden NotchFlow'a %2$@ izni verin."
+          }
+        }
+      }
+    },
+    "A reminder while your microphone is in use." : {
+      "comment" : "Activities pane: why the microphone recording switch exists.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A reminder while your microphone is in use." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Mikrofonunuz kullanımdayken bir hatırlatma." } }
+      }
+    },
+    "A reminder while your screen is being captured." : {
+      "comment" : "Activities pane: why the screen recording switch exists.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A reminder while your screen is being captured." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ekranınız kaydedilirken bir hatırlatma." } }
+      }
+    },
+    "Allow %@…" : {
+      "comment" : "Activities pane button that triggers the macOS automation prompt. Placeholder is the player name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow %@…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ için izin ver…" } }
+      }
+    },
+    "Always reduce" : {
+      "comment" : "General pane, Motion picker: always cross-fade instead of animating.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Always reduce" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Her zaman azalt" } }
+      }
+    },
+    "Automatic" : {
+      "comment" : "General pane, Theme picker: follow the system appearance.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Automatic" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Otomatik" } }
+      }
+    },
+    "Battery level when you plug in or unplug." : {
+      "comment" : "Activities pane: why the charging switch exists.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Battery level when you plug in or unplug." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Fişe taktığınızda veya çıkardığınızda pil düzeyi." } }
+      }
+    },
+    "Charging" : {
+      "comment" : "Activities pane: the charging activity switch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Charging" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Şarj oluyor" } }
+      }
+    },
+    "Countdowns and elapsed time." : {
+      "comment" : "Activities pane: why the timer switch exists.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Countdowns and elapsed time." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Geri sayımlar ve geçen süre." } }
+      }
+    },
+    "Dark" : {
+      "comment" : "General pane, Theme picker: force the dark appearance.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Koyu" } }
+      }
+    },
+    "Follow system" : {
+      "comment" : "General pane, Motion picker: defer to the system Reduce Motion setting.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Follow system" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Sistemi izle" } }
+      }
+    },
+    "Light" : {
+      "comment" : "General pane, Theme picker: force the light appearance.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Açık" } }
+      }
+    },
+    "Microphone recording" : {
+      "comment" : "Activities pane: the microphone recording activity switch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Microphone recording" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Mikrofon kaydı" } }
+      }
+    },
+    "Music" : {
+      "comment" : "Activities pane: the music activity switch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Music" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Müzik" } }
+      }
+    },
+    "Needs input" : {
+      "comment" : "AI Integrations pane: the event class for an agent waiting on the user.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Needs input" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Girdi bekliyor" } }
+      }
+    },
+    "Never reduce" : {
+      "comment" : "General pane, Motion picker: always animate, overriding the system setting.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Never reduce" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Hiçbir zaman azaltma" } }
+      }
+    },
+    "NotchFlow can show and control what %@ is playing." : {
+      "comment" : "Activities pane, Apple Events row: shown once permission is granted. Placeholder is the player name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow can show and control what %@ is playing." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow, %@ uygulamasında çalanı gösterebilir ve denetleyebilir." } }
+      }
+    },
+    "NotchFlow could not write this file for you. Copy the text below into %@ to finish setup." : {
+      "comment" : "Manual setup sheet subtitle. Placeholder is the absolute path of the agent's configuration file.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow could not write this file for you. Copy the text below into %@ to finish setup."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow bu dosyayı sizin için yazamadı. Kurulumu tamamlamak için aşağıdaki metni %@ dosyasına kopyalayın."
+          }
+        }
+      }
+    },
+    "NotchFlow will ask macOS for permission to control %@, so the notch can show what is playing and its buttons can control playback. Nothing is sent anywhere; NotchFlow only talks to %@ on this Mac." : {
+      "comment" : "Activities pane, Apple Events row: the explanation shown before the macOS prompt. Placeholders are the player name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow will ask macOS for permission to control %1$@, so the notch can show what is playing and its buttons can control playback. Nothing is sent anywhere; NotchFlow only talks to %2$@ on this Mac."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow, %1$@ uygulamasını denetlemek için macOS'ten izin isteyecek; böylece çentik çalanı gösterebilir ve düğmeleri çalmayı denetleyebilir. Hiçbir yere veri gönderilmez; NotchFlow yalnızca bu Mac'teki %2$@ uygulamasıyla konuşur."
+          }
+        }
+      }
+    },
+    "Now playing, from Apple Music, Spotify, and system media." : {
+      "comment" : "Activities pane: why the music switch exists.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Now playing, from Apple Music, Spotify, and system media." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Apple Music, Spotify ve sistem ortamından şimdi çalanlar." } }
+      }
+    },
+    "Open %@" : {
+      "comment" : "Expanded activity primary action: brings the source app forward. Placeholder is an app or agent name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open %@" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ uygulamasını aç" } }
+      }
+    },
+    "Open %@ in your editor, creating it if it does not exist." : {
+      "comment" : "Manual setup sheet, step 1. Placeholder is the absolute path of the agent's configuration file.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open %@ in your editor, creating it if it does not exist." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ dosyasını düzenleyicinizde açın; yoksa oluşturun." } }
+      }
+    },
+    "Paste the text below as the file's entire contents." : {
+      "comment" : "Manual setup sheet, step 2 for OpenCode, whose plugin file NotchFlow creates outright.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste the text below as the file's entire contents." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Aşağıdaki metni dosyanın tüm içeriği olarak yapıştırın." } }
+      }
+    },
+    "Replace the file's entire contents with the text below — NotchFlow has already merged your existing settings into it." : {
+      "comment" : "Manual setup sheet, step 2 for Claude Code and Codex, whose existing config NotchFlow merged into the snippet.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replace the file's entire contents with the text below — NotchFlow has already merged your existing settings into it."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosyanın tüm içeriğini aşağıdaki metinle değiştirin — NotchFlow var olan ayarlarınızı bu metne zaten birleştirdi."
+          }
+        }
+      }
+    },
+    "Save the file, then restart %@ so it picks up the change." : {
+      "comment" : "Manual setup sheet, final step. Placeholder is the agent name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save the file, then restart %@ so it picks up the change." } },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dosyayı kaydedin, ardından değişikliği alması için %@ uygulamasını yeniden başlatın."
+          }
+        }
+      }
+    },
+    "Screen recording" : {
+      "comment" : "Activities pane: the screen recording activity switch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Screen recording" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ekran kaydı" } }
+      }
+    },
+    "Set up %@ by hand" : {
+      "comment" : "Manual setup sheet title, shown when NotchFlow could not write the config file. Placeholder is the agent name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set up %@ by hand" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ kurulumunu elle yapın" } }
+      }
+    },
+    "Task completed" : {
+      "comment" : "AI Integrations pane: the event class for a finished agent task.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task completed" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev tamamlandı" } }
+      }
+    },
+    "Task error" : {
+      "comment" : "AI Integrations pane: the event class for a failed agent task.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task error" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev hatası" } }
+      }
+    },
+    "Task started" : {
+      "comment" : "AI Integrations pane: the event class for a newly started agent task.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task started" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev başladı" } }
+      }
+    },
+    "Timers and stopwatches" : {
+      "comment" : "Activities pane: the timer activity switch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Timers and stopwatches" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcılar ve kronometreler" } }
+      }
+    },
+    "Tool activity" : {
+      "comment" : "AI Integrations pane: the event class for an agent running a tool.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tool activity" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Araç etkinliği" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

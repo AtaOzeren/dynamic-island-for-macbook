@@ -37,7 +37,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         symbolName = "ellipsis"
         label = "+\(overflowCount)"
         self.overflowCount = overflowCount
-        accessibilityLabel = "\(overflowCount) more activities"
+        accessibilityLabel = localized("\(overflowCount) more activities")
     }
 
     private static let overflowIdentifier = "notchflow.compact.overflow"
@@ -129,12 +129,12 @@ public func compactSymbolName(_ kind: ActivityKind) -> String {
 
 public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
     switch kind {
-    case .music: "Music"
-    case .timer: "Timer"
-    case .recording: "Recording"
-    case .charging: "Charging"
-    case .aiAgent: "AI agent"
-    case .fileTransfer: "Transfer"
+    case .music: localized("Music")
+    case .timer: localized("Timer")
+    case .recording: localized("Recording")
+    case .charging: localized("Charging")
+    case .aiAgent: localized("AI agent")
+    case .fileTransfer: localized("Transfer")
     }
 }
 

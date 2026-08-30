@@ -27,6 +27,9 @@ jobs:
       - name: Run Core Architecture Guard
         run: ./scripts/check-core-dependencies.sh
 
+      - name: Run Translation Guard
+        run: ./scripts/check-translations.sh
+
       - name: Build App Store Configuration
         run: xcodebuild -scheme "NotchFlow (App Store)" -destination "platform=macOS" build
 
