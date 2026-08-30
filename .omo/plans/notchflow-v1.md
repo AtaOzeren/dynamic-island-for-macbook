@@ -502,25 +502,25 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
 
 ### Wave 7 — Performance, packaging, distribution
 
-- [ ] 66. Implement the performance measurement script
+- [x] 66. Implement the performance measurement script
   - A script that launches the app, waits for idle, samples for the documented duration, and asserts the `docs/02` thresholds for CPU, wakeups, and memory, failing non-zero on a breach.
   - **Acceptance:** The script runs unattended and produces a machine-readable result plus a human summary.
   - **QA (HW):** Run on the notched MacBook with no activities; capture the report. Evidence: `.omo/evidence/task-66-notchflow-v1/`.
   - **Commit:** `test(perf): add idle cost measurement script`
 
-- [ ] 67. Meet the idle performance budget
+- [x] 67. Meet the idle performance budget
   - Profile and fix until the script from todo 66 passes. Expected work: eliminating any retained observer, confirming the window is truly ordered out, removing incidental timers, and verifying App Nap cooperation.
   - **Acceptance:** Todo 66's script passes on real hardware with every provider enabled and no activity present.
   - **QA (HW):** The script's passing report, plus an Instruments capture confirming no periodic work. Evidence: `.omo/evidence/task-67-notchflow-v1/`.
   - **Commit:** `perf: meet the idle cost budget`
 
-- [ ] 68. Author both entitlements files and both build configurations
+- [x] 68. Author both entitlements files and both build configurations
   - Per `docs/09` and `docs/10`, with the guards from todos 20 and 21 wired into both.
   - **Acceptance:** Both configurations build; the App Store configuration passes the symbol guard; each entitlement present is justified in `docs/09`.
   - **QA (CI):** Build both; run both guards; diff the effective entitlements against the documented table. Evidence: `.omo/evidence/task-68-notchflow-v1.log`.
   - **Commit:** `build: add per-configuration entitlements`
 
-- [ ] 69. Write the privacy policy and App Store metadata
+- [x] 69. Write the privacy policy and App Store metadata
   - Privacy policy file in the repository, plus the App Store description, keywords, review notes explaining the overlay window and the absence of private API, and the privacy nutrition label answers — all localized.
   - **Acceptance:** The privacy policy matches the actual data behaviour described in `docs/09`; review notes address the overlay question directly.
   - **QA (CI):** Consistency check between the privacy policy claims and the entitlements table. Evidence: `.omo/evidence/task-69-notchflow-v1.txt`.
