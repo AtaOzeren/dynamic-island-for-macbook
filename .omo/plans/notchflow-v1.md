@@ -464,7 +464,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (CI):** Tests over a clean defaults domain asserting each default. Evidence: `.omo/evidence/task-59-notchflow-v1.log`.
   - **Commit:** `feat(settings): add typed preferences store`
 
-- [ ] 60. Implement the settings window
+- [x] 60. Implement the settings window
   - All panes from `docs/08`: general, display, activities, AI integrations, about.
   - **Acceptance:** Every documented setting is reachable and functional.
   - **QA (HW):** Walk every pane and exercise every control; screenshot each pane. Evidence: `.omo/evidence/task-60-notchflow-v1/`.
