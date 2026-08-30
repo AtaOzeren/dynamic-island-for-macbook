@@ -426,6 +426,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -445,6 +447,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -467,6 +471,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -489,6 +495,8 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlow;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;

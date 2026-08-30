@@ -1,0 +1,8 @@
+disk image: /Users/ataozeren/Documents/GitHub/dynamic-island-for-macbook/dist/NotchFlow-1.0.0-direct.dmg
+mount point: /Users/ataozeren/Documents/GitHub/dynamic-island-for-macbook/DerivedData/Task70Mount
+bundle identifier: com.notchflow.NotchFlow
+executable: NotchFlow
+version: 1.0.0
+executable present: PASS
+Applications symlink: /Applications
+codesign verification: PASS
