@@ -432,7 +432,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (HW):** Install, diff, run a Claude Code session and observe states in the island, uninstall, and diff against the original. Evidence: `.omo/evidence/task-54-notchflow-v1/`.
   - **Commit:** `feat(ai): add Claude Code hook installer`
 
-- [ ] 55. Implement the Codex CLI hook installer
+- [x] 55. Implement the Codex CLI hook installer
   - Same consent, backup, and uninstall contract, targeting the `notify` setting.
   - **Acceptance:** Round-trip install/uninstall is byte-identical; a Codex session drives the island.
   - **QA (HW):** As todo 54, with Codex. Evidence: `.omo/evidence/task-55-notchflow-v1/`.
