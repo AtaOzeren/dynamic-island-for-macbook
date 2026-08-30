@@ -15,11 +15,11 @@ struct LoopbackHTTPListenerTests {
         let fixture = Self.makeFixture()
         defer { fixture.removeDirectory() }
 
-        #expect(try await fixture.listener.updateEnabledAgentIDs([]) == nil)
+        #expect(try await fixture.listener.updatePreferences(.default) == nil)
         #expect(!FileManager.default.fileExists(atPath: fixture.discoveryFile.path))
 
         let port = try #require(
-            await fixture.listener.updateEnabledAgentIDs([.claudeCode])
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
         )
         let publishedPort = try String(contentsOf: fixture.discoveryFile, encoding: .utf8)
         #expect(publishedPort.trimmingCharacters(in: .whitespacesAndNewlines) == String(port))
@@ -40,7 +40,7 @@ struct LoopbackHTTPListenerTests {
         let fixture = Self.makeFixture()
         defer { fixture.removeDirectory() }
         let port = try #require(
-            await fixture.listener.updateEnabledAgentIDs([.claudeCode])
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
         )
 
         let garbageResponse = try await Self.post(
@@ -54,7 +54,7 @@ struct LoopbackHTTPListenerTests {
         #expect(wrongRouteResponse.statusCode == 404)
         #expect(fixture.recorder.messages.isEmpty)
 
-        #expect(try await fixture.listener.updateEnabledAgentIDs([]) == nil)
+        #expect(try await fixture.listener.updatePreferences(.default) == nil)
     }
 
     @Test("removes discovery and refuses connections after stop")
@@ -62,7 +62,7 @@ struct LoopbackHTTPListenerTests {
         let fixture = Self.makeFixture()
         defer { fixture.removeDirectory() }
         let port = try #require(
-            await fixture.listener.updateEnabledAgentIDs([.claudeCode])
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
         )
 
         await fixture.listener.stop()

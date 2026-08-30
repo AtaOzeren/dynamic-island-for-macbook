@@ -35,7 +35,7 @@ public actor LoopbackHTTPListener {
     private var policy: LoopbackListenerPolicy
     private var listener: NWListener?
     private var boundPort: UInt16?
-    private var enabledAgentIDs: Set<IPCAgentID> = []
+    private var preferences: AIIntegrationPreferences = .default
     private var connections: [ObjectIdentifier: NWConnection] = [:]
 
     public init(
@@ -49,11 +49,15 @@ public actor LoopbackHTTPListener {
         )
     }
 
+    /// The socket's lifetime tracks the enabled *agents* only. Event-class
+    /// switches change what the policy accepts, never whether the port exists:
+    /// a user who silences every event class still has agents enabled, and
+    /// tearing the socket down under them would break the hooks they installed.
     @discardableResult
-    public func updateEnabledAgentIDs(_ agentIDs: Set<IPCAgentID>) async throws -> UInt16? {
-        enabledAgentIDs = agentIDs
-        policy.updateEnabledAgentIDs(agentIDs)
-        guard !agentIDs.isEmpty else {
+    public func updatePreferences(_ preferences: AIIntegrationPreferences) async throws -> UInt16? {
+        self.preferences = preferences
+        policy.updatePreferences(preferences)
+        guard !preferences.enabledAgentIDs.isEmpty else {
             await stop()
             return nil
         }
@@ -90,7 +94,7 @@ public actor LoopbackHTTPListener {
 
         do {
             let port = try await waitUntilReady(listener)
-            guard !enabledAgentIDs.isEmpty, self.listener === listener else {
+            guard !preferences.enabledAgentIDs.isEmpty, self.listener === listener else {
                 throw LoopbackHTTPListenerError.failedToStart(
                     "Listener was disabled before startup completed"
                 )

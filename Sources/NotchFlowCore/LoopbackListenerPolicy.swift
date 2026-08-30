@@ -35,20 +35,20 @@ public enum LoopbackListenerDecision: Equatable, Sendable {
 }
 
 public struct LoopbackListenerPolicy: Sendable {
-    private var enabledAgentIDs: Set<IPCAgentID>
+    private var preferences: AIIntegrationPreferences
     private let configuration: LoopbackListenerPolicyConfiguration
     private var lastAcceptedAtBySessionID: [UUID: Date] = [:]
 
     public init(
-        enabledAgentIDs: Set<IPCAgentID> = [],
+        preferences: AIIntegrationPreferences = .default,
         configuration: LoopbackListenerPolicyConfiguration = .init()
     ) {
-        self.enabledAgentIDs = enabledAgentIDs
+        self.preferences = preferences
         self.configuration = configuration
     }
 
-    public mutating func updateEnabledAgentIDs(_ agentIDs: Set<IPCAgentID>) {
-        enabledAgentIDs = agentIDs
+    public mutating func updatePreferences(_ preferences: AIIntegrationPreferences) {
+        self.preferences = preferences
     }
 
     public func rejection(method: String, path: String) -> LoopbackListenerRejection? {
@@ -75,10 +75,12 @@ public struct LoopbackListenerPolicy: Sendable {
             return .rejected(.invalidPayload)
         }
 
-        guard enabledAgentIDs.contains(message.agentId) else {
+        // Ahead of the rate limiter on purpose: a silenced event must not
+        // consume its session's budget, or a stream of `usingTool` messages
+        // would starve the `completed` message the user did ask to see.
+        guard preferences.allows(message) else {
             return .ignored
         }
-
         let now = configuration.now()
         if let lastAcceptedAt = lastAcceptedAtBySessionID[message.sessionId],
            now.timeIntervalSince(lastAcceptedAt) < configuration.minimumInterval {

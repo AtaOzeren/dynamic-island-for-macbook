@@ -13,6 +13,11 @@ struct NotchFlowApp: App {
     private let registry: ActivityProviderRegistry
     private let urlSchemeReceiver = URLSchemeReceiver()
 
+    /// Held here rather than in the pane so the switches and the receivers read
+    /// one value; the documented defaults stand in until the settings store
+    /// (todo 59) can persist the user's actual choices.
+    @State private var aiPreferences = AIIntegrationPreferences.default
+
     init() {
         let musicProvider = makeMusicProvider()
         self.musicProvider = musicProvider
@@ -42,12 +47,19 @@ struct NotchFlowApp: App {
 
     var body: some Scene {
         Settings {
-            /// Stands in for the about pane until todo 60 builds the settings
-            /// window; the backend name is the part that must survive that move.
-            Text(verbatim: "NotchFlow — music backend: \(musicProvider.backendName)")
-                .onOpenURL { url in
-                    urlSchemeReceiver.handle(url)
-                }
+            VStack(alignment: .leading) {
+                AIIntegrationsSettingsView(preferences: $aiPreferences)
+
+                /// Stands in for the about pane until todo 60 builds the settings
+                /// window; the backend name is the part that must survive that move.
+                Text(verbatim: "NotchFlow — music backend: \(musicProvider.backendName)")
+            }
+            .onOpenURL { url in
+                urlSchemeReceiver.handle(url)
+            }
+            .onChange(of: aiPreferences, initial: true) { _, preferences in
+                urlSchemeReceiver.preferences = preferences
+            }
         }
     }
 }
