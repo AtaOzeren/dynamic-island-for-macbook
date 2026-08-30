@@ -75,6 +75,16 @@ public struct CodexHookInstaller: Sendable {
         return try mergedConfiguration(from: existingData).text
     }
 
+    /// The manual-setup fallback's content, produced by the same call `install()`
+    /// writes from so the two can never disagree.
+    public func manualSetupInstructions() throws -> ManualSetupInstructions {
+        ManualSetupInstructions(
+            agent: .codex,
+            destinationPath: configURL.path,
+            snippet: try proposedConfiguration()
+        )
+    }
+
     public func install() throws {
         let existingData = try fileSystem.readFile(at: configURL)
         let merged = try mergedConfiguration(from: existingData)

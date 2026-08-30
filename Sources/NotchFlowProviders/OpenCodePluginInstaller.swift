@@ -80,6 +80,16 @@ public struct OpenCodePluginInstaller: Sendable {
         try generatedPlugin().text
     }
 
+    /// The manual-setup fallback's content, produced by the same call `install()`
+    /// writes from so the two can never disagree.
+    public func manualSetupInstructions() throws -> ManualSetupInstructions {
+        ManualSetupInstructions(
+            agent: .opencode,
+            destinationPath: pluginURL.path,
+            snippet: try proposedPlugin()
+        )
+    }
+
     public func install() throws {
         let generated = try generatedPlugin()
         let existingData = try fileSystem.readFile(at: pluginURL)

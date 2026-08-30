@@ -70,6 +70,20 @@ public struct ClaudeCodeHookInstaller: Sendable {
         return String(decoding: try mergedSettings(from: existingData).data, as: UTF8.self)
     }
 
+    /// The manual-setup fallback's content, for when the user declines the write
+    /// or the sandbox refuses it.
+    ///
+    /// Goes through `proposedSettings()` rather than re-deriving the text, so the
+    /// snippet on screen and the bytes `install()` would write come from one
+    /// call and cannot drift apart.
+    public func manualSetupInstructions() throws -> ManualSetupInstructions {
+        ManualSetupInstructions(
+            agent: .claudeCode,
+            destinationPath: settingsURL.path,
+            snippet: try proposedSettings()
+        )
+    }
+
     public func install() throws {
         let existingData = try fileSystem.readFile(at: settingsURL)
         let merged = try mergedSettings(from: existingData)

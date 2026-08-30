@@ -438,13 +438,13 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (HW):** As todo 54, with Codex. Evidence: `.omo/evidence/task-55-notchflow-v1/`.
   - **Commit:** `feat(ai): add Codex CLI hook installer`
 
-- [ ] 56. Implement the OpenCode plugin installer
+- [x] 56. Implement the OpenCode plugin installer
   - Writes the plugin file with the same consent, backup, and uninstall contract.
   - **Acceptance:** Round-trip is clean; an OpenCode session drives the island.
   - **QA (HW):** As todo 54, with OpenCode. Evidence: `.omo/evidence/task-56-notchflow-v1/`.
   - **Commit:** `feat(ai): add OpenCode plugin installer`
 
-- [ ] 57. Implement the manual-setup fallback UI
+- [x] 57. Implement the manual-setup fallback UI
   - When automatic installation is unavailable or declined, display the exact snippet with a copy button and instructions.
   - **Acceptance:** The displayed snippet is identical to what the installer would have written.
   - **QA (CI):** Assert the UI snippet and the installer output are produced by the same generator and are string-equal. Evidence: `.omo/evidence/task-57-notchflow-v1.log`.
