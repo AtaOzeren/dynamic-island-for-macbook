@@ -149,3 +149,26 @@ public struct SystemReduceMotion: ReduceMotionQuerying {
         NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 }
+
+/// Runtime motion preference: explicit user choice wins, `nil` follows macOS.
+@MainActor
+public final class ConfigurableReduceMotion: ReduceMotionQuerying {
+    private var preferenceOverride: Bool?
+    private let system: any ReduceMotionQuerying
+
+    public init(
+        override preferenceOverride: Bool?,
+        system: any ReduceMotionQuerying = SystemReduceMotion()
+    ) {
+        self.preferenceOverride = preferenceOverride
+        self.system = system
+    }
+
+    public var prefersReducedMotion: Bool {
+        preferenceOverride ?? system.prefersReducedMotion
+    }
+
+    public func updateOverride(_ preferenceOverride: Bool?) {
+        self.preferenceOverride = preferenceOverride
+    }
+}

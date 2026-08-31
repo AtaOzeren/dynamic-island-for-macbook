@@ -17,6 +17,9 @@ public final class NotchPanel: NSPanel {
     public static let level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 1)
 
     private let metrics: PanelMetrics
+    private var allowsKeyFocus = false
+
+    public var onCancel: (() -> Void)?
 
     public init(
         metrics: PanelMetrics = .default,
@@ -64,11 +67,28 @@ public final class NotchPanel: NSPanel {
         appearance = preference.nsAppearance
     }
 
-    /// A click on the island must never take focus from the app the user is
-    /// typing in, so the panel is ineligible to become key or main.
-    public override var canBecomeKey: Bool { false }
+    /// Passive hover never takes focus. An explicit island interaction may
+    /// temporarily opt in so controls receive keyboard input.
+    public override var canBecomeKey: Bool { allowsKeyFocus }
 
     public override var canBecomeMain: Bool { false }
+
+    public func beginInteractiveMode() {
+        allowsKeyFocus = true
+        makeKey()
+    }
+
+    public func endInteractiveMode() {
+        guard allowsKeyFocus else { return }
+        allowsKeyFocus = false
+        if isKeyWindow {
+            resignKey()
+        }
+    }
+
+    public override func cancelOperation(_ sender: Any?) {
+        onCancel?()
+    }
 
     /// Moves the panel under the notch of `screen`, or under the centre of its
     /// menu bar when that screen has no notch.

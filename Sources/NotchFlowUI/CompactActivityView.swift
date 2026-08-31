@@ -65,32 +65,6 @@ public struct CompactSlotLayout: Equatable, Sendable {
     public let trailing: [CompactSlot]
 }
 
-/// The pill's fixed visual budget. Every size the compact view draws comes from
-/// here, so a change to the island's density is one edit, not a sweep.
-public struct CompactPillMetrics: Equatable, Sendable {
-    public static let `default` = CompactPillMetrics()
-
-    public let slotWidth: CGFloat
-    public let slotSpacing: CGFloat
-    public let edgeInset: CGFloat
-    public let symbolSize: CGFloat
-    public let cornerRadius: CGFloat
-
-    public init(
-        slotWidth: CGFloat = 22,
-        slotSpacing: CGFloat = 6,
-        edgeInset: CGFloat = 10,
-        symbolSize: CGFloat = 13,
-        cornerRadius: CGFloat = 12
-    ) {
-        self.slotWidth = slotWidth
-        self.slotSpacing = slotSpacing
-        self.edgeInset = edgeInset
-        self.symbolSize = symbolSize
-        self.cornerRadius = cornerRadius
-    }
-}
-
 /// One activity's slot, routed to the kind that knows how to describe itself.
 ///
 /// Music and charging both announce per-instance detail the shared kind label
@@ -119,34 +93,6 @@ public func compactSlotLayout(for presentation: CompactActivityPresentation) -> 
     return CompactSlotLayout(
         leading: Array(slots.prefix(leadingCount)),
         trailing: Array(slots.dropFirst(leadingCount))
-    )
-}
-
-/// The pill's drawn size: exactly as tall as the notch it hugs, and wide enough
-/// for the notch plus the slots flanking it, per the compact row of the state
-/// table in `docs/04-overlay-window.md`.
-public func compactPillSize(
-    slotCount: Int,
-    notchSize: CGSize,
-    metrics: CompactPillMetrics = .default
-) -> CGSize {
-    let slots = max(slotCount, 0)
-    // With no slots the pill would be exactly the notch, and a pill the size of
-    // the opaque hardware it hugs is invisible. The empty perch the "keep the
-    // bar always visible" setting asks for therefore still pays the edge inset,
-    // so it reads as a bar flanking the notch rather than as nothing at all.
-    guard slots > 0 else {
-        return CGSize(
-            width: notchSize.width + metrics.edgeInset * 2,
-            height: notchSize.height
-        )
-    }
-
-    let slotsWidth = CGFloat(slots) * metrics.slotWidth
-    let spacing = CGFloat(slots) * metrics.slotSpacing
-    return CGSize(
-        width: notchSize.width + slotsWidth + spacing + metrics.edgeInset * 2,
-        height: notchSize.height
     )
 }
 
@@ -216,7 +162,7 @@ public struct CompactActivityView: View {
         .background {
             surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
         }
-        .environment(\.colorScheme, surface.foreground == .onDark ? .dark : .light)
+        .environment(\.colorScheme, surface.preferredColorScheme)
     }
 
     private func slotRow(_ slots: [CompactSlot]) -> some View {

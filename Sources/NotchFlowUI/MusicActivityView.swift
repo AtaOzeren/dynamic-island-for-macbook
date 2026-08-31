@@ -29,6 +29,7 @@ public struct MusicPresentation: Equatable, Sendable {
     public let title: String
     public let subtitle: String?
     public let playbackState: MusicPlaybackState
+    public let primaryAction: PrimaryAction?
 
     public init(activity: MusicActivity) {
         let nowPlaying = activity.nowPlaying
@@ -40,6 +41,7 @@ public struct MusicPresentation: Equatable, Sendable {
         )
         subtitle = nowPlaying.artist.isEmpty ? nil : nowPlaying.artist
         playbackState = nowPlaying.playbackState
+        primaryAction = activity.primaryAction
     }
 
     /// Previous, play/pause, next — in reading order, with the middle control
@@ -175,23 +177,30 @@ public struct MusicExpandedView: View {
     private let metrics: MusicViewMetrics
     private let panelMetrics: PanelMetrics
     private let onTransport: (MusicTransportCommand) -> Void
+    private let onPrimaryAction: () -> Void
 
     public init(
         activity: MusicActivity,
         metrics: MusicViewMetrics = .default,
         panelMetrics: PanelMetrics = .default,
-        onTransport: @escaping (MusicTransportCommand) -> Void = { _ in }
+        onTransport: @escaping (MusicTransportCommand) -> Void = { _ in },
+        onPrimaryAction: @escaping () -> Void = {}
     ) {
         presentation = MusicPresentation(activity: activity)
         self.metrics = metrics
         self.panelMetrics = panelMetrics
         self.onTransport = onTransport
+        self.onPrimaryAction = onPrimaryAction
     }
 
     /// Dispatches a control's command. Exposed so a test can drive the same path
     /// a tap takes without rendering into a window server.
     public func perform(_ control: MusicTransportControl) {
         onTransport(control.command)
+    }
+
+    public func performPrimaryAction() {
+        onPrimaryAction()
     }
 
     public var body: some View {
@@ -213,6 +222,7 @@ public struct MusicExpandedView: View {
         .background {
             surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
         }
+        .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilityLabel)
     }
@@ -260,6 +270,17 @@ public struct MusicExpandedView: View {
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(control.accessibilityLabel)
+            }
+
+            if let action = presentation.primaryAction {
+                Button(action: performPrimaryAction) {
+                    Image(systemName: action.symbolName)
+                        .font(.system(size: metrics.transportSymbolSize, weight: .medium))
+                        .frame(width: metrics.transportButtonSize, height: metrics.transportButtonSize)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(action.title)
             }
         }
     }

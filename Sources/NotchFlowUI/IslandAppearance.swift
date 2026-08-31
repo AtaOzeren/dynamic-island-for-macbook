@@ -90,6 +90,11 @@ public enum IslandSurface: Equatable, Sendable {
             }
         }
     }
+
+    /// Environment scheme descendants need for semantic text and controls.
+    public var preferredColorScheme: ColorScheme {
+        foreground == .onDark ? .dark : .light
+    }
 }
 
 /// The compact pill's background.

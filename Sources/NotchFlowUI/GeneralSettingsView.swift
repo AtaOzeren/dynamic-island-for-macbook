@@ -27,7 +27,16 @@ public struct GeneralSettingsView: View {
     /// Built from the displays passed in rather than read from `NSScreen` here,
     /// so a test can enumerate the picker without a second monitor plugged in.
     public var displayOptions: [DisplayPreference] {
-        [.automatic, .builtIn] + availableDisplays.map { .named($0.name) }
+        let nameCounts = Dictionary(grouping: availableDisplays, by: \.name).mapValues(\.count)
+        var seenNames: [String: Int] = [:]
+        let attached = availableDisplays.map { display in
+            seenNames[display.name, default: 0] += 1
+            let name = nameCounts[display.name, default: 0] > 1
+                ? "\(display.name) (\(seenNames[display.name, default: 1]))"
+                : display.name
+            return DisplayPreference.identified(id: display.identifier, name: name)
+        }
+        return [.automatic, .builtIn] + attached
     }
 
     public func title(for preference: DisplayPreference) -> String {
@@ -35,6 +44,7 @@ public struct GeneralSettingsView: View {
         case .automatic: localized("Automatic")
         case .builtIn: localized("Built-in display")
         case .named(let name): name
+        case .identified(_, let name): name
         }
     }
 
@@ -117,11 +127,6 @@ public struct GeneralSettingsView: View {
             caption: localized("Reduced motion also follows the system accessibility setting unless you override it."),
             metrics: metrics
         ) {
-            Picker(localized("Theme"), selection: appearance) {
-                ForEach(SettingsAppearance.allCases, id: \.self) { option in
-                    Text(option.displayName).tag(option)
-                }
-            }
             Picker(localized("Motion"), selection: reducedMotion) {
                 ForEach(ReducedMotionSetting.allCases, id: \.self) { option in
                     Text(option.displayName).tag(option)

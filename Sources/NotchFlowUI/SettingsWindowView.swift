@@ -46,6 +46,8 @@ public struct SettingsWindowView: View {
     private let languages: [LanguageOption]
     private let metrics: SettingsPaneMetrics
     private let onRequestAutomation: (MusicPlayerTarget) -> Void
+    private let hookStates: [IPCAgentID: HookInstallationState]
+    private let onHookAction: (IPCAgentID, AIHookAction) -> Void
 
     @State private var selectedTab: SettingsTab = .general
 
@@ -58,19 +60,23 @@ public struct SettingsWindowView: View {
         information: AboutInformation,
         languages: [LanguageOption] = [.systemDefault],
         musicAutomation: Binding<[MusicAutomationAccess]> = .constant([]),
+        hookStates: [IPCAgentID: HookInstallationState] = [:],
         metrics: SettingsPaneMetrics = .default,
-        onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in }
+        onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in },
+        onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in }
     ) {
         self._general = general
         self._enabledIdentifiers = enabledIdentifiers
         self._aiPreferences = aiPreferences
         self._languageOverride = languageOverride
         self._musicAutomation = musicAutomation
+        self.hookStates = hookStates
         self.availableDisplays = availableDisplays
         self.information = information
         self.languages = languages
         self.metrics = metrics
         self.onRequestAutomation = onRequestAutomation
+        self.onHookAction = onHookAction
     }
 
     public var body: some View {
@@ -105,7 +111,12 @@ public struct SettingsWindowView: View {
                 onRequestAutomation: onRequestAutomation
             )
         case .aiIntegrations:
-            AIIntegrationsSettingsView(preferences: $aiPreferences, metrics: metrics)
+            AIIntegrationsSettingsView(
+                preferences: $aiPreferences,
+                hookStates: hookStates,
+                metrics: metrics,
+                onHookAction: onHookAction
+            )
         case .about:
             AboutSettingsView(
                 information: information,
