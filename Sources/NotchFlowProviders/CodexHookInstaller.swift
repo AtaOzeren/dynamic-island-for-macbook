@@ -49,7 +49,6 @@ public struct CodexHookInstaller: Sendable {
     private static let backupSuffix = ".notchflow-backup"
     private static let rootNotifyPattern = #"(?m)^notify[ \t]*=[ \t]*[^\r\n]*(?:\r?\n|$)"#
 
-    private let notifierExecutablePath: String
     private let fileSystem: any CodexHookFileSystem
     private let syntaxValidator: CodexTOMLSyntaxValidator
     private let configURL: URL
@@ -57,11 +56,9 @@ public struct CodexHookInstaller: Sendable {
 
     public init(
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-        notifierExecutablePath: String,
         fileSystem: any CodexHookFileSystem = FoundationCodexHookFileSystem(),
         syntaxValidator: CodexTOMLSyntaxValidator? = nil
     ) {
-        self.notifierExecutablePath = notifierExecutablePath
         self.fileSystem = fileSystem
         self.syntaxValidator = syntaxValidator ?? Self.basicTOMLIsValid
         configURL = homeDirectory.appending(path: Self.configPath)
@@ -83,6 +80,27 @@ public struct CodexHookInstaller: Sendable {
             destinationPath: configURL.path,
             snippet: try proposedConfiguration()
         )
+    }
+
+    /// Whether `~/.codex/config.toml` already carries our `notify` setting.
+    ///
+    /// Delegates to `mergedConfiguration(from:)`, the same computation
+    /// `install()` gates on, so the query and the mutation can never disagree
+    /// about what "installed" means.
+    ///
+    /// Reads only; it never creates the directory, the backup, or the file.
+    public func installationState() -> HookInstallationState {
+        do {
+            guard let existingData = try fileSystem.readFile(at: configURL) else {
+                return .configurationMissing
+            }
+            return try mergedConfiguration(from: existingData).changed ? .hookAbsent : .hookInstalled
+        } catch {
+            // A throw here means the bytes are not TOML we can parse, or carry
+            // duplicate root `notify` keys — either way the hook state is
+            // genuinely unknowable rather than absent.
+            return .configurationUnreadable
+        }
     }
 
     public func install() throws {
@@ -148,9 +166,7 @@ public struct CodexHookInstaller: Sendable {
     }
 
     private func generatedNotifySetting() -> String {
-        HookSnippetGenerator(
-            notifierExecutablePath: notifierExecutablePath
-        ).codexNotifyFragment()
+        HookSnippetGenerator().codexNotifyFragment()
     }
 
     private func configurationBySettingRootNotify(

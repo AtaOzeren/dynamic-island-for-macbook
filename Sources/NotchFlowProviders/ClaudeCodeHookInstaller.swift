@@ -47,17 +47,14 @@ public struct ClaudeCodeHookInstaller: Sendable {
     private static let settingsPath = ".claude/settings.json"
     private static let backupSuffix = ".notchflow-backup"
 
-    private let notifierExecutablePath: String
     private let fileSystem: any ClaudeCodeHookFileSystem
     private let settingsURL: URL
     private let backupURL: URL
 
     public init(
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-        notifierExecutablePath: String,
         fileSystem: any ClaudeCodeHookFileSystem = FoundationClaudeCodeHookFileSystem()
     ) {
-        self.notifierExecutablePath = notifierExecutablePath
         self.fileSystem = fileSystem
         settingsURL = homeDirectory.appending(path: Self.settingsPath)
         backupURL = settingsURL.appendingPathExtension(
@@ -82,6 +79,28 @@ public struct ClaudeCodeHookInstaller: Sendable {
             destinationPath: settingsURL.path,
             snippet: try proposedSettings()
         )
+    }
+
+    /// Whether `~/.claude/settings.json` already carries our hook.
+    ///
+    /// Answers by asking `mergedSettings(from:)` the same question `install()`
+    /// asks — "would writing change anything?" — rather than re-deriving what a
+    /// hook looks like. A second copy of the merge rules is exactly how a
+    /// settings pane starts disagreeing with the installer it drives.
+    ///
+    /// Reads only; it never creates the directory, the backup, or the file.
+    public func installationState() -> HookInstallationState {
+        do {
+            guard let existingData = try fileSystem.readFile(at: settingsURL) else {
+                return .configurationMissing
+            }
+            return try mergedSettings(from: existingData).changed ? .hookAbsent : .hookInstalled
+        } catch {
+            // Every throw reachable from here means the file on disk is not
+            // settings we can reason about, which is the state's own answer
+            // rather than a failure of the query.
+            return .configurationUnreadable
+        }
     }
 
     public func install() throws {
@@ -138,9 +157,7 @@ public struct ClaudeCodeHookInstaller: Sendable {
     }
 
     private func generatedSettingsRoot() throws -> [String: Any] {
-        let fragment = try HookSnippetGenerator(
-            notifierExecutablePath: notifierExecutablePath
-        ).claudeCodeSettingsFragment()
+        let fragment = HookSnippetGenerator().claudeCodeSettingsFragment()
         return try validatedRoot(
             from: Data(fragment.utf8),
             error: .invalidGeneratedSettings

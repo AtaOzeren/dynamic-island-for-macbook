@@ -90,6 +90,10 @@ public struct MusicActivity: Activity, Equatable {
 
     public var primaryAction: PrimaryAction? {
         guard let source = nowPlaying.sourceApplicationName else { return nil }
-        return PrimaryAction(title: localized("Open \(source)"), symbolName: "arrow.up.forward")
+        return PrimaryAction(
+            title: localized("Open \(source)"),
+            symbolName: "arrow.up.forward",
+            intent: .openApplicationNamed(source)
+        )
     }
 }
