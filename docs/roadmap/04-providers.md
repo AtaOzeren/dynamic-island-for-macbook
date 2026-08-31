@@ -1,7 +1,7 @@
 # Phase 4: Activity Providers
 
 **Todos:** 41-49
-**Status:** NOT STARTED
+**Status:** IN PROGRESS (41-42 done)
 **Depends on:** Phase 2 (Core, under TDD) — the `ActivityProvider` protocol and activity model providers register against. Phase 3 (Window and UI) — the compact/expanded view containers that render each provider's activity.
 **Blocks:** Phase 6 (Settings, Localization, Polish) needs the per-provider enablement wired here before it can expose provider toggles in settings. Phase 7 (Performance, Packaging, Distribution) needs both music backends in place before it can verify the App Store build excludes the MediaRemote symbol.
 

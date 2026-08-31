@@ -1,0 +1,24 @@
+Task 55 — Codex CLI hook installer
+Date: 2026-08-30
+
+Implemented:
+- `CodexHookInstaller` targets `~/.codex/config.toml` and exposes the complete proposed configuration for caller-controlled consent.
+- Root `notify` is inserted/replaced textually from `HookSnippetGenerator.codexNotifyFragment()`, preserving unrelated TOML comments, order, root keys, and tables.
+- Install is idempotent, creates parent directories, keeps one byte-identical backup, and uses atomic writes.
+- Uninstall restores a backup byte-for-byte or removes only the generated root assignment for a fresh install.
+- Existing and merged TOML pass an injectable syntax validator; invalid input aborts before backup/config writes.
+- Hermetic tests cover fresh install, preservation, existing notify replacement, root placement, reinstall, both uninstall paths, validation failures, and simulated write failure.
+
+Verification:
+- `swift test --filter CodexHookInstallerTests`: PASS (11 tests)
+- `swift test`: PASS (434 tests)
+- `swift build`: PASS
+- `xcodebuild -project NotchFlow.xcodeproj -scheme "NotchFlow (App Store)" -configuration AppStore -destination "platform=macOS" build`: PASS
+- `xcodebuild -project NotchFlow.xcodeproj -scheme "NotchFlow (Direct)" -configuration Direct -destination "platform=macOS" build`: PASS
+- `swift format lint --strict` on changed Swift files: PASS
+- `./scripts/check-core-dependencies.sh`: PASS
+- `./scripts/check-music-backend.sh`: PASS
+- `./scripts/check-forbidden-symbols.sh <AppStore binary>`: PASS
+- LSP diagnostics on changed Swift files: clean
+
+Hardware QA remains manual: run a real Codex session, observe the island, uninstall, and compare the config to its original bytes.

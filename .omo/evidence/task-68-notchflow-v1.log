@@ -1,0 +1,88 @@
+Todo 68 — per-configuration entitlements and build configuration verification
+Date: 2026-08-30
+
+Authoritative contracts
+- docs/09-security-privacy-permissions.md:13-18
+- docs/10-build-and-distribution.md:5-25,40-44,46-96
+
+Entitlement matrix
+Key                                                     AppStore  Direct  Contract and reason                                              Verdict
+com.apple.security.app-sandbox                          true      absent  docs/09:15; docs/10:9. Required in App Store; Direct remains       PASS
+                                                                            unsandboxed because MediaRemote and external session-log access
+                                                                            make sandboxing impractical, while hardened runtime remains on.
+com.apple.security.automation.apple-events              true      true    docs/09:16. Music control requires Apple Events.                   PASS
+com.apple.security.scripting-targets                    scoped    absent  docs/09:16. App Store AppleScript access is scoped to Spotify and   PASS
+                                                                            Music playback access groups; Direct uses MediaRemote.
+com.apple.security.network.server                       true      absent  docs/09:17. Sandbox needs it for loopback IPC; Direct does not.      PASS
+com.apple.security.files.user-selected.read-write       true      absent  docs/09:18. Sandbox uses NSOpenPanel/security-scoped access for      PASS
+                                                                            hook config files; unsandboxed Direct writes directly.
+Hardened-runtime exception entitlements                 absent    absent  docs/10 documents none; no JIT, unsigned executable memory, or      PASS
+                                                                            disabled-library-validation entitlement is justified.
+
+Build-setting matrix
+Setting                                  AppStore                         Direct                          Contract/verdict
+SWIFT_ACTIVE_COMPILATION_CONDITIONS      APPSTORE_BUILD                  DIRECT_BUILD                    docs/10:22 PASS
+CODE_SIGN_ENTITLEMENTS                   NotchFlow-AppStore.entitlements NotchFlow-Direct.entitlements   docs/10:23 PASS
+ENABLE_HARDENED_RUNTIME                  YES                              YES                             docs/10:9,56-58 PASS
+CODE_SIGN_INJECT_BASE_ENTITLEMENTS       NO                               NO                              Exact documented local set PASS
+DEVELOPMENT_TEAM                         absent                           absent                          Membership-gated, docs/10:96-106 PASS
+PROVISIONING_PROFILE_SPECIFIER           absent                           absent                          Membership-gated, docs/10:96-106 PASS
+Release signing certificate              not pinned                       not pinned                      Membership-gated, docs/10:10,56,96-106 PASS
+
+Scheme/configuration matrix
+Scheme                    Configuration  Entitlements file                   Compilation condition  Result
+NotchFlow (App Store)     AppStore       NotchFlow-AppStore.entitlements    APPSTORE_BUILD          PASS
+NotchFlow (App Store)     Direct         NotchFlow-Direct.entitlements      DIRECT_BUILD            PASS
+NotchFlow (Direct)        AppStore       NotchFlow-AppStore.entitlements    APPSTORE_BUILD          PASS
+NotchFlow (Direct)        Direct         NotchFlow-Direct.entitlements      DIRECT_BUILD            PASS
+
+All four combinations were built with explicit -scheme and -configuration,
+CODE_SIGN_IDENTITY=-, and isolated DerivedData paths. Every xcodebuild exited 0.
+The two schemes are pinned to AppStore and Direct respectively for normal
+launch, test, profile, analyze, and archive actions. Explicit command-line
+-configuration overrides were used only to prove no scheme/config mixture can
+change the configuration-owned entitlements or compilation condition.
+
+Effective build settings — AppStore
+CODE_SIGN_ENTITLEMENTS = NotchFlow-AppStore.entitlements
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO
+ENABLE_HARDENED_RUNTIME = YES
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPSTORE_BUILD
+
+Effective build settings — Direct
+CODE_SIGN_ENTITLEMENTS = NotchFlow-Direct.entitlements
+CODE_SIGN_IDENTITY = -
+CODE_SIGN_INJECT_BASE_ENTITLEMENTS = NO
+ENABLE_HARDENED_RUNTIME = YES
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DIRECT_BUILD
+
+Effective AppStore product entitlements (`codesign -d --entitlements - --xml`)
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>com.apple.security.app-sandbox</key><true/>
+<key>com.apple.security.automation.apple-events</key><true/>
+<key>com.apple.security.files.user-selected.read-write</key><true/>
+<key>com.apple.security.network.server</key><true/>
+<key>com.apple.security.scripting-targets</key><dict>
+<key>com.apple.Music</key><array><string>com.apple.Music.playback</string></array>
+<key>com.spotify.client</key><array><string>com.spotify.client.playback</string></array>
+</dict></dict></plist>
+
+Effective Direct product entitlements (`codesign -d --entitlements - --xml`)
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "https://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>com.apple.security.automation.apple-events</key><true/>
+</dict></plist>
+
+Verification
+- `plutil -lint` on both entitlements files and project.pbxproj: PASS
+- `xcodebuild -project NotchFlow.xcodeproj -list`: AppStore and Direct configs/schemes found
+- `swift test`: 531 tests in 56 suites passed
+- `scripts/check-core-dependencies.sh`: PASS
+- App Store scheme post-action runs scripts/check-forbidden-symbols.sh: PASS
+- `scripts/check-forbidden-symbols.sh <AppStore executable>`: PASS, no MediaRemote symbol/string
+- AppStore effective entitlements equal the documented five-key set: PASS
+- Direct effective entitlements equal the documented one-key set: PASS

@@ -1,0 +1,86 @@
+FINAL WAVE F10 — Scope and guardrail audit
+Date: 2026-08-31
+Commit: c74815b3016fcc494ddeb9a0c93108fa249686a9
+Verdict: PASS
+
+Fresh products
+--------------
+Commands:
+  rm -rf DerivedData/F10-AppStore DerivedData/F10-Direct
+  xcodebuild -project NotchFlow.xcodeproj -scheme 'NotchFlow (App Store)' \
+    -configuration AppStore -derivedDataPath DerivedData/F10-AppStore \
+    -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=YES \
+    CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build
+  xcodebuild -project NotchFlow.xcodeproj -scheme 'NotchFlow (Direct)' \
+    -configuration Direct -derivedDataPath DerivedData/F10-Direct \
+    -destination 'generic/platform=macOS' CODE_SIGNING_ALLOWED=YES \
+    CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=- build
+Result: PASS — both fresh builds completed successfully.
+
+Products:
+  DerivedData/F10-AppStore/Build/Products/AppStore/NotchFlow.app
+  DerivedData/F10-Direct/Build/Products/Direct/NotchFlow.app
+
+1. MediaRemote Symbol Check in App Store Build Binary
+------------------------------------------------------
+Commands:
+  nm -u DerivedData/F10-AppStore/Build/Products/AppStore/NotchFlow.app/Contents/MacOS/NotchFlow | grep -i MediaRemote
+  strings DerivedData/F10-AppStore/Build/Products/AppStore/NotchFlow.app/Contents/MacOS/NotchFlow | grep -i MediaRemote
+  otool -L DerivedData/F10-AppStore/Build/Products/AppStore/NotchFlow.app/Contents/MacOS/NotchFlow | grep -i MediaRemote
+Result: PASS — zero occurrences of MediaRemote symbols or frameworks in the App Store binary. (MediaRemote is conditionally compiled under #if DIRECT_BUILD only).
+
+2. Polling Loop Check
+---------------------
+Commands:
+  grep -r -E "Timer\.|Task\.sleep|usleep|sleep\(" Sources/ NotchFlow/
+Result: PASS — zero background polling loops. All activities use pure event-driven observation (DistributedNotificationCenter, NSWorkspace notifications, FileSystemWatcher/DispatchSource, AsyncStream, and loopback HTTP IPC). One-shot auto-dismiss timer task in ActivityManager uses Task.sleep strictly for transient notification removal.
+
+3. Screen Scraping Check
+------------------------
+Commands:
+  grep -r -E "ScreenCapture|CGWindowList|AXUIElement|AVCapture" Sources/ NotchFlow/
+Result: PASS — zero screen scraping APIs found. CoreGraphics is imported solely for geometry/layout math (CGFloat, CGRect, CGPoint, CGSize) and mouse cursor location via CGEvent.mouseLocation.
+
+4. Third-Party Runtime Dependency Check
+----------------------------------------
+Commands:
+  inspect Package.swift and NotchFlow.xcodeproj/project.pbxproj
+Result: PASS — 0 third-party runtime dependencies. All targets rely 100% on Apple standard libraries (Swift stdlib, Foundation, AppKit, SwiftUI, Combine, OSLog).
+
+5. Deferred Feature Audit (Partial Implementation Check)
+--------------------------------------------------------
+Check list from docs/13-deferred-backlog.md:
+  - Incoming call activity (CallKit / FaceTime call state): ABSENT (0 symbols)
+  - Custom theme editor / color pickers: ABSENT (0 symbols)
+  - Third-party plugin architecture / dynamic loading: ABSENT (0 symbols)
+  - Cloud sync / remote backend: ABSENT (0 symbols)
+  - Remote internet API calls: ABSENT (0 symbols)
+Result: PASS — zero partial or dead implementations of deferred backlog items exist in the codebase.
+
+6. Undocumented Settings Check
+------------------------------
+Commands:
+  inspect SettingsKey.swift and compare against docs/08-settings-and-localization.md & docs/07-ai-integration.md
+Result: PASS — every persistence key (under com.notchflow.settings.*) corresponds exactly to documented settings in docs/08 and docs/07. No hidden or undocumented UserDefaults keys exist.
+
+7. Must-Have Presence & Must-NOT-Have Absence Audit
+---------------------------------------------------
+Must-Haves:
+  - Dynamic Island notch UI overlay & panel geometry: PRESENT
+  - Music Provider (Apple Music & Spotify playback status & controls): PRESENT
+  - Timer Provider (Timer / Stopwatch activity): PRESENT
+  - Recording Provider (Screen & Audio recording status indicators): PRESENT
+  - Battery / Charging Provider (Power status & charging animation): PRESENT
+  - AI Agent Integrations (Claude Code, Codex, OpenCode agent status hooks): PRESENT
+  - Dynamic Island Modes (Compact, Leading/Trailing, Expanded): PRESENT
+  - Multi-Display adaptation (Notched MacBook vs non-notched external displays): PRESENT
+  - Settings Window & Onboarding flow: PRESENT
+  - Status Bar item & Menu bar control: PRESENT
+  - String Catalogs localization (en, tr): PRESENT
+Must-NOT-Haves:
+  - Private API / MediaRemote symbols in App Store build: ABSENT
+  - Polling loops & high idle CPU consumption: ABSENT
+  - Screen scraping & screen recording capture of window contents: ABSENT
+  - Third-party runtime dependencies: ABSENT
+  - Telemetry, analytics, or remote network calls: ABSENT
+Result: PASS — all Must-haves are present and all Must-NOT-haves are absent.

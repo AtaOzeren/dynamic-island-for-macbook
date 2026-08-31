@@ -32,16 +32,20 @@ NotchFlow is a status and control surface for AI coding agents, not an AI produc
                   └───────────────────────┘
                           (user responds)
 
-  thinking, working, usingTool, waitingForUser ──► completed ──► idle
-  thinking, working, usingTool, waitingForUser ──► error ──► idle
+  thinking, working, usingTool, waitingForUser ──► completed ──┐
+  thinking, working, usingTool, waitingForUser ──► error ──────┤
+                                                               │
+                                    ┌──────────────────────────┘
+                                    ▼
+                             idle  or  thinking
 ```
 
 - `idle` only ever transitions to `thinking`, on a task-started event.
 - `thinking`, `working`, and `usingTool` can transition among each other freely as the agent alternates between reasoning and tool execution; this is the normal work loop.
 - Any of `thinking`, `working`, or `usingTool` can transition to `waitingForUser`, `completed`, or `error` — an agent can need input, finish, or fail from any point in its work loop.
 - `waitingForUser` transitions back to `thinking` once the user responds (a new message resets the loop) or to `error`/`completed` if the agent gives up or wraps up without further input.
-- `completed` and `error` are terminal for the current task: the activity auto-dismisses (`completed`) or waits for dismissal (`error`), and the next `thinking` message starts a fresh task, returning conceptually to `idle` first.
-- No other transition is legal. A message that requests an illegal transition (for example `idle` → `usingTool` with no preceding `thinking`) is accepted defensively but logged as a protocol warning; NotchFlow does not crash or drop the message, it renders the state as sent.
+- `completed` and `error` are terminal for the current task: the activity auto-dismisses (`completed`) or waits for dismissal (`error`). From either terminal state the machine accepts a transition to `idle` (explicit teardown) or directly to `thinking` (a new task starting immediately without an explicit idle step).
+- No other transition is legal. A message that requests an illegal transition (for example `idle` → `usingTool` with no preceding `thinking`) is **rejected** — the state machine returns a `.rejected` outcome and the state does not change. NotchFlow does not crash or drop the connection, but the illegal state is never applied.
 
 ## The IPC protocol
 
@@ -112,18 +116,15 @@ Three agents are supported in V1: Claude Code, Codex CLI, and OpenCode. Each int
 
 ### Claude Code
 
-Claude Code supports hook configuration in `~/.claude/settings.json`. NotchFlow's installer adds hook entries that map Claude Code's lifecycle events to IPC messages.
+Claude Code supports hook configuration in `~/.claude/settings.json`. NotchFlow's installer adds a hook entry that maps Claude Code's `PreToolUse` event to an IPC message.
 
 | Claude Code hook event | NotchFlow state sent |
 |---|---|
-| `SessionStart` | `thinking` |
-| `PreToolUse` | `usingTool` (with `toolName` set) |
-| `PostToolUse` | `working` |
-| `Notification` (agent needs input) | `waitingForUser` |
-| `Stop` | `completed` |
-| Any hook reporting a non-zero exit / error condition | `error` |
+| `PreToolUse` | `usingTool` (with `toolName` set to `$CLAUDE_SESSION_ID`) |
 
-Claude Code hooks receive the event as JSON on stdin. The generated hook command must be **asynchronous** — it fires the IPC call and returns immediately — so NotchFlow's presence never adds latency to the agent's own execution. The snippet NotchFlow generates uses the URL-scheme transport with `open -g` precisely because it backgrounds trivially from a shell hook.
+The generated snippet covers `PreToolUse` only — the hook that fires most frequently and gives the most useful signal (the agent is actively running a tool). Other lifecycle events (`SessionStart`, `PostToolUse`, `Notification`, `Stop`) are not wired in V1; the agent's state transitions to `usingTool` on tool invocation and the activity ends when the session ends or the user dismisses it.
+
+Claude Code hooks receive the event as JSON on stdin. The generated hook command is **asynchronous** — it fires the IPC call and returns immediately — so NotchFlow's presence never adds latency to the agent's own execution. The snippet uses the URL-scheme transport with `open -g` precisely because it backgrounds trivially from a shell hook.
 
 Example snippet NotchFlow proposes for `~/.claude/settings.json`:
 
@@ -170,7 +171,7 @@ NotchFlow never edits an agent's configuration file silently. The installer flow
 
 ### Sandbox note
 
-The App Store build's App Sandbox does not permit writing to `~/.claude` or `~/.codex` without the user granting access to that specific location. In the App Store build, the installer opens an `NSOpenPanel` scoped to the target file, and on approval stores a security-scoped bookmark so it can write again later (for example, on uninstall) without asking again. The Direct build has no sandbox restriction on the home directory and may write directly once the user consents in-app. In both builds, if the user declines to grant write access, NotchFlow still shows the exact snippet in a copyable text view so the user can add it by hand.
+The App Store build's App Sandbox does not permit writing to `~/.claude` or `~/.codex`, and it has no user-selected-file entitlement or file-picker flow. It therefore shows each hook or plugin as a copyable snippet for manual installation. The Direct build has no sandbox restriction on the home directory and may write directly once the user consents in-app; if the user declines, it also leaves the snippet available for manual installation.
 
 ## Privacy
 

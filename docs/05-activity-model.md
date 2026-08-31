@@ -11,15 +11,12 @@ Every feature in NotchFlow — music, timers, recording indicators, charging sta
 | `identity` | property | A stable, unique identifier used for deduplication — the same identity replaces an existing activity instead of creating a second one |
 | `kind` | property | Which activity type this is (music, timer, recording, charging, AI, …), used for routing to the right view and for the priority table below |
 | `priority` | property | An `ActivityPriority` value that determines ordering and, at `critical`/`high`, whether the activity forces the panel visible |
-| `start()` | lifecycle | Called once when the activity is registered with the `ActivityManager`; allocates any per-activity state |
-| `update()` | lifecycle | Called whenever the underlying source has new data (a new track, a tick, a changed percentage); never called on a timer of NotchFlow's own unless the activity itself owns a tick (see Timer/Stopwatch in `06-activity-providers.md`) |
-| `end()` | lifecycle | Called once when the activity is dismissed, either by its own logic (auto-dismiss, completion) or by the user; the `ActivityManager` removes it from the active set |
-| `compactView()` | view builder | The SwiftUI view shown when the activity is part of the compact pill |
-| `expandedView()` | view builder | The SwiftUI view shown when the activity is part of the expanded list |
-| auto-dismiss duration | optional property | If set, the `ActivityManager` calls `end()` on this activity automatically after the given duration elapses with no further `update()` calls |
-| primary action | optional property | If set, defines what a click on this activity's compact or expanded view does (e.g. open the source app, focus a terminal); if unset, the activity is inert to clicks beyond the panel's own expand/collapse behaviour |
+| `autoDismiss` | optional property | If set, the `ActivityManager` removes this activity automatically after the given duration elapses with no intervening registration or update; defaults to `nil` |
+| `primaryAction` | optional property | If set, defines what a click on this activity's compact or expanded view does (e.g. open the source app, focus a terminal); if unset, the activity is inert to clicks beyond the panel's own expand/collapse behaviour; defaults to `nil` |
 
-`identity`, `kind`, and `priority` are required on every activity. The auto-dismiss duration and the primary action are the only two optional members — everything else is mandatory because the `ActivityManager` cannot render or manage an activity without it.
+`identity`, `kind`, and `priority` are required on every activity. `autoDismiss` and `primaryAction` are optional with `nil` defaults — the `ActivityManager` can manage any activity without them.
+
+Lifecycle management (`register`, `update`, `end`) lives on `ActivityManager`, not on the `Activity` protocol. Providers call the manager's methods; the manager owns the active set and the auto-dismiss timers. View rendering is handled in `NotchFlowUI` by type-switching on `ActivityKind`, not by view-builder methods on the protocol.
 
 ## `ActivityPriority`
 
@@ -32,7 +29,7 @@ enum ActivityPriority {
 }
 ```
 
-Priority determines two things: ordering within the compact and expanded views (higher priority sorts first), and whether the presence of the activity alone is enough to justify the panel becoming visible. All four cases in V1 are capable of forcing visibility; `critical` is reserved and unused by any V1 activity, left for a future case (see `13-deferred-backlog.md`) that must never be silently outranked by a V1 addition.
+Priority determines one thing: ordering within the compact and expanded views (higher priority sorts first). Every registered activity makes the panel visible — the `ActivityManager` orders the panel in whenever the active set is non-empty and orders it out the instant the set empties, regardless of priority level. `critical` is reserved and unused by any V1 activity, left for a future case (see `13-deferred-backlog.md`) that must never be silently outranked by a V1 addition.
 
 ### V1 priority assignment
 
@@ -90,7 +87,7 @@ If a fourth `normal`-or-higher activity registers while these three are active a
 
 A contributor adding a new activity kind in a later version touches only `NotchFlowProviders` and this document — never `ActivityManager` itself:
 
-1. Define a new type conforming to `Activity` in `NotchFlowProviders` (or a new provider module), implementing `identity`, `kind`, `priority`, `start()`, `update()`, `end()`, `compactView()`, `expandedView()`, and the optional auto-dismiss duration and primary action as needed.
+1. Define a new type conforming to `Activity` in `NotchFlowProviders` (or a new provider module), implementing `identity`, `kind`, `priority`, and the optional `autoDismiss` and `primaryAction` as needed. Add the corresponding compact and expanded SwiftUI views in `NotchFlowUI`, keyed by the new `ActivityKind` case.
 2. Add a row to the V1 (or later) priority assignment table above so ordering is unambiguous and reviewable.
 3. Register the new provider with the `ActivityManager` at the composition root (`NotchFlow` app target) — the manager requires no code changes to accept a new `kind`, since it operates only on the protocol, not on concrete types.
 4. Document the provider's event source and permission needs in `06-activity-providers.md`.

@@ -1,0 +1,107 @@
+name: Release Direct
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-direct:
+    name: Build & Release Direct
+    runs-on: macos-26
+    env:
+      DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+      DEVELOPER_ID_CERTIFICATE_BASE64: ${{ secrets.DEVELOPER_ID_CERTIFICATE_BASE64 }}
+      DEVELOPER_ID_CERTIFICATE_PASSWORD: ${{ secrets.DEVELOPER_ID_CERTIFICATE_PASSWORD }}
+      NOTARYTOOL_APPLE_ID: ${{ secrets.NOTARYTOOL_APPLE_ID }}
+      NOTARYTOOL_PASSWORD: ${{ secrets.NOTARYTOOL_PASSWORD }}
+      NOTARYTOOL_TEAM_ID: ${{ secrets.NOTARYTOOL_TEAM_ID }}
+      NOTARYTOOL_KEYCHAIN_PROFILE: ${{ secrets.NOTARYTOOL_KEYCHAIN_PROFILE }}
+      SIGNING_KEYCHAIN_PASSWORD: ${{ secrets.SIGNING_KEYCHAIN_PASSWORD }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.0.1'
+
+      - name: Configure Signing Credentials
+        if: ${{ env.DEVELOPER_ID_APPLICATION != '' }}
+        run: |
+          : "${DEVELOPER_ID_CERTIFICATE_BASE64:?Missing Developer ID certificate}"
+          : "${DEVELOPER_ID_CERTIFICATE_PASSWORD:?Missing certificate password}"
+          : "${NOTARYTOOL_APPLE_ID:?Missing notary Apple ID}"
+          : "${NOTARYTOOL_PASSWORD:?Missing app-specific password}"
+          : "${NOTARYTOOL_TEAM_ID:?Missing notary team ID}"
+          : "${NOTARYTOOL_KEYCHAIN_PROFILE:?Missing notary keychain profile name}"
+          : "${SIGNING_KEYCHAIN_PASSWORD:?Missing signing keychain password}"
+          certificate_path="$RUNNER_TEMP/developer-id.p12"
+          keychain_path="$RUNNER_TEMP/notchflow-signing.keychain-db"
+          printf '%s' "$DEVELOPER_ID_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
+          security create-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$keychain_path"
+          security set-keychain-settings -lut 21600 "$keychain_path"
+          security unlock-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$keychain_path"
+          security import "$certificate_path" \
+            -P "$DEVELOPER_ID_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$keychain_path"
+          security list-keychains -d user -s "$keychain_path" login.keychain-db
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$SIGNING_KEYCHAIN_PASSWORD" \
+            "$keychain_path"
+          xcrun notarytool store-credentials "$NOTARYTOOL_KEYCHAIN_PROFILE" \
+            --apple-id "$NOTARYTOOL_APPLE_ID" \
+            --password "$NOTARYTOOL_PASSWORD" \
+            --team-id "$NOTARYTOOL_TEAM_ID" \
+            --keychain "$keychain_path"
+          printf 'NOTARYTOOL_KEYCHAIN=%s\n' "$keychain_path" >> "$GITHUB_ENV"
+
+      - name: Run Swift Package Tests
+        run: swift test
+
+      - name: Package Direct App
+        env:
+          OUTPUT_DIR: ${{ runner.temp }}/release
+          DERIVED_DATA_PATH: ${{ runner.temp }}/NotchFlow-Release-DerivedData
+          NOTARYTOOL_KEYCHAIN: ${{ env.NOTARYTOOL_KEYCHAIN }}
+        run: ./scripts/package-direct.sh
+
+      - name: Assert Direct Music Backend Is Present
+        run: |
+          ./scripts/check-forbidden-symbols.sh \
+            "$RUNNER_TEMP/NotchFlow-Release-DerivedData/Build/Products/Direct/NotchFlow.app/Contents/MacOS/NotchFlow" \
+            --present
+
+      - name: Upload Direct Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NotchFlow-${{ github.ref_name }}-direct
+          path: |
+            ${{ runner.temp }}/release/NotchFlow-*-direct.dmg
+            ${{ runner.temp }}/release/NotchFlow-*-direct.dmg.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            "$RUNNER_TEMP"/release/NotchFlow-*-direct.dmg \
+            "$RUNNER_TEMP"/release/NotchFlow-*-direct.dmg.sha256 \
+            --title "NotchFlow $RELEASE_TAG" \
+            --generate-notes \
+            --verify-tag

@@ -1,0 +1,833 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "activity.ai.compactTitle" : {
+      "comment" : "Compact pill line for an AI agent: the agent name, then its status. Placeholders are the agent name and the status text. Named rather than keyed on its English because a punctuation-only key has no valid Swift symbol.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ · %2$@" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%1$@ · %2$@" } }
+      }
+    },
+    "activity.accessibility.headlineAndDetail" : {
+      "comment" : "VoiceOver label joining a headline and its detail — used by both the AI agent card and the timer. Named rather than keyed on its English because a punctuation-only key has no valid Swift symbol.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%1$@, %2$@" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%1$@, %2$@" } }
+      }
+    },
+    "manualSetup.stepNumber" : {
+      "comment" : "Manual setup sheet: the ordinal in front of each numbered step. Named rather than keyed on its English because a punctuation-only key has no valid Swift symbol.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%lld." } }
+      }
+    },
+    "%lld more activities" : {
+      "comment" : "VoiceOver label for the compact pill's overflow slot, when more activities are running than the pill can show.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld more activity" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld more activities" } }
+            }
+          }
+        },
+        "tr" : {
+          "variations" : {
+            "plural" : {
+              "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld etkinlik daha" } },
+              "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld etkinlik daha" } }
+            }
+          }
+        }
+      }
+    },
+    "A disabled event never reaches the notch — it is dropped on arrival." : {
+      "comment" : "AI Integrations pane, Events section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A disabled event never reaches the notch — it is dropped on arrival." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kapatılmış bir olay çentiğe hiç ulaşmaz — geldiği anda düşürülür." } }
+      }
+    },
+    "A switched-off activity stops being observed, not just hidden." : {
+      "comment" : "Activities pane, Activities section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A switched-off activity stops being observed, not just hidden." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kapatılan bir etkinlik yalnızca gizlenmez, izlenmesi de durur." } }
+      }
+    },
+    "About" : {
+      "comment" : "Settings window tab: version, licence, and language.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "About" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Hakkında" } }
+      }
+    },
+    "Activities" : {
+      "comment" : "Settings window tab, and the section title within it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Activities" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Etkinlikler" } }
+      }
+    },
+    "Agents" : {
+      "comment" : "AI Integrations pane, Agents section title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Agents" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Aracılar" } }
+      }
+    },
+    "AI agent" : {
+      "comment" : "Generic VoiceOver name for the AI agent activity kind in the compact pill.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "AI agent" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yapay zekâ aracısı" } }
+      }
+    },
+    "AI coding agents" : {
+      "comment" : "Onboarding step 3 title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "AI coding agents" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yapay zekâ kodlama aracıları" } }
+      }
+    },
+    "AI Integrations" : {
+      "comment" : "Settings window tab: per-agent and per-event switches.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "AI Integrations" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yapay Zekâ Tümleştirmeleri" } }
+      }
+    },
+    "App language" : {
+      "comment" : "About pane: the language override picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "App language" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Uygulama dili" } }
+      }
+    },
+    "Appearance" : {
+      "comment" : "General pane, Appearance section title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Appearance" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görünüm" } }
+      }
+    },
+    "Apple Events, so now playing and playback controls work with Spotify and Apple Music." : {
+      "comment" : "Onboarding step 2 bullet: what the Apple Events permission buys.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Events, so now playing and playback controls work with Spotify and Apple Music."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple Events; böylece şimdi çalan bilgisi ve çalma denetimleri Spotify ve Apple Music ile çalışır."
+          }
+        }
+      }
+    },
+    "Automatic" : {
+      "comment" : "General pane, display picker: follow the display that has a notch.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Automatic" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Otomatik" } }
+      }
+    },
+    "Automatic follows the display with the notch, then falls back to the built-in screen." : {
+      "comment" : "General pane, Display section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic follows the display with the notch, then falls back to the built-in screen."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otomatik, çentiği olan ekranı izler; bulamazsa yerleşik ekrana döner."
+          }
+        }
+      }
+    },
+    "Back" : {
+      "comment" : "Onboarding: returns to the previous step.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Back" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Geri" } }
+      }
+    },
+    "Built-in display" : {
+      "comment" : "General pane, display picker: pin the island to the laptop screen.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Built-in display" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Yerleşik ekran" } }
+      }
+    },
+    "Charging" : {
+      "comment" : "Charging activity: the battery is filling.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Charging" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Şarj oluyor" } }
+      }
+    },
+    "Continue" : {
+      "comment" : "Onboarding: advances to the next step.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Continue" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Sürdür" } }
+      }
+    },
+    "Copied" : {
+      "comment" : "Manual setup sheet: the copy button after a successful copy, which doubles as the confirmation.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copied" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kopyalandı" } }
+      }
+    },
+    "Copy snippet" : {
+      "comment" : "Manual setup sheet: copies the configuration snippet to the pasteboard.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy snippet" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Parçacığı kopyala" } }
+      }
+    },
+    "Countdown" : {
+      "comment" : "Timer activity: a timer counting down to zero.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Countdown" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Geri sayım" } }
+      }
+    },
+    "Dismiss timer" : {
+      "comment" : "Timer activity: VoiceOver label for the control that clears a finished timer.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dismiss timer" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcıyı kapat" } }
+      }
+    },
+    "Display" : {
+      "comment" : "General pane, Display section title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Display" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ekran" } }
+      }
+    },
+    "Done" : {
+      "comment" : "Onboarding: closes the final step.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Done" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bitti" } }
+      }
+    },
+    "Events" : {
+      "comment" : "AI Integrations pane, Events section title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Events" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Olaylar" } }
+      }
+    },
+    "Fully Charged" : {
+      "comment" : "Charging activity: the battery has finished charging.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fully Charged" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Tam Şarj Oldu" } }
+      }
+    },
+    "General" : {
+      "comment" : "Settings window tab: display, startup, and appearance.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "General" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Genel" } }
+      }
+    },
+    "Idle" : {
+      "comment" : "AI agent status: registered, but with no active task.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Idle" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Boşta" } }
+      }
+    },
+    "Install the %@ hook" : {
+      "comment" : "Onboarding step 3: offers to install a detected agent's hook. Placeholder is the agent name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Install the %@ hook" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ kancasını kur" } }
+      }
+    },
+    "Language" : {
+      "comment" : "About pane, Language section title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Language" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Dil" } }
+      }
+    },
+    "Launch at login" : {
+      "comment" : "General pane: start NotchFlow when the user logs in.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Launch at login" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Oturum açıldığında başlat" } }
+      }
+    },
+    "MIT licensed. Music is read through the backend this build was compiled against." : {
+      "comment" : "About pane, build section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIT licensed. Music is read through the backend this build was compiled against."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "MIT lisanslıdır. Müzik, bu yapının derlendiği arka uç üzerinden okunur."
+          }
+        }
+      }
+    },
+    "Motion" : {
+      "comment" : "General pane: the reduced-motion override picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Motion" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Hareket" } }
+      }
+    },
+    "Music" : {
+      "comment" : "Generic VoiceOver name for the music activity kind in the compact pill.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Music" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Müzik" } }
+      }
+    },
+    "Music backend" : {
+      "comment" : "About pane: names the media backend this build was compiled against.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Music backend" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Müzik arka ucu" } }
+      }
+    },
+    "Music control" : {
+      "comment" : "Activities pane, Apple Events section title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Music control" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Müzik denetimi" } }
+      }
+    },
+    "Needs your input" : {
+      "comment" : "AI agent status: the agent is blocked waiting on the user.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Needs your input" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Girdinizi bekliyor" } }
+      }
+    },
+    "Next track" : {
+      "comment" : "Music activity: VoiceOver label for the skip-forward control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Next track" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Sonraki parça" } }
+      }
+    },
+    "No agent configuration was found for Claude Code, Codex CLI, or OpenCode. You can install a hook later from Settings once one is set up." : {
+      "comment" : "Onboarding step 3 body, shown when detection found no agents.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No agent configuration was found for Claude Code, Codex CLI, or OpenCode. You can install a hook later from Settings once one is set up."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code, Codex CLI veya OpenCode için yapılandırma bulunamadı. Birini kurduktan sonra kancayı Ayarlar'dan yükleyebilirsiniz."
+          }
+        }
+      }
+    },
+    "NotchFlow" : {
+      "comment" : "About pane, build section title. The application name — normally left untranslated.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow" } }
+      }
+    },
+    "NotchFlow asks macOS for each player separately, and only when you press the button." : {
+      "comment" : "Activities pane, Apple Events section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow asks macOS for each player separately, and only when you press the button."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow her çalar için macOS'ten ayrı ayrı ve yalnızca düğmeye bastığınızda izin ister."
+          }
+        }
+      }
+    },
+    "NotchFlow found configuration for the agents below. Installing a hook shows you the exact snippet and asks for approval before anything is written — nothing is installed until you finish setup." : {
+      "comment" : "Onboarding step 3 body, shown when detection found at least one agent.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow found configuration for the agents below. Installing a hook shows you the exact snippet and asks for approval before anything is written — nothing is installed until you finish setup."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow aşağıdaki aracılar için yapılandırma buldu. Kanca kurulumu tam parçacığı gösterir ve hiçbir şey yazılmadan önce onayınızı ister — kurulumu bitirmeden hiçbir şey yüklenmez."
+          }
+        }
+      }
+    },
+    "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login." : {
+      "comment" : "General pane, Startup section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow'un Dock simgesi yoktur — oturum açılışında başlasa da başlamasa da menü çubuğunda yaşar."
+          }
+        }
+      }
+    },
+    "NotchFlow lives in the menu bar. Everything you just saw — and everything you skipped — can be changed at any time in Settings." : {
+      "comment" : "Onboarding step 4 body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow lives in the menu bar. Everything you just saw — and everything you skipped — can be changed at any time in Settings."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow menü çubuğunda yaşar. Az önce gördükleriniz — ve atladıklarınız — istediğiniz zaman Ayarlar'dan değiştirilebilir."
+          }
+        }
+      }
+    },
+    "NotchFlow shows nothing for an agent until you enable it here." : {
+      "comment" : "AI Integrations pane, Agents section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow shows nothing for an agent until you enable it here." } },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow, bir aracıyı burada etkinleştirene dek onun için hiçbir şey göstermez."
+          }
+        }
+      }
+    },
+    "NotchFlow asks for nothing right now. Each permission is requested only when you turn on the feature that needs it, and only after NotchFlow explains what it is about to ask for." : {
+      "comment" : "Onboarding step 2 body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow asks for nothing right now. Each permission is requested only when you turn on the feature that needs it, and only after NotchFlow explains what it is about to ask for."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow şu anda hiçbir şey istemiyor. Her izin, yalnızca ona gereksinim duyan özelliği açtığınızda ve yalnızca NotchFlow ne isteyeceğini açıkladıktan sonra istenir."
+          }
+        }
+      }
+    },
+    "NotchFlow turns the area around your notch into a live activity surface: what is playing, running timers, screen and audio recording indicators, charging state, and the status of your AI coding agents." : {
+      "comment" : "Onboarding step 1 body.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow turns the area around your notch into a live activity surface: what is playing, running timers, screen and audio recording indicators, charging state, and the status of your AI coding agents."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "NotchFlow, çentiğinizin çevresini canlı bir etkinlik yüzeyine dönüştürür: çalanlar, çalışan zamanlayıcılar, ekran ve ses kaydı göstergeleri, şarj durumu ve yapay zekâ kodlama aracılarınızın durumu."
+          }
+        }
+      }
+    },
+    "Now Playing" : {
+      "comment" : "Music activity fallback title, used when the backend reports playback it cannot name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Now Playing" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Şimdi Çalıyor" } }
+      }
+    },
+    "Open Settings" : {
+      "comment" : "Onboarding step 4: opens the settings window.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Settings" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ayarlar'ı aç" } }
+      }
+    },
+    "Pause" : {
+      "comment" : "Music activity: VoiceOver label for the pause control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pause" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Duraklat" } }
+      }
+    },
+    "Pause timer" : {
+      "comment" : "Timer activity: VoiceOver label for the pause control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Pause timer" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcıyı duraklat" } }
+      }
+    },
+    "Paused: %@" : {
+      "comment" : "VoiceOver prefix marking a paused activity — used by both music and the timer. Placeholder is the track or the timer line.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paused: %@" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Duraklatıldı: %@" } }
+      }
+    },
+    "Permissions come later" : {
+      "comment" : "Onboarding step 2 title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Permissions come later" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "İzinler daha sonra" } }
+      }
+    },
+    "Play" : {
+      "comment" : "Music activity: VoiceOver label for the play control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Play" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Çal" } }
+      }
+    },
+    "Plugged In" : {
+      "comment" : "Charging activity: connected to power, not yet charging.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Plugged In" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Fişe Takılı" } }
+      }
+    },
+    "Previous track" : {
+      "comment" : "Music activity: VoiceOver label for the skip-back control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Previous track" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Önceki parça" } }
+      }
+    },
+    "Recording" : {
+      "comment" : "Generic VoiceOver name for the recording activity kind in the compact pill.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recording" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kayıt" } }
+      }
+    },
+    "Reduced motion also follows the system accessibility setting unless you override it." : {
+      "comment" : "General pane, Appearance section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reduced motion also follows the system accessibility setting unless you override it."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Azaltılmış hareket de, siz geçersiz kılmadıkça sistemin erişilebilirlik ayarını izler."
+          }
+        }
+      }
+    },
+    "Recording and charging indicators need no permission at all." : {
+      "comment" : "Onboarding step 2 bullet: these activities need no permission.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recording and charging indicators need no permission at all." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kayıt ve şarj göstergeleri hiçbir izin gerektirmez." } }
+      }
+    },
+    "Resume timer" : {
+      "comment" : "Timer activity: VoiceOver label for the resume control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Resume timer" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcıyı sürdür" } }
+      }
+    },
+    "Running %@…" : {
+      "comment" : "AI agent status naming the tool in use. Placeholder is the tool name, e.g. Bash.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Running %@…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ çalıştırılıyor…" } }
+      }
+    },
+    "Running tool…" : {
+      "comment" : "AI agent status when the agent is using a tool it did not name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Running tool…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Araç çalıştırılıyor…" } }
+      }
+    },
+    "Setup snippet for %@" : {
+      "comment" : "Manual setup sheet: VoiceOver label for the copyable snippet block. Placeholder is the agent name.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Setup snippet for %@" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ için kurulum parçacığı" } }
+      }
+    },
+    "Show the island on" : {
+      "comment" : "General pane: the display target picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show the island on" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Adayı şurada göster" } }
+      }
+    },
+    "Skip" : {
+      "comment" : "Onboarding: skips the current step without acting on it.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Skip" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Atla" } }
+      }
+    },
+    "Startup" : {
+      "comment" : "General pane, Startup section title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Startup" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Başlangıç" } }
+      }
+    },
+    "Stop timer" : {
+      "comment" : "Timer activity: VoiceOver label for the stop control.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Stop timer" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcıyı durdur" } }
+      }
+    },
+    "Stopwatch" : {
+      "comment" : "Timer activity: a timer counting up from zero.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Stopwatch" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kronometre" } }
+      }
+    },
+    "System default" : {
+      "comment" : "About pane, language picker: follow the system locale rather than forcing a language.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "System default" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Sistem öntanımlısı" } }
+      }
+    },
+    "Takes effect the next time NotchFlow starts." : {
+      "comment" : "About pane, Language section caption.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Takes effect the next time NotchFlow starts." } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow bir sonraki açılışında geçerli olur." } }
+      }
+    },
+    "Task completed" : {
+      "comment" : "AI agent status: the task finished successfully.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task completed" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev tamamlandı" } }
+      }
+    },
+    "Task error" : {
+      "comment" : "AI agent status: the task failed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task error" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev hatası" } }
+      }
+    },
+    "Theme" : {
+      "comment" : "General pane: the light/dark appearance picker.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Theme" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Tema" } }
+      }
+    },
+    "Thinking…" : {
+      "comment" : "AI agent status: the agent is reasoning, not yet acting.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Thinking…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Düşünüyor…" } }
+      }
+    },
+    "Time's up" : {
+      "comment" : "Timer activity: a countdown that has reached zero.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Time's up" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Süre doldu" } }
+      }
+    },
+    "Timer" : {
+      "comment" : "Generic VoiceOver name for the timer activity kind in the compact pill.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Timer" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcı" } }
+      }
+    },
+    "Timer finished" : {
+      "comment" : "Timer activity: VoiceOver label once the countdown has expired.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Timer finished" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcı bitti" } }
+      }
+    },
+    "Transfer" : {
+      "comment" : "Generic VoiceOver name for the file transfer activity kind in the compact pill.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transfer" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Aktarım" } }
+      }
+    },
+    "Version" : {
+      "comment" : "About pane: the marketing version and build number.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Version" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Sürüm" } }
+      }
+    },
+    "Welcome to NotchFlow" : {
+      "comment" : "Onboarding step 1 title, and the onboarding window's title bar.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Welcome to NotchFlow" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow'a hoş geldiniz" } }
+      }
+    },
+    "Working…" : {
+      "comment" : "AI agent status: the agent is acting on the task.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Working…" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Çalışıyor…" } }
+      }
+    },
+    "Write access to an agent's configuration file, only when you install its hook." : {
+      "comment" : "Onboarding step 2 bullet: what the file-write consent buys.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write access to an agent's configuration file, only when you install its hook."
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bir aracının yapılandırma dosyasına yazma erişimi, yalnızca kancasını kurduğunuzda."
+          }
+        }
+      }
+    },
+    "You are set up" : {
+      "comment" : "Onboarding step 4 title.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "You are set up" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Kurulum tamam" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}
