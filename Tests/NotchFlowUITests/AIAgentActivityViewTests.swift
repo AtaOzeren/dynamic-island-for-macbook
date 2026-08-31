@@ -231,4 +231,9 @@ struct AIAgentActivityViewTests {
 
         #expect(rows.first?.primaryAction?.title == "Open Codex")
     }
+
+    @Test("dedicated agent view carries the same visible action")
+    func dedicatedViewCarriesAction() {
+        #expect(Self.presentation(agent: .codex).primaryAction?.title == "Open Codex")
+    }
 }

@@ -83,4 +83,43 @@ struct AIIntegrationsSettingsViewTests {
 
         #expect(AIIntegrationsSettingsView(preferences: store.binding).isEventSectionEnabled)
     }
+
+    @Test("hook action follows installation state")
+    func hookActionFollowsInstallationState() {
+        let store = Store()
+        let absent = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            hookStates: [.codex: .hookAbsent]
+        )
+        #expect(absent.hookAction(for: .codex) == .install)
+
+        let installed = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            hookStates: [.codex: .hookInstalled]
+        )
+        #expect(installed.hookAction(for: .codex) == .uninstall)
+
+        let unreadable = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            hookStates: [.codex: .configurationUnreadable]
+        )
+        #expect(unreadable.hookAction(for: .codex) == .manualSetup)
+    }
+
+    @Test("hook button dispatches explicit user action")
+    func hookButtonDispatchesAction() {
+        let store = Store()
+        var received: [(IPCAgentID, AIHookAction)] = []
+        let view = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            hookStates: [.claudeCode: .hookAbsent],
+            onHookAction: { received.append(($0, $1)) }
+        )
+
+        view.performHookAction(for: .claudeCode)
+
+        #expect(received.count == 1)
+        #expect(received.first?.0 == .claudeCode)
+        #expect(received.first?.1 == .install)
+    }
 }

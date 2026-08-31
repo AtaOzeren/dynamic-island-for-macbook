@@ -52,12 +52,12 @@ struct PresentationControllerTests {
     }
 
     private static var insideTheHitRect: CGPoint {
-        let hit = compactHitRect(for: notchedScreen, metrics: metrics)
+        let hit = compactHitRect(for: notchedScreen, slotCount: 1, metrics: metrics)
         return CGPoint(x: hit.midX, y: hit.midY)
     }
 
     private static var overTheMenuBarBesideTheNotch: CGPoint {
-        let hit = compactHitRect(for: notchedScreen, metrics: metrics)
+        let hit = compactHitRect(for: notchedScreen, slotCount: 1, metrics: metrics)
         return CGPoint(x: hit.minX - 1, y: hit.midY)
     }
 

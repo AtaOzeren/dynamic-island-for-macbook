@@ -173,6 +173,30 @@ struct ExpandedActivityDispatchTests {
         )
     }
 
+    @Test("the notch inset is removed from the expanded content viewport")
+    func notchInsetReducesViewport() {
+        let panelMetrics = PanelMetrics.default
+        let notchHeight: CGFloat = 37
+        let activities: [any Activity] = (0..<6).map {
+            SizedStubActivity(identity: ActivityIdentity("generic.\($0)"))
+        }
+
+        let size = expandedPanelSize(
+            for: activities,
+            panelMetrics: panelMetrics,
+            topInset: notchHeight
+        )
+
+        #expect(size.height == panelMetrics.maximumExpandedSize.height - notchHeight)
+        #expect(
+            expandedPanelOverflowsWindow(
+                for: activities,
+                panelMetrics: panelMetrics,
+                topInset: notchHeight
+            )
+        )
+    }
+
     @Test("an empty set draws nothing")
     func emptySetHasZeroSize() {
         #expect(
@@ -183,4 +207,10 @@ struct ExpandedActivityDispatchTests {
                 == false
         )
     }
+}
+
+private struct SizedStubActivity: Activity {
+    let identity: ActivityIdentity
+    let kind = ActivityKind.fileTransfer
+    let priority = ActivityPriority.normal
 }

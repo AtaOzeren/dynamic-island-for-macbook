@@ -78,6 +78,11 @@ struct IslandAppearanceTests {
         #expect(IslandSurface.solid(.light).foreground == .onLight)
     }
 
+    @Test("notch-black always resolves descendants in dark mode")
+    func notchBlackForcesDarkDescendants() {
+        #expect(IslandSurface.notchBlack.preferredColorScheme == .dark)
+    }
+
     @Test("changing the preference restyles the live panel instead of rebuilding it")
     func applyingAppearanceRestylesTheLivePanel() {
         let panel = NotchPanel(content: Color.clear)

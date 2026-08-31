@@ -70,6 +70,18 @@ struct NotchPanelTests {
         #expect(panel.canBecomeMain == false)
     }
 
+    @Test("explicit interaction temporarily permits key focus")
+    func explicitInteractionPermitsFocus() {
+        let panel = Self.makePanel()
+        #expect(!panel.canBecomeKey)
+
+        panel.beginInteractiveMode()
+        #expect(panel.canBecomeKey)
+
+        panel.endInteractiveMode()
+        #expect(!panel.canBecomeKey)
+    }
+
     @Test("is click-through until a state change opts back in")
     func isClickThroughByDefault() {
         #expect(Self.makePanel().ignoresMouseEvents)

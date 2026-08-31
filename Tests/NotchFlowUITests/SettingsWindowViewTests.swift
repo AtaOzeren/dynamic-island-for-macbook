@@ -43,8 +43,8 @@ struct SettingsWindowViewTests {
             view.displayOptions == [
                 .automatic,
                 .builtIn,
-                .named("Built-in Retina Display"),
-                .named("Studio Display"),
+                .identified(id: "Built-in Retina Display", name: "Built-in Retina Display"),
+                .identified(id: "Studio Display", name: "Studio Display"),
             ])
         #expect(view.title(for: .named("Studio Display")) == "Studio Display")
     }
@@ -61,6 +61,25 @@ struct SettingsWindowViewTests {
         #expect(box.value.displayTarget == .named("Studio Display"))
         #expect(box.value.launchAtLogin)
         #expect(box.value.appearance == .dark)
+    }
+
+    @Test("duplicate display names receive distinct picker labels")
+    func duplicateDisplayNamesAreDisambiguated() {
+        let box = Box(GeneralPreferences.default)
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: [
+                DisplayDescription(identifier: "101", name: "Studio Display", isBuiltIn: false),
+                DisplayDescription(identifier: "202", name: "Studio Display", isBuiltIn: false),
+            ]
+        )
+
+        #expect(view.displayOptions.map(view.title(for:)) == [
+            "Automatic",
+            "Built-in display",
+            "Studio Display (1)",
+            "Studio Display (2)",
+        ])
     }
 
     /// The three-way motion control maps onto a `Bool?`, so the round trip is

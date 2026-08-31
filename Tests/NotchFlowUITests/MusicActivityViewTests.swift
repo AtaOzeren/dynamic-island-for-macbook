@@ -108,6 +108,19 @@ struct MusicActivityViewTests {
         #expect(sent == [.previousTrack, .playPause, .nextTrack])
     }
 
+    @Test("expanded music exposes and dispatches the source-app action")
+    func sourceApplicationActionIsReachable() {
+        var fired = 0
+        let view = MusicExpandedView(
+            activity: Self.activity(source: "Spotify"),
+            onPrimaryAction: { fired += 1 }
+        )
+
+        #expect(view.presentation.primaryAction?.title == "Open Spotify")
+        view.performPrimaryAction()
+        #expect(fired == 1)
+    }
+
     // MARK: - Compact presentation
 
     @Test("the compact slot uses the music glyph and announces the track")
