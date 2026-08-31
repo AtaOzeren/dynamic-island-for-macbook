@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 
+@testable import NotchFlowCore
 @testable import NotchFlowProviders
 
 @Suite("CodexHookInstaller")
@@ -10,7 +11,6 @@ struct CodexHookInstallerTests {
     private static let backupURL = homeDirectory.appending(
         path: ".codex/config.toml.notchflow-backup"
     )
-    private static let notifierPath = "/Applications/NotchFlow.app/Contents/MacOS/notchflow-notify"
 
     @Test("fresh install creates the config directory and notify setting")
     func freshInstall() throws {
@@ -173,7 +173,7 @@ struct CodexHookInstallerTests {
         let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: original])
         let installer = Self.makeInstaller(
             fileSystem: fileSystem,
-            syntaxValidator: { !$0.contains("--agent") }
+            syntaxValidator: { !$0.contains("python3") }
         )
 
         #expect(throws: CodexHookInstallerError.invalidGeneratedConfiguration) {
@@ -196,8 +196,53 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.data(at: Self.configURL) == original)
     }
 
+    @Test("installation state is missing when no config file exists")
+    func installationStateWithoutConfigFile() {
+        let fileSystem = InMemoryCodexHookFileSystem()
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .configurationMissing)
+        #expect(fileSystem.writeCount == 0)
+        #expect(fileSystem.createdDirectories.isEmpty)
+    }
+
+    @Test("installation state is absent when config exists without our notify")
+    func installationStateWithForeignConfiguration() {
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data("model = \"gpt-5\"\n".utf8)]
+        )
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .hookAbsent)
+        #expect(fileSystem.writeCount == 0)
+    }
+
+    @Test("installation state is installed after install writes the notify setting")
+    func installationStateAfterInstall() throws {
+        let fileSystem = InMemoryCodexHookFileSystem()
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+        try installer.install()
+
+        let writesAfterInstall = fileSystem.writeCount
+
+        #expect(installer.installationState() == .hookInstalled)
+        #expect(fileSystem.writeCount == writesAfterInstall)
+    }
+
+    @Test("installation state is unreadable when the config fails validation")
+    func installationStateWithInvalidConfiguration() {
+        let invalid = Data("notify = [unterminated\n".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: invalid])
+        let installer = Self.makeInstaller(
+            fileSystem: fileSystem,
+            syntaxValidator: { !$0.contains("unterminated") }
+        )
+
+        #expect(installer.installationState() == .configurationUnreadable)
+        #expect(fileSystem.data(at: Self.configURL) == invalid)
+        #expect(fileSystem.writeCount == 0)
+    }
+
     private static var expectedNotifySetting: String {
-        "notify = [\"\(notifierPath)\",\"--agent\",\"codex\"]"
+        HookSnippetGenerator().codexNotifyFragment().trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func makeInstaller(
@@ -206,7 +251,6 @@ struct CodexHookInstallerTests {
     ) -> CodexHookInstaller {
         CodexHookInstaller(
             homeDirectory: homeDirectory,
-            notifierExecutablePath: notifierPath,
             fileSystem: fileSystem,
             syntaxValidator: syntaxValidator
         )

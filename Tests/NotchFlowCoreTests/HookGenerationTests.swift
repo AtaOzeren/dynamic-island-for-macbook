@@ -5,13 +5,29 @@ import Testing
 
 @Suite("HookGeneration")
 struct HookGenerationTests {
-    private let notifierPath = #"/Applications/Notch "Flow"/bin/notchflow-notify"#
+    @Test("builds a URL that round-trips through the IPC parser")
+    func statusURLRoundTrip() throws {
+        let message = IPCMessage(
+            schemaVersion: IPCMessageValidator.supportedSchemaVersion,
+            agentId: .claudeCode,
+            sessionId: UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!,
+            state: .usingTool,
+            detail: "Editing App.swift",
+            toolName: "Edit",
+            progress: 0.5,
+            timestamp: Date(timeIntervalSince1970: 1_700_000_000)
+        )
 
-    @Test("generates a valid Claude Code settings fragment")
+        let url = try HookSnippetGenerator.statusURL(for: message)
+
+        #expect(url.scheme == "notchflow")
+        #expect(url.host == "ai-status")
+        #expect(try IPCURLParser().parse(url) == message)
+    }
+
+    @Test("generates a Claude Code shell hook using stdin event fields")
     func claudeCodeSettingsFragment() throws {
-        let fragment = try HookSnippetGenerator(
-            notifierExecutablePath: notifierPath
-        ).claudeCodeSettingsFragment()
+        let fragment = HookSnippetGenerator().claudeCodeSettingsFragment()
         let settings = try #require(
             JSONSerialization.jsonObject(with: Data(fragment.utf8)) as? [String: Any]
         )
@@ -20,18 +36,18 @@ struct HookGenerationTests {
         let hookGroup = try #require(preToolUse.first)
         let commands = try #require(hookGroup["hooks"] as? [[String: String]])
         let command = try #require(commands.first)
-        let expectedCommand =
-            #"'/Applications/Notch "Flow"/bin/notchflow-notify' --agent claude-code "#
-            + #"--state usingTool --session "$CLAUDE_SESSION_ID" &"#
 
         #expect(command["type"] == "command")
-        #expect(command["command"] == expectedCommand)
+        #expect(command["command"]?.contains("EVENT=$(cat)") == true)
+        #expect(command["command"]?.contains("session_id") == true)
+        #expect(command["command"]?.contains("uuid.uuid5") == true)
+        #expect(command["command"]?.contains(#"open -g "$URL" &"#) == true)
+        #expect(command["command"]?.contains("CLAUDE_SESSION_ID") == false)
     }
 
-    @Test("generates a valid Codex notify fragment")
+    @Test("generates a four-element Codex shell notify fragment")
     func codexNotifyFragment() throws {
-        let generator = HookSnippetGenerator(notifierExecutablePath: notifierPath)
-        let fragment = generator.codexNotifyFragment()
+        let fragment = HookSnippetGenerator().codexNotifyFragment()
         let assignmentPrefix = "notify = "
 
         #expect(fragment.hasPrefix(assignmentPrefix))
@@ -41,28 +57,25 @@ struct HookGenerationTests {
             JSONSerialization.jsonObject(with: Data(encodedArguments.utf8)) as? [String]
         )
 
-        #expect(arguments == [notifierPath, "--agent", "codex"])
-        #expect(fragment.contains(#"Notch \"Flow\""#))
+        #expect(arguments.count == 4)
+        #expect(arguments[0] == "sh")
+        #expect(arguments[1] == "-c")
+        #expect(arguments[2].contains("sys.argv[1]"))
+        #expect(arguments[2].contains("thread-id"))
+        #expect(arguments[2].contains("uuid.uuid5"))
+        #expect(arguments[2].contains(#"open -g "$URL""#))
+        #expect(arguments[3] == "sh")
     }
 
-    @Test("generates an OpenCode TypeScript plugin")
-    func openCodePluginFile() throws {
-        let generator = HookSnippetGenerator(notifierExecutablePath: notifierPath)
-        let plugin = generator.openCodePluginFile()
-        let pathDeclarationPrefix = "const notifierExecutablePath = "
-        let pathDeclaration = try #require(
-            plugin.split(separator: "\n").first {
-                $0.hasPrefix(pathDeclarationPrefix)
-            }
-        )
-        let encodedPath = pathDeclaration.dropFirst(pathDeclarationPrefix.count)
-        let decodedPath = try JSONDecoder().decode(
-            String.self,
-            from: Data(encodedPath.utf8)
-        )
+    @Test("generates an OpenCode plugin that invokes open directly")
+    func openCodePluginFile() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
 
-        #expect(decodedPath == notifierPath)
         #expect(plugin.contains(#"import type { Plugin } from "@opencode-ai/plugin""#))
+        #expect(plugin.contains(#"spawn("open", ["-g", url]"#))
+        #expect(plugin.contains(#"agentId: "opencode""#))
+        #expect(plugin.contains(#"encodeURIComponent(JSON.stringify(payload))"#))
+        #expect(plugin.contains(#"createHash("sha256")"#))
         #expect(plugin.contains(#""session.created""#))
         #expect(plugin.contains(#""tool.execute.before": async"#))
         #expect(plugin.contains(#""tool.execute.after": async"#))
@@ -72,13 +85,13 @@ struct HookGenerationTests {
 
     @Test("generation is idempotent")
     func idempotentGeneration() throws {
-        let generator = HookSnippetGenerator(notifierExecutablePath: notifierPath)
+        let generator = HookSnippetGenerator()
 
-        let firstClaudeFragment = try generator.claudeCodeSettingsFragment()
+        let firstClaudeFragment = generator.claudeCodeSettingsFragment()
         let firstCodexFragment = generator.codexNotifyFragment()
         let firstOpenCodePlugin = generator.openCodePluginFile()
 
-        #expect(try generator.claudeCodeSettingsFragment() == firstClaudeFragment)
+        #expect(generator.claudeCodeSettingsFragment() == firstClaudeFragment)
         #expect(generator.codexNotifyFragment() == firstCodexFragment)
         #expect(generator.openCodePluginFile() == firstOpenCodePlugin)
     }

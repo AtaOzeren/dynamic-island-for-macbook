@@ -10,7 +10,6 @@ struct ClaudeCodeHookInstallerTests {
     private static let backupURL = homeDirectory.appending(
         path: ".claude/settings.json.notchflow-backup"
     )
-    private static let notifierPath = "/Applications/NotchFlow.app/Contents/MacOS/notchflow-notify"
 
     @Test("fresh install creates the settings directory and async hook")
     func freshInstall() throws {
@@ -125,12 +124,54 @@ struct ClaudeCodeHookInstallerTests {
         #expect(fileSystem.data(at: Self.backupURL) == original)
     }
 
+    @Test("installation state is missing when no settings file exists")
+    func installationStateWithoutSettingsFile() {
+        let fileSystem = InMemoryClaudeCodeFileSystem()
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .configurationMissing)
+        #expect(fileSystem.writeCount == 0)
+        #expect(fileSystem.createdDirectories.isEmpty)
+    }
+
+    @Test("installation state is absent when settings exist without our hook")
+    func installationStateWithForeignSettings() {
+        let fileSystem = InMemoryClaudeCodeFileSystem(
+            files: [Self.settingsURL: Data(#"{"permissions":{"allow":["Bash(git status)"]}}"#.utf8)]
+        )
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .hookAbsent)
+        #expect(fileSystem.writeCount == 0)
+    }
+
+    @Test("installation state is installed after install writes the hook")
+    func installationStateAfterInstall() throws {
+        let fileSystem = InMemoryClaudeCodeFileSystem()
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+        try installer.install()
+
+        let writesAfterInstall = fileSystem.writeCount
+
+        #expect(installer.installationState() == .hookInstalled)
+        #expect(fileSystem.writeCount == writesAfterInstall)
+    }
+
+    @Test("installation state is unreadable when the settings file is corrupt")
+    func installationStateWithCorruptSettings() {
+        let corrupt = Data("{ this is not json".utf8)
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [Self.settingsURL: corrupt])
+
+        #expect(
+            Self.makeInstaller(fileSystem: fileSystem).installationState() == .configurationUnreadable
+        )
+        #expect(fileSystem.data(at: Self.settingsURL) == corrupt)
+        #expect(fileSystem.writeCount == 0)
+    }
+
     private static func makeInstaller(
         fileSystem: InMemoryClaudeCodeFileSystem
     ) -> ClaudeCodeHookInstaller {
         ClaudeCodeHookInstaller(
             homeDirectory: homeDirectory,
-            notifierExecutablePath: notifierPath,
             fileSystem: fileSystem
         )
     }
