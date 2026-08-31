@@ -24,6 +24,14 @@ final class IslandViewModel: ObservableObject {
     var onExpand: () -> Void = {}
     var onCollapse: () -> Void = {}
 
+    /// Where a press inside the expanded island goes. Assigned by the
+    /// composition root for the same reason `onExpand` is: the view is built
+    /// before the objects that execute these commands exist, and putting a
+    /// provider reference in the view would push the backend into the UI layer.
+    var onMusicTransport: (MusicTransportCommand) -> Void = { _ in }
+    var onTimerCommand: (TimerControlCommand) -> Void = { _ in }
+    var onPrimaryAction: (ActivityIdentity) -> Void = { _ in }
+
     init(compact: CompactActivityPresentation, notchSize: CGSize) {
         self.compact = compact
         self.notchSize = notchSize
@@ -60,8 +68,30 @@ struct IslandRootView: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture(perform: model.onCollapse)
-                ExpandedActivityView(activities: model.expanded)
+                ExpandedActivityView(
+                    activities: model.expanded,
+                    onPrimaryAction: model.onPrimaryAction,
+                    onMusicTransport: model.onMusicTransport,
+                    onTimerCommand: model.onTimerCommand
+                )
             }
+        }
+    }
+}
+
+extension TimerControlCommand {
+    /// The provider command this gesture means.
+    ///
+    /// The mapping lives here rather than in either module because
+    /// `TimerControlCommand` is a UI vocabulary and `TimerCommand` is a
+    /// provider vocabulary — `NotchFlowUI` does not depend on
+    /// `NotchFlowProviders`, and the composition root is the one place that
+    /// sees both.
+    var timerCommand: TimerCommand {
+        switch self {
+        case .pause: .pause
+        case .resume: .resume
+        case .stop: .stop
         }
     }
 }
@@ -80,15 +110,27 @@ final class IslandPresenter {
     private let model: IslandViewModel
     private let panel: NotchPanel
     private let controller: PresentationController
+    private let screenChanges: any ScreenChangeObserving
+    private let musicProvider: (any MusicProvider)?
+    private let timerProvider: TimerProvider?
+    private let primaryActions: any PrimaryActionDispatching
 
     init(
         manager: ActivityManager,
         settingsStore: SettingsStore,
-        metrics: PanelMetrics = .default
+        metrics: PanelMetrics = .default,
+        screenChanges: any ScreenChangeObserving = SystemScreenChangeObserver(),
+        musicProvider: (any MusicProvider)? = nil,
+        timerProvider: TimerProvider? = nil,
+        primaryActions: any PrimaryActionDispatching = WorkspacePrimaryActionDispatcher()
     ) {
         self.manager = manager
         self.settingsStore = settingsStore
         self.metrics = metrics
+        self.screenChanges = screenChanges
+        self.musicProvider = musicProvider
+        self.timerProvider = timerProvider
+        self.primaryActions = primaryActions
 
         let model = IslandViewModel(
             compact: manager.compactPresentation,
@@ -123,6 +165,11 @@ final class IslandPresenter {
     func start() {
         controller.onStateChange = { [weak self] state in
             self?.model.state = state
+            // The provider arms its tick only while something is on screen to
+            // redraw. Nothing called this before, so a running timer never
+            // refreshed its face — the same never-wired defect class this
+            // audit exists to close.
+            self?.timerProvider?.setPanelVisible(state != .hidden)
             self?.refreshContent()
         }
         controller.onSynchronize = { [weak self] in
@@ -130,8 +177,72 @@ final class IslandPresenter {
         }
         model.onExpand = { [weak self] in self?.controller.expand() }
         model.onCollapse = { [weak self] in self?.controller.collapse() }
+        model.onMusicTransport = { [weak self] command in
+            self?.musicProvider?.send(command)
+        }
+        model.onTimerCommand = { [weak self] command in
+            self?.timerProvider?.handle(command.timerCommand)
+        }
+        model.onPrimaryAction = { [weak self] identity in
+            self?.performPrimaryAction(for: identity)
+        }
+
+        screenChanges.startObserving { [weak self] change in
+            self?.screenSetChanged(change)
+        }
 
         controller.start()
+        refreshContent()
+    }
+
+    /// Executes the intent the pressed activity's `PrimaryAction` names.
+    ///
+    /// The activity is looked up rather than captured because the row that was
+    /// drawn may be a state behind the manager by the time the click lands —
+    /// a timer that expired between draw and press must be dismissed, not
+    /// paused.
+    ///
+    /// Timer intents go to `TimerProvider`, not to the workspace dispatcher:
+    /// they are routing, not system calls, and they must take the same path
+    /// the expanded view's own pause/resume controls take.
+    private func performPrimaryAction(for identity: ActivityIdentity) {
+        guard
+            let activity = manager.activeActivities.first(where: { $0.identity == identity }),
+            let intent = activity.primaryAction?.intent
+        else {
+            return
+        }
+
+        switch intent {
+        case .pauseTimer:
+            timerProvider?.handle(.pause)
+        case .resumeTimer:
+            timerProvider?.handle(.resume)
+        case .stopTimer:
+            timerProvider?.handle(.stop)
+        case .openApplicationNamed, .openAgentApplication:
+            primaryActions.perform(intent)
+        }
+    }
+
+    /// Puts the panel back under the right notch after the screen set changes.
+    ///
+    /// `.systemWillSleep` is deliberately ignored. Repositioning against a
+    /// display list that is about to be torn down resolves nothing, and
+    /// ordering the panel out here would desynchronise `PresentationController`
+    /// from the manager's active set — it only orders back in when the active
+    /// set changes, so an activity that is still running across the sleep would
+    /// never come back.
+    ///
+    /// `.systemDidWake` needs no delay. `docs/03-display-and-notch.md:66` states
+    /// the contract: while the display list is still settling nothing resolves,
+    /// and the `didChangeScreenParametersNotification` that follows is what
+    /// reflects the final geometry. Both events land here, so the wake attempt
+    /// is either correct or a no-op, and the parameters change that follows is
+    /// authoritative either way.
+    private func screenSetChanged(_ change: ScreenChange) {
+        guard change.event != .systemWillSleep else { return }
+        controller.repositionOnCurrentScreen()
         refreshContent()
     }
 

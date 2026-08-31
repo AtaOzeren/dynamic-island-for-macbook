@@ -1,6 +1,6 @@
 # AI Integration
 
-This document specifies the AI agent state machine, the IPC protocol that carries agent state into NotchFlow, the per-agent hook integrations for Claude Code, Codex CLI, and OpenCode, and the hook installer's consent model. It is a design specification — nothing in this folder is code.
+This document specifies the AI agent state machine, the IPC protocol that carries agent state into NotchFlow, the per-agent hook integrations for Claude Code, Codex CLI, and OpenCode, and the hook installer's consent model. It is a design specification — the fenced snippets in it are the literal output of `HookSnippetGenerator`, quoted for reference and pinned by a drift test, not hand-maintained code.
 
 ## Design principle
 
@@ -120,23 +120,24 @@ Claude Code supports hook configuration in `~/.claude/settings.json`. NotchFlow'
 
 | Claude Code hook event | NotchFlow state sent |
 |---|---|
-| `PreToolUse` | `usingTool` (with `toolName` set to `$CLAUDE_SESSION_ID`) |
+| `PreToolUse` | `usingTool` (detail "Using tool"; the session id is derived from the event JSON's `session_id` field) |
 
 The generated snippet covers `PreToolUse` only — the hook that fires most frequently and gives the most useful signal (the agent is actively running a tool). Other lifecycle events (`SessionStart`, `PostToolUse`, `Notification`, `Stop`) are not wired in V1; the agent's state transitions to `usingTool` on tool invocation and the activity ends when the session ends or the user dismisses it.
 
 Claude Code hooks receive the event as JSON on stdin. The generated hook command is **asynchronous** — it fires the IPC call and returns immediately — so NotchFlow's presence never adds latency to the agent's own execution. The snippet uses the URL-scheme transport with `open -g` precisely because it backgrounds trivially from a shell hook.
 
-Example snippet NotchFlow proposes for `~/.claude/settings.json`:
+The literal fragment the installer merges into `~/.claude/settings.json`, exactly as `HookSnippetGenerator` emits it (a drift test in `NotchFlowCoreTests` fails the build if this block and the generator ever disagree):
 
+<!-- notchflow-snippet: claude-code -->
 ```json
 {
-  "hooks": {
-    "PreToolUse": [
+  "hooks" : {
+    "PreToolUse" : [
       {
-        "hooks": [
+        "hooks" : [
           {
-            "type": "command",
-            "command": "notchflow-notify --agent claude-code --state usingTool --session \"$CLAUDE_SESSION_ID\" &"
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"usingTool\",\"detail\":\"Using tool\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
           }
         ]
       }
@@ -147,17 +148,71 @@ Example snippet NotchFlow proposes for `~/.claude/settings.json`:
 
 ### Codex CLI
 
-Codex CLI supports a `notify` program setting in `~/.codex/config.toml`, invoked with a single JSON argument describing the event. NotchFlow's installer points this setting at a small forwarding call that translates the Codex event into the envelope and sends it via the URL scheme.
+Codex CLI supports a `notify` program setting in `~/.codex/config.toml`, invoked with a single JSON argument describing the event. There is a catch that dictates the shape of NotchFlow's snippet: Codex spawns the configured program directly, **without a shell**, and **appends the event JSON** as an extra argument after the configured array. A plain script relying on `$()`, `[ -n ... ]`, or `&&` would never run — there is no shell to interpret it. The generated value is therefore a four-element array, `["sh", "-c", <script>, "sh"]`: the `sh -c` wrapper supplies the shell that parses the script, and the trailing `"sh"` element occupies `$0` so that the event JSON Codex appends lands in `$1`, where the script reads it with `sys.argv[1]`. The script derives the session id from the event's `thread-id`, builds the envelope URL with `python3`, and dispatches it in the background with `open -g`.
 
-Example snippet NotchFlow proposes for `~/.codex/config.toml`:
+The literal line the installer writes into `~/.codex/config.toml`, exactly as `HookSnippetGenerator` emits it:
 
+<!-- notchflow-snippet: codex -->
 ```toml
-notify = ["notchflow-notify", "--agent", "codex"]
+notify = ["sh","-c","URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"thread-id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"codex:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"codex\",\"sessionId\":session,\"state\":\"completed\",\"detail\":\"Turn completed\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $1); [ -n \"$URL\" ] && open -g \"$URL\"","sh"]
 ```
 
 ### OpenCode
 
-OpenCode uses a plugin file convention: a plugin file placed in OpenCode's plugin directory observes session lifecycle events (start, tool call, idle, completion) and can act on them directly. NotchFlow's installer writes a small plugin that maps those events to the same IPC envelope and sends it via the URL scheme, the same way the Claude Code and Codex snippets do.
+OpenCode uses a plugin file convention: a plugin file placed in OpenCode's plugin directory observes session lifecycle events and can act on them directly. NotchFlow's installer writes a small TypeScript plugin that maps those events onto the same IPC envelope and sends it via the URL scheme, the same way the Claude Code and Codex snippets do: `session.created` becomes `thinking`, `session.idle` becomes `completed`, `session.error` becomes `error`, `tool.execute.before` becomes `usingTool`, and `tool.execute.after` becomes `working`. The plugin derives a stable session UUID from the session id and dispatches each message as a detached `open -g` call, so it never blocks OpenCode's own execution.
+
+The literal plugin file the installer writes, exactly as `HookSnippetGenerator` emits it:
+
+<!-- notchflow-snippet: opencode -->
+```ts
+import type { Plugin } from "@opencode-ai/plugin"
+import { spawn } from "node:child_process"
+import { createHash } from "node:crypto"
+
+const sessionUUID = (agentId: string, sessionId: string) => {
+  const bytes = createHash("sha256").update(`${agentId}:${sessionId}`).digest().subarray(0, 16)
+  bytes[6] = (bytes[6] & 0x0f) | 0x50
+  bytes[8] = (bytes[8] & 0x3f) | 0x80
+  const hex = bytes.toString("hex")
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+const notify = (state: string, sessionId: string, detail: string) => {
+  const payload = {
+    schemaVersion: "1.0",
+    agentId: "opencode",
+    sessionId: sessionUUID("opencode", sessionId),
+    state,
+    detail,
+    timestamp: new Date().toISOString(),
+  }
+  const url = `notchflow://ai-status?payload=${encodeURIComponent(JSON.stringify(payload))}`
+  const child = spawn("open", ["-g", url], { detached: true, stdio: "ignore" })
+  child.unref()
+}
+
+export const NotchFlowPlugin: Plugin = async () => ({
+  event: async ({ event }) => {
+    switch (event.type) {
+      case "session.created":
+        notify("thinking", event.properties.info.id, "Session started")
+        break
+      case "session.idle":
+        notify("completed", event.properties.sessionID, "Session completed")
+        break
+      case "session.error":
+        notify("error", event.properties.sessionID, "Session error")
+        break
+    }
+  },
+  "tool.execute.before": async (input) => {
+    notify("usingTool", input.sessionID, "Using tool")
+  },
+  "tool.execute.after": async (input) => {
+    notify("working", input.sessionID, "Tool completed")
+  },
+})
+```
 
 ## The hook installer
 

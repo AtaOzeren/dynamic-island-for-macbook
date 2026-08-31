@@ -17,11 +17,22 @@ final class URLSchemeAppDelegate: NSObject, NSApplicationDelegate {
     /// the app is a single instance, so there is exactly one writer.
     nonisolated(unsafe) static var onOpenURL: (@MainActor (URL) -> Void)?
 
+    /// Runs before the process exits, for the resources that must be released
+    /// rather than merely abandoned — currently the loopback listener's socket.
+    /// Set by the composition root, for the same reason `onOpenURL` is.
+    nonisolated(unsafe) static var onTerminate: (@MainActor () -> Void)?
+
     nonisolated func application(_ application: NSApplication, open urls: [URL]) {
         MainActor.assumeIsolated {
             for url in urls {
                 Self.onOpenURL?(url)
             }
+        }
+    }
+
+    nonisolated func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            Self.onTerminate?()
         }
     }
 }

@@ -21,6 +21,14 @@ struct NotchFlowApp: App {
     private let urlSchemeReceiver = URLSchemeReceiver()
     private let onboardingPresenter = OnboardingPresenter()
 
+    /// The loopback transport, held for the app's lifetime so termination can
+    /// close its socket.
+    private let loopbackListener: LoopbackHTTPListener
+
+    /// The timer the menu bar starts and the island controls — one instance,
+    /// shared with the registry that draws it.
+    private let timerProvider: TimerProvider
+
     /// Draws the manager's activities in the overlay window. Held for the app's
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
     private let islandPresenter: IslandPresenter
@@ -62,9 +70,16 @@ struct NotchFlowApp: App {
         _languageOverride = State(initialValue: settingsStore[.languageOverride])
         Self.applyLanguageOverride(settingsStore[.languageOverride])
 
+        // Held rather than constructed inline: the menu bar's timer control and
+        // the expanded island's pause/resume have to reach the same provider
+        // instance the registry observes, or a press would drive a timer
+        // nothing is drawing.
+        let timerProvider = TimerProvider()
+        self.timerProvider = timerProvider
+
         let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
-            timerProvider: TimerProvider(),
+            timerProvider: timerProvider,
             enabledIdentifiers: settingsStore.enabledProviderIdentifiers
         )
         self.registry = registry
@@ -74,7 +89,15 @@ struct NotchFlowApp: App {
 
         registry.startObserving(into: manager)
 
-        let islandPresenter = IslandPresenter(manager: manager, settingsStore: settingsStore)
+        // The providers are handed in so a press inside the expanded island
+        // reaches the backend that owns the state it is about. The presenter
+        // holds no provider logic of its own — it routes.
+        let islandPresenter = IslandPresenter(
+            manager: manager,
+            settingsStore: settingsStore,
+            musicProvider: musicProvider,
+            timerProvider: timerProvider
+        )
         self.islandPresenter = islandPresenter
 
         // The URL scheme is the transport every installed hook actually uses, so
@@ -97,14 +120,38 @@ struct NotchFlowApp: App {
         // as likely to be `working` as anything else — there is no separate
         // "agent started" event to register on — and it preserves the original
         // registration time when the session is already on screen.
+        //
+        // Named once and handed to both transports rather than written twice:
+        // the URL scheme and the loopback listener carry the same envelope, so
+        // two copies of this would be two chances for one transport to start
+        // registering what the other ends.
         let activityManager = manager
-        urlSchemeReceiver.onMessage = { message in
+        let messageSink: @MainActor @Sendable (IPCMessage) -> Void = { message in
             let activity = AIAgentActivity(message: message)
             if activity.endsPresentation {
                 activityManager.end(activity.identity)
             } else {
                 activityManager.register(activity)
             }
+        }
+        urlSchemeReceiver.onMessage = messageSink
+
+        // The second transport from `docs/07-ai-integration.md`, for hooks that
+        // can reach a socket but not `open`. Its own preference gate is seeded
+        // from the store for the reason the URL receiver's is: `.default` has
+        // every agent off, and with no agent enabled the listener does not open
+        // a port at all — so a receiver left at the default would never listen
+        // for the agents the user opted into during onboarding.
+        let loopbackListener = LoopbackHTTPListener(sink: messageSink)
+        self.loopbackListener = loopbackListener
+        let seededPreferences = settingsStore.aiIntegrationPreferences
+        Task { try? await loopbackListener.updatePreferences(seededPreferences) }
+
+        // A listening socket outliving the process that owned it is a defect,
+        // and an accessory app is quit from a menu item rather than by closing
+        // a window — so termination is the only hook that always runs.
+        URLSchemeAppDelegate.onTerminate = {
+            Self.stopSynchronously(loopbackListener)
         }
 
         // Deferred to the first turn of the run loop rather than run inline:
@@ -132,6 +179,21 @@ struct NotchFlowApp: App {
         }
     }
 
+    /// Closes the listener's socket before the process exits.
+    ///
+    /// `applicationWillTerminate` returns into `exit()`, so an `async` stop
+    /// detached into a `Task` would be killed mid-cancel and leave the port
+    /// bound. The semaphore waits on the actor's own `stop()` instead — bounded,
+    /// because it is a cancel and a file removal with nothing to block on.
+    private static func stopSynchronously(_ listener: LoopbackHTTPListener) {
+        let finished = DispatchSemaphore(value: 0)
+        Task.detached {
+            await listener.stop()
+            finished.signal()
+        }
+        _ = finished.wait(timeout: .now() + 2)
+    }
+
     /// Pins the bundle-lookup language list to the user's override.
     ///
     /// `AppleLanguages` is the only lever that reaches every catalog at once —
@@ -151,6 +213,17 @@ struct NotchFlowApp: App {
         }
         UserDefaults.standard.set([code], forKey: "AppleLanguages")
     }
+
+    /// The countdown lengths the menu offers.
+    ///
+    /// Fixed presets rather than a duration field: the menu bar cannot host
+    /// text entry, and three durations cover the timer's stated V1 use without
+    /// inventing a window the app otherwise does not have.
+    private static let timerPresets: [(minutes: Int, title: String)] = [
+        (5, String(localized: "Start 5-Minute Timer")),
+        (10, String(localized: "Start 10-Minute Timer")),
+        (25, String(localized: "Start 25-Minute Timer")),
+    ]
 
     /// The agents whose configuration files exist, in the fixed order the
     /// onboarding screen lists them.
@@ -181,6 +254,24 @@ struct NotchFlowApp: App {
         // settings — `docs/08-settings-and-localization.md` names the status
         // item and onboarding's last step as the two entry points.
         MenuBarExtra("NotchFlow", image: "MenuBarIcon") {
+            // The timer's only entry point. `TimerProvider.handle(_:)` shipped
+            // with nothing able to construct a `TimerCommand`, so the feature
+            // was unreachable end to end; the menu is the lowest-risk surface
+            // because it is the app's one standing window-less affordance.
+            ForEach(Self.timerPresets, id: \.minutes) { preset in
+                Button(preset.title) {
+                    timerProvider.handle(
+                        .start(.countdown(duration: .seconds(preset.minutes * 60)))
+                    )
+                }
+            }
+
+            Button(String(localized: "Stop Timer")) {
+                timerProvider.handle(.stop)
+            }
+
+            Divider()
+
             SettingsLink {
                 Text("Settings…")
             }

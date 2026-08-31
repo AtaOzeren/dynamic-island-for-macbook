@@ -37,6 +37,78 @@
         }
       }
     },
+    "Start 10-Minute Timer": {
+      "comment": "Status item menu: starts a ten-minute countdown.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start 10-Minute Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 Dakikalık Zamanlayıcı Başlat"
+          }
+        }
+      }
+    },
+    "Start 25-Minute Timer": {
+      "comment": "Status item menu: starts a twenty-five-minute countdown.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start 25-Minute Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "25 Dakikalık Zamanlayıcı Başlat"
+          }
+        }
+      }
+    },
+    "Start 5-Minute Timer": {
+      "comment": "Status item menu: starts a five-minute countdown.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start 5-Minute Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 Dakikalık Zamanlayıcı Başlat"
+          }
+        }
+      }
+    },
+    "Stop Timer": {
+      "comment": "Status item menu: stops and clears the running timer.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamanlayıcıyı Durdur"
+          }
+        }
+      }
+    },
     "Welcome to NotchFlow": {
       "comment": "The onboarding window's title bar. Lives in the app target's catalog rather than NotchFlowUI's because the window is built by the composition root, which resolves against the main bundle.",
       "extractionState": "manual",
