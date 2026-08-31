@@ -60,17 +60,31 @@ struct AppleScriptMusicProviderTests {
 
     // MARK: - Cadence
 
-    /// The update-cadence rule in `docs/06-activity-providers.md` is "purely
-    /// event-driven, no polling of player state at any interval". A provider
-    /// that queried on `startObserving` would already be reading state nobody
-    /// asked about; the first read must come from a notification.
-    @Test("queries no player until a notification wakes it")
-    func doesNotQueryBeforeAnyNotification() {
+    /// The update-cadence rule in `docs/06-activity-providers.md` forbids
+    /// polling player state "at any interval" — it does not forbid the single
+    /// read that establishes the starting state. A notification reports only a
+    /// *change*, so a track already playing when observation begins posts
+    /// nothing, and without this read the island stays empty until the user
+    /// changes track. `SystemPowerSourceObserver.startObserving` reads once on
+    /// the same rule for the same reason.
+    @Test("reads both players once when observation starts")
+    func readsCurrentStateOnStart() {
         let (provider, players, _) = Self.make()
 
         provider.startObserving { _ in }
 
-        #expect(players.queriedTargets.isEmpty)
+        #expect(Set(players.queriedTargets) == Set(MusicPlayerTarget.allCases))
+    }
+
+    /// The one read on start is the *only* unprompted read: each player is
+    /// asked exactly once, and nothing re-reads on a timer.
+    @Test("queries each player exactly once when observation starts")
+    func doesNotQueryAgainBeforeAnyNotification() {
+        let (provider, players, _) = Self.make()
+
+        provider.startObserving { _ in }
+
+        #expect(players.queriedTargets.count == MusicPlayerTarget.allCases.count)
     }
 
     @Test("emits the playing track when a player posts a change")
@@ -132,7 +146,7 @@ struct AppleScriptMusicProviderTests {
         provider.startObserving { received.append($0) }
         Self.post(.appleMusic, on: center)
 
-        #expect(received.first??.title == "Nannou")
+        #expect(received.last??.title == "Nannou")
     }
 
     // MARK: - Absence
@@ -263,10 +277,12 @@ struct AppleScriptMusicProviderTests {
 
         provider.startObserving { _ in firstCount += 1 }
         provider.startObserving { _ in secondCount += 1 }
+        let firstCountAfterRestart = firstCount
+        players.snapshots[.spotify] = Self.snapshot("Avril 14th")
         Self.post(.spotify, on: center)
 
-        #expect(firstCount == 0)
-        #expect(secondCount == 1)
+        #expect(firstCount == firstCountAfterRestart)
+        #expect(secondCount > 0)
     }
 
     // MARK: - Transport

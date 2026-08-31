@@ -23,17 +23,23 @@ public struct IslandMotion: Equatable, Sendable {
     /// removes the motion component of a transition but never skips the
     /// transition outright, because the state still has to visually change.
     public let reducedMotionCrossFadeDuration: Double
+    /// How long the pointer must rest on the pill before it expands. Hover is
+    /// the only gesture that opens the island, so this is what separates a
+    /// deliberate rest from a pointer crossing the notch on its way elsewhere.
+    public let hoverExpansionDelay: Double
 
     public init(
         springResponse: Double = 0.35,
         springDamping: Double = 0.8,
         peekDuration: Double = 0.15,
-        reducedMotionCrossFadeDuration: Double = 0.1
+        reducedMotionCrossFadeDuration: Double = 0.1,
+        hoverExpansionDelay: Double = 0.25
     ) {
         self.springResponse = springResponse
         self.springDamping = springDamping
         self.peekDuration = peekDuration
         self.reducedMotionCrossFadeDuration = reducedMotionCrossFadeDuration
+        self.hoverExpansionDelay = hoverExpansionDelay
     }
 }
 

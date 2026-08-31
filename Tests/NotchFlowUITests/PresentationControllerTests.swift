@@ -32,7 +32,8 @@ struct PresentationControllerTests {
 
     private static func makeHarness(
         screen: ScreenDescription? = notchedScreen,
-        reduceMotion: Bool = false
+        reduceMotion: Bool = false,
+        motion: IslandMotion = .default
     ) -> Harness {
         let manager = ActivityManager()
         let panel = NotchPanel(metrics: metrics, content: Color.clear)
@@ -42,6 +43,7 @@ struct PresentationControllerTests {
             manager: manager,
             metrics: metrics,
             mouse: mouse,
+            motion: motion,
             reduceMotion: FakeReduceMotion(prefersReducedMotion: reduceMotion),
             screen: { screen }
         )
@@ -314,6 +316,82 @@ struct PresentationControllerTests {
 
         #expect(harness.controller.isHovered == false)
         #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("keeps an empty pill on screen when the bar is always visible")
+    func alwaysVisibleKeepsAnEmptyPillUp() {
+        let harness = Self.makeHarness()
+        harness.controller.keepBarAlwaysVisible = true
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+    }
+
+    @Test("orders the always-visible pill out the moment the setting turns off")
+    func alwaysVisibleOrdersOutWhenDisabled() {
+        let harness = Self.makeHarness()
+        harness.controller.keepBarAlwaysVisible = true
+        harness.controller.keepBarAlwaysVisible = false
+
+        #expect(harness.controller.state == .hidden)
+        #expect(harness.panel.isVisible == false)
+    }
+
+    @Test("an always-visible pill survives the last activity ending")
+    func alwaysVisibleSurvivesActivitiesEnding() {
+        let harness = Self.makeHarness()
+        harness.controller.keepBarAlwaysVisible = true
+        let activity = Self.activity("timer.focus")
+        harness.manager.register(activity)
+
+        harness.manager.end(activity.identity)
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+    }
+
+    @Test("hovering an always-visible pill with nothing running never expands it")
+    func hoveringAnEmptyAlwaysVisiblePillDoesNotExpand() {
+        let harness = Self.makeHarness(
+            motion: IslandMotion(hoverExpansionDelay: 0.01)
+        )
+        harness.controller.keepBarAlwaysVisible = true
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .compact)
+    }
+
+    @Test("resting on the pill expands it after the hover delay")
+    func hoverExpandsAfterTheDelay() {
+        let harness = Self.makeHarness(
+            motion: IslandMotion(hoverExpansionDelay: 0.01)
+        )
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .expanded)
+    }
+
+    @Test("crossing the pill without resting never expands it")
+    func passingOverThePillDoesNotExpandIt() {
+        let harness = Self.makeHarness(motion: IslandMotion(hoverExpansionDelay: 10))
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .compact)
+    }
+
+    /// Drains the main run loop long enough for a scheduled `Timer` with a
+    /// shorter interval to have fired, without sleeping the test thread itself.
+    private static func runMainRunLoop(for interval: TimeInterval) {
+        RunLoop.main.run(until: Date().addingTimeInterval(interval))
     }
 
     @Test("watches the pointer only while the window is on screen")

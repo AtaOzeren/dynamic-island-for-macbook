@@ -101,16 +101,23 @@ public func islandCompactSurface(scheme _: IslandColorScheme) -> IslandSurface {
     .notchBlack
 }
 
-/// The expanded panel's background: translucent material normally, an opaque
-/// fill of the same scheme under Reduce Transparency.
+/// The expanded panel's background: the notch's own black, in both schemes and
+/// with or without Reduce Transparency.
 ///
-/// The setting swaps the material for a solid, never for a different scheme —
-/// Reduce Transparency is an opacity preference, not an appearance one.
+/// The panel hangs directly below the physical cutout, so anything translucent
+/// or light reads as a separate floating card butted against the notch rather
+/// than as the notch itself growing downwards. Matching the pill's `notchBlack`
+/// is what makes the two read as one surface.
+///
+/// The parameters are kept even though neither changes the answer: every call
+/// site passes the scheme and the Reduce Transparency flag it resolved, and
+/// dropping them would push the decision back out into four views the day a
+/// light-mode panel is wanted.
 public func islandExpandedSurface(
-    scheme: IslandColorScheme,
-    reduceTransparency: Bool
+    scheme _: IslandColorScheme,
+    reduceTransparency _: Bool
 ) -> IslandSurface {
-    reduceTransparency ? .solid(scheme) : .material(scheme)
+    .notchBlack
 }
 
 extension ColorScheme {

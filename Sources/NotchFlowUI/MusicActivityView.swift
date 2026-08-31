@@ -97,7 +97,8 @@ public struct MusicPresentation: Equatable, Sendable {
 public func musicCompactSlot(for activity: MusicActivity) -> CompactSlot {
     CompactSlot(
         activity: activity,
-        accessibilityLabel: MusicPresentation(activity: activity).accessibilityLabel
+        accessibilityLabel: MusicPresentation(activity: activity).accessibilityLabel,
+        isPlayingMusic: activity.nowPlaying.playbackState == .playing
     )
 }
 

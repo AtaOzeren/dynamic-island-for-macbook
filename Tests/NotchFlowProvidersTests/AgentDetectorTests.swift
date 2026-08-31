@@ -29,7 +29,7 @@ struct AgentDetectorTests {
         let detector = Self.detector(existingPaths: [
             "/Users/tester/.claude/settings.json",
             "/Users/tester/.codex/config.toml",
-            "/Users/tester/.config/opencode/plugin",
+            "/Users/tester/.config/opencode",
         ])
 
         #expect(

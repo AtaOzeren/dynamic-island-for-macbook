@@ -68,12 +68,25 @@ public final class PresentationController {
             )
             onHoverChange?(isHovered)
             synchronizeMouseHandling()
+            synchronizeHoverExpansion()
         }
     }
+
+    private var hoverExpansionTimer: Timer?
 
     /// How the most recent hover change should be drawn, on the same
     /// assigned-before-the-callback contract as `transition`.
     public private(set) var peek: IslandAnimationCurve = .none
+
+    /// Keeps the pill on screen with an empty active set. Re-synchronizes on
+    /// assignment so turning it off while nothing is running orders the window
+    /// out immediately rather than at the next activity change.
+    public var keepBarAlwaysVisible = false {
+        didSet {
+            guard keepBarAlwaysVisible != oldValue else { return }
+            synchronize()
+        }
+    }
 
     public var onStateChange: ((PresentationState) -> Void)?
     public var onHoverChange: ((Bool) -> Void)?
@@ -154,7 +167,7 @@ public final class PresentationController {
 
     private func synchronize() {
         defer { onSynchronize?() }
-        guard manager.activeActivities.isEmpty == false else {
+        guard manager.activeActivities.isEmpty == false || keepBarAlwaysVisible else {
             hide()
             return
         }
@@ -193,5 +206,29 @@ public final class PresentationController {
 
     private func synchronizeMouseHandling() {
         panel.ignoresMouseEvents = state != .expanded && isHovered == false
+    }
+
+    private func synchronizeHoverExpansion() {
+        hoverExpansionTimer?.invalidate()
+        hoverExpansionTimer = nil
+
+        guard isHovered else {
+            collapse()
+            return
+        }
+        // Expanding with nothing to show would open onto a blank surface: the
+        // always-visible bar can be up with an empty active set, and hover is
+        // then only ever a peek.
+        guard state == .compact, manager.activeActivities.isEmpty == false else { return }
+
+        hoverExpansionTimer = Timer.scheduledTimer(
+            withTimeInterval: motion.hoverExpansionDelay,
+            repeats: false
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isHovered else { return }
+                self.expand()
+            }
+        }
     }
 }
