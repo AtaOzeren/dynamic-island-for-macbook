@@ -1,14 +1,60 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "Welcome to NotchFlow" : {
-      "comment" : "The onboarding window's title bar. Lives in the app target's catalog rather than NotchFlowUI's because the window is built by the composition root, which resolves against the main bundle.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Welcome to NotchFlow" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "NotchFlow'a hoş geldiniz" } }
+  "sourceLanguage": "en",
+  "strings": {
+    "Quit NotchFlow": {
+      "comment": "Status item menu: terminates the app.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit NotchFlow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow'dan Çık"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "comment": "Status item menu: opens the settings window.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar…"
+          }
+        }
+      }
+    },
+    "Welcome to NotchFlow": {
+      "comment": "The onboarding window's title bar. Lives in the app target's catalog rather than NotchFlowUI's because the window is built by the composition root, which resolves against the main bundle.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to NotchFlow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow'a hoş geldiniz"
+          }
+        }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

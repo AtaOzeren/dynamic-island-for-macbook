@@ -1,5 +1,30 @@
+import AppKit
 import Foundation
 import NotchFlowCore
+
+/// Receives `notchflow://` URLs for an app that usually has no window open.
+///
+/// SwiftUI's `onOpenURL` is a view modifier, so it only listens once the scene
+/// it is attached to has instantiated its content. NotchFlow's only scenes are
+/// `Settings` and the status item's menu, and neither exists until the user
+/// opens it — which would make every hook message dropped on the floor except
+/// in the rare moment the settings window happens to be on screen. The
+/// application delegate receives the same URLs with no window at all.
+@MainActor
+final class URLSchemeAppDelegate: NSObject, NSApplicationDelegate {
+    /// Set by the composition root. Static because `NSApplicationDelegateAdaptor`
+    /// constructs the delegate itself and hands back no seam to inject through;
+    /// the app is a single instance, so there is exactly one writer.
+    nonisolated(unsafe) static var onOpenURL: (@MainActor (URL) -> Void)?
+
+    nonisolated func application(_ application: NSApplication, open urls: [URL]) {
+        MainActor.assumeIsolated {
+            for url in urls {
+                Self.onOpenURL?(url)
+            }
+        }
+    }
+}
 
 @MainActor
 final class URLSchemeReceiver {

@@ -178,7 +178,7 @@ public struct OnboardingWindowView: View {
             )
             ForEach(flow.detectedAgents, id: \.self) { agentID in
                 Toggle(
-                    localized("Install the \(agentID.displayName) hook"),
+                    localized("Show \(agentID.displayName) status in the notch"),
                     isOn: hookOffer(for: agentID)
                 )
                 .toggleStyle(.switch)
@@ -215,9 +215,10 @@ public struct OnboardingWindowView: View {
                 """)
             : localized(
                 """
-                NotchFlow found configuration for the agents below. Installing a \
-                hook shows you the exact snippet and asks for approval before \
-                anything is written — nothing is installed until you finish setup.
+                NotchFlow found configuration for the agents below. Turning one \
+                on here only records that you want it — nothing is written to \
+                any file. Installing the hook itself happens in Settings, where \
+                you see the exact snippet and approve the write.
                 """)
     }
 

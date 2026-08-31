@@ -79,7 +79,18 @@ final class OnboardingPresenter: NSObject, NSWindowDelegate {
 
     /// The same action ⌘, and the status item send, so onboarding's last step
     /// opens the one settings window rather than a second copy of it.
+    ///
+    /// Activation comes first because the send is what actually fails without
+    /// it: an accessory app that is not frontmost has no key window, so the
+    /// responder chain the action walks is empty and the settings scene never
+    /// sees it. The selector is also spelled two ways — macOS 14 renamed the
+    /// preferences action — and neither spelling reports failure other than by
+    /// returning `false`, so both are tried before giving up.
     private static func openSettings() {
-        NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+        NSApp.activate(ignoringOtherApps: true)
+        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+            return
+        }
+        _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
     }
 }

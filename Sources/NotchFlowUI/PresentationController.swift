@@ -78,6 +78,15 @@ public final class PresentationController {
     public var onStateChange: ((PresentationState) -> Void)?
     public var onHoverChange: ((Bool) -> Void)?
 
+    /// Fired after every re-read of the manager's active set, including the ones
+    /// that leave `state` untouched.
+    ///
+    /// A track change or a timer tick mutates what the island must draw without
+    /// moving it between hidden, compact, and expanded, so `onStateChange` alone
+    /// would leave the panel showing the previous activity. A presenter listens
+    /// here to keep its content in step.
+    public var onSynchronize: (() -> Void)?
+
     public init(
         panel: NotchPanel,
         manager: ActivityManager,
@@ -123,6 +132,7 @@ public final class PresentationController {
     }
 
     private func synchronize() {
+        defer { onSynchronize?() }
         guard manager.activeActivities.isEmpty == false else {
             hide()
             return

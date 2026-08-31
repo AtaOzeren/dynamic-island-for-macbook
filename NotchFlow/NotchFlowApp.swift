@@ -7,6 +7,11 @@ import SwiftUI
 
 @main
 struct NotchFlowApp: App {
+    /// Delivers `notchflow://` URLs while no window is open. See
+    /// `URLSchemeAppDelegate` for why a view modifier cannot.
+    @NSApplicationDelegateAdaptor(URLSchemeAppDelegate.self)
+    private var appDelegate
+
     /// The composition root's single music backend, selected at compile time by
     /// `makeMusicProvider()`.
     private let musicProvider: any MusicProvider
@@ -15,6 +20,10 @@ struct NotchFlowApp: App {
     private let settingsStore: SettingsStore
     private let urlSchemeReceiver = URLSchemeReceiver()
     private let onboardingPresenter = OnboardingPresenter()
+
+    /// Draws the manager's activities in the overlay window. Held for the app's
+    /// lifetime: the panel is created once and ordered in and out, never rebuilt.
+    private let islandPresenter: IslandPresenter
 
     /// The one gate both the music backend and the Activities pane consult, so
     /// the button the user presses and the permission the provider is blocked on
@@ -65,6 +74,39 @@ struct NotchFlowApp: App {
 
         registry.startObserving(into: manager)
 
+        let islandPresenter = IslandPresenter(manager: manager, settingsStore: settingsStore)
+        self.islandPresenter = islandPresenter
+
+        // The URL scheme is the transport every installed hook actually uses, so
+        // its two ends are wired here rather than on a scene: NotchFlow is an
+        // accessory app, and a message that arrives while no window is open is
+        // the normal case, not the exception.
+        let receiver = urlSchemeReceiver
+        URLSchemeAppDelegate.onOpenURL = { url in
+            receiver.handle(url)
+        }
+
+        // Seeded from the store, not left at `.default`, because the default has
+        // every agent switched off: a receiver holding it drops every message
+        // the user opted into during onboarding. The settings window keeps this
+        // in step afterwards, but it cannot be the first writer — it may never
+        // be opened at all.
+        urlSchemeReceiver.preferences = settingsStore.aiIntegrationPreferences
+
+        // `register` rather than `update` because a session's first message is
+        // as likely to be `working` as anything else — there is no separate
+        // "agent started" event to register on — and it preserves the original
+        // registration time when the session is already on screen.
+        let activityManager = manager
+        urlSchemeReceiver.onMessage = { message in
+            let activity = AIAgentActivity(message: message)
+            if activity.endsPresentation {
+                activityManager.end(activity.identity)
+            } else {
+                activityManager.register(activity)
+            }
+        }
+
         // Deferred to the first turn of the run loop rather than run inline:
         // ordering a window front and activating the app before AppKit has
         // finished launching is unreliable, and this is the one screen that has
@@ -74,6 +116,12 @@ struct NotchFlowApp: App {
         // common case — never probes the file system for agent configuration.
         let presenter = onboardingPresenter
         DispatchQueue.main.async {
+            // Ordering a window front before AppKit has finished launching is
+            // unreliable, and `start()` orders the panel in the moment an
+            // activity is already live — so it waits on the same turn the
+            // onboarding window does.
+            islandPresenter.start()
+
             presenter.presentIfNeeded(
                 hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding],
                 detectedAgents: Self.detectedAgents()
@@ -128,6 +176,24 @@ struct NotchFlowApp: App {
     }
 
     var body: some Scene {
+        // An accessory app has no Dock icon and no window of its own once
+        // onboarding closes, so this is the only standing way back into
+        // settings — `docs/08-settings-and-localization.md` names the status
+        // item and onboarding's last step as the two entry points.
+        MenuBarExtra("NotchFlow", image: "MenuBarIcon") {
+            SettingsLink {
+                Text("Settings…")
+            }
+            .keyboardShortcut(",", modifiers: .command)
+
+            Divider()
+
+            Button("Quit NotchFlow") {
+                NSApplication.shared.terminate(nil)
+            }
+            .keyboardShortcut("q", modifiers: .command)
+        }
+
         Settings {
             SettingsWindowView(
                 general: $generalPreferences,
@@ -140,15 +206,13 @@ struct NotchFlowApp: App {
                 musicAutomation: $musicAutomation,
                 onRequestAutomation: requestAutomation
             )
-            .onOpenURL { url in
-                urlSchemeReceiver.handle(url)
-            }
             .onChange(of: aiPreferences, initial: true) { _, preferences in
                 settingsStore.aiIntegrationPreferences = preferences
                 urlSchemeReceiver.preferences = preferences
             }
             .onChange(of: generalPreferences) { _, preferences in
                 settingsStore.generalPreferences = preferences
+                islandPresenter.applyAppearance(preferences.appearance)
             }
             .onChange(of: enabledIdentifiers) { _, identifiers in
                 settingsStore.enabledProviderIdentifiers = identifiers
