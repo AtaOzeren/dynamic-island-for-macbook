@@ -46,20 +46,17 @@ public struct CompactPillMetrics: Equatable, Sendable {
     public let slotSpacing: CGFloat
     public let edgeInset: CGFloat
     public let symbolSize: CGFloat
-    public let cornerRadius: CGFloat
 
     public init(
         slotWidth: CGFloat = 22,
         slotSpacing: CGFloat = 6,
         edgeInset: CGFloat = 10,
-        symbolSize: CGFloat = 13,
-        cornerRadius: CGFloat = 12
+        symbolSize: CGFloat = 13
     ) {
         self.slotWidth = slotWidth
         self.slotSpacing = slotSpacing
         self.edgeInset = edgeInset
         self.symbolSize = symbolSize
-        self.cornerRadius = cornerRadius
     }
 }
 
@@ -83,6 +80,15 @@ public func compactPillSize(
             + metrics.edgeInset * 2,
         height: notchSize.height
     )
+}
+
+/// Radius that turns the rendered compact bounds into a true capsule. Deriving
+/// it from current bounds keeps top and bottom curvature identical across
+/// hardware-notch and menu-bar fallback heights.
+public func compactPillCornerRadius(for size: CGSize) -> CGFloat {
+    let width = max(size.width, 0)
+    let height = max(size.height, 0)
+    return min(width, height) / 2
 }
 
 /// The overlay window's frame on `screen`, in screen coordinates.

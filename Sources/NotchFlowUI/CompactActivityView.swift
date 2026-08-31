@@ -160,7 +160,12 @@ public struct CompactActivityView: View {
         .frame(width: size.width, height: size.height)
         .foregroundStyle(surface.foreground.style)
         .background {
-            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+            surface.fill(
+                in: RoundedRectangle(
+                    cornerRadius: compactPillCornerRadius(for: size),
+                    style: .continuous
+                )
+            )
         }
         .environment(\.colorScheme, surface.preferredColorScheme)
     }

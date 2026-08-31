@@ -160,6 +160,13 @@ struct PanelGeometryTests {
         #expect(hit.height == notch.height + Self.metrics.compactHitPadding)
     }
 
+    @Test("derives a symmetric capsule radius from every rendered pill height")
+    func compactPillRadiusTracksRenderedHeight() {
+        #expect(compactPillCornerRadius(for: CGSize(width: 200, height: 32)) == 16)
+        #expect(compactPillCornerRadius(for: CGSize(width: 220, height: 37)) == 18.5)
+        #expect(compactPillCornerRadius(for: CGSize(width: 20, height: 32)) == 10)
+    }
+
     @Test("keeps the hover target inside the panel frame it lives in")
     func hitRectStaysInsideThePanel() {
         let screen = Self.notchedScreen()
