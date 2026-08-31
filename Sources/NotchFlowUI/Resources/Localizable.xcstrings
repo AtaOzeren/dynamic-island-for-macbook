@@ -1663,60 +1663,6 @@
         }
       }
     },
-    "Island": {
-      "comment": "General pane, Island section title.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Island"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ada"
-          }
-        }
-      }
-    },
-    "Keeping the bar visible leaves an empty pill on screen while nothing is running.": {
-      "comment": "General pane, Island section caption.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keeping the bar visible leaves an empty pill on screen while nothing is running."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Çubuk görünür tutulduğunda, hiçbir etkinlik çalışmıyorken ekranda boş bir kapsül kalır."
-          }
-        }
-      }
-    },
-    "Keep the bar always visible": {
-      "comment": "General pane: keep an empty compact island visible while idle.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Keep the bar always visible"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Çubuğu her zaman görünür tut"
-          }
-        }
-      }
-    },
     "manualSetup.stepNumber": {
       "comment": "Manual setup sheet: the ordinal in front of each numbered step. Named rather than keyed on its English because a punctuation-only key has no valid Swift symbol.",
       "extractionState": "manual",

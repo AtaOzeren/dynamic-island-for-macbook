@@ -69,12 +69,12 @@ struct PresentationControllerTests {
         )
     }
 
-    @Test("starts hidden with the window off screen")
-    func startsHidden() {
+    @Test("starts compact so the island never disappears while the app is running")
+    func startsCompact() {
         let harness = Self.makeHarness()
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("orders the window in as compact when the first activity registers")
@@ -87,8 +87,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("orders the window out when the last activity ends")
-    func idleOrdersOut() {
+    @Test("keeps the compact island visible when the last activity ends")
+    func idleRemainsCompact() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
 
@@ -97,8 +97,8 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("stays compact while any activity remains")
@@ -145,14 +145,14 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("refuses to expand while hidden, since no animation may start off screen")
-    func refusesToExpandWhileHidden() {
+    @Test("refuses to expand an empty compact island")
+    func refusesToExpandWhileEmpty() {
         let harness = Self.makeHarness()
 
         harness.controller.expand()
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("collapses from expanded back to compact without ordering out")
@@ -167,8 +167,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("hides directly from expanded when the last activity ends")
-    func hidesFromExpanded() {
+    @Test("collapses from expanded when the last activity ends")
+    func collapsesFromExpandedWhenEmpty() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
         harness.manager.register(activity)
@@ -176,8 +176,8 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("publishes every state change exactly once")
@@ -195,7 +195,7 @@ struct PresentationControllerTests {
         harness.manager.end(activity.identity)
         harness.manager.end(ActivityIdentity("timer.break"))
 
-        #expect(observed == [.compact, .expanded, .compact, .hidden])
+        #expect(observed == [.expanded, .compact])
     }
 
     @Test("stops presenting once torn down")
@@ -209,8 +209,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible == false)
     }
 
-    @Test("stays click-through while hidden so nothing intercepts a menu-bar click")
-    func hiddenIsClickThrough() {
+    @Test("an empty compact island stays click-through away from the pill")
+    func emptyCompactIslandIsClickThrough() {
         let harness = Self.makeHarness()
 
         #expect(harness.panel.ignoresMouseEvents)
@@ -305,8 +305,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.ignoresMouseEvents == false)
     }
 
-    @Test("drops hover and click-through the moment the last activity ends")
-    func hidingClearsHover() {
+    @Test("keeps the compact island interactive when the last activity ends")
+    func endingLastActivityPreservesCompactIsland() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
         harness.manager.register(activity)
@@ -314,33 +314,23 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.isHovered == false)
-        #expect(harness.panel.ignoresMouseEvents)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+        #expect(harness.controller.isHovered)
+        #expect(harness.panel.ignoresMouseEvents == false)
     }
 
-    @Test("keeps an empty pill on screen when the bar is always visible")
-    func alwaysVisibleKeepsAnEmptyPillUp() {
+    @Test("keeps an empty pill on screen without a configurable opt-out")
+    func alwaysKeepsAnEmptyPillUp() {
         let harness = Self.makeHarness()
-        harness.controller.keepBarAlwaysVisible = true
 
         #expect(harness.controller.state == .compact)
         #expect(harness.panel.isVisible)
     }
 
-    @Test("orders the always-visible pill out the moment the setting turns off")
-    func alwaysVisibleOrdersOutWhenDisabled() {
+    @Test("the compact pill survives the last activity ending")
+    func compactPillSurvivesActivitiesEnding() {
         let harness = Self.makeHarness()
-        harness.controller.keepBarAlwaysVisible = true
-        harness.controller.keepBarAlwaysVisible = false
-
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
-    }
-
-    @Test("an always-visible pill survives the last activity ending")
-    func alwaysVisibleSurvivesActivitiesEnding() {
-        let harness = Self.makeHarness()
-        harness.controller.keepBarAlwaysVisible = true
         let activity = Self.activity("timer.focus")
         harness.manager.register(activity)
 
@@ -350,12 +340,11 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("hovering an always-visible pill with nothing running never expands it")
-    func hoveringAnEmptyAlwaysVisiblePillDoesNotExpand() {
+    @Test("hovering an empty pill never expands it")
+    func hoveringAnEmptyPillDoesNotExpand() {
         let harness = Self.makeHarness(
             motion: IslandMotion(hoverExpansionDelay: 0.01)
         )
-        harness.controller.keepBarAlwaysVisible = true
 
         harness.mouse.move(to: Self.insideTheHitRect)
         Self.runMainRunLoop(for: 0.05)
@@ -394,17 +383,17 @@ struct PresentationControllerTests {
         RunLoop.main.run(until: Date().addingTimeInterval(interval))
     }
 
-    @Test("watches the pointer only while the window is on screen")
-    func observesTheMouseOnlyWhileVisible() {
+    @Test("keeps watching the pointer while the compact island is on screen")
+    func observesTheMouseWhileCompact() {
         let harness = Self.makeHarness()
-        #expect(harness.mouse.isObserving == false)
+        #expect(harness.mouse.isObserving)
         let activity = Self.activity("timer.focus")
 
         harness.manager.register(activity)
         #expect(harness.mouse.isObserving)
 
         harness.manager.end(activity.identity)
-        #expect(harness.mouse.isObserving == false)
+        #expect(harness.mouse.isObserving)
     }
 
     @Test("stops watching the pointer once torn down")
@@ -450,8 +439,8 @@ struct PresentationControllerTests {
         #expect(harness.controller.transition == .none)
     }
 
-    @Test("ordering out on the last activity animates nothing")
-    func orderingOutIsUnanimated() {
+    @Test("ending the last expanded activity animates back to compact")
+    func endingLastActivityCollapses() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
         harness.manager.register(activity)
@@ -459,8 +448,8 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.controller.transition == .none)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.controller.transition == .spring(response: 0.35, dampingFraction: 0.8))
         #expect(harness.controller.peek == .none)
     }
 

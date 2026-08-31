@@ -184,19 +184,9 @@ struct NotchFlowApp: App {
         let manualSetupPresenter = manualSetupPresenter
         DispatchQueue.main.async {
             // Ordering a window front before AppKit has finished launching is
-            // unreliable, and `start()` orders the panel in the moment an
-            // activity is already live — so it waits on the same turn the
-            // onboarding window does.
-            //
-            // The always-visible preference is applied after `start()`, not
-            // before: `start()` is what connects the state-change callback the
-            // presenter's model listens through, and applying the preference
-            // first would order the panel in without ever publishing `.compact`
-            // — a window on screen drawing nothing.
+            // unreliable. `start()` orders the persistent compact panel in, so
+            // it waits on the same turn the onboarding window does.
             islandPresenter.start()
-            islandPresenter.applyKeepBarAlwaysVisible(
-                settingsStore.generalPreferences.keepBarAlwaysVisible
-            )
 
             presenter.presentIfNeeded(
                 hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding] || Self.isUITesting,
@@ -391,7 +381,6 @@ struct NotchFlowApp: App {
             }
             settingsStore.generalPreferences = preferences
             islandPresenter.applyAppearance(preferences.appearance)
-            islandPresenter.applyKeepBarAlwaysVisible(preferences.keepBarAlwaysVisible)
             islandPresenter.applyReducedMotion(preferences.reducedMotionOverride)
             islandPresenter.applyDisplayTarget()
         }

@@ -64,7 +64,7 @@ public enum IslandAnimationCurve: Equatable, Sendable {
     ///
     /// `nil` rather than a zero-duration animation because a zero-duration
     /// `Animation` still enters the animation machinery for a frame, which is
-    /// exactly the idle work the hidden state is not allowed to do.
+    /// exactly the idle work a resting compact or hidden state must avoid.
     public var animation: Animation? {
         switch self {
         case .none:

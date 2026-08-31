@@ -83,8 +83,7 @@ final class SecondaryIslandPresentation {
         panel.onCancel = { [weak controller] in controller?.collapse() }
     }
 
-    func start(keepBarAlwaysVisible: Bool) {
-        controller.keepBarAlwaysVisible = keepBarAlwaysVisible
+    func start() {
         controller.start()
         refreshContent()
     }
@@ -100,10 +99,6 @@ final class SecondaryIslandPresentation {
     func screenConfigurationDidChange() {
         controller.screenConfigurationDidChange()
         refreshContent()
-    }
-
-    func applyKeepBarAlwaysVisible(_ keepVisible: Bool) {
-        controller.keepBarAlwaysVisible = keepVisible
     }
 
     func applyAppearance() {

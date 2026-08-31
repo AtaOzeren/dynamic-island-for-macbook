@@ -94,9 +94,6 @@ extension SettingsKey where Value == SettingsAppearance {
 
 extension SettingsKey where Value == Bool {
     public static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
-    public static var keepBarAlwaysVisible: Self {
-        boolKey(path: "general.keepBarAlwaysVisible", defaultValue: false)
-    }
     public static var showMusic: Self { boolKey(path: "providers.music.enabled", defaultValue: true) }
     public static var showTimer: Self { boolKey(path: "providers.timer.enabled", defaultValue: true) }
     public static var showScreenRecording: Self {

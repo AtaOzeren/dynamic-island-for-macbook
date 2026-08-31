@@ -22,10 +22,9 @@ struct PresentationRegressionTests {
         #expect(IslandMotion.default.hoverExpansionDelay == 0.25)
     }
 
-    @Test("an empty always-visible island collapses before accepting mouse events")
-    func emptyAlwaysVisibleIslandCollapses() {
+    @Test("an empty island collapses before accepting mouse events")
+    func emptyIslandCollapses() {
         let harness = makeHarness(screen: Self.screen)
-        harness.controller.keepBarAlwaysVisible = true
         let activity = RegressionActivity("timer.focus")
         harness.manager.register(activity)
         harness.controller.expand()

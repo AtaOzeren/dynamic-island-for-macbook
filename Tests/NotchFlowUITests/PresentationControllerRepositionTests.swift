@@ -118,9 +118,10 @@ struct PresentationControllerRepositionTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("does nothing while hidden, since the next order-in resolves anyway")
+    @Test("does nothing while suspended, since resume resolves the screen")
     func ignoresRepositionWhileHidden() {
         let harness = Self.makeHarness(startingOn: Self.builtInNotchedScreen)
+        harness.controller.suspend()
         let frameBefore = harness.panel.frame
 
         harness.screen.current = Self.externalScreenWithoutNotch

@@ -2,7 +2,7 @@
 ///
 /// This is the counterpart to `AIIntegrationPreferences`: the pane owns no
 /// state, it edits this value, and the composition root writes the value back
-/// through the store. Grouping the four rows into one value is what lets the
+/// through the store. Grouping the rows into one value is what lets the
 /// pane's write-through be tested without a `UserDefaults` domain, and what
 /// keeps the display target and the appearance from being observed through two
 /// separate paths that can report different generations of the same edit.
@@ -15,11 +15,6 @@ public struct GeneralPreferences: Equatable, Sendable {
     public var launchAtLogin: Bool
     public var appearance: SettingsAppearance
 
-    /// Keeps the compact pill on screen even when no activity is running,
-    /// opting out of the order-out-when-idle rule that buys the idle budget in
-    /// `docs/02-performance-contract.md`.
-    public var keepBarAlwaysVisible: Bool
-
     /// `nil` means follow the system, which is why this is an optional rather
     /// than a `Bool` with a separate "is overridden" flag: two fields would let
     /// the pane express a state — overridden but with no value — that the
@@ -30,14 +25,12 @@ public struct GeneralPreferences: Equatable, Sendable {
         displayTarget: DisplayPreference = .automatic,
         launchAtLogin: Bool = false,
         appearance: SettingsAppearance = .auto,
-        reducedMotionOverride: Bool? = nil,
-        keepBarAlwaysVisible: Bool = false
+        reducedMotionOverride: Bool? = nil
     ) {
         self.displayTarget = displayTarget
         self.launchAtLogin = launchAtLogin
         self.appearance = appearance
         self.reducedMotionOverride = reducedMotionOverride
-        self.keepBarAlwaysVisible = keepBarAlwaysVisible
     }
 }
 

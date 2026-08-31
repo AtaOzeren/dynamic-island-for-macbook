@@ -4,8 +4,8 @@ import NotchFlowCore
 /// The three visual states of the island, per the state table in
 /// `docs/04-overlay-window.md`.
 public enum PresentationState: Sendable, Equatable {
-    /// Ordered out. The window occupies no compositor layer and no animation
-    /// may run, which is what buys the idle budget in `docs/02-performance-contract.md`.
+    /// Ordered out while presentation is suspended, stopped, or has no target
+    /// screen. Normal app runtime rests in `.compact`, even with no activity.
     case hidden
     /// Ordered in, drawing the pill that hugs the notch.
     case compact
@@ -15,9 +15,9 @@ public enum PresentationState: Sendable, Equatable {
 
 /// Drives the panel between hidden, compact, and expanded.
 ///
-/// The window is ordered in when, and only when, the manager's active set is
-/// non-empty, and ordered out the instant it empties — the single rule
-/// `docs/01-architecture.md` names as the guarantee behind the idle budget.
+/// The window stays ordered in at compact size for the app's lifetime. Activity
+/// changes only decide whether the compact content can expand; they never make
+/// the island disappear.
 @MainActor
 public final class PresentationController {
     /// Supplies the screen to present on, re-read on every order-in so a
@@ -80,16 +80,6 @@ public final class PresentationController {
     /// assigned-before-the-callback contract as `transition`.
     public private(set) var peek: IslandAnimationCurve = .none
 
-    /// Keeps the pill on screen with an empty active set. Re-synchronizes on
-    /// assignment so turning it off while nothing is running orders the window
-    /// out immediately rather than at the next activity change.
-    public var keepBarAlwaysVisible = false {
-        didSet {
-            guard keepBarAlwaysVisible != oldValue else { return }
-            synchronize()
-        }
-    }
-
     public var onStateChange: ((PresentationState) -> Void)?
     public var onHoverChange: ((Bool) -> Void)?
 
@@ -145,7 +135,7 @@ public final class PresentationController {
     /// activity arriving off screen orders the window in at its resting compact
     /// geometry first, and only a later transition animates.
     public func expand() {
-        guard state == .compact else { return }
+        guard state == .compact, manager.activeActivities.isEmpty == false else { return }
         state = .expanded
     }
 
@@ -166,11 +156,6 @@ public final class PresentationController {
     /// Re-evaluates visibility and geometry after display topology changes.
     public func screenConfigurationDidChange() {
         guard let targetScreen = screen() else {
-            hide()
-            return
-        }
-
-        guard manager.activeActivities.isEmpty == false || keepBarAlwaysVisible else {
             hide()
             return
         }
@@ -206,18 +191,13 @@ public final class PresentationController {
 
     private func synchronize() {
         defer { onSynchronize?() }
-        guard manager.activeActivities.isEmpty == false || keepBarAlwaysVisible else {
+        guard let targetScreen = screen() else {
             hide()
             return
         }
 
         if manager.activeActivities.isEmpty, state == .expanded {
             collapse()
-        }
-
-        guard let targetScreen = screen() else {
-            hide()
-            return
         }
 
         guard state == .hidden else {
@@ -284,9 +264,8 @@ public final class PresentationController {
             collapse()
             return
         }
-        // Expanding with nothing to show would open onto a blank surface: the
-        // always-visible bar can be up with an empty active set, and hover is
-        // then only ever a peek.
+        // Expanding with nothing to show would open onto a blank surface. An
+        // empty compact island therefore only provides hover feedback.
         guard state == .compact, manager.activeActivities.isEmpty == false else { return }
 
         hoverExpansionTimer = Timer.scheduledTimer(

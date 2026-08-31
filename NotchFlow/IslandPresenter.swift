@@ -310,13 +310,6 @@ final class IslandPresenter {
         }
     }
 
-    func applyKeepBarAlwaysVisible(_ keepVisible: Bool) {
-        controller.keepBarAlwaysVisible = keepVisible
-        for secondary in secondaryPresentations.values {
-            secondary.applyKeepBarAlwaysVisible(keepVisible)
-        }
-    }
-
     func applyReducedMotion(_ preferenceOverride: Bool?) {
         reduceMotion.updateOverride(preferenceOverride)
     }
@@ -376,9 +369,7 @@ final class IslandPresenter {
                 }
             )
             secondaryPresentations[identifier] = secondary
-            secondary.start(
-                keepBarAlwaysVisible: settingsStore.generalPreferences.keepBarAlwaysVisible
-            )
+            secondary.start()
         }
     }
 

@@ -64,13 +64,6 @@ public struct GeneralSettingsView: View {
         )
     }
 
-    public var keepBarAlwaysVisible: Binding<Bool> {
-        Binding(
-            get: { preferences.keepBarAlwaysVisible },
-            set: { preferences.keepBarAlwaysVisible = $0 }
-        )
-    }
-
     public var appearance: Binding<SettingsAppearance> {
         Binding(
             get: { preferences.appearance },
@@ -88,8 +81,6 @@ public struct GeneralSettingsView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
             displaySection
-            Divider()
-            islandSection
             Divider()
             appearanceSection
             Divider()
@@ -109,17 +100,6 @@ public struct GeneralSettingsView: View {
                     Text(title(for: option)).tag(option)
                 }
             }
-        }
-    }
-
-    private var islandSection: some View {
-        SettingsSection(
-            title: localized("Island"),
-            caption: localized(
-                "Keeping the bar visible leaves an empty pill on screen while nothing is running."),
-            metrics: metrics
-        ) {
-            Toggle(localized("Keep the bar always visible"), isOn: keepBarAlwaysVisible)
         }
     }
 

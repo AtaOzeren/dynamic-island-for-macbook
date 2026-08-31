@@ -44,14 +44,10 @@ struct TurkishLocalizationTests {
         }
     }
 
-    @Test("the General island and multi-display controls are fully Turkish")
-    func generalIslandSettingsAreTurkish() throws {
+    @Test("the General multi-display control is fully Turkish")
+    func generalMultiDisplaySettingIsTurkish() throws {
         let expectedTranslations = [
-            "Island": "Ada",
-            "Keeping the bar visible leaves an empty pill on screen while nothing is running.":
-                "Çubuk görünür tutulduğunda, hiçbir etkinlik çalışmıyorken ekranda boş bir kapsül kalır.",
-            "Keep the bar always visible": "Çubuğu her zaman görünür tut",
-            "All displays": "Tüm ekranlar",
+            "All displays": "Tüm ekranlar"
         ]
 
         try withTurkishBundle(

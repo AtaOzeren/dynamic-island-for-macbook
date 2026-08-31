@@ -113,8 +113,7 @@ public final class SettingsStore {
                 displayTarget: self[.displayTarget],
                 launchAtLogin: self[.launchAtLogin],
                 appearance: self[.appearance],
-                reducedMotionOverride: self[.reducedMotionOverride],
-                keepBarAlwaysVisible: self[.keepBarAlwaysVisible]
+                reducedMotionOverride: self[.reducedMotionOverride]
             )
         }
         set {
@@ -122,7 +121,6 @@ public final class SettingsStore {
             self[.launchAtLogin] = newValue.launchAtLogin
             self[.appearance] = newValue.appearance
             self[.reducedMotionOverride] = newValue.reducedMotionOverride
-            self[.keepBarAlwaysVisible] = newValue.keepBarAlwaysVisible
         }
     }
 
