@@ -113,26 +113,6 @@ public func islandExpandedSurface(
     reduceTransparency ? .solid(scheme) : .material(scheme)
 }
 
-/// The seam between the island's appearance policy and the system's Reduce
-/// Transparency setting, mirroring `ReduceMotionQuerying`. Production reads
-/// `NSWorkspace`; tests substitute a fake so both branches are assertable
-/// without touching System Settings.
-@MainActor
-public protocol ReduceTransparencyQuerying: Sendable {
-    var prefersReducedTransparency: Bool { get }
-}
-
-/// Reads Reduce Transparency from `NSWorkspace` at the moment a surface is about
-/// to be drawn, on the same query-on-demand rationale as `SystemReduceMotion`.
-@MainActor
-public struct SystemReduceTransparency: ReduceTransparencyQuerying {
-    public init() {}
-
-    public var prefersReducedTransparency: Bool {
-        NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-    }
-}
-
 extension ColorScheme {
     /// The island's scheme for a SwiftUI environment value, so views resolve
     /// their surfaces from `NSApplication.effectiveAppearance` as it reaches

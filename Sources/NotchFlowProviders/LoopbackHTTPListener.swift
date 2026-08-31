@@ -29,6 +29,9 @@ public enum LoopbackHTTPListenerError: Error, Equatable, Sendable {
 }
 
 public actor LoopbackHTTPListener {
+    private static let ownerOnlyFilePermissions = 0o600
+    private static let ownerOnlyDirectoryPermissions = 0o700
+
     private let configuration: LoopbackHTTPListenerConfiguration
     private let sink: LoopbackMessageSink
     private let queue = DispatchQueue(label: "com.notchflow.loopback-listener")
@@ -131,15 +134,28 @@ public actor LoopbackHTTPListener {
         }
     }
 
+    /// Writes the bound port where a hook can find it, owner-readable only.
+    ///
+    /// The port is the address of a socket that accepts messages the island
+    /// renders, so telling every account on the machine where it is would hand
+    /// them the one thing they need to drive the notch. `.atomic` replaces the
+    /// file by rename, which carries the temporary file's mode rather than any
+    /// mode set on a previous copy — so the permissions are applied after the
+    /// write, every write, not once at creation.
     private func publish(_ port: UInt16) throws {
         let fileManager = FileManager.default
         try fileManager.createDirectory(
             at: configuration.discoveryFileURL.deletingLastPathComponent(),
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: Self.ownerOnlyDirectoryPermissions]
         )
         try Data("\(port)\n".utf8).write(
             to: configuration.discoveryFileURL,
             options: .atomic
+        )
+        try fileManager.setAttributes(
+            [.posixPermissions: Self.ownerOnlyFilePermissions],
+            ofItemAtPath: configuration.discoveryFileURL.path
         )
     }
 

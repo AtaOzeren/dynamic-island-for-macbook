@@ -131,6 +131,27 @@ public final class PresentationController {
         state = .compact
     }
 
+    /// Re-resolves the target screen and moves the panel onto it.
+    ///
+    /// `show()` resolves the screen once, on order-in, which is right for the
+    /// common case and wrong for every case where the geometry changes while
+    /// the island is already up: a display unplugged, a resolution changed, a
+    /// wake, or the display-target preference edited with an activity running.
+    /// Without this the panel stays at coordinates that may belong to a screen
+    /// that no longer exists.
+    ///
+    /// Does nothing while hidden — a hidden panel resolves its screen on the
+    /// next order-in anyway, so repositioning it would be work with no
+    /// observable effect. The state is never changed here: this moves the
+    /// window, it does not decide whether the window should be up.
+    @discardableResult
+    public func repositionOnCurrentScreen() -> Bool {
+        guard state != .hidden, let screen = screen() else { return false }
+        panel.reposition(on: screen)
+        hitRect = compactHitRect(for: screen, metrics: metrics)
+        return true
+    }
+
     private func synchronize() {
         defer { onSynchronize?() }
         guard manager.activeActivities.isEmpty == false else {
