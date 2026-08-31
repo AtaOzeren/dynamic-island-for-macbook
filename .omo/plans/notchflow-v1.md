@@ -532,7 +532,7 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - **QA (HW):** Run the script; mount the `.dmg`; confirm the skipped-step report. Evidence: `.omo/evidence/task-70-notchflow-v1/`.
   - **Commit:** `build: add direct distribution packaging pipeline`
 
-- [ ] 71. Prepare the Homebrew Cask definition — BLOCKED-ON-MEMBERSHIP for submission
+- [x] 71. Prepare the Homebrew Cask definition — BLOCKED-ON-MEMBERSHIP for submission
   - The cask file with the correct stanzas, plus the submission checklist. Submission itself waits on a notarized release.
   - **Acceptance:** The cask file is syntactically valid and passes local audit against a locally-produced artifact.
   - **QA (CI):** Run the cask audit; capture output. Evidence: `.omo/evidence/task-71-notchflow-v1.log`.
