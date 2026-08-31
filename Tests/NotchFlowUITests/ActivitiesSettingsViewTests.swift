@@ -51,8 +51,8 @@ struct ActivitiesSettingsViewTests {
         #expect(Self.view(enabled: [.timer]).isMusicAutomationSectionVisible == false)
     }
 
-    /// The Direct build's MediaRemote backend sends no Apple Events, so it
-    /// supplies no access values and must show no permission UI.
+    /// A backend that sends no Apple Events supplies no access values and must
+    /// show no permission UI.
     @Test("a backend that needs no permission shows no permission rows")
     func rowsHideWithoutAnyAutomationTargets() {
         #expect(Self.view(automation: []).isMusicAutomationSectionVisible == false)

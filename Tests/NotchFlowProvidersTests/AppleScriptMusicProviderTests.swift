@@ -26,9 +26,17 @@ struct AppleScriptMusicProviderTests {
     private static func snapshot(
         _ title: String,
         artist: String = "Aphex Twin",
-        state: MusicPlaybackState = .playing
+        state: MusicPlaybackState = .playing,
+        artworkData: Data? = nil,
+        artworkURL: URL? = nil
     ) -> MusicPlayerSnapshot {
-        MusicPlayerSnapshot(title: title, artist: artist, playbackState: state)
+        MusicPlayerSnapshot(
+            title: title,
+            artist: artist,
+            playbackState: state,
+            artworkData: artworkData,
+            artworkURL: artworkURL
+        )
     }
 
     // MARK: - Targets
@@ -101,6 +109,43 @@ struct AppleScriptMusicProviderTests {
         #expect(received.first??.artist == "Aphex Twin")
         #expect(received.first??.playbackState == .playing)
         #expect(received.first??.sourceApplicationName == "Spotify")
+    }
+
+    @Test("forwards artwork bytes returned by the player")
+    func forwardsEmbeddedArtwork() {
+        let (provider, players, _) = Self.make()
+        let artwork = Data([0x89, 0x50, 0x4E, 0x47])
+        players.snapshots[.appleMusic] = Self.snapshot("Nannou", artworkData: artwork)
+        var received: [NowPlaying?] = []
+
+        provider.startObserving { received.append($0) }
+
+        #expect(received.last??.artworkData == artwork)
+    }
+
+    @Test("loads remote artwork without blocking the player query")
+    func loadsRemoteArtwork() async {
+        let players = FakeMusicPlayerClient()
+        let center = NotificationCenter()
+        let artwork = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        let loader = FakeArtworkDataLoader(result: artwork)
+        let provider = AppleScriptMusicProvider(
+            players: players,
+            notifications: center,
+            artworkLoader: loader
+        )
+        let url = URL(string: "https://i.scdn.co/image/cover")!
+        players.snapshots[.spotify] = Self.snapshot("Nannou", artworkURL: url)
+        var received: [NowPlaying?] = []
+
+        provider.startObserving { received.append($0) }
+        for _ in 0..<20 where received.last??.artworkData == nil {
+            await Task.yield()
+        }
+
+        #expect(received.first??.artworkData == nil)
+        #expect(received.last??.artworkData == artwork)
+        #expect(await loader.requestedURLs() == [url])
     }
 
     /// Either app's notification refreshes the whole picture: Music.app posting
@@ -351,5 +396,23 @@ private final class FakeMusicPlayerClient: MusicPlayerQuerying {
 
     func send(_ command: MusicTransportCommand, to target: MusicPlayerTarget) {
         sentCommands.append((command, target))
+    }
+}
+
+private actor FakeArtworkDataLoader: ArtworkDataLoading {
+    private let result: Data?
+    private var urls: [URL] = []
+
+    init(result: Data?) {
+        self.result = result
+    }
+
+    func data(from url: URL) async -> Data? {
+        urls.append(url)
+        return result
+    }
+
+    func requestedURLs() -> [URL] {
+        urls
     }
 }

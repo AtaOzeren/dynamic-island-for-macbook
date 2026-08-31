@@ -1,6 +1,30 @@
+import AppKit
 import CoreGraphics
 import NotchFlowCore
 import SwiftUI
+
+public enum MusicSourceIdentity: Equatable, Sendable {
+    case spotify
+    case appleMusic
+    case other
+
+    public init(applicationName: String?) {
+        let normalized = applicationName?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased() ?? ""
+
+        if normalized.contains("spotify") {
+            self = .spotify
+        } else if normalized == "music"
+            || normalized.contains("apple music")
+            || normalized.contains("com.apple.music")
+        {
+            self = .appleMusic
+        } else {
+            self = .other
+        }
+    }
+}
 
 /// One transport button: the command it sends, the glyph it draws, and the label
 /// VoiceOver reads.
@@ -30,6 +54,8 @@ public struct MusicPresentation: Equatable, Sendable {
     public let subtitle: String?
     public let playbackState: MusicPlaybackState
     public let primaryAction: PrimaryAction?
+    public let artworkData: Data?
+    public let sourceIdentity: MusicSourceIdentity
 
     public init(activity: MusicActivity) {
         let nowPlaying = activity.nowPlaying
@@ -42,6 +68,10 @@ public struct MusicPresentation: Equatable, Sendable {
         subtitle = nowPlaying.artist.isEmpty ? nil : nowPlaying.artist
         playbackState = nowPlaying.playbackState
         primaryAction = activity.primaryAction
+        artworkData = nowPlaying.artworkData
+        sourceIdentity = MusicSourceIdentity(
+            applicationName: nowPlaying.sourceApplicationName
+        )
     }
 
     /// Previous, play/pause, next — in reading order, with the middle control
@@ -97,10 +127,11 @@ public struct MusicPresentation: Equatable, Sendable {
 /// The music activity's compact slot: the shared music glyph, but announcing the
 /// actual track rather than the generic "Music" the kind-based label produces.
 public func musicCompactSlot(for activity: MusicActivity) -> CompactSlot {
-    CompactSlot(
+    let presentation = MusicPresentation(activity: activity)
+    return CompactSlot(
         activity: activity,
-        accessibilityLabel: MusicPresentation(activity: activity).accessibilityLabel,
-        isPlayingMusic: activity.nowPlaying.playbackState == .playing
+        accessibilityLabel: presentation.accessibilityLabel,
+        musicPresentation: CompactMusicSlotPresentation(activity: activity)
     )
 }
 
@@ -122,17 +153,17 @@ public struct MusicViewMetrics: Equatable, Sendable {
     public let width: CGFloat
 
     public init(
-        artworkSize: CGFloat = 44,
-        contentInset: CGFloat = 12,
+        artworkSize: CGFloat = 40,
+        contentInset: CGFloat = 10,
         textSpacing: CGFloat = 2,
-        columnSpacing: CGFloat = 12,
+        columnSpacing: CGFloat = 8,
         titleSize: CGFloat = 13,
-        subtitleSize: CGFloat = 11,
-        transportSymbolSize: CGFloat = 13,
-        transportButtonSize: CGFloat = 28,
-        transportSpacing: CGFloat = 4,
-        cornerRadius: CGFloat = 18,
-        width: CGFloat = 320
+        subtitleSize: CGFloat = 10,
+        transportSymbolSize: CGFloat = 11,
+        transportButtonSize: CGFloat = 24,
+        transportSpacing: CGFloat = 2,
+        cornerRadius: CGFloat = 16,
+        width: CGFloat = 276
     ) {
         self.artworkSize = artworkSize
         self.contentInset = contentInset
@@ -227,18 +258,40 @@ public struct MusicExpandedView: View {
         .accessibilityLabel(presentation.accessibilityLabel)
     }
 
-    /// Artwork is not in V1's now-playing model, so the slot holds the music
-    /// glyph rather than a broken image — and the layout does not move the day
-    /// real artwork arrives.
+    @ViewBuilder
     private var artwork: some View {
+        if let action = presentation.primaryAction {
+            Button(action: performPrimaryAction) {
+                artworkContent
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(action.title)
+        } else {
+            artworkContent
+                .accessibilityHidden(true)
+        }
+    }
+
+    private var artworkContent: some View {
         RoundedRectangle(cornerRadius: metrics.textSpacing * 2, style: .continuous)
-            .fill(.quaternary)
+            .fill(musicAccentColor(presentation.sourceIdentity).opacity(0.24))
             .frame(width: metrics.artworkSize, height: metrics.artworkSize)
             .overlay {
-                Image(systemName: compactSymbolName(.music))
-                    .font(.system(size: metrics.titleSize, weight: .medium))
+                if let artworkData = presentation.artworkData,
+                    let artworkImage = NSImage(data: artworkData)
+                {
+                    Image(nsImage: artworkImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Image(systemName: compactSymbolName(.music))
+                        .font(.system(size: metrics.titleSize, weight: .medium))
+                        .foregroundStyle(musicAccentColor(presentation.sourceIdentity))
+                }
             }
-            .accessibilityHidden(true)
+            .clipShape(
+                RoundedRectangle(cornerRadius: metrics.textSpacing * 2, style: .continuous)
+            )
     }
 
     private var trackText: some View {
@@ -254,6 +307,7 @@ public struct MusicExpandedView: View {
                     .lineLimit(1)
             }
         }
+        .layoutPriority(1)
         .accessibilityHidden(true)
     }
 
@@ -272,16 +326,17 @@ public struct MusicExpandedView: View {
                 .accessibilityLabel(control.accessibilityLabel)
             }
 
-            if let action = presentation.primaryAction {
-                Button(action: performPrimaryAction) {
-                    Image(systemName: action.symbolName)
-                        .font(.system(size: metrics.transportSymbolSize, weight: .medium))
-                        .frame(width: metrics.transportButtonSize, height: metrics.transportButtonSize)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(action.title)
-            }
         }
+    }
+}
+
+func musicAccentColor(_ sourceIdentity: MusicSourceIdentity) -> Color {
+    switch sourceIdentity {
+    case .spotify:
+        Color(red: 29.0 / 255.0, green: 185.0 / 255.0, blue: 84.0 / 255.0)
+    case .appleMusic:
+        Color(red: 250.0 / 255.0, green: 36.0 / 255.0, blue: 60.0 / 255.0)
+    case .other:
+        .white
     }
 }

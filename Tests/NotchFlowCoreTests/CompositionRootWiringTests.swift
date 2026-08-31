@@ -47,6 +47,13 @@ struct CompositionRootWiringTests {
         #expect(source.contains("stopSynchronously(loopbackListener)"))
     }
 
+    @Test("the menu bar scene cannot be removed by stale Control Center state")
+    func menuBarSceneStaysInserted() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(source.contains("isInserted: .constant(true)"))
+    }
+
     @Test("the delegate forwards termination to the composition root")
     func delegateForwardsTermination() throws {
         let source = try Self.appSource("NotchFlow/URLSchemeReceiver.swift")
@@ -82,6 +89,18 @@ struct CompositionRootWiringTests {
         #expect(presenter.contains("musicProvider?.send(command)"))
         #expect(presenter.contains("model.onMusicTransport ="))
         #expect(app.contains("musicProvider: musicProvider"))
+    }
+
+    @Test("modern macOS avoids the MediaRemote entitlement wall")
+    func modernMacOSUsesScriptableMusicFallback() throws {
+        let source = try Self.appSource("NotchFlow/MusicBackend.swift")
+        let directEntitlements = try Self.appSource("NotchFlow-Direct.entitlements")
+
+        #expect(source.contains("#available(macOS 15.4, *)"))
+        #expect(source.contains("AppleScriptMusicProvider("))
+        #expect(source.contains("URLSessionArtworkDataLoader()"))
+        #expect(source.contains("gate.access()"))
+        #expect(directEntitlements.contains("com.apple.security.automation.apple-events"))
     }
 
     @Test("timer commands reach the provider, and the menu can start one")

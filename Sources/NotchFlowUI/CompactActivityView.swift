@@ -2,6 +2,24 @@ import CoreGraphics
 import NotchFlowCore
 import SwiftUI
 
+public struct CompactMusicSlotPresentation: Equatable, Sendable {
+    public let isPlaying: Bool
+    public let sourceIdentity: MusicSourceIdentity
+    public let animationIdentity: String
+
+    public init(activity: MusicActivity) {
+        isPlaying = activity.nowPlaying.playbackState == .playing
+        sourceIdentity = MusicSourceIdentity(
+            applicationName: activity.nowPlaying.sourceApplicationName
+        )
+        animationIdentity = [
+            activity.nowPlaying.title,
+            activity.nowPlaying.artist,
+            isPlaying ? "playing" : "paused",
+        ].joined(separator: "|")
+    }
+}
+
 /// One drawn element of the compact pill: either an activity's icon or the
 /// single overflow indicator that stands in for everything past the capacity in
 /// `docs/05-activity-model.md`.
@@ -16,6 +34,8 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     /// rather than as a second symbol name because the bars are not a symbol:
     /// they animate, and only while something is actually playing.
     public let isPlayingMusic: Bool
+    public let musicSourceIdentity: MusicSourceIdentity?
+    public let animationIdentity: String?
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
@@ -24,6 +44,8 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         overflowCount = nil
         accessibilityLabel = compactAccessibilityLabel(activity.kind)
         isPlayingMusic = false
+        musicSourceIdentity = nil
+        animationIdentity = nil
     }
 
     /// For activities whose per-instance detail outgrows what the kind alone can
@@ -34,14 +56,16 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         activity: any Activity,
         symbolName: String? = nil,
         accessibilityLabel: String,
-        isPlayingMusic: Bool = false
+        musicPresentation: CompactMusicSlotPresentation? = nil
     ) {
         id = activity.identity.rawValue
         self.symbolName = symbolName ?? compactSymbolName(activity.kind)
         label = nil
         overflowCount = nil
         self.accessibilityLabel = accessibilityLabel
-        self.isPlayingMusic = isPlayingMusic
+        isPlayingMusic = musicPresentation?.isPlaying ?? false
+        musicSourceIdentity = musicPresentation?.sourceIdentity
+        animationIdentity = musicPresentation?.animationIdentity
     }
 
     fileprivate init(overflowCount: Int) {
@@ -51,6 +75,8 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         self.overflowCount = overflowCount
         accessibilityLabel = localized("\(overflowCount) more activities")
         isPlayingMusic = false
+        musicSourceIdentity = nil
+        animationIdentity = nil
     }
 
     private static let overflowIdentifier = "notchflow.compact.overflow"
@@ -200,8 +226,19 @@ public struct CompactActivityView: View {
             if let label = slot.label {
                 Text(label)
                     .font(.system(size: metrics.symbolSize, weight: .semibold, design: .rounded))
-            } else if slot.isPlayingMusic {
-                MusicEqualiserSlotView(metrics: metrics, symbolName: slot.symbolName)
+            } else if let sourceIdentity = slot.musicSourceIdentity {
+                if slot.isPlayingMusic {
+                    MusicEqualiserSlotView(
+                        metrics: metrics,
+                        symbolName: slot.symbolName,
+                        sourceIdentity: sourceIdentity
+                    )
+                    .id(slot.animationIdentity)
+                } else {
+                    Image(systemName: slot.symbolName)
+                        .font(.system(size: metrics.symbolSize, weight: .medium))
+                        .foregroundStyle(musicAccentColor(sourceIdentity))
+                }
             } else {
                 Image(systemName: slot.symbolName)
                     .font(.system(size: metrics.symbolSize, weight: .medium))
@@ -231,9 +268,11 @@ struct MusicEqualiserSlotView: View {
 
     let metrics: CompactPillMetrics
     let symbolName: String
+    let sourceIdentity: MusicSourceIdentity
 
     var body: some View {
         content
+            .foregroundStyle(musicAccentColor(sourceIdentity))
             .task {
                 guard reduceMotion == false else { return }
                 isAnimating = true
