@@ -175,7 +175,7 @@ public struct CodexHookInstaller: Sendable {
         let prefix = existing[..<tableStart]
         let separator = prefix.isEmpty || prefix.hasSuffix("\n") ? "" : "\n"
         let insertion = separator + generated
-        return existing[..<tableStart] + insertion + existing[tableStart...]
+        return String(existing[..<tableStart]) + insertion + String(existing[tableStart...])
     }
 
     private func configurationRemovingGeneratedNotify(
