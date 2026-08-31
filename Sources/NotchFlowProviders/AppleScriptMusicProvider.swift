@@ -13,11 +13,60 @@ public struct MusicPlayerSnapshot: Equatable, Sendable {
     public let title: String
     public let artist: String
     public let playbackState: MusicPlaybackState
+    public let artworkData: Data?
+    public let artworkURL: URL?
 
-    public init(title: String, artist: String, playbackState: MusicPlaybackState) {
+    public init(
+        title: String,
+        artist: String,
+        playbackState: MusicPlaybackState,
+        artworkData: Data? = nil,
+        artworkURL: URL? = nil
+    ) {
         self.title = title
         self.artist = artist
         self.playbackState = playbackState
+        self.artworkData = artworkData
+        self.artworkURL = artworkURL
+    }
+}
+
+public protocol ArtworkDataLoading: Sendable {
+    func data(from url: URL) async -> Data?
+}
+
+public actor URLSessionArtworkDataLoader: ArtworkDataLoading {
+    private let session: URLSession
+    private var cachedData: [URL: Data] = [:]
+    private var failedURLs: Set<URL> = []
+
+    public init(session: URLSession = .shared) {
+        self.session = session
+    }
+
+    public func data(from url: URL) async -> Data? {
+        guard url.scheme?.lowercased() == "https" else { return nil }
+        if let data = cachedData[url] { return data }
+        guard failedURLs.contains(url) == false else { return nil }
+
+        do {
+            let (data, response) = try await session.data(from: url)
+            guard
+                let response = response as? HTTPURLResponse,
+                (200..<300).contains(response.statusCode),
+                response.mimeType?.hasPrefix("image/") == true,
+                data.isEmpty == false,
+                data.count <= NowPlaying.maximumArtworkByteCount
+            else {
+                failedURLs.insert(url)
+                return nil
+            }
+            cachedData[url] = data
+            return data
+        } catch {
+            failedURLs.insert(url)
+            return nil
+        }
     }
 }
 
@@ -56,9 +105,12 @@ public protocol MusicPlayerQuerying: AnyObject {
 public final class AppleScriptMusicProvider: MusicProvider {
     private let players: any MusicPlayerQuerying
     private let notifications: NotificationCenter
+    private let artworkLoader: (any ArtworkDataLoading)?
     private let subscriptions = NotificationSubscriptionBag()
     private var observer: NowPlayingObserver?
     private var reported: Reported?
+    private var artworkTask: Task<Void, Never>?
+    private var loadingArtwork: ArtworkIdentity?
 
     /// What was last emitted, plus which player it came from. The target is
     /// carried alongside the emission rather than tracked separately because
@@ -67,6 +119,48 @@ public final class AppleScriptMusicProvider: MusicProvider {
     private struct Reported: Equatable {
         let nowPlaying: NowPlaying
         let target: MusicPlayerTarget
+        let artworkURL: URL?
+
+        var artworkIdentity: ArtworkIdentity? {
+            artworkURL.map {
+                ArtworkIdentity(
+                    target: target,
+                    title: nowPlaying.title,
+                    artist: nowPlaying.artist,
+                    url: $0
+                )
+            }
+        }
+
+        func carryingArtwork(from current: Reported?) -> Self {
+            guard
+                let current,
+                artworkIdentity == current.artworkIdentity,
+                nowPlaying.artworkData == nil,
+                let artworkData = current.nowPlaying.artworkData
+            else { return self }
+
+            return Reported(
+                nowPlaying: nowPlaying.withArtworkData(artworkData),
+                target: target,
+                artworkURL: artworkURL
+            )
+        }
+
+        func withArtworkData(_ artworkData: Data) -> Self {
+            Reported(
+                nowPlaying: nowPlaying.withArtworkData(artworkData),
+                target: target,
+                artworkURL: artworkURL
+            )
+        }
+    }
+
+    private struct ArtworkIdentity: Equatable {
+        let target: MusicPlayerTarget
+        let title: String
+        let artist: String
+        let url: URL
     }
 
     /// The gate is a parameter rather than a detail of the client because the
@@ -74,16 +168,25 @@ public final class AppleScriptMusicProvider: MusicProvider {
     /// provider is gated on. Two gates would let the pane offer a prompt for a
     /// target the provider had already recorded as explained, which is the
     /// double-ask the permission flow forbids.
-    public convenience init(gate: MusicAutomationGate = MusicAutomationGate()) {
+    public convenience init(
+        gate: MusicAutomationGate = MusicAutomationGate(),
+        artworkLoader: (any ArtworkDataLoading)? = nil
+    ) {
         self.init(
             players: ScriptingBridgeMusicPlayerClient(gate: gate),
-            notifications: DistributedNotificationCenter.default()
+            notifications: DistributedNotificationCenter.default(),
+            artworkLoader: artworkLoader
         )
     }
 
-    init(players: any MusicPlayerQuerying, notifications: NotificationCenter) {
+    init(
+        players: any MusicPlayerQuerying,
+        notifications: NotificationCenter,
+        artworkLoader: (any ArtworkDataLoading)? = nil
+    ) {
         self.players = players
         self.notifications = notifications
+        self.artworkLoader = artworkLoader
     }
 
     public var backendName: String { "ScriptingBridge" }
@@ -114,6 +217,9 @@ public final class AppleScriptMusicProvider: MusicProvider {
     /// against a reading from before anyone was listening.
     public func stopObserving() {
         subscriptions.removeAll()
+        artworkTask?.cancel()
+        artworkTask = nil
+        loadingArtwork = nil
         observer = nil
         reported = nil
     }
@@ -132,10 +238,47 @@ public final class AppleScriptMusicProvider: MusicProvider {
     /// both, so a Music.app pause is exactly when Spotify's state has to be
     /// re-checked rather than the moment to trust a stale reading.
     private func refresh(wokenBy target: MusicPlayerTarget?) {
-        let reported = Self.reported(from: snapshots(preferring: target))
-        guard self.reported != reported else { return }
-        self.reported = reported
-        observer?(reported?.nowPlaying)
+        let next = Self.reported(from: snapshots(preferring: target))
+            .map { $0.carryingArtwork(from: reported) }
+        guard reported != next else { return }
+        reported = next
+        observer?(next?.nowPlaying)
+        loadArtworkIfNeeded(for: next)
+    }
+
+    private func loadArtworkIfNeeded(for reported: Reported?) {
+        guard
+            let reported,
+            reported.nowPlaying.artworkData == nil,
+            let identity = reported.artworkIdentity,
+            let artworkLoader
+        else {
+            artworkTask?.cancel()
+            artworkTask = nil
+            loadingArtwork = nil
+            return
+        }
+        guard loadingArtwork != identity else { return }
+
+        artworkTask?.cancel()
+        loadingArtwork = identity
+        artworkTask = Task { @MainActor [weak self] in
+            let artworkData = await artworkLoader.data(from: identity.url)
+            guard Task.isCancelled == false, let self else { return }
+            guard loadingArtwork == identity else { return }
+            loadingArtwork = nil
+            artworkTask = nil
+            guard
+                let artworkData,
+                let current = self.reported,
+                current.artworkIdentity == identity
+            else { return }
+
+            let updated = current.withArtworkData(artworkData)
+            guard updated.nowPlaying.artworkData != nil, updated != current else { return }
+            self.reported = updated
+            observer?(updated.nowPlaying)
+        }
     }
 
     /// The waking player is read first so it wins a tie against an equally
@@ -171,8 +314,9 @@ public final class AppleScriptMusicProvider: MusicProvider {
                 artist: best.snapshot.artist,
                 playbackState: best.snapshot.playbackState,
                 sourceApplicationName: best.target.displayName
-            ),
-            target: best.target
+            ).withArtworkData(best.snapshot.artworkData),
+            target: best.target,
+            artworkURL: best.snapshot.artworkURL
         )
     }
 }

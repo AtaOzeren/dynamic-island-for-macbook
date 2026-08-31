@@ -48,19 +48,25 @@ DIRECT_BACKEND=$("$DIRECT_PRODUCT" --print-music-backend)
 echo "AppStore backend: $APPSTORE_BACKEND"
 echo "Direct backend:   $DIRECT_BACKEND"
 
-if [ "$APPSTORE_BACKEND" = "$DIRECT_BACKEND" ]; then
-    echo "Music Backend Guard Failure: both configurations report '$APPSTORE_BACKEND'."
-    exit 1
-fi
-
 if [ "$APPSTORE_BACKEND" != "ScriptingBridge" ]; then
     echo "Music Backend Guard Failure: AppStore must use ScriptingBridge, got '$APPSTORE_BACKEND'."
     exit 1
 fi
 
-if [ "$DIRECT_BACKEND" != "MediaRemote" ]; then
-    echo "Music Backend Guard Failure: Direct must use MediaRemote, got '$DIRECT_BACKEND'."
+OS_VERSION=$(sw_vers -productVersion)
+OS_MAJOR=${OS_VERSION%%.*}
+OS_REMAINDER=${OS_VERSION#*.}
+OS_MINOR=${OS_REMAINDER%%.*}
+
+if [ "$OS_MAJOR" -gt 15 ] || { [ "$OS_MAJOR" -eq 15 ] && [ "$OS_MINOR" -ge 4 ]; }; then
+    DIRECT_EXPECTED="ScriptingBridge"
+else
+    DIRECT_EXPECTED="MediaRemote"
+fi
+
+if [ "$DIRECT_BACKEND" != "$DIRECT_EXPECTED" ]; then
+    echo "Music Backend Guard Failure: Direct must use $DIRECT_EXPECTED on macOS $OS_VERSION, got '$DIRECT_BACKEND'."
     exit 1
 fi
 
-echo "Music Backend Guard Passed: each configuration selects its own backend."
+echo "Music Backend Guard Passed: both configurations match platform capabilities."

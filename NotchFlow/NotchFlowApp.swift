@@ -297,7 +297,11 @@ struct NotchFlowApp: App {
         // onboarding closes, so this is the only standing way back into
         // settings — `docs/08-settings-and-localization.md` names the status
         // item and onboarding's last step as the two entry points.
-        MenuBarExtra("NotchFlow", image: "MenuBarIcon") {
+        MenuBarExtra(
+            "NotchFlow",
+            image: "MenuBarIcon",
+            isInserted: .constant(true)
+        ) {
             // The timer's only entry point. `TimerProvider.handle(_:)` shipped
             // with nothing able to construct a `TimerCommand`, so the feature
             // was unreachable end to end; the menu is the lowest-risk surface

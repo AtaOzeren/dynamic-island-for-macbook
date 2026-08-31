@@ -29,6 +29,7 @@ public struct NowPlaying: Equatable, Sendable {
     /// untrusted input in the same sense as an IPC payload: bounded on the way
     /// in rather than trusted and truncated at draw time.
     public static let maximumFieldLength = 200
+    public static let maximumArtworkByteCount = 5 * 1_024 * 1_024
 
     public let title: String
     public let artist: String
@@ -37,6 +38,10 @@ public struct NowPlaying: Equatable, Sendable {
     /// backend can attribute it. The Direct build's system-wide observation
     /// cannot always name a source, so this stays optional.
     public let sourceApplicationName: String?
+    /// Encoded artwork bytes, bounded before the long-lived activity manager
+    /// retains them. Backends may omit artwork without weakening the rest of
+    /// the now-playing presentation.
+    public private(set) var artworkData: Data?
 
     public init(
         title: String,
@@ -48,6 +53,17 @@ public struct NowPlaying: Equatable, Sendable {
         self.artist = Self.sanitized(artist) ?? ""
         self.playbackState = playbackState
         self.sourceApplicationName = Self.sanitized(sourceApplicationName)
+        artworkData = nil
+    }
+
+    /// Returns the same now-playing value carrying safe artwork bytes.
+    /// Oversized payloads are rejected rather than truncated because truncating
+    /// encoded image data creates an invalid image while still retaining most
+    /// of the unwanted allocation.
+    public func withArtworkData(_ artworkData: Data?) -> Self {
+        var copy = self
+        copy.artworkData = Self.sanitized(artworkData)
+        return copy
     }
 
     private static func sanitized(_ value: String?) -> String? {
@@ -59,6 +75,14 @@ public struct NowPlaying: Equatable, Sendable {
 
         return String(trimmed.prefix(maximumFieldLength))
     }
+
+    private static func sanitized(_ data: Data?) -> Data? {
+        guard let data, data.isEmpty == false, data.count <= maximumArtworkByteCount else {
+            return nil
+        }
+        return data
+    }
+
 }
 
 /// The single music activity, whichever backend supplies it.
