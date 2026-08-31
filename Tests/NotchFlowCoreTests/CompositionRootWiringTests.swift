@@ -64,6 +64,16 @@ struct CompositionRootWiringTests {
         #expect(source.contains("controller.screenConfigurationDidChange()"))
     }
 
+    @Test("all-displays mode owns one independently interactive panel per extra screen")
+    func presenterCreatesSecondaryDisplayPanels() throws {
+        let source = try Self.appSource("NotchFlow/IslandPresenter.swift")
+
+        #expect(source.contains("secondaryPresentations"))
+        #expect(source.contains("selectDisplays("))
+        #expect(source.contains("SecondaryIslandPresentation("))
+        #expect(source.contains("secondary.stop()"))
+    }
+
     @Test("music transport reaches the provider from the presenter")
     func musicTransportIsWired() throws {
         let presenter = try Self.appSource("NotchFlow/IslandPresenter.swift")

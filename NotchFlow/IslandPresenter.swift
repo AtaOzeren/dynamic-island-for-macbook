@@ -137,6 +137,7 @@ final class IslandPresenter {
     private let musicProvider: (any MusicProvider)?
     private let timerProvider: TimerProvider?
     private let primaryActions: any PrimaryActionDispatching
+    private var secondaryPresentations: [String: SecondaryIslandPresentation] = [:]
 
     init(
         manager: ActivityManager,
@@ -243,6 +244,7 @@ final class IslandPresenter {
         }
 
         controller.start()
+        reconcileSecondaryPresentations()
         refreshContent()
     }
 
@@ -285,8 +287,15 @@ final class IslandPresenter {
         switch change.event {
         case .systemWillSleep:
             controller.suspend()
+            for secondary in secondaryPresentations.values {
+                secondary.suspend()
+            }
         case .screenParametersChanged, .systemDidWake:
+            reconcileSecondaryPresentations()
             controller.screenConfigurationDidChange()
+            for secondary in secondaryPresentations.values {
+                secondary.screenConfigurationDidChange()
+            }
         }
         refreshContent()
     }
@@ -296,10 +305,16 @@ final class IslandPresenter {
     /// out and back.
     func applyAppearance(_: SettingsAppearance) {
         panel.applyAppearance(.dark)
+        for secondary in secondaryPresentations.values {
+            secondary.applyAppearance()
+        }
     }
 
     func applyKeepBarAlwaysVisible(_ keepVisible: Bool) {
         controller.keepBarAlwaysVisible = keepVisible
+        for secondary in secondaryPresentations.values {
+            secondary.applyKeepBarAlwaysVisible(keepVisible)
+        }
     }
 
     func applyReducedMotion(_ preferenceOverride: Bool?) {
@@ -308,6 +323,7 @@ final class IslandPresenter {
 
     func applyDisplayTarget() {
         controller.screenConfigurationDidChange()
+        reconcileSecondaryPresentations()
         refreshContent()
     }
 
@@ -318,6 +334,52 @@ final class IslandPresenter {
             metrics: metrics,
             preference: settingsStore.generalPreferences.displayTarget
         )
+        for secondary in secondaryPresentations.values {
+            secondary.refreshContent()
+        }
+    }
+
+    private func reconcileSecondaryPresentations() {
+        let preference = settingsStore.generalPreferences.displayTarget
+        let displays = NSScreen.screens.map(DisplayDescription.init)
+        let primaryDisplay = selectDisplay(from: displays, preference: preference)
+        let secondaryDisplays = preference == .allDisplays
+            ? selectDisplays(from: displays, preference: preference).filter {
+                $0.identifier != primaryDisplay?.identifier
+            }
+            : []
+        let targetIdentifiers = Set(secondaryDisplays.map(\.identifier))
+
+        for identifier in Array(secondaryPresentations.keys)
+        where !targetIdentifiers.contains(identifier) {
+            guard let secondary = secondaryPresentations.removeValue(forKey: identifier) else {
+                continue
+            }
+            secondary.stop()
+        }
+
+        for display in secondaryDisplays where secondaryPresentations[display.identifier] == nil {
+            let identifier = display.identifier
+            let secondary = SecondaryIslandPresentation(
+                manager: manager,
+                metrics: metrics,
+                reduceMotion: reduceMotion,
+                screen: { Self.screen(identifier: identifier) },
+                onMusicTransport: { [weak self] command in
+                    self?.musicProvider?.send(command)
+                },
+                onTimerCommand: { [weak self] command in
+                    self?.timerProvider?.handle(command.timerCommand)
+                },
+                onPrimaryAction: { [weak self] identity in
+                    self?.performPrimaryAction(for: identity)
+                }
+            )
+            secondaryPresentations[identifier] = secondary
+            secondary.start(
+                keepBarAlwaysVisible: settingsStore.generalPreferences.keepBarAlwaysVisible
+            )
+        }
     }
 
     /// The screen the island belongs on, resolved through the same
@@ -339,6 +401,12 @@ final class IslandPresenter {
         return ScreenDescription(screen)
     }
 
+    private static func screen(identifier: String) -> ScreenDescription? {
+        NSScreen.screens.first {
+            DisplayDescription($0).identifier == identifier
+        }.map(ScreenDescription.init)
+    }
+
     /// The hardware notch's size, or the fallback pill size on a screen that has
     /// none — the degraded mode from `docs/03-display-and-notch.md`, not an
     /// error state.
@@ -346,17 +414,21 @@ final class IslandPresenter {
         metrics: PanelMetrics,
         preference: DisplayPreference
     ) -> CGSize {
-        guard
-            let screen = targetScreen(preference: preference),
-            let rect = notchRect(
-                frame: screen.frame,
-                safeAreaInsets: screen.safeAreaInsets,
-                auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
-                auxiliaryTopRightArea: screen.auxiliaryTopRightArea
-            )
-        else {
-            return metrics.compactFallbackSize
-        }
-        return rect.size
+        resolvedNotchSize(screen: targetScreen(preference: preference), metrics: metrics)
     }
+}
+
+func resolvedNotchSize(screen: ScreenDescription?, metrics: PanelMetrics) -> CGSize {
+    guard
+        let screen,
+        let rect = notchRect(
+            frame: screen.frame,
+            safeAreaInsets: screen.safeAreaInsets,
+            auxiliaryTopLeftArea: screen.auxiliaryTopLeftArea,
+            auxiliaryTopRightArea: screen.auxiliaryTopRightArea
+        )
+    else {
+        return metrics.compactFallbackSize
+    }
+    return rect.size
 }

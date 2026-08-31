@@ -36,6 +36,7 @@ public final class PresentationController {
     /// is the only region a collapsed panel may accept a click in.
     private var hitRect: CGRect = .zero
     private var lastPointerLocation: CGPoint?
+    private var activitiesObserverID: UUID?
 
     public private(set) var state: PresentationState = .hidden {
         didSet {
@@ -120,14 +121,18 @@ public final class PresentationController {
     }
 
     public func start() {
-        manager.onActivitiesChanged = { [weak self] in
+        guard activitiesObserverID == nil else { return }
+        activitiesObserverID = manager.observeActivitiesChanged { [weak self] in
             self?.synchronize()
         }
         synchronize()
     }
 
     public func stop() {
-        manager.onActivitiesChanged = nil
+        if let activitiesObserverID {
+            manager.removeActivitiesObserver(activitiesObserverID)
+            self.activitiesObserverID = nil
+        }
         hide()
     }
 

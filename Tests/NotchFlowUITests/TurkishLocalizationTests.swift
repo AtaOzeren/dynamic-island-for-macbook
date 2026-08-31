@@ -44,6 +44,25 @@ struct TurkishLocalizationTests {
         }
     }
 
+    @Test("the General island and multi-display controls are fully Turkish")
+    func generalIslandSettingsAreTurkish() throws {
+        let expectedTranslations = [
+            "Island": "Ada",
+            "Keeping the bar visible leaves an empty pill on screen while nothing is running.":
+                "Çubuk görünür tutulduğunda, hiçbir etkinlik çalışmıyorken ekranda boş bir kapsül kalır.",
+            "Keep the bar always visible": "Çubuğu her zaman görünür tut",
+            "All displays": "Tüm ekranlar",
+        ]
+
+        try withTurkishBundle(
+            for: "Sources/NotchFlowUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            for (key, translation) in expectedTranslations {
+                #expect(bundle.localizedString(forKey: key, value: nil, table: nil) == translation)
+            }
+        }
+    }
+
     /// The picker names each language in that language, so a user who cannot
     /// read the current one can still find their own.
     @Test("the language picker names Turkish in Turkish")

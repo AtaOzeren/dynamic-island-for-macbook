@@ -45,6 +45,7 @@ extension SettingsKey where Value == DisplayPreference {
                 guard let representation = object as? String else { return nil }
                 switch representation {
                 case "automatic": return .automatic
+                case "allDisplays": return .allDisplays
                 case "builtIn": return .builtIn
                 default:
                     let identifiedPrefix = "identified:"
@@ -71,6 +72,7 @@ extension SettingsKey where Value == DisplayPreference {
             encode: { preference in
                 switch preference {
                 case .automatic: "automatic"
+                case .allDisplays: "allDisplays"
                 case .builtIn: "builtIn"
                 case .named(let name): "named:\(name)"
                 case .identified(let id, let name):

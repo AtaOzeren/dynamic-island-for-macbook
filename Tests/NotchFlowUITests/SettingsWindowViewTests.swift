@@ -28,7 +28,7 @@ struct SettingsWindowViewTests {
         }
     }
 
-    @Test("the display picker offers the two rules plus every attached display")
+    @Test("the display picker offers all displays only when multiple screens are attached")
     func displayPickerEnumeratesAttachedDisplays() {
         let box = Box(GeneralPreferences.default)
         let view = GeneralSettingsView(
@@ -42,11 +42,26 @@ struct SettingsWindowViewTests {
         #expect(
             view.displayOptions == [
                 .automatic,
+                .allDisplays,
                 .builtIn,
                 .identified(id: "Built-in Retina Display", name: "Built-in Retina Display"),
                 .identified(id: "Studio Display", name: "Studio Display"),
             ])
         #expect(view.title(for: .named("Studio Display")) == "Studio Display")
+        #expect(view.title(for: .allDisplays) == "All displays")
+    }
+
+    @Test("the display picker hides all displays when only one screen is attached")
+    func displayPickerHidesAllDisplaysForOneScreen() {
+        let box = Box(GeneralPreferences.default)
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: [
+                DisplayDescription(name: "Built-in Retina Display", isBuiltIn: true),
+            ]
+        )
+
+        #expect(!view.displayOptions.contains(.allDisplays))
     }
 
     @Test("every General control writes through to the preferences")
@@ -76,6 +91,7 @@ struct SettingsWindowViewTests {
 
         #expect(view.displayOptions.map(view.title(for:)) == [
             "Automatic",
+            "All displays",
             "Built-in display",
             "Studio Display (1)",
             "Studio Display (2)",

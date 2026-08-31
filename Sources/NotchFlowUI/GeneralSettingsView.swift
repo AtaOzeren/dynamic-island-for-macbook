@@ -36,12 +36,14 @@ public struct GeneralSettingsView: View {
                 : display.name
             return DisplayPreference.identified(id: display.identifier, name: name)
         }
-        return [.automatic, .builtIn] + attached
+        let allDisplays: [DisplayPreference] = availableDisplays.count > 1 ? [.allDisplays] : []
+        return [.automatic] + allDisplays + [.builtIn] + attached
     }
 
     public func title(for preference: DisplayPreference) -> String {
         switch preference {
         case .automatic: localized("Automatic")
+        case .allDisplays: localized("All displays")
         case .builtIn: localized("Built-in display")
         case .named(let name): name
         case .identified(_, let name): name

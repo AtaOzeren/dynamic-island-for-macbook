@@ -101,6 +101,15 @@ struct SettingsStoreTests {
         #expect(store[.displayTarget] == preference)
     }
 
+    @Test("round-trips the all-displays target")
+    func roundTripsAllDisplays() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+
+        store[.displayTarget] = .allDisplays
+
+        #expect(store[.displayTarget] == .allDisplays)
+    }
+
     @Test("reports the changed key and typed value once")
     func propagatesChanges() {
         let store = SettingsStore(storage: DictionarySettingsStorage())

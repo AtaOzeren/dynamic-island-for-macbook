@@ -220,6 +220,29 @@ struct ActivityManagerTests {
         manager.end(ActivityIdentity("non-existent"), at: date(4))
         #expect(changeSignalCount == 3)
     }
+
+    @Test("multiple presentation observers receive changes independently")
+    func multipleChangeObservers() {
+        let manager = ActivityManager()
+        var firstCount = 0
+        var secondCount = 0
+        let firstID = manager.observeActivitiesChanged { firstCount += 1 }
+        _ = manager.observeActivitiesChanged { secondCount += 1 }
+        let activity = StubManagerActivity(
+            identity: ActivityIdentity("timer.multi-display"),
+            kind: .timer,
+            priority: .normal
+        )
+
+        manager.register(activity, at: date(1))
+        #expect(firstCount == 1)
+        #expect(secondCount == 1)
+
+        manager.removeActivitiesObserver(firstID)
+        manager.end(activity.identity, at: date(2))
+        #expect(firstCount == 1)
+        #expect(secondCount == 2)
+    }
 }
 
 private struct StubManagerActivity: Activity {

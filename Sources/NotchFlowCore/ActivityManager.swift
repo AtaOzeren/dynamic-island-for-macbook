@@ -19,6 +19,7 @@ public final class ActivityManager {
     private let sleep: Sleep
     private var entries: [ActivityIdentity: Entry] = [:]
     private var dismissTasks: [ActivityIdentity: Task<Void, Never>] = [:]
+    private var activitiesObservers: [UUID: () -> Void] = [:]
     private var nextGeneration = 0
 
     public var onBecomeIdle: (() -> Void)?
@@ -59,6 +60,17 @@ public final class ActivityManager {
         activeActivities
     }
 
+    @discardableResult
+    public func observeActivitiesChanged(_ observer: @escaping () -> Void) -> UUID {
+        let identifier = UUID()
+        activitiesObservers[identifier] = observer
+        return identifier
+    }
+
+    public func removeActivitiesObserver(_ identifier: UUID) {
+        activitiesObservers[identifier] = nil
+    }
+
     public func register(_ activity: any Activity, at registrationTime: Date = Date()) {
         let preservedRegistrationTime = entries[activity.identity]?.registrationTime ?? registrationTime
         store(activity, registrationTime: preservedRegistrationTime)
@@ -87,7 +99,7 @@ public final class ActivityManager {
     }
 
     private func store(_ activity: any Activity, registrationTime: Date) {
-        defer { onActivitiesChanged?() }
+        defer { notifyActivitiesChanged() }
 
         dismissTasks[activity.identity]?.cancel()
         nextGeneration += 1
@@ -121,10 +133,17 @@ public final class ActivityManager {
         dismissTasks[identity]?.cancel()
         dismissTasks[identity] = nil
 
-        onActivitiesChanged?()
+        notifyActivitiesChanged()
 
         if entries.isEmpty {
             onBecomeIdle?()
+        }
+    }
+
+    private func notifyActivitiesChanged() {
+        onActivitiesChanged?()
+        for observer in activitiesObservers.values {
+            observer()
         }
     }
 }

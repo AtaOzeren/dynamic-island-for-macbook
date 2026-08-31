@@ -69,14 +69,17 @@ struct NotchFlowApp: App {
             initialValue: makeMusicAutomationAccess(gate: automationGate)
         )
         _hookStates = State(initialValue: [:])
-        _availableDisplays = State(
-            initialValue: NSScreen.screens.map(DisplayDescription.init)
-        )
+        let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
+        _availableDisplays = State(initialValue: currentDisplays)
         let settingsStore = SettingsStore()
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
         _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)
         var initialGeneralPreferences = settingsStore.generalPreferences
+        initialGeneralPreferences.displayTarget = normalizeDisplayPreference(
+            initialGeneralPreferences.displayTarget,
+            availableDisplayCount: currentDisplays.count
+        )
         initialGeneralPreferences.launchAtLogin = Self.launchAtLoginIsRequested
         initialGeneralPreferences.appearance = .dark
         _generalPreferences = State(initialValue: initialGeneralPreferences)
@@ -358,13 +361,14 @@ struct NotchFlowApp: App {
         .onAppear {
             aiPreferences = settingsStore.aiIntegrationPreferences
             hookStates = Self.currentHookStates()
+            refreshAvailableDisplays()
         }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: NSApplication.didChangeScreenParametersNotification
             )
         ) { _ in
-            availableDisplays = NSScreen.screens.map(DisplayDescription.init)
+            refreshAvailableDisplays()
         }
         .onChange(of: aiPreferences, initial: true) { _, preferences in
             settingsStore.aiIntegrationPreferences = preferences
@@ -511,6 +515,15 @@ struct NotchFlowApp: App {
 }
 
 private extension NotchFlowApp {
+    func refreshAvailableDisplays() {
+        let displays = NSScreen.screens.map(DisplayDescription.init)
+        availableDisplays = displays
+        generalPreferences.displayTarget = normalizeDisplayPreference(
+            generalPreferences.displayTarget,
+            availableDisplayCount: displays.count
+        )
+    }
+
     var aboutInformation: AboutInformation {
         let info = Bundle.main.infoDictionary
         return AboutInformation(
