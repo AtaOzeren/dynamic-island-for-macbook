@@ -102,6 +102,11 @@ public final class AppleScriptMusicProvider: MusicProvider {
             }
             subscriptions.add(token, to: notifications)
         }
+
+        // A notification only ever reports a *change*, so a track already
+        // playing when observation starts posts nothing. Without this first
+        // read the island stays empty until the user changes track.
+        refresh(wokenBy: nil)
     }
 
     /// Forgetting the last emission is part of stopping: a provider restarted
@@ -126,7 +131,7 @@ public final class AppleScriptMusicProvider: MusicProvider {
     /// only says that *it* changed, and the island reports one track across
     /// both, so a Music.app pause is exactly when Spotify's state has to be
     /// re-checked rather than the moment to trust a stale reading.
-    private func refresh(wokenBy target: MusicPlayerTarget) {
+    private func refresh(wokenBy target: MusicPlayerTarget?) {
         let reported = Self.reported(from: snapshots(preferring: target))
         guard self.reported != reported else { return }
         self.reported = reported
@@ -136,11 +141,15 @@ public final class AppleScriptMusicProvider: MusicProvider {
     /// The waking player is read first so it wins a tie against an equally
     /// playing rival: with no better answer available, "the one that just
     /// spoke" is what keeps the island from flapping between two paused
-    /// players every time either posts.
+    /// players every time either posts. `nil` is the start-up read, where no
+    /// player has spoken and declaration order breaks the tie instead.
     private func snapshots(
-        preferring target: MusicPlayerTarget
+        preferring target: MusicPlayerTarget?
     ) -> [(target: MusicPlayerTarget, snapshot: MusicPlayerSnapshot)] {
-        let ordered = [target] + MusicPlayerTarget.allCases.filter { $0 != target }
+        let ordered =
+            target.map { waking in
+                [waking] + MusicPlayerTarget.allCases.filter { $0 != waking }
+            } ?? MusicPlayerTarget.allCases
         return ordered.compactMap { candidate in
             players.snapshot(for: candidate).map { (candidate, $0) }
         }

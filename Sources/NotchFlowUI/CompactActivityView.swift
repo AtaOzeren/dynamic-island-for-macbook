@@ -12,24 +12,36 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     public let overflowCount: Int?
     public let accessibilityLabel: String
 
+    /// Draws moving equaliser bars in place of the glyph. Carried as a flag
+    /// rather than as a second symbol name because the bars are not a symbol:
+    /// they animate, and only while something is actually playing.
+    public let isPlayingMusic: Bool
+
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
         symbolName = compactSymbolName(activity.kind)
         label = nil
         overflowCount = nil
         accessibilityLabel = compactAccessibilityLabel(activity.kind)
+        isPlayingMusic = false
     }
 
     /// For activities whose per-instance detail outgrows what the kind alone can
     /// say — music announces "Windowlicker — Aphex Twin" rather than "Music", and
     /// charging draws a full battery rather than the shared bolt once the charge
     /// is done. Omitting `symbolName` keeps the kind's glyph.
-    init(activity: any Activity, symbolName: String? = nil, accessibilityLabel: String) {
+    init(
+        activity: any Activity,
+        symbolName: String? = nil,
+        accessibilityLabel: String,
+        isPlayingMusic: Bool = false
+    ) {
         id = activity.identity.rawValue
         self.symbolName = symbolName ?? compactSymbolName(activity.kind)
         label = nil
         overflowCount = nil
         self.accessibilityLabel = accessibilityLabel
+        self.isPlayingMusic = isPlayingMusic
     }
 
     fileprivate init(overflowCount: Int) {
@@ -38,6 +50,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         label = "+\(overflowCount)"
         self.overflowCount = overflowCount
         accessibilityLabel = localized("\(overflowCount) more activities")
+        isPlayingMusic = false
     }
 
     private static let overflowIdentifier = "notchflow.compact.overflow"
@@ -78,10 +91,22 @@ public struct CompactPillMetrics: Equatable, Sendable {
     }
 }
 
+/// One activity's slot, routed to the kind that knows how to describe itself.
+///
+/// Music and charging both announce per-instance detail the shared kind label
+/// cannot carry — the actual track, and a full battery once charging completes.
+private func compactSlot(for activity: any Activity) -> CompactSlot {
+    switch activity {
+    case let music as MusicActivity: musicCompactSlot(for: music)
+    case let charging as ChargingActivity: chargingCompactSlot(for: charging)
+    default: CompactSlot(activity: activity)
+    }
+}
+
 /// The ordered slots for `presentation`, which has already applied the priority
 /// ordering and the capacity limit in `ActivityManager`.
 public func compactSlots(for presentation: CompactActivityPresentation) -> [CompactSlot] {
-    let slots = presentation.activities.map(CompactSlot.init(activity:))
+    let slots = presentation.activities.map(compactSlot(for:))
     guard presentation.overflowCount > 0 else { return slots }
     return slots + [CompactSlot(overflowCount: presentation.overflowCount)]
 }
@@ -106,7 +131,16 @@ public func compactPillSize(
     metrics: CompactPillMetrics = .default
 ) -> CGSize {
     let slots = max(slotCount, 0)
-    guard slots > 0 else { return notchSize }
+    // With no slots the pill would be exactly the notch, and a pill the size of
+    // the opaque hardware it hugs is invisible. The empty perch the "keep the
+    // bar always visible" setting asks for therefore still pays the edge inset,
+    // so it reads as a bar flanking the notch rather than as nothing at all.
+    guard slots > 0 else {
+        return CGSize(
+            width: notchSize.width + metrics.edgeInset * 2,
+            height: notchSize.height
+        )
+    }
 
     let slotsWidth = CGFloat(slots) * metrics.slotWidth
     let spacing = CGFloat(slots) * metrics.slotSpacing
@@ -142,19 +176,23 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
 /// notch's own width held open between them.
 public struct CompactActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let presentation: CompactActivityPresentation
     private let notchSize: CGSize
     private let metrics: CompactPillMetrics
+    private let motion: IslandMotion
 
     public init(
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
-        metrics: CompactPillMetrics = .default
+        metrics: CompactPillMetrics = .default,
+        motion: IslandMotion = .default
     ) {
         self.presentation = presentation
         self.notchSize = notchSize
         self.metrics = metrics
+        self.motion = motion
     }
 
     public var body: some View {
@@ -185,9 +223,25 @@ public struct CompactActivityView: View {
         HStack(spacing: metrics.slotSpacing) {
             ForEach(slots) { slot in
                 slotView(slot)
+                    .transition(slotTransition)
             }
         }
         .frame(maxWidth: .infinity)
+        .animation(slotAnimation, value: slots)
+    }
+
+    /// Slots grow out of, and shrink back into, the notch's edge rather than
+    /// appearing at full size, so an activity starting reads as the island
+    /// extending rather than as a glyph blinking into place.
+    private var slotTransition: AnyTransition {
+        guard reduceMotion == false else { return .opacity }
+        return .scale(scale: 0.6).combined(with: .opacity)
+    }
+
+    private var slotAnimation: Animation {
+        reduceMotion
+            ? .easeOut(duration: motion.reducedMotionCrossFadeDuration)
+            : .spring(response: motion.springResponse, dampingFraction: motion.springDamping)
     }
 
     private func slotView(_ slot: CompactSlot) -> some View {
@@ -195,6 +249,8 @@ public struct CompactActivityView: View {
             if let label = slot.label {
                 Text(label)
                     .font(.system(size: metrics.symbolSize, weight: .semibold, design: .rounded))
+            } else if slot.isPlayingMusic {
+                MusicEqualiserSlotView(metrics: metrics, symbolName: slot.symbolName)
             } else {
                 Image(systemName: slot.symbolName)
                     .font(.system(size: metrics.symbolSize, weight: .medium))
@@ -203,4 +259,67 @@ public struct CompactActivityView: View {
         .frame(width: metrics.slotWidth)
         .accessibilityLabel(slot.accessibilityLabel)
     }
+}
+
+/// The moving equaliser drawn in the music slot while a track is playing.
+///
+/// Settles into the static glyph after `animationDuration`, so the island does
+/// not keep an animation running for the entire length of an album — the idle
+/// budget in `docs/02-performance-contract.md` is the whole reason the pill is
+/// cheap to leave on screen. The motion is announcement, not status.
+struct MusicEqualiserSlotView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isAnimating = false
+    @State private var hasSettled = false
+
+    /// How long the bars move before settling to the glyph.
+    static let animationDuration: Duration = .seconds(3)
+
+    private static let barScales: [CGFloat] = [0.45, 1.0, 0.7]
+    private static let barPhaseOffsets: [Double] = [0, 0.18, 0.36]
+
+    let metrics: CompactPillMetrics
+    let symbolName: String
+
+    var body: some View {
+        content
+            .task {
+                guard reduceMotion == false else { return }
+                isAnimating = true
+                try? await Task.sleep(for: Self.animationDuration)
+                isAnimating = false
+                hasSettled = true
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if reduceMotion || hasSettled {
+            Image(systemName: symbolName)
+                .font(.system(size: metrics.symbolSize, weight: .medium))
+                .transition(.opacity)
+        } else {
+            bars
+        }
+    }
+
+    private var bars: some View {
+        HStack(alignment: .center, spacing: barSpacing) {
+            ForEach(Array(Self.barScales.enumerated()), id: \.offset) { index, restingScale in
+                Capsule()
+                    .frame(width: barWidth, height: metrics.symbolSize * restingScale)
+                    .scaleEffect(y: isAnimating ? 1 : 0.35, anchor: .center)
+                    .animation(
+                        .easeInOut(duration: 0.42)
+                            .repeatForever(autoreverses: true)
+                            .delay(Self.barPhaseOffsets[index]),
+                        value: isAnimating
+                    )
+            }
+        }
+        .frame(height: metrics.symbolSize)
+    }
+
+    private var barWidth: CGFloat { metrics.symbolSize / 5 }
+    private var barSpacing: CGFloat { metrics.symbolSize / 6 }
 }

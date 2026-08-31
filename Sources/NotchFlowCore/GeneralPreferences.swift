@@ -15,6 +15,11 @@ public struct GeneralPreferences: Equatable, Sendable {
     public var launchAtLogin: Bool
     public var appearance: SettingsAppearance
 
+    /// Keeps the compact pill on screen even when no activity is running,
+    /// opting out of the order-out-when-idle rule that buys the idle budget in
+    /// `docs/02-performance-contract.md`.
+    public var keepBarAlwaysVisible: Bool
+
     /// `nil` means follow the system, which is why this is an optional rather
     /// than a `Bool` with a separate "is overridden" flag: two fields would let
     /// the pane express a state — overridden but with no value — that the
@@ -25,12 +30,14 @@ public struct GeneralPreferences: Equatable, Sendable {
         displayTarget: DisplayPreference = .automatic,
         launchAtLogin: Bool = false,
         appearance: SettingsAppearance = .auto,
-        reducedMotionOverride: Bool? = nil
+        reducedMotionOverride: Bool? = nil,
+        keepBarAlwaysVisible: Bool = false
     ) {
         self.displayTarget = displayTarget
         self.launchAtLogin = launchAtLogin
         self.appearance = appearance
         self.reducedMotionOverride = reducedMotionOverride
+        self.keepBarAlwaysVisible = keepBarAlwaysVisible
     }
 }
 

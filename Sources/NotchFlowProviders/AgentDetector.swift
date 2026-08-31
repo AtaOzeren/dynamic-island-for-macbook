@@ -44,7 +44,7 @@ public struct AgentDetector: Sendable {
         case .codex:
             homeDirectory.appending(path: ".codex/config.toml")
         case .opencode:
-            homeDirectory.appending(path: ".config/opencode/plugin", directoryHint: .isDirectory)
+            homeDirectory.appending(path: ".config/opencode", directoryHint: .isDirectory)
         }
     }
 
