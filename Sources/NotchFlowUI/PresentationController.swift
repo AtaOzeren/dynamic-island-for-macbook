@@ -35,6 +35,7 @@ public final class PresentationController {
     /// The pill's hit area on the screen the panel was last ordered in on, which
     /// is the only region a collapsed panel may accept a click in.
     private var hitRect: CGRect = .zero
+    private var lastPointerLocation: CGPoint?
 
     public private(set) var state: PresentationState = .hidden {
         didSet {
@@ -130,6 +131,11 @@ public final class PresentationController {
         hide()
     }
 
+    /// Orders the panel out before sleep without losing the manager state.
+    public func suspend() {
+        hide()
+    }
+
     /// Grows the content to the expanded geometry. Ignored while hidden: an
     /// activity arriving off screen orders the window in at its resting compact
     /// geometry first, and only a later transition animates.
@@ -141,7 +147,35 @@ public final class PresentationController {
     /// Returns the content to the compact pill without ordering the window out.
     public func collapse() {
         guard state == .expanded else { return }
+        panel.endInteractiveMode()
         state = .compact
+        refreshHoverFromLastPointerLocation()
+    }
+
+    /// Enables keyboard focus only after an explicit click or command.
+    public func beginInteractiveMode() {
+        guard state == .expanded else { return }
+        panel.beginInteractiveMode()
+    }
+
+    /// Re-evaluates visibility and geometry after display topology changes.
+    public func screenConfigurationDidChange() {
+        guard let targetScreen = screen() else {
+            hide()
+            return
+        }
+
+        guard manager.activeActivities.isEmpty == false || keepBarAlwaysVisible else {
+            hide()
+            return
+        }
+
+        if state == .hidden {
+            show(on: targetScreen)
+        } else {
+            panel.reposition(on: targetScreen)
+            updateHitRect(on: targetScreen)
+        }
     }
 
     /// Re-resolves the target screen and moves the panel onto it.
@@ -161,7 +195,7 @@ public final class PresentationController {
     public func repositionOnCurrentScreen() -> Bool {
         guard state != .hidden, let screen = screen() else { return false }
         panel.reposition(on: screen)
-        hitRect = compactHitRect(for: screen, metrics: metrics)
+        updateHitRect(on: screen)
         return true
     }
 
@@ -171,14 +205,26 @@ public final class PresentationController {
             hide()
             return
         }
-        guard state == .hidden else { return }
-        show()
+
+        if manager.activeActivities.isEmpty, state == .expanded {
+            collapse()
+        }
+
+        guard let targetScreen = screen() else {
+            hide()
+            return
+        }
+
+        guard state == .hidden else {
+            updateHitRect(on: targetScreen)
+            return
+        }
+        show(on: targetScreen)
     }
 
-    private func show() {
-        guard let screen = screen() else { return }
+    private func show(on screen: ScreenDescription) {
         panel.reposition(on: screen)
-        hitRect = compactHitRect(for: screen, metrics: metrics)
+        updateHitRect(on: screen)
         panel.orderFrontRegardless()
         state = .compact
         mouse.startObserving { [weak self] location in
@@ -190,18 +236,35 @@ public final class PresentationController {
     /// its curve against `.hidden` and animates nothing. Clearing hover first
     /// would schedule a peek-out on a window that has already been ordered out.
     private func hide() {
+        hoverExpansionTimer?.invalidate()
+        hoverExpansionTimer = nil
         mouse.stopObserving()
+        panel.endInteractiveMode()
         panel.orderOut(nil)
         state = .hidden
         isHovered = false
+        lastPointerLocation = nil
     }
 
     /// Hover only decides hit-testing while the pill is the whole target. Once
     /// expanded the panel must keep accepting the mouse wherever the pointer
     /// goes, because the click that collapses it lands outside its own bounds.
     private func pointerMoved(to location: CGPoint) {
+        lastPointerLocation = location
         guard state != .expanded else { return }
         isHovered = hitRect.contains(location)
+    }
+
+    private func refreshHoverFromLastPointerLocation() {
+        isHovered = lastPointerLocation.map(hitRect.contains) ?? false
+    }
+
+    private func updateHitRect(on screen: ScreenDescription) {
+        hitRect = compactHitRect(
+            for: screen,
+            slotCount: compactSlots(for: manager.compactPresentation).count,
+            metrics: metrics
+        )
     }
 
     private func synchronizeMouseHandling() {

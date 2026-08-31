@@ -104,6 +104,23 @@ struct OpenCodePluginInstallerTests {
         #expect(fileSystem.data(at: Self.backupURL) == nil)
     }
 
+    @Test("uninstall never overwrites a plugin changed after installation")
+    func uninstallPreservesLaterChanges() throws {
+        let original = Data("export const MyNotchFlowPlugin = true\n".utf8)
+        let fileSystem = InMemoryOpenCodePluginFileSystem(files: [Self.pluginURL: original])
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+        let changed = try #require(fileSystem.data(at: Self.pluginURL)) + Data("// user change\n".utf8)
+        fileSystem.setData(changed, at: Self.pluginURL)
+
+        #expect(throws: OpenCodePluginInstallerError.pluginChangedSinceInstall) {
+            try installer.uninstall()
+        }
+        #expect(fileSystem.data(at: Self.pluginURL) == changed)
+        #expect(fileSystem.data(at: Self.backupURL) == original)
+    }
+
     @Test("installation state is missing when no plugin file exists")
     func installationStateWithoutPluginFile() {
         let fileSystem = InMemoryOpenCodePluginFileSystem()
@@ -217,5 +234,9 @@ private final class InMemoryOpenCodePluginFileSystem: OpenCodePluginFileSystem,
 
     func text(at url: URL) -> String? {
         files[url].flatMap { String(bytes: $0, encoding: .utf8) }
+    }
+
+    func setData(_ data: Data, at url: URL) {
+        files[url] = data
     }
 }

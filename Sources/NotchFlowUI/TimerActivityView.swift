@@ -230,6 +230,7 @@ public struct TimerExpandedView: View {
         .background {
             surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
         }
+        .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilityLabel)
     }

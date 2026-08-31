@@ -59,4 +59,17 @@ struct DisplaySelectionTests {
         #expect(selectDisplay(from: [], preference: .automatic) == nil)
         #expect(selectDisplay(from: [], preference: .named(studioDisplay.name)) == nil)
     }
+
+    @Test("stable identity distinguishes two displays with the same model name")
+    func duplicateNamesUseIdentity() {
+        let left = DisplayDescription(identifier: "101", name: "Studio Display", isBuiltIn: false)
+        let right = DisplayDescription(identifier: "202", name: "Studio Display", isBuiltIn: false)
+
+        #expect(
+            selectDisplay(
+                from: [left, right],
+                preference: .identified(id: right.identifier, name: right.name)
+            ) == right
+        )
+    }
 }

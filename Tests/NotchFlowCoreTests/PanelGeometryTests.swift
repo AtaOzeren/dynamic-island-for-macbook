@@ -151,7 +151,12 @@ struct PanelGeometryTests {
 
         #expect(hit.midX == notch.midX)
         #expect(hit.maxY == screen.frame.maxY)
-        #expect(hit.width == notch.width + Self.metrics.compactHitPadding * 2)
+        #expect(
+            hit.width
+                == notch.width
+                    + CompactPillMetrics.default.edgeInset * 2
+                    + Self.metrics.compactHitPadding * 2
+        )
         #expect(hit.height == notch.height + Self.metrics.compactHitPadding)
     }
 
@@ -163,6 +168,27 @@ struct PanelGeometryTests {
             panelFrame(for: screen, metrics: Self.metrics)
                 .contains(compactHitRect(for: screen, metrics: Self.metrics))
         )
+    }
+
+    @Test("grows the hover target with every visible activity slot")
+    func hitRectTracksVisibleSlots() throws {
+        let screen = Self.notchedScreen()
+        let pillMetrics = CompactPillMetrics.default
+        let slotCount = 3
+        let hitRect = compactHitRect(
+            for: screen,
+            slotCount: slotCount,
+            metrics: Self.metrics,
+            pillMetrics: pillMetrics
+        )
+        let notch = try #require(notchRect(for: screen))
+        let visibleWidth = compactPillSize(
+            slotCount: slotCount,
+            notchSize: notch.size,
+            metrics: pillMetrics
+        ).width
+
+        #expect(hitRect.width == visibleWidth + Self.metrics.compactHitPadding * 2)
     }
 
     @Test("centres the hover target on the menu bar when the screen has no notch")

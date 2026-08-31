@@ -61,7 +61,7 @@ struct CompositionRootWiringTests {
 
         #expect(source.contains("SystemScreenChangeObserver()"))
         #expect(source.contains("screenChanges.startObserving"))
-        #expect(source.contains("controller.repositionOnCurrentScreen()"))
+        #expect(source.contains("controller.screenConfigurationDidChange()"))
     }
 
     @Test("music transport reaches the provider from the presenter")

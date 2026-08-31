@@ -122,6 +122,24 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.writeCount == writesAfterFirstUninstall)
     }
 
+    @Test("uninstall never overwrites configuration changed after installation")
+    func uninstallPreservesLaterChanges() throws {
+        let original = Data("model = \"gpt-5\"\n".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: original])
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+        let changed = try #require(fileSystem.text(at: Self.configURL))
+            .replacingOccurrences(of: "gpt-5", with: "gpt-5.1")
+        fileSystem.setText(changed, at: Self.configURL)
+
+        #expect(throws: CodexHookInstallerError.configurationChangedSinceInstall) {
+            try installer.uninstall()
+        }
+        #expect(fileSystem.text(at: Self.configURL) == changed)
+        #expect(fileSystem.data(at: Self.backupURL) == original)
+    }
+
     @Test("uninstall removes a fresh config file")
     func uninstallFreshInstall() throws {
         let fileSystem = InMemoryCodexHookFileSystem()

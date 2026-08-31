@@ -81,6 +81,24 @@ struct ClaudeCodeHookInstallerTests {
         #expect(fileSystem.writeCount == writesAfterFirstUninstall)
     }
 
+    @Test("uninstall never overwrites settings changed after installation")
+    func uninstallPreservesLaterChanges() throws {
+        let original = Data(#"{"theme":"dark"}"#.utf8)
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [Self.settingsURL: original])
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+        let changed = try #require(fileSystem.text(at: Self.settingsURL))
+            .replacingOccurrences(of: "\"dark\"", with: "\"light\"")
+        fileSystem.setText(changed, at: Self.settingsURL)
+
+        #expect(throws: ClaudeCodeHookInstallerError.configurationChangedSinceInstall) {
+            try installer.uninstall()
+        }
+        #expect(fileSystem.text(at: Self.settingsURL) == changed)
+        #expect(fileSystem.data(at: Self.backupURL) == original)
+    }
+
     @Test("uninstall removes a fresh settings file")
     func uninstallFreshInstall() throws {
         let fileSystem = InMemoryClaudeCodeFileSystem()
@@ -233,5 +251,9 @@ private final class InMemoryClaudeCodeFileSystem: ClaudeCodeHookFileSystem, @unc
 
     func text(at url: URL) -> String? {
         files[url].map { String(decoding: $0, as: UTF8.self) }
+    }
+
+    func setText(_ text: String, at url: URL) {
+        files[url] = Data(text.utf8)
     }
 }

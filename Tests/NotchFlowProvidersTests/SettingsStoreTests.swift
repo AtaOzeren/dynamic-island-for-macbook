@@ -88,6 +88,19 @@ struct SettingsStoreTests {
         #expect(store[.languageOverride] == nil)
     }
 
+    @Test("round-trips stable display identity even when it contains separators")
+    func roundTripsStableDisplayIdentity() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+        let preference = DisplayPreference.identified(
+            id: "Studio Display:1920:0",
+            name: "Studio Display"
+        )
+
+        store[.displayTarget] = preference
+
+        #expect(store[.displayTarget] == preference)
+    }
+
     @Test("reports the changed key and typed value once")
     func propagatesChanges() {
         let store = SettingsStore(storage: DictionarySettingsStorage())
