@@ -28,6 +28,7 @@ struct NotchFlowApp: App {
     /// The timer the menu bar starts and the island controls — one instance,
     /// shared with the registry that draws it.
     private let timerProvider: TimerProvider
+    private let appleClockMirror: AppleClockMirror?
 
     /// Draws the manager's activities in the overlay window. Held for the app's
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
@@ -76,6 +77,7 @@ struct NotchFlowApp: App {
         // nothing is drawing.
         let timerProvider = TimerProvider()
         self.timerProvider = timerProvider
+        appleClockMirror = makeAppleClockMirror(timerProvider: timerProvider)
 
         let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
@@ -88,6 +90,7 @@ struct NotchFlowApp: App {
         }
 
         registry.startObserving(into: manager)
+        appleClockMirror?.start()
 
         // The providers are handed in so a press inside the expanded island
         // reaches the backend that owns the state it is about. The presenter
@@ -167,7 +170,16 @@ struct NotchFlowApp: App {
             // unreliable, and `start()` orders the panel in the moment an
             // activity is already live — so it waits on the same turn the
             // onboarding window does.
+            //
+            // The always-visible preference is applied after `start()`, not
+            // before: `start()` is what connects the state-change callback the
+            // presenter's model listens through, and applying the preference
+            // first would order the panel in without ever publishing `.compact`
+            // — a window on screen drawing nothing.
             islandPresenter.start()
+            islandPresenter.applyKeepBarAlwaysVisible(
+                settingsStore.generalPreferences.keepBarAlwaysVisible
+            )
 
             presenter.presentIfNeeded(
                 hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding],
@@ -301,9 +313,10 @@ struct NotchFlowApp: App {
                 settingsStore.aiIntegrationPreferences = preferences
                 urlSchemeReceiver.preferences = preferences
             }
-            .onChange(of: generalPreferences) { _, preferences in
+            .onChange(of: generalPreferences, initial: true) { _, preferences in
                 settingsStore.generalPreferences = preferences
                 islandPresenter.applyAppearance(preferences.appearance)
+                islandPresenter.applyKeepBarAlwaysVisible(preferences.keepBarAlwaysVisible)
             }
             .onChange(of: enabledIdentifiers) { _, identifiers in
                 settingsStore.enabledProviderIdentifiers = identifiers

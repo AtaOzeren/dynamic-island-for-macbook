@@ -10,6 +10,9 @@
 		F10000012C81000000000001 /* NotchFlowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000001 /* NotchFlowApp.swift */; };
 		F10000012C81000000000005 /* SystemNowPlayingBridge+Direct.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */; };
 		F10000012C81000000000006 /* MediaRemoteMusicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */; };
+		F10000102C810000000007 /* AppleClockReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000112C810000000006 /* AppleClockReader.swift */; };
+		F10000122C810000000007 /* AppleClockMirror.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000132C810000000006 /* AppleClockMirror.swift */; };
+		F10000142C810000000007 /* AppleClockBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000152C810000000006 /* AppleClockBackend.swift */; };
 		F10000012C81000000000007 /* MusicBackend.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000006 /* MusicBackend.swift */; };
 		F10000012C81000000000008 /* URLSchemeReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000007 /* URLSchemeReceiver.swift */; };
 		F10000012C81000000000009 /* OnboardingPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000010 /* OnboardingPresenter.swift */; };
@@ -30,6 +33,9 @@
 		F10000022C81000000000003 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Package.swift; path = Package.swift; sourceTree = "<group>"; };
 		F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SystemNowPlayingBridge+Direct.swift"; sourceTree = "<group>"; };
 		F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaRemoteMusicProvider.swift; sourceTree = "<group>"; };
+		F10000112C810000000006 /* AppleClockReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleClockReader.swift; sourceTree = "<group>"; };
+		F10000132C810000000006 /* AppleClockMirror.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleClockMirror.swift; sourceTree = "<group>"; };
+		F10000152C810000000006 /* AppleClockBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleClockBackend.swift; sourceTree = "<group>"; };
 		F10000022C81000000000006 /* MusicBackend.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicBackend.swift; sourceTree = "<group>"; };
 		F10000022C81000000000007 /* URLSchemeReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLSchemeReceiver.swift; sourceTree = "<group>"; };
 		F10000022C81000000000008 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -75,6 +81,9 @@
 				F10000022C8100000000001A /* PrivacyInfo.xcprivacy */,
 				F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */,
 				F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */,
+				F10000112C810000000006 /* AppleClockReader.swift */,
+				F10000132C810000000006 /* AppleClockMirror.swift */,
+				F10000152C810000000006 /* AppleClockBackend.swift */,
 				F10000022C81000000000006 /* MusicBackend.swift */,
 				F10000022C81000000000007 /* URLSchemeReceiver.swift */,
 				F10000022C81000000000010 /* OnboardingPresenter.swift */,
@@ -180,6 +189,9 @@
 				F10000012C81000000000001 /* NotchFlowApp.swift in Sources */,
 				F10000012C81000000000005 /* SystemNowPlayingBridge+Direct.swift in Sources */,
 				F10000012C81000000000006 /* MediaRemoteMusicProvider.swift in Sources */,
+				F10000102C810000000007 /* AppleClockReader.swift in Sources */,
+				F10000122C810000000007 /* AppleClockMirror.swift in Sources */,
+				F10000142C810000000007 /* AppleClockBackend.swift in Sources */,
 				F10000012C81000000000007 /* MusicBackend.swift in Sources */,
 				F10000012C81000000000008 /* URLSchemeReceiver.swift in Sources */,
 				F10000012C81000000000009 /* OnboardingPresenter.swift in Sources */,

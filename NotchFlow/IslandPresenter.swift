@@ -20,12 +20,10 @@ final class IslandViewModel: ObservableObject {
 
     /// Assigned by the presenter after the controller exists. The content view
     /// is built *before* the controller — the panel's initialiser demands it —
-    /// so the pill's tap target cannot capture the controller directly.
-    var onExpand: () -> Void = {}
+    /// so the collapse target cannot capture the controller directly.
     var onCollapse: () -> Void = {}
-
     /// Where a press inside the expanded island goes. Assigned by the
-    /// composition root for the same reason `onExpand` is: the view is built
+    /// composition root for the same reason `onCollapse` is: the view is built
     /// before the objects that execute these commands exist, and putting a
     /// provider reference in the view would push the backend into the UI layer.
     var onMusicTransport: (MusicTransportCommand) -> Void = { _ in }
@@ -58,7 +56,6 @@ struct IslandRootView: View {
         case .compact:
             CompactActivityView(presentation: model.compact, notchSize: model.notchSize)
                 .contentShape(Rectangle())
-                .onTapGesture(perform: model.onExpand)
         case .expanded:
             // The collapse target is the empty space around the detail, per
             // `docs/04-overlay-window.md`: while expanded the panel accepts the
@@ -68,12 +65,17 @@ struct IslandRootView: View {
                 Color.clear
                     .contentShape(Rectangle())
                     .onTapGesture(perform: model.onCollapse)
+                // Inset by the notch's own height so the panel hangs below the
+                // physical cutout instead of behind it: the top of the window is
+                // flush with the top of the screen, so content drawn there is
+                // occluded by hardware and never reaches the user.
                 ExpandedActivityView(
                     activities: model.expanded,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,
                     onTimerCommand: model.onTimerCommand
                 )
+                .padding(.top, model.notchSize.height)
             }
         }
     }
@@ -175,7 +177,6 @@ final class IslandPresenter {
         controller.onSynchronize = { [weak self] in
             self?.refreshContent()
         }
-        model.onExpand = { [weak self] in self?.controller.expand() }
         model.onCollapse = { [weak self] in self?.controller.collapse() }
         model.onMusicTransport = { [weak self] command in
             self?.musicProvider?.send(command)
@@ -251,6 +252,10 @@ final class IslandPresenter {
     /// out and back.
     func applyAppearance(_ appearance: SettingsAppearance) {
         panel.applyAppearance(appearance)
+    }
+
+    func applyKeepBarAlwaysVisible(_ keepVisible: Bool) {
+        controller.keepBarAlwaysVisible = keepVisible
     }
 
     private func refreshContent() {
