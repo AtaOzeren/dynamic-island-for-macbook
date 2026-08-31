@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A20000012C81000000000001 /* NotchFlowAppUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000022C81000000000001 /* NotchFlowAppUITests.swift */; };
 		F10000012C81000000000001 /* NotchFlowApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000001 /* NotchFlowApp.swift */; };
 		F10000012C81000000000005 /* SystemNowPlayingBridge+Direct.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000004 /* SystemNowPlayingBridge+Direct.swift */; };
 		F10000012C81000000000006 /* MediaRemoteMusicProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000005 /* MediaRemoteMusicProvider.swift */; };
@@ -27,7 +28,19 @@
 		F10000012C81000000000004 /* NotchFlowUI in Frameworks */ = {isa = PBXBuildFile; productRef = F10000032C81000000000003 /* NotchFlowUI */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		A200000A2C81000000000001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F10000092C81000000000001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F10000062C81000000000001;
+			remoteInfo = NotchFlow;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
+		A20000022C81000000000001 /* NotchFlowAppUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchFlowAppUITests.swift; sourceTree = "<group>"; };
+		A20000022C81000000000002 /* NotchFlowAppUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = NotchFlowAppUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000022C81000000000001 /* NotchFlowApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchFlowApp.swift; sourceTree = "<group>"; };
 		F10000022C81000000000002 /* NotchFlow.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NotchFlow.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F10000022C81000000000003 /* Package.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Package.swift; path = Package.swift; sourceTree = "<group>"; };
@@ -51,6 +64,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A20000042C81000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F10000042C81000000000001 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -70,6 +90,7 @@
 			children = (
 				F10000022C81000000000003 /* Package.swift */,
 				F10000052C81000000000002 /* NotchFlow */,
+				A20000052C81000000000001 /* NotchFlowAppUITests */,
 				F10000052C81000000000003 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -101,13 +122,42 @@
 			isa = PBXGroup;
 			children = (
 				F10000022C81000000000002 /* NotchFlow.app */,
+				A20000022C81000000000002 /* NotchFlowAppUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		A20000052C81000000000001 /* NotchFlowAppUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A20000022C81000000000001 /* NotchFlowAppUITests.swift */,
+			);
+			path = NotchFlowAppUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A20000062C81000000000001 /* NotchFlowAppUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A20000072C81000000000001 /* Build configuration list for PBXNativeTarget "NotchFlowAppUITests" */;
+			buildPhases = (
+				A20000082C81000000000001 /* Sources */,
+				A20000042C81000000000001 /* Frameworks */,
+				A200000D2C81000000000001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A200000B2C81000000000001 /* PBXTargetDependency */,
+			);
+			name = NotchFlowAppUITests;
+			packageProductDependencies = (
+			);
+			productName = NotchFlowAppUITests;
+			productReference = A20000022C81000000000002 /* NotchFlowAppUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 		F10000062C81000000000001 /* NotchFlow */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F10000072C81000000000001 /* Build configuration list for PBXNativeTarget "NotchFlow" */;
@@ -140,6 +190,10 @@
 				LastSwiftUpdateCheck = 1600;
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
+					A20000062C81000000000001 = {
+						CreatedOnToolsVersion = 16.0;
+						TestTargetID = F10000062C81000000000001;
+					};
 					F10000062C81000000000001 = {
 						CreatedOnToolsVersion = 16.0;
 					};
@@ -163,11 +217,19 @@
 			projectRoot = "";
 			targets = (
 				F10000062C81000000000001 /* NotchFlow */,
+				A20000062C81000000000001 /* NotchFlowAppUITests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A200000D2C81000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F100000D2C81000000000001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -182,6 +244,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A20000082C81000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A20000012C81000000000001 /* NotchFlowAppUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F10000082C81000000000001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -201,7 +271,63 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		A200000B2C81000000000001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F10000062C81000000000001 /* NotchFlow */;
+			targetProxy = A200000A2C81000000000001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		A200000C2C81000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlowAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A200000C2C81000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlowAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A200000C2C81000000000003 /* AppStore */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlowAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = AppStore;
+		};
+		A200000C2C81000000000004 /* Direct */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.notchflow.NotchFlowAppUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Direct;
+		};
 		F100000B2C81000000000001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -530,6 +656,17 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		A20000072C81000000000001 /* Build configuration list for PBXNativeTarget "NotchFlowAppUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A200000C2C81000000000001 /* Debug */,
+				A200000C2C81000000000002 /* Release */,
+				A200000C2C81000000000003 /* AppStore */,
+				A200000C2C81000000000004 /* Direct */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		F10000072C81000000000001 /* Build configuration list for PBXNativeTarget "NotchFlow" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

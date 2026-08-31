@@ -11,9 +11,8 @@ import SwiftUI
 /// flag says is not a first run. Owning the window here makes "shown exactly
 /// once" a property of the flag alone.
 ///
-/// The presenter requests no permission and installs nothing. It reports the
-/// user's decisions to the composition root, which is the only place that acts
-/// on them.
+/// Presenter requests no permission itself. It reports explicit hook approvals
+/// to composition root, which performs file-system mutations after flow closes.
 @MainActor
 final class OnboardingPresenter: NSObject, NSWindowDelegate {
     private var window: NSWindow?
@@ -92,5 +91,39 @@ final class OnboardingPresenter: NSObject, NSWindowDelegate {
             return
         }
         _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+    }
+}
+
+/// Retains manual hook instructions window for automatic-install failures and
+/// unreadable configurations reached from Settings.
+@MainActor
+final class ManualSetupPresenter: NSObject, NSWindowDelegate {
+    private var window: NSWindow?
+
+    func present(_ instructions: ManualSetupInstructions) {
+        window?.close()
+
+        let window = NSWindow(
+            contentRect: .zero,
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = instructions.title
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+        window.contentViewController = NSHostingController(
+            rootView: ManualSetupView(instructions: instructions)
+        )
+        window.center()
+        self.window = window
+
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard notification.object as? NSWindow === window else { return }
+        window = nil
     }
 }

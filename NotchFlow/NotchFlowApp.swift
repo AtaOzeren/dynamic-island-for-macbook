@@ -3,10 +3,13 @@ import Foundation
 import NotchFlowCore
 import NotchFlowProviders
 import NotchFlowUI
+import ServiceManagement
 import SwiftUI
 
 @main
 struct NotchFlowApp: App {
+    private static let isUITesting = CommandLine.arguments.contains("--ui-testing")
+
     /// Delivers `notchflow://` URLs while no window is open. See
     /// `URLSchemeAppDelegate` for why a view modifier cannot.
     @NSApplicationDelegateAdaptor(URLSchemeAppDelegate.self)
@@ -20,6 +23,7 @@ struct NotchFlowApp: App {
     private let settingsStore: SettingsStore
     private let urlSchemeReceiver = URLSchemeReceiver()
     private let onboardingPresenter = OnboardingPresenter()
+    private let manualSetupPresenter = ManualSetupPresenter()
 
     /// The loopback transport, held for the app's lifetime so termination can
     /// close its socket.
@@ -44,6 +48,8 @@ struct NotchFlowApp: App {
     @State private var enabledIdentifiers: Set<ActivityProviderIdentifier>
     @State private var languageOverride: String?
     @State private var musicAutomation: [MusicAutomationAccess]
+    @State private var hookStates: [IPCAgentID: HookInstallationState]
+    @State private var availableDisplays: [DisplayDescription]
 
     init() {
         let automationGate = MusicAutomationGate()
@@ -62,11 +68,18 @@ struct NotchFlowApp: App {
         _musicAutomation = State(
             initialValue: makeMusicAutomationAccess(gate: automationGate)
         )
+        _hookStates = State(initialValue: [:])
+        _availableDisplays = State(
+            initialValue: NSScreen.screens.map(DisplayDescription.init)
+        )
         let settingsStore = SettingsStore()
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
         _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)
-        _generalPreferences = State(initialValue: settingsStore.generalPreferences)
+        var initialGeneralPreferences = settingsStore.generalPreferences
+        initialGeneralPreferences.launchAtLogin = Self.launchAtLoginIsRequested
+        initialGeneralPreferences.appearance = .dark
+        _generalPreferences = State(initialValue: initialGeneralPreferences)
         _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
         _languageOverride = State(initialValue: settingsStore[.languageOverride])
         Self.applyLanguageOverride(settingsStore[.languageOverride])
@@ -165,6 +178,7 @@ struct NotchFlowApp: App {
         // Detection is an autoclosure so a returning user — the overwhelmingly
         // common case — never probes the file system for agent configuration.
         let presenter = onboardingPresenter
+        let manualSetupPresenter = manualSetupPresenter
         DispatchQueue.main.async {
             // Ordering a window front before AppKit has finished launching is
             // unreliable, and `start()` orders the panel in the moment an
@@ -182,12 +196,19 @@ struct NotchFlowApp: App {
             )
 
             presenter.presentIfNeeded(
-                hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding],
+                hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding] || Self.isUITesting,
                 detectedAgents: Self.detectedAgents()
             ) { outcome in
                 settingsStore[.hasCompletedOnboarding] = true
-                Self.applyHookOffers(outcome.acceptedHookOffers, to: settingsStore)
+                Self.applyHookOffers(
+                    outcome.acceptedHookOffers,
+                    to: settingsStore,
+                    receiver: receiver,
+                    listener: loopbackListener,
+                    manualSetupPresenter: manualSetupPresenter
+                )
             }
+
         }
     }
 
@@ -244,20 +265,38 @@ struct NotchFlowApp: App {
         return IPCAgentID.allCases.filter { statuses[$0] == .installed }
     }
 
-    /// Turns the accepted offers into the preference that actually gates the
-    /// receivers, so an agent the user opted into during onboarding is enabled
-    /// and every other one is left exactly as the safe defaults had it.
-    ///
-    /// Writing the hook itself is deliberately not done here: onboarding records
-    /// consent, and the installer's own approval flow — the one Settings uses —
-    /// stays the single place bytes reach an agent's configuration file.
-    private static func applyHookOffers(_ agentIDs: [IPCAgentID], to store: SettingsStore) {
+    /// Installs only hooks explicitly accepted in onboarding, then updates both
+    /// IPC transports from the resulting preference.
+    private static func applyHookOffers(
+        _ agentIDs: [IPCAgentID],
+        to store: SettingsStore,
+        receiver: URLSchemeReceiver,
+        listener: LoopbackHTTPListener,
+        manualSetupPresenter: ManualSetupPresenter
+    ) {
         guard !agentIDs.isEmpty else { return }
         var preferences = store.aiIntegrationPreferences
         for agentID in agentIDs {
-            preferences.setAgent(agentID, enabled: true)
+            do {
+                try installHook(for: agentID)
+                preferences.setAgent(agentID, enabled: true)
+            } catch {
+                presentManualSetup(
+                    for: agentID,
+                    with: manualSetupPresenter,
+                    fallbackError: error
+                )
+            }
         }
         store.aiIntegrationPreferences = preferences
+        receiver.preferences = preferences
+        Task {
+            do {
+                _ = try await listener.updatePreferences(preferences)
+            } catch {
+                present(error)
+            }
+        }
     }
 
     var body: some Scene {
@@ -285,45 +324,78 @@ struct NotchFlowApp: App {
             Divider()
 
             SettingsLink {
-                Text("Settings…")
+                Text(String(localized: "Settings…"))
             }
             .keyboardShortcut(",", modifiers: .command)
 
             Divider()
 
-            Button("Quit NotchFlow") {
+            Button(String(localized: "Quit NotchFlow")) {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q", modifiers: .command)
         }
 
         Settings {
-            SettingsWindowView(
-                general: $generalPreferences,
-                enabledIdentifiers: $enabledIdentifiers,
-                aiPreferences: $aiPreferences,
-                languageOverride: $languageOverride,
-                availableDisplays: NSScreen.screens.map(DisplayDescription.init),
-                information: aboutInformation,
-                languages: LanguageOption.shipped,
-                musicAutomation: $musicAutomation,
-                onRequestAutomation: requestAutomation
+            settingsWindowContent
+        }
+    }
+
+    private var settingsWindowContent: some View {
+        SettingsWindowView(
+            general: $generalPreferences,
+            enabledIdentifiers: $enabledIdentifiers,
+            aiPreferences: $aiPreferences,
+            languageOverride: $languageOverride,
+            availableDisplays: availableDisplays,
+            information: aboutInformation,
+            languages: LanguageOption.shipped,
+            musicAutomation: $musicAutomation,
+            hookStates: hookStates,
+            onRequestAutomation: requestAutomation,
+            onHookAction: handleHookAction
+        )
+        .onAppear {
+            aiPreferences = settingsStore.aiIntegrationPreferences
+            hookStates = Self.currentHookStates()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSApplication.didChangeScreenParametersNotification
             )
-            .onChange(of: aiPreferences, initial: true) { _, preferences in
-                settingsStore.aiIntegrationPreferences = preferences
-                urlSchemeReceiver.preferences = preferences
+        ) { _ in
+            availableDisplays = NSScreen.screens.map(DisplayDescription.init)
+        }
+        .onChange(of: aiPreferences, initial: true) { _, preferences in
+            settingsStore.aiIntegrationPreferences = preferences
+            urlSchemeReceiver.preferences = preferences
+            Task {
+                do {
+                    _ = try await loopbackListener.updatePreferences(preferences)
+                } catch {
+                    Self.present(error)
+                }
             }
-            .onChange(of: generalPreferences, initial: true) { _, preferences in
-                settingsStore.generalPreferences = preferences
-                islandPresenter.applyAppearance(preferences.appearance)
-                islandPresenter.applyKeepBarAlwaysVisible(preferences.keepBarAlwaysVisible)
+        }
+        .onChange(of: generalPreferences, initial: true) { _, preferences in
+            do {
+                try Self.applyLaunchAtLogin(preferences.launchAtLogin)
+            } catch {
+                Self.present(error)
+                generalPreferences.launchAtLogin = Self.launchAtLoginIsRequested
+                return
             }
-            .onChange(of: enabledIdentifiers) { _, identifiers in
-                settingsStore.enabledProviderIdentifiers = identifiers
-            }
-            .onChange(of: languageOverride) { _, override in
-                settingsStore[.languageOverride] = override
-            }
+            settingsStore.generalPreferences = preferences
+            islandPresenter.applyAppearance(preferences.appearance)
+            islandPresenter.applyKeepBarAlwaysVisible(preferences.keepBarAlwaysVisible)
+            islandPresenter.applyReducedMotion(preferences.reducedMotionOverride)
+            islandPresenter.applyDisplayTarget()
+        }
+        .onChange(of: enabledIdentifiers) { _, identifiers in
+            settingsStore.enabledProviderIdentifiers = identifiers
+        }
+        .onChange(of: languageOverride) { _, override in
+            settingsStore[.languageOverride] = override
         }
     }
 
@@ -339,7 +411,107 @@ struct NotchFlowApp: App {
         musicAutomation = makeMusicAutomationAccess(gate: automationGate)
     }
 
-    private var aboutInformation: AboutInformation {
+    private func handleHookAction(_ agentID: IPCAgentID, _ action: AIHookAction) {
+        do {
+            switch action {
+            case .install:
+                try Self.installHook(for: agentID)
+                aiPreferences.setAgent(agentID, enabled: true)
+            case .uninstall:
+                try Self.uninstallHook(for: agentID)
+                aiPreferences.setAgent(agentID, enabled: false)
+            case .manualSetup:
+                Self.presentManualSetup(for: agentID, with: manualSetupPresenter)
+            }
+        } catch {
+            Self.presentManualSetup(
+                for: agentID,
+                with: manualSetupPresenter,
+                fallbackError: error
+            )
+        }
+        hookStates = Self.currentHookStates()
+    }
+
+    private static var launchAtLoginIsRequested: Bool {
+        switch SMAppService.mainApp.status {
+        case .enabled, .requiresApproval: true
+        case .notRegistered, .notFound: false
+        @unknown default: false
+        }
+    }
+
+    private static func applyLaunchAtLogin(_ shouldLaunch: Bool) throws {
+        let service = SMAppService.mainApp
+        if shouldLaunch {
+            guard !launchAtLoginIsRequested else { return }
+            try service.register()
+        } else {
+            guard launchAtLoginIsRequested else { return }
+            try service.unregister()
+        }
+    }
+
+    private static func currentHookStates() -> [IPCAgentID: HookInstallationState] {
+        Dictionary(uniqueKeysWithValues: IPCAgentID.allCases.map { agentID in
+            (agentID, hookState(for: agentID))
+        })
+    }
+
+    private static func hookState(for agentID: IPCAgentID) -> HookInstallationState {
+        switch agentID {
+        case .claudeCode: ClaudeCodeHookInstaller().installationState()
+        case .codex: CodexHookInstaller().installationState()
+        case .opencode: OpenCodePluginInstaller().installationState()
+        }
+    }
+
+    private static func installHook(for agentID: IPCAgentID) throws {
+        switch agentID {
+        case .claudeCode: try ClaudeCodeHookInstaller().install()
+        case .codex: try CodexHookInstaller().install()
+        case .opencode: try OpenCodePluginInstaller().install()
+        }
+    }
+
+    private static func uninstallHook(for agentID: IPCAgentID) throws {
+        switch agentID {
+        case .claudeCode: try ClaudeCodeHookInstaller().uninstall()
+        case .codex: try CodexHookInstaller().uninstall()
+        case .opencode: try OpenCodePluginInstaller().uninstall()
+        }
+    }
+
+    private static func manualSetupInstructions(
+        for agentID: IPCAgentID
+    ) throws -> ManualSetupInstructions {
+        switch agentID {
+        case .claudeCode: try ClaudeCodeHookInstaller().manualSetupInstructions()
+        case .codex: try CodexHookInstaller().manualSetupInstructions()
+        case .opencode: try OpenCodePluginInstaller().manualSetupInstructions()
+        }
+    }
+
+    private static func presentManualSetup(
+        for agentID: IPCAgentID,
+        with presenter: ManualSetupPresenter,
+        fallbackError: Error? = nil
+    ) {
+        do {
+            presenter.present(try manualSetupInstructions(for: agentID))
+        } catch {
+            present(fallbackError ?? error)
+        }
+    }
+
+    private static func present(_ error: Error) {
+        NSAlert(error: error).runModal()
+    }
+
+}
+
+private extension NotchFlowApp {
+    var aboutInformation: AboutInformation {
         let info = Bundle.main.infoDictionary
         return AboutInformation(
             version: info?["CFBundleShortVersionString"] as? String ?? "—",

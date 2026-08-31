@@ -38,6 +38,53 @@ public struct PanelMetrics: Equatable, Sendable {
     }
 }
 
+/// Fixed visual budget shared by compact rendering and AppKit hit testing.
+public struct CompactPillMetrics: Equatable, Sendable {
+    public static let `default` = CompactPillMetrics()
+
+    public let slotWidth: CGFloat
+    public let slotSpacing: CGFloat
+    public let edgeInset: CGFloat
+    public let symbolSize: CGFloat
+    public let cornerRadius: CGFloat
+
+    public init(
+        slotWidth: CGFloat = 22,
+        slotSpacing: CGFloat = 6,
+        edgeInset: CGFloat = 10,
+        symbolSize: CGFloat = 13,
+        cornerRadius: CGFloat = 12
+    ) {
+        self.slotWidth = slotWidth
+        self.slotSpacing = slotSpacing
+        self.edgeInset = edgeInset
+        self.symbolSize = symbolSize
+        self.cornerRadius = cornerRadius
+    }
+}
+
+/// Drawn compact size for `slotCount`, including opaque notch width.
+public func compactPillSize(
+    slotCount: Int,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    let slots = max(slotCount, 0)
+    guard slots > 0 else {
+        return CGSize(
+            width: notchSize.width + metrics.edgeInset * 2,
+            height: notchSize.height
+        )
+    }
+
+    return CGSize(
+        width: notchSize.width
+            + CGFloat(slots) * (metrics.slotWidth + metrics.slotSpacing)
+            + metrics.edgeInset * 2,
+        height: notchSize.height
+    )
+}
+
 /// The overlay window's frame on `screen`, in screen coordinates.
 ///
 /// The panel is centred on the notch and flush with the top of the screen. On a
@@ -72,22 +119,24 @@ public func panelFrame(
 /// `panelFrame(for:metrics:)`.
 public func compactHitRect(
     for screen: ScreenDescription,
-    metrics: PanelMetrics = .default
+    slotCount: Int = 0,
+    metrics: PanelMetrics = .default,
+    pillMetrics: CompactPillMetrics = .default
 ) -> CGRect {
     let panel = panelFrame(for: screen, metrics: metrics)
-    let pill =
-        notchRect(for: screen)
-        ?? CGRect(
-            x: screen.frame.midX - metrics.compactFallbackSize.width / 2,
-            y: screen.frame.maxY - metrics.compactFallbackSize.height,
-            width: metrics.compactFallbackSize.width,
-            height: metrics.compactFallbackSize.height
-        )
+    let hardwareNotch = notchRect(for: screen)
+    let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
+    let drawnSize = compactPillSize(
+        slotCount: slotCount,
+        notchSize: notchSize,
+        metrics: pillMetrics
+    )
+    let pillCentreX = hardwareNotch?.midX ?? screen.frame.midX
 
-    let width = min(pill.width + metrics.compactHitPadding * 2, panel.width)
-    let height = min(pill.height + metrics.compactHitPadding, panel.height)
+    let width = min(drawnSize.width + metrics.compactHitPadding * 2, panel.width)
+    let height = min(drawnSize.height + metrics.compactHitPadding, panel.height)
     let originX = clamp(
-        pill.midX - width / 2,
+        pillCentreX - width / 2,
         lowerBound: panel.minX,
         upperBound: panel.maxX - width
     )

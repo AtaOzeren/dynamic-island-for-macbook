@@ -17,11 +17,16 @@ final class IslandViewModel: ObservableObject {
     @Published var compact: CompactActivityPresentation
     @Published var expanded: [any Activity] = []
     @Published var notchSize: CGSize
+    @Published var hoverScale: CGFloat = 1
+    @Published var hoverOpacity: Double = 1
+    @Published var transitionMovesGeometry = true
 
     /// Assigned by the presenter after the controller exists. The content view
     /// is built *before* the controller — the panel's initialiser demands it —
     /// so the collapse target cannot capture the controller directly.
     var onCollapse: () -> Void = {}
+    var onExpand: () -> Void = {}
+    var onBeginInteraction: () -> Void = {}
     /// Where a press inside the expanded island goes. Assigned by the
     /// composition root for the same reason `onCollapse` is: the view is built
     /// before the objects that execute these commands exist, and putting a
@@ -46,6 +51,7 @@ struct IslandRootView: View {
     var body: some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .environment(\.colorScheme, .dark)
     }
 
     @ViewBuilder
@@ -56,6 +62,10 @@ struct IslandRootView: View {
         case .compact:
             CompactActivityView(presentation: model.compact, notchSize: model.notchSize)
                 .contentShape(Rectangle())
+                .scaleEffect(model.hoverScale, anchor: .top)
+                .opacity(model.hoverOpacity)
+                .onTapGesture(perform: model.onExpand)
+                .transition(contentTransition)
         case .expanded:
             // The collapse target is the empty space around the detail, per
             // `docs/04-overlay-window.md`: while expanded the panel accepts the
@@ -71,13 +81,23 @@ struct IslandRootView: View {
                 // occluded by hardware and never reaches the user.
                 ExpandedActivityView(
                     activities: model.expanded,
+                    topInset: model.notchSize.height,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,
                     onTimerCommand: model.onTimerCommand
                 )
                 .padding(.top, model.notchSize.height)
+                .simultaneousGesture(
+                    TapGesture().onEnded(model.onBeginInteraction)
+                )
             }
+            .transition(contentTransition)
         }
+    }
+
+    private var contentTransition: AnyTransition {
+        guard model.transitionMovesGeometry else { return .opacity }
+        return .opacity.combined(with: .scale(scale: 0.92, anchor: .top))
     }
 }
 
@@ -112,6 +132,7 @@ final class IslandPresenter {
     private let model: IslandViewModel
     private let panel: NotchPanel
     private let controller: PresentationController
+    private let reduceMotion: ConfigurableReduceMotion
     private let screenChanges: any ScreenChangeObserving
     private let musicProvider: (any MusicProvider)?
     private let timerProvider: TimerProvider?
@@ -134,6 +155,11 @@ final class IslandPresenter {
         self.timerProvider = timerProvider
         self.primaryActions = primaryActions
 
+        let reduceMotion = ConfigurableReduceMotion(
+            override: settingsStore.generalPreferences.reducedMotionOverride
+        )
+        self.reduceMotion = reduceMotion
+
         let model = IslandViewModel(
             compact: manager.compactPresentation,
             notchSize: Self.notchSize(
@@ -145,7 +171,7 @@ final class IslandPresenter {
 
         panel = NotchPanel(
             metrics: metrics,
-            appearance: settingsStore.generalPreferences.appearance,
+            appearance: .dark,
             content: IslandRootView(model: model)
         )
 
@@ -160,24 +186,45 @@ final class IslandPresenter {
             manager: manager,
             metrics: metrics,
             mouse: SystemMouseLocationObserver(),
+            reduceMotion: reduceMotion,
             screen: { Self.targetScreen(preference: displayTarget()) }
         )
     }
 
     func start() {
         controller.onStateChange = { [weak self] state in
-            self?.model.state = state
+            guard let self else { return }
+            let curve = controller.transition
+            model.transitionMovesGeometry = curve.movesGeometry
+            withAnimation(curve.animation) {
+                model.state = state
+            }
             // The provider arms its tick only while something is on screen to
             // redraw. Nothing called this before, so a running timer never
             // refreshed its face — the same never-wired defect class this
             // audit exists to close.
-            self?.timerProvider?.setPanelVisible(state != .hidden)
-            self?.refreshContent()
+            timerProvider?.setPanelVisible(state != .hidden)
+            refreshContent()
+        }
+        controller.onHoverChange = { [weak self] isHovered in
+            guard let self else { return }
+            let curve = controller.peek
+            withAnimation(curve.animation) {
+                model.hoverScale = isHovered && curve.movesGeometry ? 1.03 : 1
+                model.hoverOpacity = isHovered ? 0.94 : 1
+            }
         }
         controller.onSynchronize = { [weak self] in
             self?.refreshContent()
         }
         model.onCollapse = { [weak self] in self?.controller.collapse() }
+        model.onExpand = { [weak self] in
+            self?.controller.expand()
+            self?.controller.beginInteractiveMode()
+        }
+        model.onBeginInteraction = { [weak self] in
+            self?.controller.beginInteractiveMode()
+        }
         model.onMusicTransport = { [weak self] command in
             self?.musicProvider?.send(command)
         }
@@ -186,6 +233,9 @@ final class IslandPresenter {
         }
         model.onPrimaryAction = { [weak self] identity in
             self?.performPrimaryAction(for: identity)
+        }
+        panel.onCancel = { [weak self] in
+            self?.controller.collapse()
         }
 
         screenChanges.startObserving { [weak self] change in
@@ -228,34 +278,37 @@ final class IslandPresenter {
 
     /// Puts the panel back under the right notch after the screen set changes.
     ///
-    /// `.systemWillSleep` is deliberately ignored. Repositioning against a
-    /// display list that is about to be torn down resolves nothing, and
-    /// ordering the panel out here would desynchronise `PresentationController`
-    /// from the manager's active set — it only orders back in when the active
-    /// set changes, so an activity that is still running across the sleep would
-    /// never come back.
-    ///
-    /// `.systemDidWake` needs no delay. `docs/03-display-and-notch.md:66` states
-    /// the contract: while the display list is still settling nothing resolves,
-    /// and the `didChangeScreenParametersNotification` that follows is what
-    /// reflects the final geometry. Both events land here, so the wake attempt
-    /// is either correct or a no-op, and the parameters change that follows is
-    /// authoritative either way.
+    /// Sleep orders out without discarding activity state. Wake/display change
+    /// reconciles visibility, allowing recovery even when activity set did not
+    /// mutate while screens were unavailable.
     private func screenSetChanged(_ change: ScreenChange) {
-        guard change.event != .systemWillSleep else { return }
-        controller.repositionOnCurrentScreen()
+        switch change.event {
+        case .systemWillSleep:
+            controller.suspend()
+        case .screenParametersChanged, .systemDidWake:
+            controller.screenConfigurationDidChange()
+        }
         refreshContent()
     }
 
     /// Restyles the live panel. The window is never rebuilt for a scheme change,
     /// so an appearance switch while the island is expanded does not blink it
     /// out and back.
-    func applyAppearance(_ appearance: SettingsAppearance) {
-        panel.applyAppearance(appearance)
+    func applyAppearance(_: SettingsAppearance) {
+        panel.applyAppearance(.dark)
     }
 
     func applyKeepBarAlwaysVisible(_ keepVisible: Bool) {
         controller.keepBarAlwaysVisible = keepVisible
+    }
+
+    func applyReducedMotion(_ preferenceOverride: Bool?) {
+        reduceMotion.updateOverride(preferenceOverride)
+    }
+
+    func applyDisplayTarget() {
+        controller.screenConfigurationDidChange()
+        refreshContent()
     }
 
     private func refreshContent() {
@@ -276,7 +329,9 @@ final class IslandPresenter {
                 from: screens.map(DisplayDescription.init),
                 preference: preference
             ),
-            let screen = screens.first(where: { $0.localizedName == selection.name })
+            let screen = screens.first(where: {
+                DisplayDescription($0).identifier == selection.identifier
+            })
                 ?? screens.first
         else {
             return nil

@@ -1,8 +1,10 @@
 public struct DisplayDescription: Equatable, Sendable {
+    public let identifier: String
     public let name: String
     public let isBuiltIn: Bool
 
-    public init(name: String, isBuiltIn: Bool) {
+    public init(identifier: String? = nil, name: String, isBuiltIn: Bool) {
+        self.identifier = identifier ?? name
         self.name = name
         self.isBuiltIn = isBuiltIn
     }
@@ -12,6 +14,7 @@ public enum DisplayPreference: Equatable, Hashable, Sendable {
     case automatic
     case builtIn
     case named(String)
+    case identified(id: String, name: String)
 }
 
 public func selectDisplay(
@@ -30,5 +33,7 @@ public func selectDisplay(
         return fallbackDisplay
     case .named(let name):
         return availableDisplays.first { $0.name == name } ?? fallbackDisplay
+    case .identified(let id, _):
+        return availableDisplays.first { $0.identifier == id } ?? fallbackDisplay
     }
 }
