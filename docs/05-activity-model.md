@@ -29,7 +29,7 @@ enum ActivityPriority {
 }
 ```
 
-Priority determines one thing: ordering within the compact and expanded views (higher priority sorts first). Every registered activity makes the panel visible — the `ActivityManager` orders the panel in whenever the active set is non-empty and orders it out the instant the set empties, regardless of priority level. `critical` is reserved and unused by any V1 activity, left for a future case (see `13-deferred-backlog.md`) that must never be silently outranked by a V1 addition.
+Priority determines one thing: ordering within the compact and expanded views (higher priority sorts first). The panel itself remains compact and visible while the app is running; registering an activity supplies content that can expand. `critical` is reserved and unused by any V1 activity, left for a future case (see `13-deferred-backlog.md`) that must never be silently outranked by a V1 addition.
 
 ### V1 priority assignment
 
@@ -57,9 +57,9 @@ The `ActivityManager` lives in `NotchFlowCore` and is the only component that pr
 | Compact view capacity | The compact pill can show a limited number of activities at once (target: up to 3, see `04-overlay-window.md` for the pill's sizing constraints); activities beyond that limit are represented by a single overflow indicator (e.g. `+2`) rather than being hidden silently |
 | Expanded view | Shows every active activity, in the same priority order as the compact view, with no overflow — expansion exists precisely so nothing is truncated |
 | Auto-dismiss | The manager owns the timers for any activity with an auto-dismiss duration set; when the duration elapses without an intervening `update()`, the manager calls `end()` on that activity itself, the provider does not need to |
-| Panel visibility | The panel is ordered out — hidden, zero cost, per `02-performance-contract.md` — when and only when the active activity set becomes empty; the manager is therefore the sole authority the `NotchPanel` controller (`04-overlay-window.md`) consults for the hidden ↔ compact ↔ expanded transitions |
+| Panel visibility | The panel remains in compact form when the active set is empty. The controller orders it out only for suspension, teardown, or a missing target screen; `ActivityManager` decides compact content and whether expansion is allowed. |
 
-The rule "panel hidden if and only if the active set is empty" is what guarantees the idle budget: there is no other code path that can keep the panel visible, and no activity can keep it visible after calling `end()`.
+An empty active set guarantees a static compact surface: no provider activity may leave an animation, polling loop, or timer running after calling `end()`. This preserves the idle budget while keeping the small island visible.
 
 ## Worked example: three simultaneous activities
 

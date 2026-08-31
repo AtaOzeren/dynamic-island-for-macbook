@@ -9,10 +9,10 @@ NotchFlow lives on the notch permanently. If it is not free while idle, it fails
 | Idle CPU | < 0.1% averaged over 60s | `powermetrics` sampler, see below |
 | Idle wakeups | < 1 per second | `powermetrics --samplers tasks` |
 | Resident memory (idle) | < 60 MB | `ps -o rss` on the app process |
-| GPU work while hidden | No measurable GPU activity | Instruments GPU report, 60s idle capture |
+| Continuous idle GPU work | No continuously committed frames | Instruments GPU report, 60s idle capture |
 | Energy impact (idle) | "Low" in Activity Monitor | Manual read of the Energy tab after 5 min idle |
 
-"Idle" means: the panel is ordered out, no activity is active, no user interaction for at least 10 seconds. These are the conditions under which every number above must hold, not an average across a busy session.
+"Idle" means: the island is resting in its static compact form, no activity is active, and there has been no user interaction for at least 10 seconds. These are the conditions under which every number above must hold, not an average across a busy session.
 
 ## Forbidden patterns
 
@@ -24,9 +24,9 @@ Each of these has caused real notch-app battery complaints in the wild. None of 
 | A repeating `Timer` left active while idle | Wakes the process on a fixed cadence even with nothing to show |
 | Periodic system re-query (e.g. polling `NSWorkspace` or media state on an interval) | Trades a push-based OS API for a busy-poll; wastes wakeups for no new information |
 | Screen scanning of any kind | Not just a performance problem — it is also the privacy invariant this app is built around |
-| Animation while hidden | GPU compositing continues even though nothing is visible |
+| Animation while idle | Keeps the compositor active even though compact content is unchanged |
 | Unnecessary network calls while idle | Network activity is one of the most expensive wakeup sources on battery |
-| A retained render loop (e.g. a `CADisplayLink`-style ticker) that keeps running after the panel is ordered out | Keeps the compositor scheduled at display refresh rate for a view nobody sees |
+| A retained render loop (e.g. a `CADisplayLink`-style ticker) that keeps running while idle | Keeps the compositor scheduled at display refresh rate for unchanged content |
 
 ## Required patterns
 
@@ -34,14 +34,14 @@ Each of these has caused real notch-app battery complaints in the wild. None of 
 |---|---|
 | Subscribe to OS notifications (`NSWorkspace`, `NSNotificationCenter`, distributed notifications) instead of polling | Push-based; the OS wakes us only when something actually changed |
 | `DispatchSourceTimer` with generous leeway, active only while a time-based activity (countdown/stopwatch) is visible | Leeway lets the OS coalesce our wakeup with others already scheduled, instead of forcing a precise one |
-| `orderOut(nil)` on the panel the instant an activity ends | Stops compositing immediately; a hidden-but-still-ordered-in window still costs the compositor cycles |
+| Static compact content after the final activity ends | Preserves the persistent island without retaining animation or timer work |
 | Passive `NSEvent` global monitors rather than polling for input state | Global monitors are event-driven; polling mouse/keyboard state on a timer is pure waste |
 | `ProcessInfo.beginActivity` scoped as narrowly as possible and ended promptly | Prevents accidental App Nap suppression outliving the work it was meant to protect |
 | Explicit cooperation with App Nap — no blanket `.userInitiated` activity held for the app's lifetime | App Nap is the OS's own idle-cost enforcement; fighting it undoes everything else in this document |
 
 ## Measurement protocol
 
-Run every measurement after the app has been idle for at least 60 seconds (no activity active, panel ordered out, no user interaction). Numbers taken during an active animation or a just-triggered activity are not valid samples.
+Run every measurement after the app has been idle for at least 60 seconds (no activity active, island compact, no user interaction). Numbers taken during an active animation or a just-triggered activity are not valid samples.
 
 ### CPU and wakeups: `powermetrics`
 
@@ -61,7 +61,7 @@ ps -o rss= -p $(pgrep -x NotchFlow)
 
 ### GPU: Instruments
 
-Use the **Core Animation** Instruments template, record a 60-second idle window, and confirm the frame rate graph is flat at 0 committed frames — any nonzero GPU commit while the panel is ordered out is a failure.
+Use the **Core Animation** Instruments template and record a 60-second idle window. The persistent compact surface may remain composited, but it must not create a continuous stream of committed frames; any sustained frame activity is a failure.
 
 ### Energy Impact: Activity Monitor
 
