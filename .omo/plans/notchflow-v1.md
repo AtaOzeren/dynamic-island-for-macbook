@@ -590,11 +590,11 @@ Your next move: approve and run `/start-work`, or ask for a high-accuracy review
   - Run the todo 66 script with every provider enabled and no activity, for the full documented duration, and assert every `docs/02` threshold.
   - Evidence: `.omo/evidence/final-F8-notchflow-v1/`
 
-- [ ] F9. Privacy and entitlement audit
+- [x] F9. Privacy and entitlement audit
   - Inspect the effective entitlements of both built binaries; assert they match `docs/09` exactly with nothing extra. Confirm no network connection other than the loopback listener occurs during a full session, using a network monitor.
   - Evidence: `.omo/evidence/final-F9-notchflow-v1/`
 
-- [ ] F10. Scope and guardrail audit
+- [x] F10. Scope and guardrail audit
   - Confirm every Must-have is present and every Must-NOT-have is absent: no MediaRemote symbol in the App Store build, no polling loop, no screen scraping, no third-party runtime dependency, no deferred feature partially implemented, no undocumented setting.
   - Evidence: `.omo/evidence/final-F10-notchflow-v1.txt`
 
