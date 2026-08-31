@@ -12,7 +12,6 @@ import Testing
 @Suite("ManualSetupInstructions")
 struct ManualSetupInstructionsTests {
     private static let homeDirectory = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
-    private static let notifierPath = "/Applications/NotchFlow.app/Contents/MacOS/notchflow-notify"
 
     // MARK: - Snippet equals what the installer writes
 
@@ -21,7 +20,6 @@ struct ManualSetupInstructionsTests {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = ClaudeCodeHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
         let settingsURL = Self.homeDirectory.appending(path: ".claude/settings.json")
@@ -41,7 +39,6 @@ struct ManualSetupInstructionsTests {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = CodexHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
         let configURL = Self.homeDirectory.appending(path: ".codex/config.toml")
@@ -60,7 +57,6 @@ struct ManualSetupInstructionsTests {
     func openCodeSnippetMatchesInstalledFile() throws {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = OpenCodePluginInstaller(
-            notifierExecutablePath: Self.notifierPath,
             homeDirectory: Self.homeDirectory,
             fileSystem: fileSystem
         )
@@ -88,7 +84,6 @@ struct ManualSetupInstructionsTests {
         let fileSystem = InMemoryManualSetupFileSystem(files: [settingsURL: existing])
         let installer = ClaudeCodeHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
 
@@ -108,7 +103,6 @@ struct ManualSetupInstructionsTests {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = ClaudeCodeHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
 

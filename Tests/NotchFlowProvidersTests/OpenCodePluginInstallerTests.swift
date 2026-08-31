@@ -13,7 +13,6 @@ struct OpenCodePluginInstallerTests {
         path: ".config/opencode/plugins/notchflow.ts.notchflow-backup"
     )
     private static let pluginsDirectory = pluginURL.deletingLastPathComponent()
-    private static let notifierPath = "/Applications/NotchFlow.app/Contents/MacOS/notchflow-notify"
 
     @Test("fresh install creates the plugin tree and generated plugin")
     func freshInstall() throws {
@@ -27,7 +26,7 @@ struct OpenCodePluginInstallerTests {
         #expect(fileSystem.text(at: Self.pluginURL) == proposal)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(proposal.contains("export const NotchFlowPlugin: Plugin"))
-        #expect(proposal.contains(Self.notifierPath))
+        #expect(proposal.contains(#"spawn("open", ["-g", url]"#))
     }
 
     @Test("install and uninstall preserve unrelated plugin files")
@@ -105,11 +104,54 @@ struct OpenCodePluginInstallerTests {
         #expect(fileSystem.data(at: Self.backupURL) == nil)
     }
 
+    @Test("installation state is missing when no plugin file exists")
+    func installationStateWithoutPluginFile() {
+        let fileSystem = InMemoryOpenCodePluginFileSystem()
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .configurationMissing)
+        #expect(fileSystem.writeCount == 0)
+        #expect(fileSystem.createdDirectories.isEmpty)
+    }
+
+    @Test("installation state is absent when the plugin file is not ours")
+    func installationStateWithForeignPlugin() {
+        let fileSystem = InMemoryOpenCodePluginFileSystem(
+            files: [Self.pluginURL: Data("export const Something = async () => ({})\n".utf8)]
+        )
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .hookAbsent)
+        #expect(fileSystem.writeCount == 0)
+    }
+
+    @Test("installation state is installed after install writes the plugin")
+    func installationStateAfterInstall() throws {
+        let fileSystem = InMemoryOpenCodePluginFileSystem()
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+        try installer.install()
+
+        let writesAfterInstall = fileSystem.writeCount
+
+        #expect(installer.installationState() == .hookInstalled)
+        #expect(fileSystem.writeCount == writesAfterInstall)
+    }
+
+    @Test("installation state is unreadable when the plugin file cannot be read")
+    func installationStateWithUnreadablePlugin() {
+        let fileSystem = InMemoryOpenCodePluginFileSystem(
+            files: [Self.pluginURL: Data("export const NotchFlowPlugin = 1\n".utf8)]
+        )
+        fileSystem.failReadURL = Self.pluginURL
+
+        #expect(
+            Self.makeInstaller(fileSystem: fileSystem).installationState() == .configurationUnreadable
+        )
+        #expect(fileSystem.writeCount == 0)
+    }
+
     private static func makeInstaller(
         fileSystem: InMemoryOpenCodePluginFileSystem
     ) -> OpenCodePluginInstaller {
         OpenCodePluginInstaller(
-            notifierExecutablePath: notifierPath,
             homeDirectory: homeDirectory,
             fileSystem: fileSystem
         )
@@ -118,6 +160,7 @@ struct OpenCodePluginInstallerTests {
 
 private enum TestFileSystemError: Error {
     case writeFailed
+    case readFailed
 }
 
 private final class InMemoryOpenCodePluginFileSystem: OpenCodePluginFileSystem,
@@ -128,6 +171,7 @@ private final class InMemoryOpenCodePluginFileSystem: OpenCodePluginFileSystem,
     private(set) var createdDirectories: [URL] = []
     private(set) var writeCount = 0
     var failWriteURL: URL?
+    var failReadURL: URL?
 
     init(files: [URL: Data] = [:]) {
         self.files = files
@@ -135,7 +179,10 @@ private final class InMemoryOpenCodePluginFileSystem: OpenCodePluginFileSystem,
     }
 
     func readFile(at url: URL) throws -> Data? {
-        files[url]
+        guard failReadURL != url else {
+            throw TestFileSystemError.readFailed
+        }
+        return files[url]
     }
 
     func createDirectory(at url: URL) throws {
