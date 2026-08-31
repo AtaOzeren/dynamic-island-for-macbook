@@ -18,10 +18,7 @@ let package = Package(
             name: "NotchFlowCore",
             dependencies: [],
             path: "Sources/NotchFlowCore",
-            resources: [.process("Resources")],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "NotchFlowCoreTests",
@@ -31,10 +28,7 @@ let package = Package(
         .target(
             name: "NotchFlowProviders",
             dependencies: ["NotchFlowCore"],
-            path: "Sources/NotchFlowProviders",
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            path: "Sources/NotchFlowProviders"
         ),
         .testTarget(
             name: "NotchFlowProvidersTests",
@@ -45,10 +39,7 @@ let package = Package(
             name: "NotchFlowUI",
             dependencies: ["NotchFlowCore"],
             path: "Sources/NotchFlowUI",
-            resources: [.process("Resources")],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
-            ]
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "NotchFlowUITests",
@@ -67,9 +58,6 @@ let package = Package(
                 "Assets.xcassets",
                 "Info.plist",
                 "Localizable.xcstrings",
-            ],
-            swiftSettings: [
-                .enableUpcomingFeature("StrictConcurrency")
             ]
         ),
     ],

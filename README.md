@@ -22,7 +22,7 @@ For complete technical documentation, architecture decisions, and design specifi
 ### Prerequisites
 
 - macOS 14.0 or later
-- Xcode 16.0 or later (Swift 6 toolchain)
+- Xcode 26.0 or later (Swift 6.2 toolchain; `isolated deinit` requires it)
 
 ### Build Commands
 
