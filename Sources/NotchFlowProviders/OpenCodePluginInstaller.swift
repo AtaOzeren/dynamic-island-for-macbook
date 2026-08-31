@@ -3,6 +3,7 @@ import NotchFlowCore
 
 public enum OpenCodePluginInstallerError: Error, Equatable, Sendable {
     case invalidGeneratedPlugin
+    case pluginChangedSinceInstall
 }
 
 public protocol OpenCodePluginFileSystem: Sendable {
@@ -125,13 +126,20 @@ public struct OpenCodePluginInstaller: Sendable {
 
     public func uninstall() throws {
         if let backupData = try fileSystem.readFile(at: backupURL) {
+            guard try fileSystem.readFile(at: pluginURL) == generatedPlugin().data else {
+                throw OpenCodePluginInstallerError.pluginChangedSinceInstall
+            }
             try fileSystem.writeFileAtomically(backupData, to: pluginURL)
             try fileSystem.removeFile(at: backupURL)
             return
         }
 
-        guard try fileSystem.readFile(at: pluginURL) != nil else {
+        guard let pluginData = try fileSystem.readFile(at: pluginURL) else {
             return
+        }
+        let generatedData = try generatedPlugin().data
+        guard pluginData == generatedData else {
+            throw OpenCodePluginInstallerError.pluginChangedSinceInstall
         }
         try fileSystem.removeFile(at: pluginURL)
         try removeEmptyParents()

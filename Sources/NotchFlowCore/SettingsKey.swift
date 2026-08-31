@@ -47,6 +47,22 @@ extension SettingsKey where Value == DisplayPreference {
                 case "automatic": return .automatic
                 case "builtIn": return .builtIn
                 default:
+                    let identifiedPrefix = "identified:"
+                    if representation.hasPrefix(identifiedPrefix) {
+                        let payload = representation.dropFirst(identifiedPrefix.count)
+                        let parts = payload.split(separator: ":", maxSplits: 1).map(String.init)
+                        guard
+                            parts.count == 2,
+                            let idData = Data(base64Encoded: parts[0]),
+                            let nameData = Data(base64Encoded: parts[1])
+                        else {
+                            return nil
+                        }
+                        return .identified(
+                            id: String(decoding: idData, as: UTF8.self),
+                            name: String(decoding: nameData, as: UTF8.self)
+                        )
+                    }
                     let prefix = "named:"
                     guard representation.hasPrefix(prefix) else { return nil }
                     return .named(String(representation.dropFirst(prefix.count)))
@@ -57,6 +73,8 @@ extension SettingsKey where Value == DisplayPreference {
                 case .automatic: "automatic"
                 case .builtIn: "builtIn"
                 case .named(let name): "named:\(name)"
+                case .identified(let id, let name):
+                    "identified:\(Data(id.utf8).base64EncodedString()):\(Data(name.utf8).base64EncodedString())"
                 }
             }
         )

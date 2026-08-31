@@ -5,6 +5,7 @@ public enum ClaudeCodeHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingSettings
     case invalidGeneratedSettings
     case incompatibleHooksStructure
+    case configurationChangedSinceInstall
 }
 
 public protocol ClaudeCodeHookFileSystem: Sendable {
@@ -120,6 +121,10 @@ public struct ClaudeCodeHookInstaller: Sendable {
     public func uninstall() throws {
         if let backup = try fileSystem.readFile(at: backupURL) {
             _ = try validatedRoot(from: backup, error: .invalidExistingSettings)
+            let installedData = try mergedSettings(from: backup).data
+            guard try fileSystem.readFile(at: settingsURL) == installedData else {
+                throw ClaudeCodeHookInstallerError.configurationChangedSinceInstall
+            }
             try fileSystem.writeFileAtomically(backup, to: settingsURL)
             try fileSystem.removeFile(at: backupURL)
             return

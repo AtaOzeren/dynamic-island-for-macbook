@@ -1,6 +1,28 @@
 import NotchFlowCore
 import SwiftUI
 
+public enum AIHookAction: Equatable, Sendable {
+    case install
+    case uninstall
+    case manualSetup
+
+    var title: String {
+        switch self {
+        case .install: localized("Install hook")
+        case .uninstall: localized("Uninstall hook")
+        case .manualSetup: localized("Manual setup")
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .install: "plus.circle"
+        case .uninstall: "trash"
+        case .manualSetup: "doc.text"
+        }
+    }
+}
+
 /// The AI Integrations pane: one switch per agent, one per event class.
 ///
 /// The pane owns no state. It reads and writes a binding the composition root
@@ -9,14 +31,20 @@ import SwiftUI
 /// enabled, which is exactly the bug the toggles exist to prevent.
 public struct AIIntegrationsSettingsView: View {
     @Binding private var preferences: AIIntegrationPreferences
+    private let hookStates: [IPCAgentID: HookInstallationState]
     private let metrics: SettingsPaneMetrics
+    private let onHookAction: (IPCAgentID, AIHookAction) -> Void
 
     public init(
         preferences: Binding<AIIntegrationPreferences>,
-        metrics: SettingsPaneMetrics = .default
+        hookStates: [IPCAgentID: HookInstallationState] = [:],
+        metrics: SettingsPaneMetrics = .default,
+        onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in }
     ) {
         self._preferences = preferences
+        self.hookStates = hookStates
         self.metrics = metrics
+        self.onHookAction = onHookAction
     }
 
     /// Event switches are disabled while no agent is, because with every agent
@@ -40,6 +68,18 @@ public struct AIIntegrationsSettingsView: View {
         )
     }
 
+    public func hookAction(for agentID: IPCAgentID) -> AIHookAction {
+        switch hookStates[agentID] ?? .configurationMissing {
+        case .configurationMissing, .hookAbsent: .install
+        case .hookInstalled: .uninstall
+        case .configurationUnreadable: .manualSetup
+        }
+    }
+
+    public func performHookAction(for agentID: IPCAgentID) {
+        onHookAction(agentID, hookAction(for: agentID))
+    }
+
     public var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
             agentSection
@@ -56,7 +96,18 @@ public struct AIIntegrationsSettingsView: View {
             metrics: metrics
         ) {
             ForEach(IPCAgentID.allCases, id: \.self) { agentID in
-                Toggle(agentID.displayName, isOn: binding(for: agentID))
+                HStack {
+                    Toggle(agentID.displayName, isOn: binding(for: agentID))
+                    Spacer(minLength: metrics.rowSpacing)
+                    let action = hookAction(for: agentID)
+                    Button {
+                        performHookAction(for: agentID)
+                    } label: {
+                        Label(action.title, systemImage: action.symbolName)
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(action.title)
+                }
             }
         }
     }

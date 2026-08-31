@@ -4,6 +4,7 @@ import NotchFlowCore
 public enum CodexHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingConfiguration
     case invalidGeneratedConfiguration
+    case configurationChangedSinceInstall
 }
 
 public typealias CodexTOMLSyntaxValidator = @Sendable (String) -> Bool
@@ -120,6 +121,10 @@ public struct CodexHookInstaller: Sendable {
     public func uninstall() throws {
         if let backup = try fileSystem.readFile(at: backupURL) {
             _ = try validatedText(from: backup, error: .invalidExistingConfiguration)
+            let installedData = Data(try mergedConfiguration(from: backup).text.utf8)
+            guard try fileSystem.readFile(at: configURL) == installedData else {
+                throw CodexHookInstallerError.configurationChangedSinceInstall
+            }
             try fileSystem.writeFileAtomically(backup, to: configURL)
             try fileSystem.removeFile(at: backupURL)
             return

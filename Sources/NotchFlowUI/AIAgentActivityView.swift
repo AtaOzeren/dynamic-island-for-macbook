@@ -17,6 +17,7 @@ public struct AIAgentPresentation: Equatable, Sendable {
     public let detail: String?
     public let toolName: String?
     public let progress: Double?
+    public let primaryAction: PrimaryAction?
 
     public init(activity: AIAgentActivity) {
         state = activity.state
@@ -24,6 +25,7 @@ public struct AIAgentPresentation: Equatable, Sendable {
         detail = activity.detail.isEmpty ? nil : activity.detail
         toolName = activity.toolName
         progress = activity.progress
+        primaryAction = activity.primaryAction
     }
 
     /// One glyph per state, and the three states that need the user's attention
@@ -202,6 +204,15 @@ public struct AIAgentActivityView: View {
                 glyph
                 text
                 Spacer(minLength: 0)
+                if let action = presentation.primaryAction {
+                    Button(action: performPrimaryAction) {
+                        Image(systemName: action.symbolName)
+                            .frame(width: metrics.glyphSize, height: metrics.glyphSize)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(action.title)
+                }
             }
 
             if let progress = presentation.progress {
@@ -214,7 +225,8 @@ public struct AIAgentActivityView: View {
         .background {
             surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
         }
-        .accessibilityElement(children: .ignore)
+        .environment(\.colorScheme, surface.preferredColorScheme)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilityLabel)
     }
 

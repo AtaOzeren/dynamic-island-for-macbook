@@ -145,7 +145,8 @@ public func expandedRows(for activities: [any Activity]) -> [ExpandedRow] {
 public func expandedPanelSize(
     for activities: [any Activity],
     metrics: ExpandedItemMetrics = .default,
-    panelMetrics: PanelMetrics = .default
+    panelMetrics: PanelMetrics = .default,
+    topInset: CGFloat = 0
 ) -> CGSize {
     guard !activities.isEmpty else { return .zero }
 
@@ -162,9 +163,10 @@ public func expandedPanelSize(
         .max() ?? metrics.panel.width
     let width = widest + metrics.panel.contentInset * 2
 
+    let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
     return CGSize(
         width: min(width, panelMetrics.maximumExpandedSize.width),
-        height: min(height, panelMetrics.maximumExpandedSize.height)
+        height: min(height, availableHeight)
     )
 }
 
@@ -210,14 +212,15 @@ public func expandedPanelSize(
 public func expandedPanelOverflowsWindow(
     for activities: [any Activity],
     metrics: ExpandedItemMetrics = .default,
-    panelMetrics: PanelMetrics = .default
+    panelMetrics: PanelMetrics = .default,
+    topInset: CGFloat = 0
 ) -> Bool {
     guard !activities.isEmpty else { return false }
 
     let heights = activities.map { expandedItemHeight(for: $0, metrics: metrics, panelMetrics: panelMetrics) }
     let spacing = CGFloat(activities.count - 1) * metrics.panel.rowSpacing
-    return heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2
-        > panelMetrics.maximumExpandedSize.height
+    let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
+    return heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2 > availableHeight
 }
 
 /// Whether `rowCount` generic rows still fit the allocated window at these
@@ -250,6 +253,7 @@ public struct ExpandedActivityView: View {
     private let activities: [any Activity]
     private let metrics: ExpandedItemMetrics
     private let panelMetrics: PanelMetrics
+    private let topInset: CGFloat
     private let onPrimaryAction: (ActivityIdentity) -> Void
     private let onMusicTransport: (MusicTransportCommand) -> Void
     private let onTimerCommand: (TimerControlCommand) -> Void
@@ -258,6 +262,7 @@ public struct ExpandedActivityView: View {
         activities: [any Activity],
         metrics: ExpandedItemMetrics = .default,
         panelMetrics: PanelMetrics = .default,
+        topInset: CGFloat = 0,
         onPrimaryAction: @escaping (ActivityIdentity) -> Void = { _ in },
         onMusicTransport: @escaping (MusicTransportCommand) -> Void = { _ in },
         onTimerCommand: @escaping (TimerControlCommand) -> Void = { _ in }
@@ -265,27 +270,44 @@ public struct ExpandedActivityView: View {
         self.activities = activities
         self.metrics = metrics
         self.panelMetrics = panelMetrics
+        self.topInset = topInset
         self.onPrimaryAction = onPrimaryAction
         self.onMusicTransport = onMusicTransport
         self.onTimerCommand = onTimerCommand
     }
 
     public var body: some View {
+        let surface = islandExpandedSurface(
+            scheme: colorScheme.islandColorScheme,
+            reduceTransparency: reduceTransparency
+        )
         let size = expandedPanelSize(
             for: activities,
             metrics: metrics,
-            panelMetrics: panelMetrics
+            panelMetrics: panelMetrics,
+            topInset: topInset
         )
         let scrolls = expandedPanelOverflowsWindow(
             for: activities,
             metrics: metrics,
-            panelMetrics: panelMetrics
+            panelMetrics: panelMetrics,
+            topInset: topInset
         )
 
         itemStack
             .padding(metrics.panel.contentInset)
             .frame(width: size.width, height: size.height, alignment: .top)
             .modifier(ScrollWhenTaller(isEnabled: scrolls))
+            .foregroundStyle(surface.foreground.style)
+            .background {
+                surface.fill(
+                    in: RoundedRectangle(
+                        cornerRadius: metrics.panel.cornerRadius,
+                        style: .continuous
+                    )
+                )
+            }
+            .environment(\.colorScheme, surface.preferredColorScheme)
     }
 
     private var itemStack: some View {
@@ -305,7 +327,8 @@ public struct ExpandedActivityView: View {
                     activity: music,
                     metrics: metrics.music,
                     panelMetrics: panelMetrics,
-                    onTransport: onMusicTransport
+                    onTransport: onMusicTransport,
+                    onPrimaryAction: { onPrimaryAction(activity.identity) }
                 )
             } else {
                 genericRow(for: activity)
@@ -399,6 +422,7 @@ private struct GenericActivityRowView: View {
         .background {
             surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
         }
+        .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(row.accessibilityLabel)
     }
