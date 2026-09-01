@@ -45,6 +45,35 @@ struct CompositionRootWiringTests {
         #expect(source.contains("disclosedAgentIDs: { [model] in model.disclosedAgentIDs }"))
     }
 
+    /// The pill's icons, the black bar behind them, and the hover target must
+    /// all be sized from the same set of visible slots.
+    ///
+    /// A music icon leaves after a few seconds. While that timer lived as
+    /// private state inside `CompactActivityView`, only the icons shrank: the
+    /// bar kept the width of a slot that was no longer drawn, and the hover
+    /// target kept reporting the pointer as over an island that had moved out
+    /// from under it. The filtering functions were always correct — nothing was
+    /// passing them the set — so only the wiring can catch this.
+    @Test("the pill, its surface and its hover target share one visible slot set")
+    func compactPillFollowsHiddenMusicIcons() throws {
+        let presenter = try Self.appSource("NotchFlow/IslandPresenter.swift")
+
+        // One owner, read by the surface and bound into the view.
+        #expect(presenter.contains("@Published var hiddenMusicSlotIDs"))
+        #expect(presenter.contains("hiddenMusicSlotIDs: $model.hiddenMusicSlotIDs"))
+        #expect(
+            presenter.contains(
+                "compactSlotLayout(for: model.compact, hiding: model.hiddenMusicSlotIDs)"
+            )
+        )
+        // And handed to the controller, which owns the hover target.
+        #expect(presenter.contains("hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }"))
+
+        // Nothing may size the compact pill from the unfiltered presentation.
+        #expect(!presenter.contains("compactPillGeometry(for: model.compact,"))
+        #expect(!presenter.contains("balancedCompactPillSize(\n            for: model.compact,"))
+    }
+
     @Test("both IPC transports are handed the same message sink")
     func transportsShareOneSink() throws {
         let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")

@@ -39,7 +39,6 @@ struct HookGenerationTests {
                 "PostToolUse",
                 "Notification",
                 "Stop",
-                "SubagentStop",
                 "SessionEnd",
             ]
         )
@@ -55,7 +54,6 @@ struct HookGenerationTests {
         #expect(command["command"]?.contains("CLAUDE_SESSION_ID") == false)
 
         #expect(try hookCommand(for: "Stop", in: hooks).contains(#""completed""#))
-        #expect(try hookCommand(for: "SubagentStop", in: hooks).contains(#""working""#))
         #expect(try hookCommand(for: "SessionEnd", in: hooks).contains(#""idle""#))
     }
 

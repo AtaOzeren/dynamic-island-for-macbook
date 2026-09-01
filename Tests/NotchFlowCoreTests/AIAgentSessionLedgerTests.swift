@@ -71,6 +71,60 @@ struct AIAgentSessionLedgerTests {
         #expect(ledger.admit(Self.message(at: 1, state: .thinking)) == .admit)
     }
 
+    // MARK: - A finished turn stays finished
+
+    /// The observed defect: `Stop` reported the turn complete, and four and a
+    /// half seconds later a `working` arrived with nobody having typed anything.
+    /// The green tick turned back into a spinner while the user was reading the
+    /// answer.
+    @Test("work arriving after a turn ends is dropped")
+    func midTurnStatesAfterCompletionAreDropped() {
+        var ledger = AIAgentSessionLedger()
+
+        #expect(ledger.admit(Self.message(at: 0, state: .usingTool)) == .admit)
+        #expect(ledger.admit(Self.message(at: 1, state: .completed)) == .admit)
+        #expect(ledger.admit(Self.message(at: 5, state: .working)) == .stale)
+        #expect(ledger.admit(Self.message(at: 6, state: .usingTool)) == .stale)
+    }
+
+    /// A new turn must still be able to start, or a session would answer once
+    /// and never appear again.
+    @Test("a new turn reopens a finished session")
+    func aNewTurnReopensTheSession() {
+        var ledger = AIAgentSessionLedger()
+
+        #expect(ledger.admit(Self.message(at: 1, state: .completed)) == .admit)
+        #expect(ledger.admit(Self.message(at: 5, state: .thinking)) == .admit)
+        #expect(ledger.admit(Self.message(at: 6, state: .usingTool)) == .admit)
+        #expect(ledger.admit(Self.message(at: 7, state: .completed)) == .admit)
+    }
+
+    /// Something the user has to act on outranks a finished turn: an agent that
+    /// completes and then fails, or asks a question, must still say so.
+    @Test("attention and terminal states still land after a completed turn")
+    func attentionStatesSurviveCompletion() {
+        for state in [AIAgentState.error, .waitingForUser, .idle] {
+            var ledger = AIAgentSessionLedger()
+            #expect(ledger.admit(Self.message(at: 1, state: .completed)) == .admit)
+            #expect(
+                ledger.admit(Self.message(at: 5, state: state)) == .admit,
+                "\(state) was swallowed by the completed turn"
+            )
+        }
+    }
+
+    /// The rule is per session: one agent finishing must not silence another
+    /// that is still working.
+    @Test("a finished turn only silences its own session")
+    func completionIsPerSession() {
+        var ledger = AIAgentSessionLedger()
+
+        #expect(ledger.admit(Self.message(at: 1, state: .completed)) == .admit)
+        #expect(
+            ledger.admit(Self.message(at: 2, state: .working, session: Self.otherSession)) == .admit
+        )
+    }
+
     private static func message(
         at offset: TimeInterval,
         state: AIAgentState = .working,

@@ -182,17 +182,101 @@ struct CompactActivityViewTests {
         let slots = compactSlots(for: manager.compactPresentation)
         let musicID = try #require(slots.first(where: { $0.musicSourceIdentity != nil })?.id)
         var visibility = CompactMusicIconVisibility()
+        var hidden: Set<String> = []
 
-        #expect(visibility.synchronize(activeSlots: slots) == [musicID])
-        #expect(visibility.synchronize(activeSlots: slots).isEmpty)
+        #expect(
+            visibility.synchronize(activeSlots: slots, hiddenSlotIDs: &hidden) == [musicID]
+        )
+        #expect(
+            visibility.synchronize(activeSlots: slots, hiddenSlotIDs: &hidden).isEmpty
+        )
 
-        visibility.hide(slotID: musicID)
+        #expect(visibility.hasAnnounced(musicID))
+        hidden.insert(musicID)
 
-        #expect(visibility.visibleSlots(from: slots).allSatisfy { $0.id != musicID })
-        #expect(visibility.visibleSlots(from: slots).contains { $0.id == "timer" })
+        #expect(visibleCompactSlots(slots, hiding: hidden).allSatisfy { $0.id != musicID })
+        #expect(visibleCompactSlots(slots, hiding: hidden).contains { $0.id == "timer" })
 
-        #expect(visibility.synchronize(activeSlots: []).isEmpty)
-        #expect(visibility.synchronize(activeSlots: slots) == [musicID])
+        // A slot that goes away is forgotten, so the icon announces itself again
+        // when the same track comes back.
+        #expect(visibility.synchronize(activeSlots: [], hiddenSlotIDs: &hidden).isEmpty)
+        #expect(hidden.isEmpty, "a departed slot must not stay in the hidden set")
+        #expect(
+            visibility.synchronize(activeSlots: slots, hiddenSlotIDs: &hidden) == [musicID]
+        )
+    }
+
+    /// The bug this split exists to prevent: the icon disappeared after its few
+    /// seconds while the black bar behind it kept the width of the slot that was
+    /// no longer drawn.
+    @Test("hiding a music icon narrows the pill")
+    func hidingMusicNarrowsThePill() throws {
+        let manager = ActivityManager()
+        manager.register(
+            MusicActivity(
+                nowPlaying: NowPlaying(
+                    title: "Windowlicker",
+                    artist: "Aphex Twin",
+                    playbackState: .playing,
+                    sourceApplicationName: "Spotify"
+                )
+            )
+        )
+        manager.register(Self.activity("timer", .timer, .high))
+        let presentation = manager.compactPresentation
+        let slots = compactSlots(for: presentation)
+        let musicID = try #require(slots.first(where: { $0.musicSourceIdentity != nil })?.id)
+        let notch = CGSize(width: 200, height: 32)
+
+        let shown = compactPillSize(
+            for: compactSlotLayout(for: presentation, hiding: []),
+            notchSize: notch
+        )
+        let hidden = compactPillSize(
+            for: compactSlotLayout(for: presentation, hiding: [musicID]),
+            notchSize: notch
+        )
+
+        #expect(hidden.width < shown.width)
+    }
+
+    /// And the hover target has to shrink with it, or the pointer keeps
+    /// reporting as over an island that has moved out from under it.
+    @Test("hiding a music icon narrows the hover target")
+    func hidingMusicNarrowsTheHitRect() throws {
+        let manager = ActivityManager()
+        manager.register(
+            MusicActivity(
+                nowPlaying: NowPlaying(
+                    title: "Windowlicker",
+                    artist: "Aphex Twin",
+                    playbackState: .playing,
+                    sourceApplicationName: "Spotify"
+                )
+            )
+        )
+        manager.register(Self.activity("timer", .timer, .high))
+        let presentation = manager.compactPresentation
+        let slots = compactSlots(for: presentation)
+        let musicID = try #require(slots.first(where: { $0.musicSourceIdentity != nil })?.id)
+        let screen = ScreenDescription(
+            frame: CGRect(x: 0, y: 0, width: 1512, height: 982),
+            safeAreaInsets: ScreenSafeAreaInsets(top: 37),
+            auxiliaryTopLeftArea: CGRect(x: 0, y: 945, width: 656, height: 37),
+            auxiliaryTopRightArea: CGRect(x: 856, y: 945, width: 656, height: 37),
+            isBuiltIn: true
+        )
+
+        func hitWidth(hiding hiddenIDs: Set<String>) -> CGFloat {
+            let layout = compactSlotLayout(for: presentation, hiding: hiddenIDs)
+            return compactHitRect(
+                for: screen,
+                leadingSlotCount: layout.leading.count,
+                trailingSlotCount: layout.trailing.count
+            ).width
+        }
+
+        #expect(hitWidth(hiding: [musicID]) < hitWidth(hiding: []))
     }
 
     private static func aiAgent(_ agent: IPCAgentID) -> AIAgentActivity {

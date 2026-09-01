@@ -270,6 +270,10 @@ public struct HookSnippetGenerator: Sendable {
     /// indefinitely. The first event that means anything is the user submitting
     /// a prompt, and `Stop` clears the card five seconds after the turn ends, so
     /// the island is empty between turns without a session event to bracket it.
+    /// No `SubagentStop` either. A subagent finishing is not a change of the
+    /// session the user is watching — the Task tool's own `PostToolUse` already
+    /// reports it — and mapping it to `working` reopened a turn that `Stop` had
+    /// just closed.
     private static let claudeCodeLifecycle: [LifecycleEvent] = [
         LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
         LifecycleEvent(
@@ -279,7 +283,6 @@ public struct HookSnippetGenerator: Sendable {
             carriesToolName: true
         ),
         LifecycleEvent(event: "PostToolUse", state: "working", detail: "Tool completed"),
-        LifecycleEvent(event: "SubagentStop", state: "working", detail: "Subagent finished"),
         LifecycleEvent(event: "Notification", state: "waitingForUser", detail: "Needs attention"),
         LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
         LifecycleEvent(event: "SessionEnd", state: "idle", detail: "Session ended"),

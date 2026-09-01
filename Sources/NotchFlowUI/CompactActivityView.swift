@@ -175,6 +175,21 @@ public func compactPillGeometry(
     )
 }
 
+/// The symmetric width for `layout`, for the elements that must stay centred on
+/// the notch however the slots divide.
+public func balancedCompactPillSize(
+    for layout: CompactSlotLayout,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    balancedCompactPillSize(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
 /// The symmetric width for `presentation`, for the elements that must stay
 /// centred on the notch however the slots divide.
 public func balancedCompactPillSize(
@@ -237,20 +252,27 @@ private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
     )
 }
 
+/// Tracks which music slots have already started their visibility timer.
+///
+/// The *hidden* set deliberately does not live here. It decides how wide the
+/// pill is drawn, and the pill's black surface and its hover target are sized
+/// by an ancestor of the view that owns this — while the set was private view
+/// state, hiding the icon shrank the icons and left the bar and the hover
+/// target at their old width. Only this bookkeeping, which nothing outside the
+/// view needs, stayed behind.
 struct CompactMusicIconVisibility: Equatable, Sendable {
     static let visibleDuration: Duration = .seconds(5)
 
     private var announcedSlotIDs: Set<String> = []
-    private var hiddenSlotIDs: Set<String> = []
 
     init() {}
 
-    mutating func synchronize(activeSlots: [CompactSlot]) -> [String] {
-        let activeMusicSlotIDs = Set(
-            activeSlots.lazy
-                .filter { $0.musicSourceIdentity != nil }
-                .map(\.id)
-        )
+    /// Prunes slots that are gone and returns the ones whose timer must start.
+    mutating func synchronize(
+        activeSlots: [CompactSlot],
+        hiddenSlotIDs: inout Set<String>
+    ) -> [String] {
+        let activeMusicSlotIDs = compactMusicSlotIDs(in: activeSlots)
         announcedSlotIDs.formIntersection(activeMusicSlotIDs)
         hiddenSlotIDs.formIntersection(activeMusicSlotIDs)
 
@@ -259,14 +281,38 @@ struct CompactMusicIconVisibility: Equatable, Sendable {
         return newSlotIDs.sorted()
     }
 
-    mutating func hide(slotID: String) {
-        guard announcedSlotIDs.contains(slotID) else { return }
-        hiddenSlotIDs.insert(slotID)
+    func hasAnnounced(_ slotID: String) -> Bool {
+        announcedSlotIDs.contains(slotID)
     }
+}
 
-    func visibleSlots(from slots: [CompactSlot]) -> [CompactSlot] {
-        slots.filter { !hiddenSlotIDs.contains($0.id) }
-    }
+/// The music slots in `slots`, by identifier.
+func compactMusicSlotIDs(in slots: [CompactSlot]) -> Set<String> {
+    Set(slots.lazy.filter { $0.musicSourceIdentity != nil }.map(\.id))
+}
+
+/// The slots still drawn, once the music icons that have timed out are removed.
+///
+/// Public because everything that sizes the compact pill has to agree on it:
+/// the view that draws the icons, the surface drawn behind them, and the hover
+/// target. Sizing any of those from the unfiltered set is what left a long
+/// black bar behind a hidden icon.
+public func visibleCompactSlots(
+    _ slots: [CompactSlot],
+    hiding hiddenSlotIDs: Set<String>
+) -> [CompactSlot] {
+    guard hiddenSlotIDs.isEmpty == false else { return slots }
+    return slots.filter { !hiddenSlotIDs.contains($0.id) }
+}
+
+/// The pill's layout for `presentation`, with timed-out music icons removed.
+public func compactSlotLayout(
+    for presentation: CompactActivityPresentation,
+    hiding hiddenSlotIDs: Set<String>
+) -> CompactSlotLayout {
+    compactSlotLayout(
+        for: visibleCompactSlots(compactSlots(for: presentation), hiding: hiddenSlotIDs)
+    )
 }
 
 public func compactSymbolName(_ kind: ActivityKind) -> String {
@@ -304,22 +350,25 @@ public struct CompactActivityView: View {
     private let motion: IslandMotion
 
     @State private var musicIconVisibility = CompactMusicIconVisibility()
+    @Binding private var hiddenMusicSlotIDs: Set<String>
 
     public init(
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
+        hiddenMusicSlotIDs: Binding<Set<String>> = .constant([]),
         metrics: CompactPillMetrics = .default,
         motion: IslandMotion = .default
     ) {
         self.presentation = presentation
         self.notchSize = notchSize
+        _hiddenMusicSlotIDs = hiddenMusicSlotIDs
         self.metrics = metrics
         self.motion = motion
     }
 
     public var body: some View {
         let slots = compactSlots(for: presentation)
-        let visibleSlots = musicIconVisibility.visibleSlots(from: slots)
+        let visibleSlots = visibleCompactSlots(slots, hiding: hiddenMusicSlotIDs)
         let layout = compactSlotLayout(for: visibleSlots)
         let size = compactPillSize(for: layout, notchSize: notchSize, metrics: metrics)
 
@@ -435,14 +484,18 @@ public struct CompactActivityView: View {
     }
 
     private func scheduleMusicIconDismissals(for slots: [CompactSlot]) async {
-        let newSlotIDs = musicIconVisibility.synchronize(activeSlots: slots)
+        let newSlotIDs = musicIconVisibility.synchronize(
+            activeSlots: slots,
+            hiddenSlotIDs: &hiddenMusicSlotIDs
+        )
         for slotID in newSlotIDs {
             do {
                 try await Task.sleep(for: CompactMusicIconVisibility.visibleDuration)
             } catch {
                 return
             }
-            musicIconVisibility.hide(slotID: slotID)
+            guard musicIconVisibility.hasAnnounced(slotID) else { continue }
+            hiddenMusicSlotIDs.insert(slotID)
         }
     }
 }

@@ -115,6 +115,14 @@ public final class PresentationController {
     /// having left the island the moment it moved onto a disclosed row.
     private let disclosedAgentIDs: @MainActor () -> Set<IPCAgentID>
 
+    /// Music icons whose few seconds on screen have elapsed.
+    ///
+    /// Read here for the same reason the disclosure set is: they change how wide
+    /// the pill is drawn, so a hover target that ignored them would keep
+    /// reporting the pointer as over an island that had already shrunk away from
+    /// under it.
+    private let hiddenMusicSlotIDs: @MainActor () -> Set<String>
+
     public init(
         panel: NotchPanel,
         manager: ActivityManager,
@@ -123,7 +131,8 @@ public final class PresentationController {
         motion: IslandMotion = .default,
         reduceMotion: any ReduceMotionQuerying = SystemReduceMotion(),
         screen: @escaping ScreenProvider,
-        disclosedAgentIDs: @escaping @MainActor () -> Set<IPCAgentID> = { [] }
+        disclosedAgentIDs: @escaping @MainActor () -> Set<IPCAgentID> = { [] },
+        hiddenMusicSlotIDs: @escaping @MainActor () -> Set<String> = { [] }
     ) {
         self.panel = panel
         self.manager = manager
@@ -133,6 +142,7 @@ public final class PresentationController {
         self.reduceMotion = reduceMotion
         self.screen = screen
         self.disclosedAgentIDs = disclosedAgentIDs
+        self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
     }
 
     public func start() {
@@ -269,7 +279,10 @@ public final class PresentationController {
     }
 
     private func updateHitRect(on screen: ScreenDescription) {
-        let layout = compactSlotLayout(for: manager.compactPresentation)
+        let layout = compactSlotLayout(
+            for: manager.compactPresentation,
+            hiding: hiddenMusicSlotIDs()
+        )
         hitRect = compactHitRect(
             for: screen,
             leadingSlotCount: layout.leading.count,
@@ -288,7 +301,10 @@ public final class PresentationController {
         // this rectangle is only consulted while expanded, and the expanded
         // shape keeps its neck centred.
         let compactSize = balancedCompactPillSize(
-            for: manager.compactPresentation,
+            for: compactSlotLayout(
+                for: manager.compactPresentation,
+                hiding: hiddenMusicSlotIDs()
+            ),
             notchSize: notchSize
         )
         let expandedContentSize = expandedPanelSize(

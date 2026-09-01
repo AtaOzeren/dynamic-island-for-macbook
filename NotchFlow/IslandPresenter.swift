@@ -22,6 +22,13 @@ final class IslandViewModel: ObservableObject {
     /// surface is sized from this model: a disclosure the surface cannot see is
     /// a disclosure drawn outside it.
     @Published var disclosedAgentIDs: Set<IPCAgentID> = []
+    /// Music icons that have finished their few seconds on screen.
+    ///
+    /// Held here for the same reason the disclosure set is: it decides how wide
+    /// the pill is, and the pill's black surface and its hover target are sized
+    /// from this model. While the view owned it privately, the icon vanished
+    /// and the bar behind it stayed at full width.
+    @Published var hiddenMusicSlotIDs: Set<String> = []
     @Published var notchSize: CGSize
     @Published var hoverScale: CGFloat = 1
     @Published var hoverOpacity: Double = 1
@@ -71,7 +78,10 @@ struct IslandRootView: View {
     /// The compact pill's own geometry, whose flanks are only as wide as the
     /// slots they carry.
     private var compactPill: CompactPillGeometry {
-        compactPillGeometry(for: model.compact, notchSize: model.notchSize)
+        compactPillGeometry(
+            for: compactSlotLayout(for: model.compact, hiding: model.hiddenMusicSlotIDs),
+            notchSize: model.notchSize
+        )
     }
 
     /// How far to slide the island so the notch region sits on the hardware
@@ -92,7 +102,7 @@ struct IslandRootView: View {
     /// the moment the island opened.
     private var geometry: ConnectedIslandGeometry {
         let compactSize = balancedCompactPillSize(
-            for: model.compact,
+            for: compactSlotLayout(for: model.compact, hiding: model.hiddenMusicSlotIDs),
             notchSize: model.notchSize
         )
         let expandedContentSize = expandedPanelSize(
@@ -121,7 +131,8 @@ struct IslandRootView: View {
         case .compact:
             CompactActivityView(
                 presentation: model.compact,
-                notchSize: model.notchSize
+                notchSize: model.notchSize,
+                hiddenMusicSlotIDs: $model.hiddenMusicSlotIDs
             )
                 .sharingIslandSurface()
                 .contentShape(Rectangle())
@@ -255,7 +266,8 @@ final class IslandPresenter {
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
             screen: { Self.targetScreen(preference: displayTarget()) },
-            disclosedAgentIDs: { [model] in model.disclosedAgentIDs }
+            disclosedAgentIDs: { [model] in model.disclosedAgentIDs },
+            hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }
         )
         controller.automaticallyExpandsOnHover = false
     }
