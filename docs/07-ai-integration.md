@@ -100,6 +100,8 @@ NotchFlow accepts the envelope over two transports. Both carry the identical JSO
 
 The **URL scheme is preferred** for hook scripts: it needs no entitlement, works identically in every build configuration, and is invoked with `open -g` so it never steals focus from the terminal or editor the agent is running in. The **HTTP listener is the fallback**, used when a caller wants a lower-latency, higher-throughput channel (for example, an editor plugin sending frequent `usingTool` progress updates) or when the calling environment cannot shell out to `open`.
 
+Multiple sessions remain separate activities in the manager, but presentation groups sessions by `agentId`: one compact icon per agent and one minimalist expanded summary row. A count disclosure lists concurrent sessions. The summary uses the most important state in the group (`error`, then needs-input, then active work, then completed). Its navigation action traces a live CLI process to its parent app when possible, then uses deterministic running-app fallbacks; it never chooses randomly between multiple hosts.
+
 NotchFlow binds the HTTP listener to an OS-assigned ephemeral port at launch and writes the chosen port to a discoverable location (`~/Library/Application Support/NotchFlow/ipc-port`) so a caller that prefers HTTP can read the current port without guessing or scanning.
 
 ### Security

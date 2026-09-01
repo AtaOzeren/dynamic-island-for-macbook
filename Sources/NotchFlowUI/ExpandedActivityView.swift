@@ -20,8 +20,27 @@ public struct ExpandedRow: Identifiable, Equatable, Sendable {
         symbolName = recording?.symbolName ?? compactSymbolName(activity.kind)
         title = recording?.title ?? compactAccessibilityLabel(activity.kind)
         primaryAction = activity.primaryAction
-        accessibilityLabel = recording?.accessibilityLabel
+        accessibilityLabel =
+            recording?.accessibilityLabel
             ?? compactAccessibilityLabel(activity.kind)
+    }
+}
+
+struct ExpandedActivityItem: Identifiable {
+    let id: String
+    let activity: (any Activity)?
+    let aiAgentGroup: AIAgentActivityGroup?
+
+    fileprivate init(activity: any Activity) {
+        id = activity.identity.rawValue
+        self.activity = activity
+        aiAgentGroup = nil
+    }
+
+    fileprivate init(aiAgentGroup: AIAgentActivityGroup) {
+        id = aiAgentGroup.id
+        activity = nil
+        self.aiAgentGroup = aiAgentGroup
     }
 }
 
@@ -120,12 +139,7 @@ public func expandedItemHeight(
     case .timer:
         return timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).height
     case .aiAgent:
-        let hasProgress = (activity as? AIAgentActivity)?.progress != nil
-        return aiAgentExpandedSize(
-            hasProgress: hasProgress,
-            metrics: metrics.aiAgent,
-            panelMetrics: panelMetrics
-        ).height
+        return metrics.panel.rowHeight
     case .charging, .recording, .genericRow:
         return metrics.panel.rowHeight
     }
@@ -138,6 +152,27 @@ public func expandedRows(for activities: [any Activity]) -> [ExpandedRow] {
     activities.map(ExpandedRow.init(activity:))
 }
 
+func expandedActivityItems(for activities: [any Activity]) -> [ExpandedActivityItem] {
+    var agentIndexes: [IPCAgentID: Int] = [:]
+    var items: [ExpandedActivityItem] = []
+
+    for activity in activities {
+        guard let agent = activity as? AIAgentActivity else {
+            items.append(ExpandedActivityItem(activity: activity))
+            continue
+        }
+
+        if let index = agentIndexes[agent.agent], let group = items[index].aiAgentGroup {
+            items[index] = ExpandedActivityItem(aiAgentGroup: group.appending(agent))
+        } else {
+            agentIndexes[agent.agent] = items.count
+            items.append(ExpandedActivityItem(aiAgentGroup: AIAgentActivityGroup(session: agent)))
+        }
+    }
+
+    return items
+}
+
 /// The expanded panel's drawn size for a mixed set, clamped to the window's
 /// allocated maximum.
 ///
@@ -148,14 +183,23 @@ public func expandedRows(for activities: [any Activity]) -> [ExpandedRow] {
 /// geometry rather than by policy.
 public func expandedPanelSize(
     for activities: [any Activity],
+    disclosedAgentIDs: Set<IPCAgentID> = [],
     metrics: ExpandedItemMetrics = .default,
     panelMetrics: PanelMetrics = .default,
     topInset: CGFloat = 0
 ) -> CGSize {
-    guard !activities.isEmpty else { return .zero }
+    let items = expandedActivityItems(for: activities)
+    guard !items.isEmpty else { return .zero }
 
-    let heights = activities.map { expandedItemHeight(for: $0, metrics: metrics, panelMetrics: panelMetrics) }
-    let spacing = CGFloat(activities.count - 1) * metrics.panel.rowSpacing
+    let heights = items.map {
+        expandedItemHeight(
+            for: $0,
+            disclosedAgentIDs: disclosedAgentIDs,
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+    }
+    let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
     let height = heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2
 
     // The inset is applied on both axes by the view's `.padding`, so the width
@@ -163,7 +207,7 @@ public func expandedPanelSize(
     // every card by twice the inset — enough to push a trailing control button
     // outside the frame and make it unclickable.
     let widest =
-        activities.map { expandedItemWidth(for: $0, metrics: metrics, panelMetrics: panelMetrics) }
+        items.map { expandedItemWidth(for: $0, metrics: metrics, panelMetrics: panelMetrics) }
         .max() ?? metrics.panel.width
     let width = widest + metrics.panel.contentInset * 2
 
@@ -172,6 +216,35 @@ public func expandedPanelSize(
         width: min(width, panelMetrics.maximumExpandedSize.width),
         height: min(height, availableHeight)
     )
+}
+
+private func expandedItemHeight(
+    for item: ExpandedActivityItem,
+    disclosedAgentIDs: Set<IPCAgentID>,
+    metrics: ExpandedItemMetrics,
+    panelMetrics: PanelMetrics
+) -> CGFloat {
+    if let group = item.aiAgentGroup {
+        return metrics.panel.rowHeight
+            + aiAgentGroupDisclosureHeight(
+                sessionCount: group.sessions.count,
+                isDisclosed: disclosedAgentIDs.contains(group.agentID)
+            )
+    }
+    guard let activity = item.activity else { return 0 }
+    return expandedItemHeight(for: activity, metrics: metrics, panelMetrics: panelMetrics)
+}
+
+private func expandedItemWidth(
+    for item: ExpandedActivityItem,
+    metrics: ExpandedItemMetrics,
+    panelMetrics: PanelMetrics
+) -> CGFloat {
+    if item.aiAgentGroup != nil {
+        return metrics.panel.width
+    }
+    guard let activity = item.activity else { return 0 }
+    return expandedItemWidth(for: activity, metrics: metrics, panelMetrics: panelMetrics)
 }
 
 func expandedItemWidth(
@@ -215,14 +288,23 @@ public func expandedPanelSize(
 /// Once this goes false the list scrolls rather than being cut off.
 public func expandedPanelOverflowsWindow(
     for activities: [any Activity],
+    disclosedAgentIDs: Set<IPCAgentID> = [],
     metrics: ExpandedItemMetrics = .default,
     panelMetrics: PanelMetrics = .default,
     topInset: CGFloat = 0
 ) -> Bool {
-    guard !activities.isEmpty else { return false }
+    let items = expandedActivityItems(for: activities)
+    guard !items.isEmpty else { return false }
 
-    let heights = activities.map { expandedItemHeight(for: $0, metrics: metrics, panelMetrics: panelMetrics) }
-    let spacing = CGFloat(activities.count - 1) * metrics.panel.rowSpacing
+    let heights = items.map {
+        expandedItemHeight(
+            for: $0,
+            disclosedAgentIDs: disclosedAgentIDs,
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+    }
+    let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
     let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
     return heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2 > availableHeight
 }
@@ -252,6 +334,7 @@ public func expandedPanelOverflowsWindow(
 /// view keep the generic row so nothing ever renders as blank space.
 public struct ExpandedActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
 
@@ -262,6 +345,8 @@ public struct ExpandedActivityView: View {
     private let onPrimaryAction: (ActivityIdentity) -> Void
     private let onMusicTransport: (MusicTransportCommand) -> Void
     private let onTimerCommand: (TimerControlCommand) -> Void
+
+    @State private var disclosedAgentIDs: Set<IPCAgentID> = []
 
     public init(
         activities: [any Activity],
@@ -288,12 +373,14 @@ public struct ExpandedActivityView: View {
         )
         let size = expandedPanelSize(
             for: activities,
+            disclosedAgentIDs: disclosedAgentIDs,
             metrics: metrics,
             panelMetrics: panelMetrics,
             topInset: topInset
         )
         let scrolls = expandedPanelOverflowsWindow(
             for: activities,
+            disclosedAgentIDs: disclosedAgentIDs,
             metrics: metrics,
             panelMetrics: panelMetrics,
             topInset: topInset
@@ -315,18 +402,35 @@ public struct ExpandedActivityView: View {
                 }
             }
             .environment(\.colorScheme, surface.preferredColorScheme)
+            .animation(disclosureAnimation, value: disclosedAgentIDs)
     }
 
     private var itemStack: some View {
         VStack(alignment: .leading, spacing: metrics.panel.rowSpacing) {
-            ForEach(activities, id: \.identity) { activity in
-                item(for: activity)
+            ForEach(expandedActivityItems(for: activities)) { item in
+                itemView(for: item)
             }
         }
     }
 
     @ViewBuilder
-    private func item(for activity: any Activity) -> some View {
+    private func itemView(for item: ExpandedActivityItem) -> some View {
+        if let group = item.aiAgentGroup {
+            AIAgentActivityGroupView(
+                group: group,
+                metrics: metrics.panel,
+                isDisclosed: group.showsDisclosure
+                    && disclosedAgentIDs.contains(group.agentID),
+                onToggleDisclosure: { toggleDisclosure(for: group.agentID) },
+                onPrimaryAction: { onPrimaryAction(group.representative.identity) }
+            )
+        } else if let activity = item.activity {
+            itemView(for: activity)
+        }
+    }
+
+    @ViewBuilder
+    private func itemView(for activity: any Activity) -> some View {
         switch expandedItemRenderer(for: activity) {
         case .music:
             if let music = activity as? MusicActivity {
@@ -376,6 +480,18 @@ public struct ExpandedActivityView: View {
             }
         case .genericRow:
             genericRow(for: activity)
+        }
+    }
+
+    private var disclosureAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.18)
+    }
+
+    private func toggleDisclosure(for agentID: IPCAgentID) {
+        if disclosedAgentIDs.contains(agentID) {
+            disclosedAgentIDs.remove(agentID)
+        } else {
+            disclosedAgentIDs.insert(agentID)
         }
     }
 

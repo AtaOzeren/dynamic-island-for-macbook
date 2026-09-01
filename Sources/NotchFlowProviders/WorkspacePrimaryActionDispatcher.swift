@@ -1,6 +1,189 @@
 import AppKit
+import Darwin
 import Foundation
 import NotchFlowCore
+
+struct WorkspaceProcessDescription: Equatable, Sendable {
+    let processIdentifier: pid_t
+    let parentProcessIdentifier: pid_t
+    let executableURL: URL
+    let applicationBundleIdentifier: String?
+}
+
+struct AgentHostApplicationResolver {
+    let processes: [WorkspaceProcessDescription]
+
+    func hostBundleIdentifiers(for agent: IPCAgentID) -> Set<String> {
+        let processesByID = Dictionary(uniqueKeysWithValues: processes.map { ($0.processIdentifier, $0) })
+        let executableNames = Self.executableNames(for: agent)
+
+        return Set(
+            processes.compactMap { process in
+                guard process.applicationBundleIdentifier == nil else { return nil }
+                guard executableNames.contains(process.executableURL.lastPathComponent.lowercased()) else {
+                    return nil
+                }
+                return hostBundleIdentifier(for: process, processesByID: processesByID)
+            }
+        )
+    }
+
+    private func hostBundleIdentifier(
+        for process: WorkspaceProcessDescription,
+        processesByID: [pid_t: WorkspaceProcessDescription]
+    ) -> String? {
+        var parentProcessIdentifier = process.parentProcessIdentifier
+        var visitedProcessIdentifiers: Set<pid_t> = []
+
+        while parentProcessIdentifier > 1,
+            visitedProcessIdentifiers.insert(parentProcessIdentifier).inserted,
+            let parent = processesByID[parentProcessIdentifier]
+        {
+            if let bundleIdentifier = parent.applicationBundleIdentifier {
+                return bundleIdentifier
+            }
+            parentProcessIdentifier = parent.parentProcessIdentifier
+        }
+        return nil
+    }
+
+    private static func executableNames(for agent: IPCAgentID) -> Set<String> {
+        switch agent {
+        case .claudeCode: ["claude"]
+        case .codex: ["codex"]
+        case .opencode: ["opencode", "opencode.exe"]
+        }
+    }
+}
+
+struct WorkspaceApplicationSnapshot: Equatable, Sendable {
+    let frontmostBundleIdentifier: String?
+    let runningBundleIdentifiers: Set<String>
+}
+
+struct AgentApplicationTargetResolver {
+    let processHostBundleIdentifiers: Set<String>
+    let workspace: WorkspaceApplicationSnapshot
+
+    func preferredRunningBundleIdentifier(for agent: IPCAgentID) -> String? {
+        let runningProcessHosts = processHostBundleIdentifiers.intersection(
+            workspace.runningBundleIdentifiers
+        )
+        if let frontmost = workspace.frontmostBundleIdentifier,
+            runningProcessHosts.contains(frontmost)
+        {
+            return frontmost
+        }
+        if runningProcessHosts.count == 1 {
+            return runningProcessHosts.first
+        }
+
+        if let dedicated = dedicatedBundleIdentifiers(for: agent).first(where: {
+            workspace.runningBundleIdentifiers.contains($0)
+        }) {
+            return dedicated
+        }
+
+        let runningHosts = workspace.runningBundleIdentifiers.filter(Self.isDevelopmentHost)
+        if let frontmost = workspace.frontmostBundleIdentifier,
+            runningHosts.contains(frontmost)
+        {
+            return frontmost
+        }
+        return runningHosts.count == 1 ? runningHosts.first : nil
+    }
+
+    func dedicatedBundleIdentifiers(for agent: IPCAgentID) -> [String] {
+        switch agent {
+        case .claudeCode: ["com.anthropic.claudefordesktop"]
+        case .codex: ["com.openai.codex", "com.openai.chat"]
+        case .opencode: ["dev.opencode.app"]
+        }
+    }
+
+    private static func isDevelopmentHost(_ bundleIdentifier: String) -> Bool {
+        knownDevelopmentHostBundleIdentifiers.contains(bundleIdentifier)
+            || bundleIdentifier.hasPrefix("com.jetbrains.")
+    }
+
+    private static let knownDevelopmentHostBundleIdentifiers: Set<String> = [
+        "com.apple.Terminal",
+        "com.apple.dt.Xcode",
+        "com.github.wez.wezterm",
+        "com.googlecode.iterm2",
+        "com.microsoft.VSCode",
+        "com.microsoft.VSCodeInsiders",
+        "com.mitchellh.ghostty",
+        "com.todesktop.230313mzl4w4u92",
+        "dev.warp.Warp",
+        "dev.warp.Warp-Stable",
+        "dev.zed.Zed",
+        "net.kovidgoyal.kitty",
+        "org.alacritty",
+    ]
+}
+
+func outermostApplicationBundleURL(for executableURL: URL) -> URL? {
+    var directory = executableURL.deletingLastPathComponent()
+    var outermostApplicationURL: URL?
+
+    while directory.path != "/" {
+        if directory.pathExtension.caseInsensitiveCompare("app") == .orderedSame {
+            outermostApplicationURL = directory
+        }
+        directory.deleteLastPathComponent()
+    }
+    return outermostApplicationURL
+}
+
+private struct SystemWorkspaceProcessScanner {
+    func processes() -> [WorkspaceProcessDescription] {
+        let estimatedProcessCount = max(Int(proc_listallpids(nil, 0)), 0)
+        var processIdentifiers = [pid_t](repeating: 0, count: estimatedProcessCount + 64)
+        let processCount = processIdentifiers.withUnsafeMutableBytes { buffer in
+            proc_listallpids(buffer.baseAddress, Int32(buffer.count))
+        }
+
+        return processIdentifiers.prefix(max(Int(processCount), 0)).compactMap(processDescription)
+    }
+
+    private func processDescription(_ processIdentifier: pid_t) -> WorkspaceProcessDescription? {
+        guard processIdentifier > 1 else { return nil }
+
+        var processInfo = proc_bsdinfo()
+        let infoSize = Int32(MemoryLayout<proc_bsdinfo>.size)
+        guard
+            proc_pidinfo(
+                processIdentifier,
+                PROC_PIDTBSDINFO,
+                0,
+                &processInfo,
+                infoSize
+            ) == infoSize
+        else {
+            return nil
+        }
+
+        var pathBuffer = [CChar](repeating: 0, count: Int(MAXPATHLEN) * 4)
+        guard proc_pidpath(processIdentifier, &pathBuffer, UInt32(pathBuffer.count)) > 0 else {
+            return nil
+        }
+        let pathBytes = pathBuffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+        let executableURL = URL(
+            fileURLWithPath: String(decoding: pathBytes, as: UTF8.self)
+        )
+        let applicationBundleIdentifier = outermostApplicationBundleURL(for: executableURL)
+            .flatMap(Bundle.init(url:))?
+            .bundleIdentifier
+
+        return WorkspaceProcessDescription(
+            processIdentifier: processIdentifier,
+            parentProcessIdentifier: pid_t(processInfo.pbi_ppid),
+            executableURL: executableURL,
+            applicationBundleIdentifier: applicationBundleIdentifier
+        )
+    }
+}
 
 /// Executes a `PrimaryAction.Intent` that acts on the wider system.
 ///
@@ -19,11 +202,9 @@ public protocol PrimaryActionDispatching: AnyObject {
 
 /// The production executor: activates an application through `NSWorkspace`.
 ///
-/// Resolution is by running application first and by known bundle identifier
-/// second. Name-first is what makes the music case honest — the activity
-/// carries the source name the system itself reported — while bundle-id
-/// fallback covers the target not running yet, which is exactly when an "open"
-/// affordance earns its title.
+/// Music resolves by reported application name. Agent actions first trace a
+/// live CLI process to its parent editor or terminal, then use deterministic
+/// running-host and installed-app fallbacks.
 @MainActor
 public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
     /// Where a name lookup has to become a bundle identifier. Only the players
@@ -46,10 +227,41 @@ public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
         case .openApplicationNamed(let name):
             return activateApplication(named: name)
         case .openAgentApplication(let agent):
-            return activateApplication(named: agent.displayName)
+            return activateAgentApplication(agent)
         case .stopTimer, .pauseTimer, .resumeTimer:
             return false
         }
+    }
+
+    private func activateAgentApplication(_ agent: IPCAgentID) -> Bool {
+        let workspace = NSWorkspace.shared
+        let runningApplications = workspace.runningApplications
+        let processHosts = AgentHostApplicationResolver(
+            processes: SystemWorkspaceProcessScanner().processes()
+        ).hostBundleIdentifiers(for: agent)
+        let resolver = AgentApplicationTargetResolver(
+            processHostBundleIdentifiers: processHosts,
+            workspace: WorkspaceApplicationSnapshot(
+                frontmostBundleIdentifier: workspace.frontmostApplication?.bundleIdentifier,
+                runningBundleIdentifiers: Set(runningApplications.compactMap(\.bundleIdentifier))
+            )
+        )
+
+        if let bundleIdentifier = resolver.preferredRunningBundleIdentifier(for: agent),
+            let running = runningApplications.first(where: {
+                $0.bundleIdentifier == bundleIdentifier && $0.activationPolicy == .regular
+            })
+        {
+            return running.activate()
+        }
+
+        for bundleIdentifier in resolver.dedicatedBundleIdentifiers(for: agent) {
+            guard let url = workspace.urlForApplication(withBundleIdentifier: bundleIdentifier) else {
+                continue
+            }
+            return workspace.open(url)
+        }
+        return false
     }
 
     private func activateApplication(named name: String) -> Bool {

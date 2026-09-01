@@ -44,7 +44,7 @@ public final class ActivityManager {
     }
 
     public var compactPresentation: CompactActivityPresentation {
-        let activities = activeActivities
+        let activities = compactActivities
         guard activities.count > compactCapacity else {
             return CompactActivityPresentation(activities: activities, overflowCount: 0)
         }
@@ -96,6 +96,28 @@ public final class ActivityManager {
                     startTime: right.registrationTime
                 )
         }
+    }
+
+    private var compactActivities: [any Activity] {
+        var groupIndexes: [ActivityIdentity: Int] = [:]
+        var representatives: [any Activity] = []
+
+        for activity in activeActivities {
+            let groupIdentity = activity.compactGroupIdentity
+            guard let index = groupIndexes[groupIdentity] else {
+                groupIndexes[groupIdentity] = representatives.count
+                representatives.append(activity)
+                continue
+            }
+
+            if representatives[index].compactRepresentationPriority
+                < activity.compactRepresentationPriority
+            {
+                representatives[index] = activity
+            }
+        }
+
+        return representatives
     }
 
     private func store(_ activity: any Activity, registrationTime: Date) {

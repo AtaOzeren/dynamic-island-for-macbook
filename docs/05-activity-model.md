@@ -83,6 +83,8 @@ This follows `draft.md:189-220`. Assume music, a running timer, and a file trans
 
 If a fourth `normal`-or-higher activity registers while these three are active and the compact capacity is 3, the pill instead shows two of the highest-priority icons plus an overflow indicator (e.g. `🎵 ⏱ +2`); the expanded view still lists all four, because the expanded view never truncates.
 
+Concurrent sessions from the same AI agent share one compact slot. The manager keeps every session independently active, but capacity and overflow count the agent group once. In the expanded view that group is one compact summary row; when more than one session is live, a count disclosure reveals every session below it.
+
 ## Extension guide: adding a new activity type
 
 A contributor adding a new activity kind in a later version touches only `NotchFlowProviders` and this document — never `ActivityManager` itself:

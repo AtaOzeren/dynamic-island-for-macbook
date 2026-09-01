@@ -61,6 +61,55 @@ public struct AIAgentPresentation: Equatable, Sendable {
     }
 }
 
+struct AIAgentActivityGroup: Identifiable, Equatable, Sendable {
+    let agentID: IPCAgentID
+    let sessions: [AIAgentActivity]
+
+    init(session: AIAgentActivity) {
+        agentID = session.agent
+        sessions = [session]
+    }
+
+    private init(agentID: IPCAgentID, sessions: [AIAgentActivity]) {
+        self.agentID = agentID
+        self.sessions = sessions
+    }
+
+    var id: String { "notchflow.ai.expanded.\(agentID.rawValue)" }
+    var showsDisclosure: Bool { sessions.count > 1 }
+
+    var representative: AIAgentActivity {
+        sessions.dropFirst().reduce(sessions[0]) { current, candidate in
+            candidate.compactRepresentationPriority > current.compactRepresentationPriority
+                ? candidate
+                : current
+        }
+    }
+
+    func appending(_ session: AIAgentActivity) -> Self {
+        precondition(session.agent == agentID)
+        return Self(agentID: agentID, sessions: sessions + [session])
+    }
+}
+
+struct AIAgentGroupViewMetrics: Equatable, Sendable {
+    static let `default` = AIAgentGroupViewMetrics()
+
+    let detailRowHeight: CGFloat = 26
+    let separatorHeight: CGFloat = 1
+    let titleSize: CGFloat = 11
+    let detailSize: CGFloat = 9
+    let countControlHeight: CGFloat = 18
+
+    private init() {}
+}
+
+func aiAgentGroupDisclosureHeight(sessionCount: Int, isDisclosed: Bool) -> CGFloat {
+    guard isDisclosed, sessionCount > 1 else { return 0 }
+    let metrics = AIAgentGroupViewMetrics.default
+    return metrics.separatorHeight + CGFloat(sessionCount) * metrics.detailRowHeight
+}
+
 enum AIAgentCompactBadgeTone: Equatable, Sendable {
     case yellow
     case red
@@ -155,6 +204,7 @@ public func aiAgentCompactSlot(for activity: AIAgentActivity) -> CompactSlot {
     let presentation = AIAgentPresentation(activity: activity)
     return CompactSlot(
         activity: activity,
+        id: activity.compactGroupIdentity,
         accessibilityLabel: presentation.accessibilityLabel,
         aiAgentPresentation: CompactAIAgentSlotPresentation(activity: activity)
     )
@@ -317,6 +367,138 @@ public struct AIAgentActivityView: View {
             .progressViewStyle(.linear)
             .frame(height: metrics.progressBarHeight)
             .accessibilityHidden(true)
+    }
+}
+
+struct AIAgentActivityGroupView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    let group: AIAgentActivityGroup
+    let metrics: ExpandedPanelMetrics
+    let isDisclosed: Bool
+    let onToggleDisclosure: () -> Void
+    let onPrimaryAction: () -> Void
+
+    private let groupMetrics = AIAgentGroupViewMetrics.default
+
+    var body: some View {
+        let surface = islandExpandedSurface(
+            scheme: colorScheme.islandColorScheme,
+            reduceTransparency: reduceTransparency
+        )
+
+        VStack(spacing: 0) {
+            header
+            if group.showsDisclosure, isDisclosed {
+                Divider()
+                    .frame(height: groupMetrics.separatorHeight)
+                    .opacity(0.18)
+                ForEach(Array(group.sessions.enumerated()), id: \.element.sessionID) { index, session in
+                    sessionRow(index: index, session: session)
+                }
+            }
+        }
+        .frame(
+            width: metrics.width,
+            height: metrics.rowHeight
+                + aiAgentGroupDisclosureHeight(
+                    sessionCount: group.sessions.count,
+                    isDisclosed: isDisclosed
+                )
+        )
+        .foregroundStyle(surface.foreground.style)
+        .background {
+            surface.fill(
+                in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
+            )
+        }
+        .environment(\.colorScheme, surface.preferredColorScheme)
+    }
+
+    private var header: some View {
+        let presentation = AIAgentPresentation(activity: group.representative)
+
+        return HStack(spacing: metrics.rowSpacing) {
+            AIAgentIcon(agentID: group.agentID, size: metrics.symbolSize)
+                .frame(width: metrics.symbolColumnWidth)
+
+            Text(presentation.compactTitle)
+                .font(.system(size: groupMetrics.titleSize, weight: .medium))
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            if group.showsDisclosure {
+                Button(action: onToggleDisclosure) {
+                    HStack(spacing: 3) {
+                        Text("\(group.sessions.count)")
+                        Image(systemName: isDisclosed ? "chevron.up" : "chevron.down")
+                    }
+                    .font(.system(size: groupMetrics.detailSize, weight: .semibold))
+                    .padding(.horizontal, 5)
+                    .frame(height: groupMetrics.countControlHeight)
+                    .background(.white.opacity(0.12), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    localized(isDisclosed ? "Hide agent sessions" : "Show agent sessions")
+                )
+            }
+
+            if let action = presentation.primaryAction {
+                Button(action: onPrimaryAction) {
+                    Image(systemName: action.symbolName)
+                        .font(.system(size: metrics.symbolSize - 2, weight: .semibold))
+                        .frame(width: metrics.symbolColumnWidth, height: metrics.rowHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(action.title)
+            }
+        }
+        .padding(.horizontal, metrics.contentInset)
+        .frame(height: metrics.rowHeight)
+    }
+
+    private func sessionRow(index: Int, session: AIAgentActivity) -> some View {
+        let presentation = AIAgentPresentation(activity: session)
+        let indicator = AIAgentCompactIndicator(state: session.state)
+
+        return HStack(spacing: 6) {
+            Circle()
+                .fill(statusColor(indicator))
+                .frame(width: 5, height: 5)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(index + 1) · \(presentation.statusText)")
+                    .font(.system(size: groupMetrics.detailSize, weight: .medium))
+                    .lineLimit(1)
+
+                if let detail = presentation.detail {
+                    Text(detail)
+                        .font(.system(size: groupMetrics.detailSize))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, metrics.contentInset)
+        .frame(height: groupMetrics.detailRowHeight)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(presentation.accessibilityLabel)
+    }
+
+    private func statusColor(_ indicator: AIAgentCompactIndicator) -> Color {
+        switch indicator {
+        case .none: .gray
+        case .working: .white
+        case .question: .yellow
+        case .error: .red
+        case .completed: .green
+        }
     }
 }
 

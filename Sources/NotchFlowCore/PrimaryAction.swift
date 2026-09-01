@@ -16,7 +16,7 @@ public struct PrimaryAction: Equatable, Sendable {
         /// Activate the application the activity is about, by the name the
         /// system reports for it (e.g. "Spotify").
         case openApplicationNamed(String)
-        /// Activate an AI agent's application.
+        /// Activate the application hosting an AI agent session.
         case openAgentApplication(IPCAgentID)
         /// Stop and clear the timer — how an expired countdown is acknowledged.
         case stopTimer

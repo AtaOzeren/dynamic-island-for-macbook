@@ -59,12 +59,13 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     /// is done. Omitting `symbolName` keeps the kind's glyph.
     init(
         activity: any Activity,
+        id: ActivityIdentity? = nil,
         symbolName: String? = nil,
         accessibilityLabel: String,
         musicPresentation: CompactMusicSlotPresentation? = nil,
         aiAgentPresentation: CompactAIAgentSlotPresentation? = nil
     ) {
-        id = activity.identity.rawValue
+        self.id = (id ?? activity.identity).rawValue
         self.symbolName = symbolName ?? compactSymbolName(activity.kind)
         label = nil
         overflowCount = nil

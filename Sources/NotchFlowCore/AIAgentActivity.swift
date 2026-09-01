@@ -70,8 +70,8 @@ public struct AIAgentActivity: Activity, Equatable {
 
     /// One identity per session, not per agent: `docs/07-ai-integration.md`
     /// gives each concurrent session its own activity, so two Claude sessions
-    /// running side by side are two elements in the island rather than one
-    /// flickering between their states.
+    /// remain independently tracked. Presentation may group them under one
+    /// agent icon, while its disclosure still lists both sessions.
     ///
     /// It is stable across the whole state machine for that session, so
     /// `thinking` becoming `usingTool` updates the element already on screen —
@@ -83,6 +83,19 @@ public struct AIAgentActivity: Activity, Equatable {
 
     public var identity: ActivityIdentity {
         Self.identity(agent: agent, sessionID: sessionID)
+    }
+
+    public var compactGroupIdentity: ActivityIdentity {
+        ActivityIdentity("notchflow.ai.group.\(agent.rawValue)")
+    }
+
+    public var compactRepresentationPriority: CompactRepresentationPriority {
+        switch state {
+        case .idle, .completed: .passive
+        case .thinking, .working, .usingTool: .active
+        case .waitingForUser: .attention
+        case .error: .failure
+        }
     }
 
     public var kind: ActivityKind { .aiAgent }
@@ -123,8 +136,8 @@ public struct AIAgentActivity: Activity, Equatable {
     /// the one place that owns the active set.
     public var endsPresentation: Bool { state == .idle }
 
-    /// Brings the agent's own application forward, per the primary action in
-    /// `docs/05-activity-model.md`.
+    /// Brings the application hosting the agent session forward, per the
+    /// primary action in `docs/05-activity-model.md`.
     ///
     /// Absent in `idle` for the same reason the activity ends there: an
     /// affordance on an element that is about to disappear is an affordance
