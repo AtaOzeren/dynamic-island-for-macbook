@@ -29,15 +29,39 @@ struct TwoAgentCompactPillTests {
 
         #expect(layout.trailing.count == 2, "both agents should occupy the trailing side")
 
-        // What the view lays out: horizontal padding, then leading row, notch,
-        // trailing row, with a slot gap either side of the notch.
-        let contentWidth = size.width - metrics.edgeInset * 2
-        let perFlank = (contentWidth - Self.notch.width - metrics.slotSpacing * 2) / 2
+        // What the view lays out: padding, the (empty) leading row, the notch
+        // plus one gap for the occupied flank, then the trailing row.
         let trailingNeeds =
             CGFloat(layout.trailing.count) * metrics.slotWidth
             + CGFloat(layout.trailing.count - 1) * metrics.slotSpacing
+        let expected =
+            metrics.edgeInset * 2 + Self.notch.width + metrics.slotSpacing + trailingNeeds
 
-        #expect(perFlank >= trailingNeeds, "the trailing flank is too narrow to draw both icons")
+        #expect(size.width == expected, "the trailing flank is not drawn at full width")
+    }
+
+    /// With nothing on the leading side the pill must not grow an empty stub
+    /// there — the whole point of sizing each flank to its own contents.
+    @Test("an empty leading side adds no width")
+    func emptyLeadingSideCostsNothing() {
+        let manager = ActivityManager()
+        manager.register(Self.agent(.claudeCode, state: .usingTool))
+        manager.register(Self.agent(.opencode, state: .usingTool))
+
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+        let metrics = CompactPillMetrics()
+        let pill = compactPillGeometry(for: layout, notchSize: Self.notch, metrics: metrics)
+        let balanced = balancedCompactPillSize(
+            for: manager.compactPresentation,
+            notchSize: Self.notch,
+            metrics: metrics
+        )
+
+        #expect(layout.leading.isEmpty)
+        #expect(pill.size.width < balanced.width)
+        // Leaning right, so the drawn pill is shifted right to keep the notch
+        // region over the hardware cutout.
+        #expect(pill.drawingOffset > 0)
     }
 
     @Test("the pill widens when a second agent appears")
@@ -84,16 +108,20 @@ struct TwoAgentCompactPillTests {
         let metrics = CompactPillMetrics()
         let size = compactPillSize(for: layout, notchSize: Self.notch, metrics: metrics)
 
-        let contentWidth = size.width - metrics.edgeInset * 2
-        let perFlank = (contentWidth - Self.notch.width - metrics.slotSpacing * 2) / 2
-        let busiest = max(layout.leading.count, layout.trailing.count)
-        let needs =
-            CGFloat(busiest) * metrics.slotWidth
-            + CGFloat(busiest - 1) * metrics.slotSpacing
+        func flank(_ slots: Int) -> CGFloat {
+            slots > 0
+                ? CGFloat(slots) * metrics.slotWidth + CGFloat(slots - 1) * metrics.slotSpacing
+                : 0
+        }
+        let expected =
+            metrics.edgeInset * 2
+            + flank(layout.leading.count) + metrics.slotSpacing
+            + Self.notch.width
+            + metrics.slotSpacing + flank(layout.trailing.count)
 
         #expect(layout.leading.isEmpty == false)
         #expect(layout.trailing.count == 2)
-        #expect(perFlank >= needs)
+        #expect(size.width == expected)
     }
 
     private static func agent(_ id: IPCAgentID, state: AIAgentState) -> AIAgentActivity {

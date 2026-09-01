@@ -67,35 +67,94 @@ private func compactSideWidth(slotCount: Int, metrics: CompactPillMetrics) -> CG
     return CGFloat(slots) * metrics.slotWidth + CGFloat(slots - 1) * metrics.slotSpacing
 }
 
+/// The compact pill's drawn shape: how big it is, and where the notch sits
+/// inside it.
+///
+/// Each flank is only as wide as the slots it actually carries, so a pill with
+/// two icons on one side and none on the other does not grow an empty stub on
+/// the empty side. That makes the pill asymmetric about the notch, which is why
+/// the notch's position has to be carried alongside the size rather than assumed
+/// to be the middle: the drawn capsule is centred on the panel, so whoever draws
+/// it has to shift it back by `notchCentreOffset` to put the hardware cutout
+/// where the hardware actually is.
+public struct CompactPillGeometry: Equatable, Sendable {
+    /// The pill's drawn size.
+    public let size: CGSize
+    /// Signed distance from the pill's own horizontal centre to the centre of
+    /// the notch region. Zero when the flanks are balanced.
+    public let notchCentreOffset: CGFloat
+
+    public init(size: CGSize, notchCentreOffset: CGFloat) {
+        self.size = size
+        self.notchCentreOffset = notchCentreOffset
+    }
+
+    /// How far to move the drawn pill so its notch region lands on the hardware
+    /// notch, given that the panel it sits in is itself centred on that notch.
+    public var drawingOffset: CGFloat { -notchCentreOffset }
+}
+
+/// The pill's geometry for `leadingSlotCount` slots before the notch and
+/// `trailingSlotCount` after it.
+public func compactPillGeometry(
+    leadingSlotCount: Int,
+    trailingSlotCount: Int,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CompactPillGeometry {
+    let leadingWidth = compactSideWidth(slotCount: leadingSlotCount, metrics: metrics)
+    let trailingWidth = compactSideWidth(slotCount: trailingSlotCount, metrics: metrics)
+
+    // The gap to the notch belongs to a flank that has something in it. Keeping
+    // it on an empty flank is the stub this geometry exists to remove.
+    let leadingGap = leadingWidth > 0 ? metrics.slotSpacing : 0
+    let trailingGap = trailingWidth > 0 ? metrics.slotSpacing : 0
+
+    let width =
+        metrics.edgeInset * 2
+        + leadingWidth + leadingGap
+        + notchSize.width
+        + trailingGap + trailingWidth
+    let notchCentreFromLeading =
+        metrics.edgeInset + leadingWidth + leadingGap + notchSize.width / 2
+
+    return CompactPillGeometry(
+        size: CGSize(width: width, height: notchSize.height),
+        notchCentreOffset: notchCentreFromLeading - width / 2
+    )
+}
+
 /// Drawn compact size for a pill carrying `leadingSlotCount` slots before the
 /// notch and `trailingSlotCount` after it, including the opaque notch width.
-///
-/// Both sides are allocated the width of the *busier* one. The pill is centred
-/// on the notch, so the two flanks have to be the same width or the notch stops
-/// sitting in the middle of the drawn capsule. Sizing from the total instead —
-/// which is what an earlier version did — under-allocates whenever the slots are
-/// unevenly split: two agent icons on the trailing side got half the width they
-/// needed, and the one nearest the notch was drawn outside the capsule.
 public func compactPillSize(
     leadingSlotCount: Int,
     trailingSlotCount: Int,
     notchSize: CGSize,
     metrics: CompactPillMetrics = .default
 ) -> CGSize {
-    let sideSlots = max(max(leadingSlotCount, 0), max(trailingSlotCount, 0))
-    guard sideSlots > 0 else {
-        return CGSize(
-            width: notchSize.width + metrics.edgeInset * 2,
-            height: notchSize.height
-        )
-    }
+    compactPillGeometry(
+        leadingSlotCount: leadingSlotCount,
+        trailingSlotCount: trailingSlotCount,
+        notchSize: notchSize,
+        metrics: metrics
+    ).size
+}
 
-    let sideWidth = compactSideWidth(slotCount: sideSlots, metrics: metrics)
-    return CGSize(
-        width: notchSize.width
-            + (sideWidth + metrics.slotSpacing) * 2
-            + metrics.edgeInset * 2,
-        height: notchSize.height
+/// The width a pill would need if both flanks were allocated the busier one's
+/// width — the symmetric shape, used where the drawn element has to stay centred
+/// on the notch regardless of how the slots divide.
+public func balancedCompactPillSize(
+    leadingSlotCount: Int,
+    trailingSlotCount: Int,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    let sideSlots = max(max(leadingSlotCount, 0), max(trailingSlotCount, 0))
+    return compactPillSize(
+        leadingSlotCount: sideSlots,
+        trailingSlotCount: sideSlots,
+        notchSize: notchSize,
+        metrics: metrics
     )
 }
 
@@ -166,16 +225,20 @@ public func compactHitRect(
     let panel = panelFrame(for: screen, metrics: metrics)
     let hardwareNotch = notchRect(for: screen)
     let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
-    let drawnSize = compactPillSize(
+    let pill = compactPillGeometry(
         leadingSlotCount: leadingSlotCount,
         trailingSlotCount: trailingSlotCount,
         notchSize: notchSize,
         metrics: pillMetrics
     )
-    let pillCentreX = hardwareNotch?.midX ?? screen.frame.midX
+    let notchCentreX = hardwareNotch?.midX ?? screen.frame.midX
+    // The pill is drawn shifted so its notch region lands on the hardware notch,
+    // which means its own centre is no longer the notch's centre. Following that
+    // shift is what keeps the hover target under the pixels the user sees.
+    let pillCentreX = notchCentreX + pill.drawingOffset
 
-    let width = min(drawnSize.width + metrics.compactHitPadding * 2, panel.width)
-    let height = min(drawnSize.height + metrics.compactHitPadding, panel.height)
+    let width = min(pill.size.width + metrics.compactHitPadding * 2, panel.width)
+    let height = min(pill.size.height + metrics.compactHitPadding, panel.height)
     let originX = clamp(
         pillCentreX - width / 2,
         lowerBound: panel.minX,

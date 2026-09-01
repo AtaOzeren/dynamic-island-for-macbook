@@ -273,6 +273,48 @@ struct HookGenerationTests {
         #expect(plugin.contains(#""chat.message": async"#))
     }
 
+    /// `/usr/bin/python3` is a stub that forwards into Xcode.
+    ///
+    /// On a Mac with no developer tools it opens the "install command line
+    /// developer tools" panel instead of running, so a hook that reached for it
+    /// unconditionally would put a system dialog in front of the user on every
+    /// tool call. It is tried last, and only behind an `xcode-select` check.
+    @Test("hooks resolve an interpreter instead of assuming the Xcode stub")
+    func hooksResolveTheirInterpreter() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        for event in hooks.keys {
+            let command = try hookCommand(for: event, in: hooks)
+
+            #expect(command.contains("NOTCHFLOW_PY"), "\(event) does not resolve an interpreter")
+            #expect(command.contains("xcode-select -p"), "\(event) does not gate the stub")
+            #expect(
+                command.contains("| /usr/bin/python3 -c") == false,
+                "\(event) still invokes the stub directly"
+            )
+        }
+
+        let codexDocument = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(HookSnippetGenerator().codexLifecycleHooksFragment().utf8)
+            ) as? [String: Any]
+        )
+        let codexHooks = try #require(codexDocument["hooks"] as? [String: Any])
+        let codexCommand = try hookCommand(for: "Stop", in: codexHooks)
+
+        #expect(codexCommand.contains("NOTCHFLOW_PY"))
+        #expect(codexCommand.hasPrefix("/usr/bin/python3") == false)
+    }
+
+    /// Finding no interpreter has to be silent. A hook that failed loudly would
+    /// print on every event of every turn.
+    @Test("a machine with no interpreter exits quietly")
+    func missingInterpreterExitsQuietly() throws {
+        let command = try hookCommand(for: "Stop", in: Self.claudeCodeHooks())
+
+        #expect(command.contains(#"[ -n "$NOTCHFLOW_PY" ] || exit 0"#))
+    }
+
     @Test("generation is idempotent")
     func idempotentGeneration() throws {
         let generator = HookSnippetGenerator()

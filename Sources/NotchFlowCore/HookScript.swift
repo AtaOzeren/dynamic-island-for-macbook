@@ -146,10 +146,31 @@ enum HookScript {
         // Backgrounded as a whole so no hook ever adds its own latency to a tool
         // call. Reading stdin happens first, in the foreground, because the pipe
         // Claude Code opened is closed as soon as the hook process returns.
-        return "EVENT=$(cat); { printf %s \"$EVENT\" | /usr/bin/python3 -c "
+        return interpreterResolution
+            + "EVENT=$(cat); { printf %s \"$EVENT\" | \"$NOTCHFLOW_PY\" -c "
             + HookTextEncoding.shellSingleQuoted(script)
             + "; } >/dev/null 2>&1 &"
     }
+
+    /// Shell that picks a Python and leaves it in `$NOTCHFLOW_PY`, or exits.
+    ///
+    /// `/usr/bin/python3` is not an interpreter — it is a stub that forwards to
+    /// the one inside Xcode. On a Mac with no developer tools installed, running
+    /// it pops the "install command line developer tools" panel and the hook
+    /// fails, so it is tried last and only once `xcode-select` confirms there is
+    /// something behind it. Finding nothing at all exits quietly: a missing
+    /// interpreter should cost the user a missing island, not a system dialog on
+    /// every keystroke.
+    private static let interpreterResolution = """
+        NOTCHFLOW_PY=""
+        for c in /opt/homebrew/bin/python3 /usr/local/bin/python3 "$(command -v python3 2>/dev/null)"; do
+        case "$c" in ""|/usr/bin/python3) continue;; esac
+        [ -x "$c" ] && NOTCHFLOW_PY="$c" && break
+        done
+        [ -n "$NOTCHFLOW_PY" ] || { [ -d "$(xcode-select -p 2>/dev/null)" ] && NOTCHFLOW_PY=/usr/bin/python3; }
+        [ -n "$NOTCHFLOW_PY" ] || exit 0
+
+        """
 
     static func codexLifecycleHookCommand() -> String {
         let states = HookSnippetGenerator.codexLifecycleEvents
@@ -183,6 +204,7 @@ enum HookScript {
                 )
             )
             """
-        return "/usr/bin/python3 -c \(HookTextEncoding.shellSingleQuoted(script))"
+        return interpreterResolution
+            + "\"$NOTCHFLOW_PY\" -c \(HookTextEncoding.shellSingleQuoted(script))"
     }
 }

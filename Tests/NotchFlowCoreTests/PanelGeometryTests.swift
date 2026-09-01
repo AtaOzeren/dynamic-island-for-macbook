@@ -235,80 +235,184 @@ struct PanelGeometryTests {
 
     // MARK: - Uneven flanks
 
-    /// The pill is centred on the notch, so both flanks must be allocated the
-    /// width of the busier one. Sizing from the total instead under-allocates
-    /// every uneven split: two agent icons on the trailing side received half
-    /// the width they needed and the one nearest the notch fell outside the
-    /// drawn capsule.
-    @Test("allocates both flanks the width of the busier side")
-    func unevenFlanksReserveTheBusierSide() {
+    /// Each flank is only as wide as the slots it carries.
+    ///
+    /// Reserving the busier side's width on both — which an earlier version did
+    /// to keep the pill symmetric — grew an empty stub beside the notch whenever
+    /// the slots were unevenly split.
+    @Test("an empty flank costs nothing")
+    func emptyFlankAddsNoWidth() {
         let notch = CGSize(width: 200, height: 32)
         let metrics = CompactPillMetrics()
 
-        let allTrailing = compactPillSize(
+        let oneSided = compactPillGeometry(
             leadingSlotCount: 0,
             trailingSlotCount: 2,
             notchSize: notch,
             metrics: metrics
         )
-        let allLeading = compactPillSize(
-            leadingSlotCount: 2,
-            trailingSlotCount: 0,
-            notchSize: notch,
-            metrics: metrics
-        )
-        let balanced = compactPillSize(
+        let balanced = compactPillGeometry(
             leadingSlotCount: 2,
             trailingSlotCount: 2,
             notchSize: notch,
             metrics: metrics
         )
 
-        #expect(allTrailing == allLeading)
-        #expect(allTrailing == balanced)
+        let flank = Self.flankWidth(slots: 2, metrics: metrics)
+        #expect(oneSided.size.width == balanced.size.width - flank - metrics.slotSpacing)
     }
 
-    /// The concrete guarantee: after the horizontal padding and the two gaps to
-    /// the notch, each flank is left with room for every slot it carries.
-    @Test("leaves each flank room for its own slots")
+    /// Mirrored arrangements are mirror images: same width, opposite shift.
+    @Test("mirrored flanks give mirrored geometry")
+    func mirroredFlanksAreMirrored() {
+        let notch = CGSize(width: 200, height: 32)
+        let allTrailing = compactPillGeometry(
+            leadingSlotCount: 0,
+            trailingSlotCount: 2,
+            notchSize: notch
+        )
+        let allLeading = compactPillGeometry(
+            leadingSlotCount: 2,
+            trailingSlotCount: 0,
+            notchSize: notch
+        )
+
+        #expect(allTrailing.size == allLeading.size)
+        #expect(allTrailing.notchCentreOffset == -allLeading.notchCentreOffset)
+    }
+
+    /// The concrete guarantee: every slot a flank carries is inside the pill.
+    @Test("each flank holds exactly its own slots")
     func flanksFitTheirSlots() {
         let notch = CGSize(width: 200, height: 32)
         let metrics = CompactPillMetrics()
 
-        for slots in 1...4 {
-            let size = compactPillSize(
-                leadingSlotCount: 0,
-                trailingSlotCount: slots,
-                notchSize: notch,
-                metrics: metrics
-            )
-            let contentWidth = size.width - metrics.edgeInset * 2
-            let perFlank = (contentWidth - notch.width - metrics.slotSpacing * 2) / 2
-            let required =
-                CGFloat(slots) * metrics.slotWidth
-                + CGFloat(slots - 1) * metrics.slotSpacing
+        for leading in 0...3 {
+            for trailing in 0...3 {
+                let pill = compactPillGeometry(
+                    leadingSlotCount: leading,
+                    trailingSlotCount: trailing,
+                    notchSize: notch,
+                    metrics: metrics
+                )
+                let leadingWidth = Self.flankWidth(slots: leading, metrics: metrics)
+                let trailingWidth = Self.flankWidth(slots: trailing, metrics: metrics)
+                let gaps =
+                    (leading > 0 ? metrics.slotSpacing : 0)
+                    + (trailing > 0 ? metrics.slotSpacing : 0)
+                let expected =
+                    metrics.edgeInset * 2 + leadingWidth + trailingWidth + gaps + notch.width
 
-            #expect(perFlank >= required, "flank too narrow for \(slots) slots")
+                #expect(
+                    pill.size.width == expected,
+                    "wrong width for \(leading) leading and \(trailing) trailing"
+                )
+            }
         }
+    }
+
+    /// The notch region has to land on the hardware cutout. With uneven flanks
+    /// the pill's own centre is not the notch's centre, so the drawn shape is
+    /// shifted back by exactly that difference.
+    @Test("the notch offset places the cutout over the hardware notch")
+    func notchOffsetPlacesTheCutout() {
+        let notch = CGSize(width: 200, height: 32)
+        let metrics = CompactPillMetrics()
+        let pill = compactPillGeometry(
+            leadingSlotCount: 0,
+            trailingSlotCount: 2,
+            notchSize: notch,
+            metrics: metrics
+        )
+
+        // Drawn centred on the notch, then shifted: the notch region's centre
+        // must come back to zero — the hardware cutout's own centre.
+        let drawnNotchCentre = pill.drawingOffset + pill.notchCentreOffset
+        #expect(drawnNotchCentre == 0)
+
+        // With nothing on the leading side the pill leans right, so it is
+        // shifted right to compensate.
+        #expect(pill.drawingOffset > 0)
+    }
+
+    @Test("a balanced pill needs no shift")
+    func balancedPillIsNotShifted() {
+        let notch = CGSize(width: 200, height: 32)
+        let pill = compactPillGeometry(
+            leadingSlotCount: 2,
+            trailingSlotCount: 2,
+            notchSize: notch
+        )
+
+        #expect(pill.notchCentreOffset == 0)
+        #expect(pill.drawingOffset == 0)
     }
 
     @Test("an empty pill is just the notch and its padding")
     func emptyPillIsNotchWidth() {
         let notch = CGSize(width: 200, height: 32)
         let metrics = CompactPillMetrics()
-        let size = compactPillSize(
+        let pill = compactPillGeometry(
             leadingSlotCount: 0,
             trailingSlotCount: 0,
             notchSize: notch,
             metrics: metrics
         )
 
-        #expect(size.width == notch.width + metrics.edgeInset * 2)
-        #expect(size.height == notch.height)
+        #expect(pill.size.width == notch.width + metrics.edgeInset * 2)
+        #expect(pill.size.height == notch.height)
+        #expect(pill.notchCentreOffset == 0)
     }
 
-    /// The hit target has to follow the drawn width, or the pointer leaves the
-    /// island while still over it.
+    private static func flankWidth(slots: Int, metrics: CompactPillMetrics) -> CGFloat {
+        guard slots > 0 else { return 0 }
+        return CGFloat(slots) * metrics.slotWidth + CGFloat(slots - 1) * metrics.slotSpacing
+    }
+
+    /// Wherever the pill leans, the hardware notch stays inside the hit area:
+    /// that is the point the pointer travels to, and the pill is drawn around
+    /// it. A hit rect that kept the pill's own centre would drift off the notch
+    /// as soon as the flanks stopped matching.
+    @Test("the hit rect always covers the notch")
+    func hitRectCoversTheNotch() {
+        let screen = Self.notchedScreen()
+        let notchCentreX = notchRect(for: screen)?.midX ?? screen.frame.midX
+
+        for leading in 0...3 {
+            for trailing in 0...3 {
+                let rect = compactHitRect(
+                    for: screen,
+                    leadingSlotCount: leading,
+                    trailingSlotCount: trailing
+                )
+
+                #expect(
+                    rect.minX <= notchCentreX && notchCentreX <= rect.maxX,
+                    "notch fell outside the hit area for \(leading)/\(trailing)"
+                )
+            }
+        }
+    }
+
+    /// The hit area follows the drawn pill's shift, so the pointer leaves the
+    /// island exactly where the pixels end.
+    @Test("the hit rect follows an uneven pill's shift")
+    func hitRectFollowsTheShift() {
+        let screen = Self.notchedScreen()
+        let notchSize = notchRect(for: screen)?.size ?? CGSize(width: 200, height: 32)
+        let pill = compactPillGeometry(
+            leadingSlotCount: 0,
+            trailingSlotCount: 2,
+            notchSize: notchSize
+        )
+        let notchCentreX = notchRect(for: screen)?.midX ?? screen.frame.midX
+
+        let rect = compactHitRect(for: screen, leadingSlotCount: 0, trailingSlotCount: 2)
+
+        #expect(pill.drawingOffset > 0)
+        #expect(rect.midX == notchCentreX + pill.drawingOffset)
+    }
+
     @Test("the hit rect grows with the busier flank")
     func hitRectFollowsTheDrawnPill() {
         let screen = Self.notchedScreen()

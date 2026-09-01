@@ -148,6 +148,49 @@ public func compactPillSize(
     )
 }
 
+/// The pill's full geometry — size and notch position — for `layout`.
+public func compactPillGeometry(
+    for layout: CompactSlotLayout,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CompactPillGeometry {
+    compactPillGeometry(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
+/// The pill's full geometry for `presentation`.
+public func compactPillGeometry(
+    for presentation: CompactActivityPresentation,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CompactPillGeometry {
+    compactPillGeometry(
+        for: compactSlotLayout(for: presentation),
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
+/// The symmetric width for `presentation`, for the elements that must stay
+/// centred on the notch however the slots divide.
+public func balancedCompactPillSize(
+    for presentation: CompactActivityPresentation,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    let layout = compactSlotLayout(for: presentation)
+    return balancedCompactPillSize(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
 /// One activity's slot, routed to the kind that knows how to describe itself.
 ///
 /// Music and charging both announce per-instance detail the shared kind label
@@ -282,10 +325,14 @@ public struct CompactActivityView: View {
 
         let surface = islandCompactSurface(scheme: colorScheme.islandColorScheme)
 
-        HStack(spacing: metrics.slotSpacing) {
-            slotRow(layout.leading, alignment: .trailing)
-            Color.clear.frame(width: notchSize.width)
-            slotRow(layout.trailing, alignment: .leading)
+        // Zero spacing on the row, because each flank already carries its own
+        // gap to the notch — and only when it has slots. An `HStack` spacing
+        // would add that gap on an empty flank too, which is the stub this
+        // layout exists to avoid.
+        HStack(spacing: 0) {
+            slotRow(layout.leading)
+            Color.clear.frame(width: notchWidthWithGaps(for: layout))
+            slotRow(layout.trailing)
         }
         .padding(.horizontal, metrics.edgeInset)
         .frame(width: size.width, height: size.height)
@@ -307,14 +354,29 @@ public struct CompactActivityView: View {
         }
     }
 
-    private func slotRow(_ slots: [CompactSlot], alignment: Alignment) -> some View {
+    /// The opaque notch plus the gap owed to each occupied flank.
+    ///
+    /// Folded into the notch spacer rather than left to the enclosing stack's
+    /// spacing so an empty flank contributes nothing at all — no slot width and
+    /// no gap.
+    private func notchWidthWithGaps(for layout: CompactSlotLayout) -> CGFloat {
+        notchSize.width
+            + (layout.leading.isEmpty ? 0 : metrics.slotSpacing)
+            + (layout.trailing.isEmpty ? 0 : metrics.slotSpacing)
+    }
+
+    /// One flank, at exactly the width of the slots it holds.
+    ///
+    /// Sized to its content rather than given `maxWidth: .infinity`: with the
+    /// latter the two flanks split the free space evenly, so an empty flank
+    /// still claimed half of it and the occupied one was drawn too narrow.
+    private func slotRow(_ slots: [CompactSlot]) -> some View {
         HStack(spacing: metrics.slotSpacing) {
             ForEach(slots) { slot in
                 slotView(slot)
                     .transition(slotTransition)
             }
         }
-        .frame(maxWidth: .infinity, alignment: alignment)
         .animation(slotAnimation, value: slots)
     }
 

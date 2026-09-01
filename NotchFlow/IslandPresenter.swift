@@ -55,14 +55,37 @@ struct IslandRootView: View {
             }
             content
         }
+            .offset(x: compactDrawingOffset)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
             .opacity(model.state == .compact ? model.hoverOpacity : 1)
             .environment(\.colorScheme, .dark)
     }
 
+    /// The compact pill's own geometry, whose flanks are only as wide as the
+    /// slots they carry.
+    private var compactPill: CompactPillGeometry {
+        compactPillGeometry(for: model.compact, notchSize: model.notchSize)
+    }
+
+    /// How far to slide the island so the notch region sits on the hardware
+    /// cutout.
+    ///
+    /// Only while compact. The panel is centred on the notch, so a pill whose
+    /// flanks differ would otherwise put its opaque middle beside the cutout
+    /// rather than over it. Expanded, the body is centred on the notch by
+    /// design and needs no correction.
+    private var compactDrawingOffset: CGFloat {
+        model.state == .compact ? compactPill.drawingOffset : 0
+    }
+
+    /// The expanded surface keeps a *balanced* collar.
+    ///
+    /// Its neck is drawn about the shape's own centre, so feeding it the
+    /// asymmetric compact width would slide the cutout off the hardware notch
+    /// the moment the island opened.
     private var geometry: ConnectedIslandGeometry {
-        let compactSize = compactPillSize(
+        let compactSize = balancedCompactPillSize(
             for: model.compact,
             notchSize: model.notchSize
         )
@@ -77,7 +100,7 @@ struct IslandRootView: View {
     }
 
     private var connectedSurface: some View {
-        let size = model.state == .expanded ? geometry.expandedSize : geometry.compactSize
+        let size = model.state == .expanded ? geometry.expandedSize : compactPill.size
         return ConnectedIslandShape(geometry: geometry)
             .fill(.black)
             .frame(width: size.width, height: size.height)

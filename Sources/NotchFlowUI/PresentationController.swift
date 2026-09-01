@@ -274,7 +274,10 @@ public final class PresentationController {
 
         let hardwareNotch = notchRect(for: currentScreen)
         let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
-        let compactSize = compactPillSize(
+        // Balanced, matching the collar the expanded surface actually draws:
+        // this rectangle is only consulted while expanded, and the expanded
+        // shape keeps its neck centred.
+        let compactSize = balancedCompactPillSize(
             for: manager.compactPresentation,
             notchSize: notchSize
         )
