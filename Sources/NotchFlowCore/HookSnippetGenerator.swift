@@ -215,11 +215,11 @@ public struct HookSnippetGenerator: Sendable {
         }
 
         export const NotchFlowPlugin: Plugin = async () => ({
+          // No "session.created": opening a session is not work, and a
+          // "thinking" state with no expiry would hold the island for as long
+          // as the window stayed open. "chat.message" is the real start.
           event: async ({ event }) => {
             switch (event.type) {
-              case "session.created":
-                notify("thinking", event.properties.info.id, "Session started")
-                break
               case "session.idle":
                 notify("completed", event.properties.sessionID, "Task completed")
                 break
@@ -262,8 +262,15 @@ public struct HookSnippetGenerator: Sendable {
     /// not exist is a hook that never fires, which reads on screen exactly like
     /// a broken island. `Stop` is the single end-of-turn event; failures arrive
     /// through `Notification`, not through a separate failure hook.
+    /// Deliberately no `SessionStart`.
+    ///
+    /// Opening a session is not work. Registering one on `SessionStart` put the
+    /// agent on screen as "Thinking…" the moment a window opened and left it
+    /// there — `thinking` has no expiry — so an idle terminal claimed the island
+    /// indefinitely. The first event that means anything is the user submitting
+    /// a prompt, and `Stop` clears the card five seconds after the turn ends, so
+    /// the island is empty between turns without a session event to bracket it.
     private static let claudeCodeLifecycle: [LifecycleEvent] = [
-        LifecycleEvent(event: "SessionStart", state: "thinking", detail: "Session started"),
         LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
         LifecycleEvent(
             event: "PreToolUse",

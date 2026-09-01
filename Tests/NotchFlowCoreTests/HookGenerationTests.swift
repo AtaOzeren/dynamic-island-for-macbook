@@ -34,7 +34,6 @@ struct HookGenerationTests {
         let hooks = try #require(settings["hooks"] as? [String: Any])
         #expect(
             Set(hooks.keys) == [
-                "SessionStart",
                 "UserPromptSubmit",
                 "PreToolUse",
                 "PostToolUse",
@@ -147,7 +146,6 @@ struct HookGenerationTests {
         #expect(plugin.contains(#"encodeURIComponent(body)"#))
         #expect(plugin.contains("/ai-status"))
         #expect(plugin.contains(#"createHash("sha256")"#))
-        #expect(plugin.contains(#""session.created""#))
         #expect(plugin.contains(#""tool.execute.before": async"#))
         #expect(plugin.contains(#""tool.execute.after": async"#))
         #expect(plugin.contains(#""session.idle""#))
@@ -255,6 +253,24 @@ struct HookGenerationTests {
 
             #expect(!script.contains("'"))
         }
+    }
+
+    /// Opening a session is not work.
+    ///
+    /// Subscribing to `SessionStart` put the agent on screen as "Thinking…" the
+    /// moment a window opened, and `thinking` has no expiry — so an idle
+    /// terminal held the island for as long as it stayed open.
+    @Test("no hook fires merely because a session opened")
+    func sessionOpeningIsNotAnActivity() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        #expect(hooks["SessionStart"] == nil)
+        #expect(hooks["UserPromptSubmit"] != nil, "the real start must still be covered")
+        #expect(hooks["SessionEnd"] != nil, "a session ending must still clear a stale card")
+
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+        #expect(!plugin.contains(#"case "session.created""#))
+        #expect(plugin.contains(#""chat.message": async"#))
     }
 
     @Test("generation is idempotent")
