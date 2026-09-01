@@ -129,4 +129,33 @@ struct ExpandedActivityViewTests {
         #expect(expandedPanelOverflowsWindow(rowCount: rowCount, panelMetrics: panelMetrics))
         #expect(expandedPanelOverflowsWindow(rowCount: 3, panelMetrics: panelMetrics) == false)
     }
+
+    // MARK: - One surface, hairline separated
+
+    /// The panel is one sheet with rows, not a stack of floating cards. The
+    /// separator sits inside the gap the size model already reserves, so
+    /// changing the treatment must not change the panel's height.
+    @Test("the separator occupies the gap the height model already reserves")
+    func separatorFitsTheReservedGap() {
+        let metrics = ExpandedPanelMetrics()
+        let one = expandedPanelSize(rowCount: 1, metrics: metrics)
+        let three = expandedPanelSize(rowCount: 3, metrics: metrics)
+
+        #expect(
+            three.height - one.height
+                == (metrics.rowHeight + metrics.rowSpacing) * 2
+        )
+        #expect(metrics.rowSpacing >= 1, "a hairline needs a gap to sit in")
+    }
+
+    /// `rowSpacing` used to double as the horizontal gap inside a row, so
+    /// giving the divider room squeezed every glyph against its label. The two
+    /// are separate budgets now and must stay that way.
+    @Test("vertical and horizontal spacing are independent budgets")
+    func spacingBudgetsAreIndependent() {
+        let widened = ExpandedPanelMetrics(rowSpacing: 40)
+
+        #expect(widened.columnSpacing == ExpandedPanelMetrics().columnSpacing)
+        #expect(widened.rowSpacing != widened.columnSpacing)
+    }
 }

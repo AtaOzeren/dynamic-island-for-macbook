@@ -123,4 +123,80 @@ struct WorkspacePrimaryActionDispatcherTests {
                 == "/Applications/Visual Studio Code.app"
         )
     }
+
+    // MARK: - Evidence beats availability
+
+    /// Running `opencode` in a VS Code terminal has to raise VS Code. An
+    /// earlier ordering consulted the dedicated desktop app before the second
+    /// and later process hosts, so the moment the same agent ran in two editors
+    /// the click left both and launched an unrelated app.
+    @Test("a live process host beats an installed dedicated app")
+    func processHostBeatsDedicatedApplication() {
+        let resolver = AgentApplicationTargetResolver(
+            processHostBundleIdentifiers: ["com.microsoft.VSCode", "com.apple.Terminal"],
+            workspace: WorkspaceApplicationSnapshot(
+                frontmostBundleIdentifier: "com.apple.finder",
+                runningBundleIdentifiers: [
+                    "com.microsoft.VSCode",
+                    "com.apple.Terminal",
+                    "dev.opencode.app",
+                ]
+            )
+        )
+
+        let target = resolver.preferredRunningBundleIdentifier(for: .opencode)
+
+        #expect(target != "dev.opencode.app")
+        #expect(["com.microsoft.VSCode", "com.apple.Terminal"].contains(target))
+    }
+
+    /// A button that lands somewhere different on each press reads as broken,
+    /// so an unresolved tie has to settle the same way every time.
+    @Test("resolves a tie between process hosts the same way every time")
+    func tiedProcessHostsResolveDeterministically() {
+        let resolver = AgentApplicationTargetResolver(
+            processHostBundleIdentifiers: ["com.microsoft.VSCode", "com.apple.Terminal"],
+            workspace: WorkspaceApplicationSnapshot(
+                frontmostBundleIdentifier: nil,
+                runningBundleIdentifiers: ["com.microsoft.VSCode", "com.apple.Terminal"]
+            )
+        )
+
+        let first = resolver.preferredRunningBundleIdentifier(for: .opencode)
+        for _ in 0..<8 {
+            #expect(resolver.preferredRunningBundleIdentifier(for: .opencode) == first)
+        }
+        #expect(first != nil)
+    }
+
+    /// The window the user was last looking at is the one the session was
+    /// almost certainly started from.
+    @Test("prefers the frontmost application among the process hosts")
+    func frontmostProcessHostWins() {
+        let resolver = AgentApplicationTargetResolver(
+            processHostBundleIdentifiers: ["com.microsoft.VSCode", "com.apple.Terminal"],
+            workspace: WorkspaceApplicationSnapshot(
+                frontmostBundleIdentifier: "com.apple.Terminal",
+                runningBundleIdentifiers: ["com.microsoft.VSCode", "com.apple.Terminal"]
+            )
+        )
+
+        #expect(resolver.preferredRunningBundleIdentifier(for: .opencode) == "com.apple.Terminal")
+    }
+
+    /// Cursor's identifier carries a build-specific suffix, so it can only be
+    /// recognised by prefix — listing one build literally goes stale.
+    @Test("recognises Cursor as a development host")
+    func cursorIsADevelopmentHost() {
+        let cursor = "com.todesktop.230313mzl4w4u92"
+        let resolver = AgentApplicationTargetResolver(
+            processHostBundleIdentifiers: [],
+            workspace: WorkspaceApplicationSnapshot(
+                frontmostBundleIdentifier: nil,
+                runningBundleIdentifiers: [cursor]
+            )
+        )
+
+        #expect(resolver.preferredRunningBundleIdentifier(for: .claudeCode) == cursor)
+    }
 }

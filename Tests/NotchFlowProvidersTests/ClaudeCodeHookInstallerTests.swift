@@ -1,4 +1,5 @@
 import Foundation
+import NotchFlowCore
 import Testing
 
 @testable import NotchFlowProviders
@@ -205,6 +206,135 @@ struct ClaudeCodeHookInstallerTests {
         return eventHooks.flatMap { group in
             (group["hooks"] as? [[String: Any]])?.compactMap { $0["command"] as? String } ?? []
         }
+    }
+
+    // MARK: - Upgrading from an earlier NotchFlow
+
+    /// The upgrade path. Installing over a previous version's hook must replace
+    /// it, not sit beside it: appending alone left the older, broken command
+    /// firing on the same event, so every message was delivered twice and the
+    /// defect the new version fixes survived the update.
+    @Test("install replaces a hook an earlier version wrote")
+    func installReplacesPreviousVersionHook() throws {
+        let stale = """
+            {
+              "hooks" : {
+                "Stop" : [
+                  {
+                    "hooks" : [
+                      {
+                        "type" : "command",
+                        "command" : "URL=$(python3 -c 'uuid.uuid5(NS, x); print(1)' $EVENT); open -g notchflow://ai-status"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """
+        let fileSystem = InMemoryClaudeCodeFileSystem(
+            files: [Self.settingsURL: Data(stale.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(!installed.contains("print(1)"))
+        #expect(installed.contains(HookSnippetGenerator.managedHookMarker))
+    }
+
+    /// `StopFailure` is not an event Claude Code emits; an earlier version
+    /// subscribed to it anyway. Nothing else would ever clear a hook under a
+    /// name the generator no longer produces.
+    @Test("install clears hooks under events this version no longer generates")
+    func installClearsRetiredEvents() throws {
+        let stale = """
+            {
+              "hooks" : {
+                "StopFailure" : [
+                  {
+                    "hooks" : [
+                      {
+                        "type" : "command",
+                        "command" : "python3 -c 'uuid.uuid5(NS, x)'; open -g notchflow://ai-status?payload=x"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """
+        let fileSystem = InMemoryClaudeCodeFileSystem(
+            files: [Self.settingsURL: Data(stale.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(!installed.contains("StopFailure"))
+    }
+
+    /// A hand-written hook that happens to open a `notchflow://` URL is the
+    /// user's, not ours. Claiming it on the URL alone would delete their work
+    /// on upgrade.
+    @Test("install leaves a hand-written notchflow hook alone")
+    func installPreservesHandWrittenNotchflowHooks() throws {
+        let handWritten = """
+            {
+              "hooks" : {
+                "Stop" : [
+                  {
+                    "hooks" : [
+                      {
+                        "type" : "command",
+                        "command" : "open -g notchflow://ai-status?payload=mine"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """
+        let fileSystem = InMemoryClaudeCodeFileSystem(
+            files: [Self.settingsURL: Data(handWritten.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(installed.contains("payload=mine"))
+        #expect(installed.contains(HookSnippetGenerator.managedHookMarker))
+    }
+
+    /// A hook the user wrote themselves is not ours to touch, however much it
+    /// sits on an event we also use.
+    @Test("install leaves a foreign hook on a shared event alone")
+    func installPreservesForeignHooks() throws {
+        let existing = """
+            {
+              "hooks" : {
+                "Stop" : [
+                  {
+                    "hooks" : [
+                      {
+                        "type" : "command",
+                        "command" : "say done"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """
+        let fileSystem = InMemoryClaudeCodeFileSystem(
+            files: [Self.settingsURL: Data(existing.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(installed.contains("say done"))
+        #expect(installed.contains(HookSnippetGenerator.managedHookMarker))
     }
 }
 

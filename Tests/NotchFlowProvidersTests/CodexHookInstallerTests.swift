@@ -25,7 +25,7 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.text(at: Self.configURL) == proposal)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(proposal.contains(Self.expectedNotifySetting))
-        #expect(fileSystem.text(at: Self.hooksURL)?.contains("notchflow_codex_hook_v1=True") == true)
+        #expect(fileSystem.text(at: Self.hooksURL)?.contains(HookSnippetGenerator.codexLifecycleHookMarker) == true)
     }
 
     @Test("install preserves existing lifecycle hooks and adds one managed handler per event")
@@ -105,7 +105,7 @@ struct CodexHookInstallerTests {
 
         let installed = try #require(fileSystem.text(at: Self.configURL))
         #expect(!installed.contains("notify = [\"existing-notifier\"]"))
-        #expect(installed.contains("notchflow_codex_notify_v2=True"))
+        #expect(installed.contains(HookSnippetGenerator.codexNotifyMarker))
         #expect(installed.contains("existing-notifier"))
         #expect(installed.contains("notify = \"leave-this-table-value\""))
         #expect(installed.contains("model = \"gpt-5\""))
@@ -450,7 +450,7 @@ struct CodexHookInstallerTests {
         return groups.reduce(into: 0) { count, group in
             guard let handlers = group["hooks"] as? [[String: Any]] else { return }
             count += handlers.filter { handler in
-                (handler["command"] as? String)?.contains("notchflow_codex_hook_v1=True") == true
+                (handler["command"] as? String)?.contains(HookSnippetGenerator.codexLifecycleHookMarker) == true
             }.count
         }
     }
@@ -464,6 +464,77 @@ struct CodexHookInstallerTests {
             fileSystem: fileSystem,
             syntaxValidator: syntaxValidator
         )
+    }
+
+    // MARK: - Upgrading from an earlier NotchFlow
+
+    /// A `notify` an earlier NotchFlow wrote must be replaced, not treated as
+    /// current. Treating any NotchFlow command as installed froze every user on
+    /// the version they first installed.
+    @Test("install replaces a notify an earlier version wrote")
+    func installReplacesLegacyManagedNotify() throws {
+        // Built rather than written out, so the fixture is valid TOML by
+        // construction and the test cannot fail on its own quoting.
+        let legacyScript =
+            #"import x; url="notchflow://ai-status"; payload={"agentId":"codex"}"#
+        let legacy = "notify = "
+            + Self.jsonArrayLiteral(["python3", "-c", legacyScript])
+            + "\nmodel = \"gpt-5\"\n"
+
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data(legacy.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+        #expect(installed.contains(HookSnippetGenerator.codexNotifyMarker))
+        #expect(installed.contains(#"model = "gpt-5""#))
+        // Forwarding to our own previous command would report every turn twice.
+        #expect(!installed.contains(#"forward = json.loads("[\"python3\""#))
+    }
+
+    /// When another tool has wrapped our notify inside its own, the chain is
+    /// not ours to rewrite — and the lifecycle hooks carry the same states.
+    @Test("install leaves a notify nested inside another tool alone")
+    func installLeavesNestedManagedNotifyAlone() throws {
+        let nested = HookSnippetGenerator()
+            .codexNotifyFragment()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let inner = String(nested.dropFirst("notify = ".count))
+        let wrapper = "notify = [\"other-tool\",\"--previous-notify\","
+            + Self.jsonStringLiteral(inner)
+            + "]\n"
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data(wrapper.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+        #expect(installed.contains("other-tool"))
+        #expect(installed.hasPrefix("notify = [\"other-tool\""))
+    }
+
+    private static func jsonArrayLiteral(_ values: [String]) -> String {
+        guard
+            let data = try? JSONSerialization.data(withJSONObject: values),
+            let text = String(data: data, encoding: .utf8)
+        else {
+            preconditionFailure("string array must encode")
+        }
+        return text
+    }
+
+    private static func jsonStringLiteral(_ value: String) -> String {
+        let data = try? JSONSerialization.data(
+            withJSONObject: [value],
+            options: [.fragmentsAllowed]
+        )
+        guard let data, let array = String(data: data, encoding: .utf8) else {
+            preconditionFailure("string must encode")
+        }
+        return String(array.dropFirst().dropLast())
     }
 }
 

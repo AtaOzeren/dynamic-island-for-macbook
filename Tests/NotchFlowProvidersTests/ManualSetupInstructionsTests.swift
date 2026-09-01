@@ -47,7 +47,7 @@ struct ManualSetupInstructionsTests {
         try installer.install()
 
         #expect(instructions.snippet == fileSystem.text(at: hooksURL))
-        #expect(instructions.snippet.contains("notchflow_codex_hook_v1=True"))
+        #expect(instructions.snippet.contains(HookSnippetGenerator.codexLifecycleHookMarker))
         #expect(instructions.destinationPath == hooksURL.path)
         #expect(instructions.agent == .codex)
     }

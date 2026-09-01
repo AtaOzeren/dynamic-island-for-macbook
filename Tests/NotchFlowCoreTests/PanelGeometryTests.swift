@@ -232,4 +232,89 @@ struct PanelGeometryTests {
         #expect(hit.midX == -1280)
         #expect(hit.maxY == 1640)
     }
+
+    // MARK: - Uneven flanks
+
+    /// The pill is centred on the notch, so both flanks must be allocated the
+    /// width of the busier one. Sizing from the total instead under-allocates
+    /// every uneven split: two agent icons on the trailing side received half
+    /// the width they needed and the one nearest the notch fell outside the
+    /// drawn capsule.
+    @Test("allocates both flanks the width of the busier side")
+    func unevenFlanksReserveTheBusierSide() {
+        let notch = CGSize(width: 200, height: 32)
+        let metrics = CompactPillMetrics()
+
+        let allTrailing = compactPillSize(
+            leadingSlotCount: 0,
+            trailingSlotCount: 2,
+            notchSize: notch,
+            metrics: metrics
+        )
+        let allLeading = compactPillSize(
+            leadingSlotCount: 2,
+            trailingSlotCount: 0,
+            notchSize: notch,
+            metrics: metrics
+        )
+        let balanced = compactPillSize(
+            leadingSlotCount: 2,
+            trailingSlotCount: 2,
+            notchSize: notch,
+            metrics: metrics
+        )
+
+        #expect(allTrailing == allLeading)
+        #expect(allTrailing == balanced)
+    }
+
+    /// The concrete guarantee: after the horizontal padding and the two gaps to
+    /// the notch, each flank is left with room for every slot it carries.
+    @Test("leaves each flank room for its own slots")
+    func flanksFitTheirSlots() {
+        let notch = CGSize(width: 200, height: 32)
+        let metrics = CompactPillMetrics()
+
+        for slots in 1...4 {
+            let size = compactPillSize(
+                leadingSlotCount: 0,
+                trailingSlotCount: slots,
+                notchSize: notch,
+                metrics: metrics
+            )
+            let contentWidth = size.width - metrics.edgeInset * 2
+            let perFlank = (contentWidth - notch.width - metrics.slotSpacing * 2) / 2
+            let required =
+                CGFloat(slots) * metrics.slotWidth
+                + CGFloat(slots - 1) * metrics.slotSpacing
+
+            #expect(perFlank >= required, "flank too narrow for \(slots) slots")
+        }
+    }
+
+    @Test("an empty pill is just the notch and its padding")
+    func emptyPillIsNotchWidth() {
+        let notch = CGSize(width: 200, height: 32)
+        let metrics = CompactPillMetrics()
+        let size = compactPillSize(
+            leadingSlotCount: 0,
+            trailingSlotCount: 0,
+            notchSize: notch,
+            metrics: metrics
+        )
+
+        #expect(size.width == notch.width + metrics.edgeInset * 2)
+        #expect(size.height == notch.height)
+    }
+
+    /// The hit target has to follow the drawn width, or the pointer leaves the
+    /// island while still over it.
+    @Test("the hit rect grows with the busier flank")
+    func hitRectFollowsTheDrawnPill() {
+        let screen = Self.notchedScreen()
+        let narrow = compactHitRect(for: screen, leadingSlotCount: 0, trailingSlotCount: 1)
+        let wide = compactHitRect(for: screen, leadingSlotCount: 0, trailingSlotCount: 2)
+
+        #expect(wide.width > narrow.width)
+    }
 }
