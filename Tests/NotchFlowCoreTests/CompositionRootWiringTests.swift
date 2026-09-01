@@ -64,11 +64,19 @@ struct CompositionRootWiringTests {
 
         #expect(source.contains("StatusItemPresenter("))
         #expect(source.contains("NSStatusBar.system.statusItem"))
-        #expect(source.contains("statusItem.autosaveName = \"NotchFlowStatusItem\""))
         #expect(source.contains("statusItem.isVisible = true"))
-        #expect(source.contains("visibilityRestorationTask"))
-        #expect(source.contains("statusItem.isVisible = false"))
         #expect(source.contains("NSImage(named: \"MenuBarIcon\")"))
+
+        // The item is added once AppKit has finished launching, and re-added
+        // when the display arrangement changes. Neither an autosaved visibility
+        // flag the app never reads back, nor a toggle of `isVisible` to force a
+        // redraw, may come back: both produced an item that reported itself
+        // visible while the menu bar drew nothing.
+        #expect(source.contains("URLSchemeAppDelegate.onDidFinishLaunching"))
+        #expect(source.contains("didChangeScreenParametersNotification"))
+        #expect(!source.contains("statusItem.autosaveName ="))
+        #expect(!source.contains("statusItem.isVisible = false"))
+        #expect(!source.contains("visibilityRestorationTask"))
         #expect(source.contains("systemSymbolName: \"capsule.fill\""))
         #expect(source.contains("setAccessibilityLabel(\"NotchFlow\")"))
         #expect(source.contains("statusItemPresenter.setVisible(preferences.showMenuBarIcon)"))

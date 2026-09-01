@@ -118,6 +118,36 @@ public struct CompactSlotLayout: Equatable, Sendable {
     public let trailing: [CompactSlot]
 }
 
+/// The pill's drawn size for `layout`, allocating each flank the width of the
+/// busier one so an uneven split — every arrangement with an agent in it — still
+/// draws both sides inside the capsule.
+public func compactPillSize(
+    for layout: CompactSlotLayout,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    compactPillSize(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
+/// The pill's drawn size for `presentation`, routed through the same layout the
+/// view draws so hit testing and rendering cannot disagree about the width.
+public func compactPillSize(
+    for presentation: CompactActivityPresentation,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    compactPillSize(
+        for: compactSlotLayout(for: presentation),
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
 /// One activity's slot, routed to the kind that knows how to describe itself.
 ///
 /// Music and charging both announce per-instance detail the shared kind label
@@ -248,11 +278,7 @@ public struct CompactActivityView: View {
         let slots = compactSlots(for: presentation)
         let visibleSlots = musicIconVisibility.visibleSlots(from: slots)
         let layout = compactSlotLayout(for: visibleSlots)
-        let size = compactPillSize(
-            slotCount: layout.leading.count + layout.trailing.count,
-            notchSize: notchSize,
-            metrics: metrics
-        )
+        let size = compactPillSize(for: layout, notchSize: notchSize, metrics: metrics)
 
         let surface = islandCompactSurface(scheme: colorScheme.islandColorScheme)
 

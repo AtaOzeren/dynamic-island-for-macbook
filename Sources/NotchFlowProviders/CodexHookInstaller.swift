@@ -50,7 +50,11 @@ public struct CodexHookInstaller: Sendable {
     private static let hooksPath = ".codex/hooks.json"
     private static let backupSuffix = ".notchflow-backup"
     private static let rootNotifyPattern = #"(?m)^[ \t]*notify[ \t]*="#
-    private static let lifecycleHookMarker = "notchflow_codex_hook_v1=True"
+    /// Matched from the generator's own constant rather than restated here: a
+    /// second copy of the token is how the installer stopped recognising the
+    /// hook it had just written.
+    private static let lifecycleHookMarker = HookSnippetGenerator.codexLifecycleHookMarker
+    private static let legacyLifecycleHookMarker = "notchflow_codex_hook_v1"
 
     private struct RootNotifyAssignment {
         let range: Range<String.Index>
@@ -359,8 +363,14 @@ public struct CodexHookInstaller: Sendable {
         return command
     }
 
+    /// Whether this handler is one of ours — this version's or an earlier one.
+    ///
+    /// Earlier markers stay recognised so an upgrade replaces the old handler
+    /// instead of leaving it beside the new one, firing every event twice.
     private func isManagedLifecycleHandler(_ handler: [String: Any]) -> Bool {
-        (handler["command"] as? String)?.contains(Self.lifecycleHookMarker) == true
+        guard let command = handler["command"] as? String else { return false }
+        return command.contains(Self.lifecycleHookMarker)
+            || command.contains(Self.legacyLifecycleHookMarker)
     }
 
     private func encodedLifecycleHooksDocument(
@@ -405,9 +415,19 @@ public struct CodexHookInstaller: Sendable {
 
     private func configurationBySettingRootNotify(in existing: String) throws -> String {
         if let assignment = try rootNotifyAssignment(in: existing) {
-            if containsManagedNotify(assignment.arguments) {
+            // Already this version's, or ours but wrapped by another tool's
+            // notifier. The wrapped case is deliberately left alone: upgrading
+            // it would mean rewriting a chain NotchFlow does not own, and the
+            // lifecycle hooks carry the states that matter either way.
+            if isCurrentManagedNotify(assignment.arguments)
+                || containsNestedManagedNotify(assignment.arguments)
+            {
                 return existing
             }
+
+            // A `notify` an earlier NotchFlow wrote is replaced rather than
+            // forwarded to — forwarding to our own previous command would
+            // deliver every turn twice, once through each version.
             let forwardedArguments = isLegacyManagedNotify(assignment.arguments)
                 ? []
                 : assignment.arguments
@@ -612,16 +632,25 @@ public struct CodexHookInstaller: Sendable {
         }
     }
 
+    /// Whether these arguments are the `notify` command this version writes.
+    ///
+    /// The interpreter is matched by name rather than by full path: the
+    /// generator moved from `python3` to `/usr/bin/python3`, and an equality
+    /// check against either spelling rejects the other.
     private func isCurrentManagedNotify(_ arguments: [String]) -> Bool {
         arguments.count >= 3
-            && arguments[0] == "python3"
-            && arguments[2].contains("notchflow_codex_notify_v2=True")
+            && arguments[0].hasSuffix("python3")
+            && arguments[2].contains(HookSnippetGenerator.codexNotifyMarker)
     }
 
+    /// Whether these arguments are a `notify` command an *earlier* NotchFlow
+    /// wrote. Recognising them is what lets an upgrade replace the old command
+    /// rather than refuse to touch a file it does not understand.
     private func isLegacyManagedNotify(_ arguments: [String]) -> Bool {
         let command = arguments.joined(separator: " ")
-        return command.contains("notchflow://ai-status")
-            && command.contains(#"agentId":"codex"#)
+        guard command.contains("notchflow://ai-status") else { return false }
+        return command.contains(#"agentId":"codex"#)
+            || command.contains("notchflow_codex_notify_")
     }
 
     private func containsManagedNotify(_ arguments: [String]) -> Bool {

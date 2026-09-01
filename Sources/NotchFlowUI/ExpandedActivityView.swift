@@ -50,7 +50,15 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
     public static let `default` = ExpandedPanelMetrics()
 
     public let rowHeight: CGFloat
+    /// The vertical gap between two items: the space between cards when each
+    /// draws its own surface, and the band the hairline separator sits in when
+    /// they share one.
     public let rowSpacing: CGFloat
+    /// The horizontal gap inside one row, between its glyph, its text, and its
+    /// trailing control. Separate from `rowSpacing` because the two answer to
+    /// different things — a divider needs room to breathe, a glyph and its label
+    /// need to stay together.
+    public let columnSpacing: CGFloat
     public let contentInset: CGFloat
     public let symbolSize: CGFloat
     public let symbolColumnWidth: CGFloat
@@ -59,7 +67,8 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
 
     public init(
         rowHeight: CGFloat = 34,
-        rowSpacing: CGFloat = 4,
+        rowSpacing: CGFloat = 9,
+        columnSpacing: CGFloat = 4,
         contentInset: CGFloat = 12,
         symbolSize: CGFloat = 15,
         symbolColumnWidth: CGFloat = 24,
@@ -68,6 +77,7 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
     ) {
         self.rowHeight = rowHeight
         self.rowSpacing = rowSpacing
+        self.columnSpacing = columnSpacing
         self.contentInset = contentInset
         self.symbolSize = symbolSize
         self.symbolColumnWidth = symbolColumnWidth
@@ -405,9 +415,21 @@ public struct ExpandedActivityView: View {
             .animation(disclosureAnimation, value: disclosedAgentIDs)
     }
 
+    /// The items, separated the way the surface they sit on calls for.
+    ///
+    /// Sharing the island's surface, the panel is one sheet and the items are
+    /// its rows: a hairline between them reads as a list. Drawing their own
+    /// surfaces they are cards, and a gap is what separates cards. The gap is
+    /// `rowSpacing` either way, so the panel's height model does not change with
+    /// the treatment.
     private var itemStack: some View {
-        VStack(alignment: .leading, spacing: metrics.panel.rowSpacing) {
-            ForEach(expandedActivityItems(for: activities)) { item in
+        let items = expandedActivityItems(for: activities)
+
+        return VStack(alignment: .leading, spacing: drawsOwnSurface ? metrics.panel.rowSpacing : 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if drawsOwnSurface == false, index > 0 {
+                    IslandItemSeparator(height: metrics.panel.rowSpacing)
+                }
                 itemView(for: item)
             }
         }
@@ -522,7 +544,7 @@ private struct GenericActivityRowView: View {
             reduceTransparency: reduceTransparency
         )
 
-        HStack(spacing: metrics.rowSpacing) {
+        HStack(spacing: metrics.columnSpacing) {
             Image(systemName: row.symbolName)
                 .font(.system(size: metrics.symbolSize, weight: .medium))
                 .frame(width: metrics.symbolColumnWidth)
@@ -546,11 +568,13 @@ private struct GenericActivityRowView: View {
             }
         }
         .padding(metrics.contentInset)
-        .frame(height: metrics.rowHeight)
         .foregroundStyle(surface.foreground.style)
-        .background {
-            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-        }
+        .islandCard(
+            width: metrics.width,
+            height: metrics.rowHeight,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
         .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(row.accessibilityLabel)

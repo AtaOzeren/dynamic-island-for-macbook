@@ -248,11 +248,14 @@ public struct MusicExpandedView: View {
             transport
         }
         .padding(metrics.contentInset)
-        .frame(width: size.width, height: size.height)
         .foregroundStyle(surface.foreground.style)
-        .background {
-            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-        }
+        .islandCard(
+            width: size.width,
+            height: size.height,
+            alignment: .center,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
         .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilityLabel)

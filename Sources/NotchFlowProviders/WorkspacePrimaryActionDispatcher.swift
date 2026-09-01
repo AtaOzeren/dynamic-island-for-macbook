@@ -65,17 +65,20 @@ struct AgentApplicationTargetResolver {
     let processHostBundleIdentifiers: Set<String>
     let workspace: WorkspaceApplicationSnapshot
 
+    /// Where clicking this agent's row should take the user.
+    ///
+    /// An application that is *actually hosting a live process* for this agent
+    /// always beats one that merely could be: running `opencode` in a VS Code
+    /// terminal has to raise VS Code, not launch the OpenCode desktop app that
+    /// has nothing to do with the session on screen. An earlier ordering
+    /// consulted the dedicated app before the second and later process hosts,
+    /// so the moment the same agent ran in two editors the click left both.
     func preferredRunningBundleIdentifier(for agent: IPCAgentID) -> String? {
         let runningProcessHosts = processHostBundleIdentifiers.intersection(
             workspace.runningBundleIdentifiers
         )
-        if let frontmost = workspace.frontmostBundleIdentifier,
-            runningProcessHosts.contains(frontmost)
-        {
-            return frontmost
-        }
-        if runningProcessHosts.count == 1 {
-            return runningProcessHosts.first
+        if let host = hostRunningTheAgent(among: runningProcessHosts) {
+            return host
         }
 
         if let dedicated = dedicatedBundleIdentifiers(for: agent).first(where: {
@@ -84,6 +87,39 @@ struct AgentApplicationTargetResolver {
             return dedicated
         }
 
+        return soleDevelopmentHost()
+    }
+
+    /// One of the applications actually hosting a live process for this agent.
+    ///
+    /// Every candidate here is evidenced by the process tree, so picking one is
+    /// never a guess about *whether* the agent is there — only about which of
+    /// its several homes to raise. The frontmost wins, because that is the
+    /// window the user was last looking at; otherwise a development host beats
+    /// an incidental parent, and a stable sort settles the rest. Determinism
+    /// matters more than the particular winner: a button that lands somewhere
+    /// different on each press reads as broken.
+    private func hostRunningTheAgent(among candidates: Set<String>) -> String? {
+        guard candidates.isEmpty == false else { return nil }
+        if let frontmost = workspace.frontmostBundleIdentifier,
+            candidates.contains(frontmost)
+        {
+            return frontmost
+        }
+        if candidates.count == 1 {
+            return candidates.first
+        }
+
+        let developmentHosts = candidates.filter(Self.isDevelopmentHost)
+        return (developmentHosts.isEmpty ? candidates : developmentHosts).min()
+    }
+
+    /// The last resort, used when nothing links the agent to any application.
+    ///
+    /// Deliberately refuses to choose between several: with no evidence at all,
+    /// one running editor is a reasonable inference and two is a coin toss, and
+    /// jumping the user into the wrong window is worse than doing nothing.
+    private func soleDevelopmentHost() -> String? {
         let runningHosts = workspace.runningBundleIdentifiers.filter(Self.isDevelopmentHost)
         if let frontmost = workspace.frontmostBundleIdentifier,
             runningHosts.contains(frontmost)
@@ -103,23 +139,40 @@ struct AgentApplicationTargetResolver {
 
     private static func isDevelopmentHost(_ bundleIdentifier: String) -> Bool {
         knownDevelopmentHostBundleIdentifiers.contains(bundleIdentifier)
-            || bundleIdentifier.hasPrefix("com.jetbrains.")
+            || developmentHostBundlePrefixes.contains { bundleIdentifier.hasPrefix($0) }
     }
 
+    /// Vendors that ship a family of identifiers rather than one.
+    ///
+    /// `com.todesktop.` covers Cursor, whose identifier carries a build-specific
+    /// suffix and therefore cannot be listed literally without going stale.
+    private static let developmentHostBundlePrefixes = [
+        "com.jetbrains.",
+        "com.todesktop.",
+    ]
+
     private static let knownDevelopmentHostBundleIdentifiers: Set<String> = [
+        "co.zeit.hyper",
         "com.apple.Terminal",
         "com.apple.dt.Xcode",
+        "com.exafunction.windsurf",
         "com.github.wez.wezterm",
+        "com.google.antigravity-ide",
         "com.googlecode.iterm2",
         "com.microsoft.VSCode",
         "com.microsoft.VSCodeInsiders",
         "com.mitchellh.ghostty",
-        "com.todesktop.230313mzl4w4u92",
+        "com.qvacua.VimR",
+        "com.raggi.rio",
+        "com.trae.app",
+        "com.vscodium",
         "dev.warp.Warp",
         "dev.warp.Warp-Stable",
         "dev.zed.Zed",
         "net.kovidgoyal.kitty",
         "org.alacritty",
+        "org.tabby",
+        "org.vim.MacVim",
     ]
 }
 

@@ -93,11 +93,13 @@ public struct ChargingActivityView: View {
             Spacer(minLength: 0)
         }
         .padding(.horizontal, metrics.contentInset)
-        .frame(width: metrics.width, height: metrics.rowHeight)
         .foregroundStyle(surface.foreground.style)
-        .background {
-            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-        }
+        .islandCard(
+            width: metrics.width,
+            height: metrics.rowHeight,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
         .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(presentation.accessibilityLabel)

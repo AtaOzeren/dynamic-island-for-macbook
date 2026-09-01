@@ -259,9 +259,11 @@ public final class PresentationController {
     }
 
     private func updateHitRect(on screen: ScreenDescription) {
+        let layout = compactSlotLayout(for: manager.compactPresentation)
         hitRect = compactHitRect(
             for: screen,
-            slotCount: compactSlots(for: manager.compactPresentation).count,
+            leadingSlotCount: layout.leading.count,
+            trailingSlotCount: layout.trailing.count,
             metrics: metrics
         )
     }
@@ -273,7 +275,7 @@ public final class PresentationController {
         let hardwareNotch = notchRect(for: currentScreen)
         let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
         let compactSize = compactPillSize(
-            slotCount: compactSlots(for: manager.compactPresentation).count,
+            for: manager.compactPresentation,
             notchSize: notchSize
         )
         let expandedContentSize = expandedPanelSize(

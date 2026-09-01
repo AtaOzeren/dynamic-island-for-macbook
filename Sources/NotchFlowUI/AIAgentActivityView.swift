@@ -332,11 +332,13 @@ public struct AIAgentActivityView: View {
             }
         }
         .padding(metrics.contentInset)
-        .frame(width: size.width, height: size.height, alignment: .leading)
         .foregroundStyle(surface.foreground.style)
-        .background {
-            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-        }
+        .islandCard(
+            width: size.width,
+            height: size.height,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
         .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilityLabel)
@@ -399,27 +401,25 @@ struct AIAgentActivityGroupView: View {
                 }
             }
         }
-        .frame(
+        .foregroundStyle(surface.foreground.style)
+        .islandCard(
             width: metrics.width,
             height: metrics.rowHeight
                 + aiAgentGroupDisclosureHeight(
                     sessionCount: group.sessions.count,
                     isDisclosed: isDisclosed
-                )
+                ),
+            alignment: .top,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
         )
-        .foregroundStyle(surface.foreground.style)
-        .background {
-            surface.fill(
-                in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous)
-            )
-        }
         .environment(\.colorScheme, surface.preferredColorScheme)
     }
 
     private var header: some View {
         let presentation = AIAgentPresentation(activity: group.representative)
 
-        return HStack(spacing: metrics.rowSpacing) {
+        return HStack(spacing: metrics.columnSpacing) {
             AIAgentIcon(agentID: group.agentID, size: metrics.symbolSize)
                 .frame(width: metrics.symbolColumnWidth)
 

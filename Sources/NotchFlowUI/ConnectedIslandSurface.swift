@@ -19,6 +19,78 @@ public extension View {
     }
 }
 
+/// Sizes and backs one expanded item, according to whether it owns its surface.
+///
+/// A standalone card keeps its intrinsic width and paints its own rounded
+/// background. Inside the island there is no second background to paint — the
+/// connected shape already did — and every item stretches to the panel's width
+/// so the separators between them run edge to edge instead of leaving a ragged
+/// stack of differently sized cards.
+struct IslandCardLayout: ViewModifier {
+    @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
+
+    let width: CGFloat
+    let height: CGFloat?
+    let alignment: Alignment
+    let cornerRadius: CGFloat
+    let surface: IslandSurface
+
+    func body(content: Content) -> some View {
+        if drawsOwnSurface {
+            content
+                .frame(width: width, height: height, alignment: alignment)
+                .background {
+                    surface.fill(
+                        in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    )
+                }
+        } else {
+            content
+                .frame(maxWidth: .infinity, alignment: alignment)
+                .frame(height: height, alignment: alignment)
+        }
+    }
+}
+
+extension View {
+    /// Applies `IslandCardLayout`. Named for the call site's vocabulary — every
+    /// expanded per-kind view is a card — rather than for the modifier.
+    func islandCard(
+        width: CGFloat,
+        height: CGFloat? = nil,
+        alignment: Alignment = .leading,
+        cornerRadius: CGFloat,
+        surface: IslandSurface
+    ) -> some View {
+        modifier(
+            IslandCardLayout(
+                width: width,
+                height: height,
+                alignment: alignment,
+                cornerRadius: cornerRadius,
+                surface: surface
+            )
+        )
+    }
+}
+
+/// The hairline between two items inside a shared island surface.
+///
+/// Occupies the full `height` the panel's size model already reserves between
+/// items, so adding separators changes what the gap looks like without changing
+/// how tall the panel is.
+struct IslandItemSeparator: View {
+    let height: CGFloat
+
+    var body: some View {
+        Rectangle()
+            .fill(.white.opacity(0.10))
+            .frame(height: 1)
+            .frame(height: max(height, 1))
+            .accessibilityHidden(true)
+    }
+}
+
 /// Geometry for one island surface that keeps the compact notch extension
 /// attached while its detail body grows below it.
 public struct ConnectedIslandGeometry: Equatable, Sendable {
