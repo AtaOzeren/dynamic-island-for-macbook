@@ -87,6 +87,18 @@ struct TurkishLocalizationTests {
         }
     }
 
+    @Test("AI tools tab uses the requested Turkish title")
+    func aiToolsTabTitleIsTurkish() throws {
+        try withTurkishBundle(
+            for: "Sources/NotchFlowUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            #expect(
+                bundle.localizedString(forKey: "AI Integrations", value: nil, table: nil)
+                    == "AI Araçları"
+            )
+        }
+    }
+
     /// The picker names each language in that language, so a user who cannot
     /// read the current one can still find their own.
     @Test("the language picker names Turkish in Turkish")

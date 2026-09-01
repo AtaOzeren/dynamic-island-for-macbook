@@ -81,10 +81,12 @@ struct ExpandedActivityDispatchTests {
     func concurrentRecordingsRemainSeparateRows() {
         let rows = expandedRows(for: [Self.recording(.audio), Self.recording(.screen)])
 
-        #expect(rows.map(\.id) == [
-            RecordingActivity.identity(for: .audio).rawValue,
-            RecordingActivity.identity(for: .screen).rawValue,
-        ])
+        #expect(
+            rows.map(\.id) == [
+                RecordingActivity.identity(for: .audio).rawValue,
+                RecordingActivity.identity(for: .screen).rawValue,
+            ]
+        )
         #expect(rows.map(\.title) == ["Microphone in use", "Screen recording in progress"])
     }
 
@@ -181,9 +183,10 @@ struct ExpandedActivityDispatchTests {
                 <= panelMetrics.maximumExpandedSize.height
         )
 
+        let overflowingAgentCount = 5
         let overflows: [any Activity] = Array(
             repeating: Self.aiAgent(),
-            count: 4
+            count: overflowingAgentCount
         )
         #expect(
             expandedPanelOverflowsWindow(for: overflows, metrics: metrics, panelMetrics: panelMetrics)
@@ -195,7 +198,7 @@ struct ExpandedActivityDispatchTests {
         #expect(
             expandedPanelSize(for: overflows, metrics: metrics, panelMetrics: panelMetrics).height
                 < expandedItemHeight(for: Self.aiAgent(), metrics: metrics, panelMetrics: panelMetrics)
-                * 4
+                * CGFloat(overflowingAgentCount)
         )
     }
 

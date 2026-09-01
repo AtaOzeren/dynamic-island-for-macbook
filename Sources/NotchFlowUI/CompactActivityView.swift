@@ -37,6 +37,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     public let musicSourceIdentity: MusicSourceIdentity?
     public let animationIdentity: String?
     public let recordingSource: RecordingSource?
+    public let aiAgentID: IPCAgentID?
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
@@ -48,6 +49,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = nil
         animationIdentity = nil
         recordingSource = nil
+        aiAgentID = nil
     }
 
     /// For activities whose per-instance detail outgrows what the kind alone can
@@ -58,7 +60,8 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         activity: any Activity,
         symbolName: String? = nil,
         accessibilityLabel: String,
-        musicPresentation: CompactMusicSlotPresentation? = nil
+        musicPresentation: CompactMusicSlotPresentation? = nil,
+        aiAgentID: IPCAgentID? = nil
     ) {
         id = activity.identity.rawValue
         self.symbolName = symbolName ?? compactSymbolName(activity.kind)
@@ -69,6 +72,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = musicPresentation?.sourceIdentity
         animationIdentity = musicPresentation?.animationIdentity
         recordingSource = nil
+        self.aiAgentID = aiAgentID
     }
 
     init(
@@ -84,6 +88,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = nil
         animationIdentity = nil
         recordingSource = activity.source
+        aiAgentID = nil
     }
 
     fileprivate init(overflowCount: Int) {
@@ -96,6 +101,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = nil
         animationIdentity = nil
         recordingSource = nil
+        aiAgentID = nil
     }
 
     private static let overflowIdentifier = "notchflow.compact.overflow"
@@ -119,6 +125,7 @@ private func compactSlot(for activity: any Activity) -> CompactSlot {
     case let music as MusicActivity: musicCompactSlot(for: music)
     case let recording as RecordingActivity: recordingCompactSlot(for: recording)
     case let charging as ChargingActivity: chargingCompactSlot(for: charging)
+    case let aiAgent as AIAgentActivity: aiAgentCompactSlot(for: aiAgent)
     default: CompactSlot(activity: activity)
     }
 }
@@ -134,12 +141,47 @@ public func compactSlots(for presentation: CompactActivityPresentation) -> [Comp
 /// Splits the slots around the notch, filling the leading side first so the
 /// overflow indicator — always last — lands on the trailing side.
 public func compactSlotLayout(for presentation: CompactActivityPresentation) -> CompactSlotLayout {
-    let slots = compactSlots(for: presentation)
+    compactSlotLayout(for: compactSlots(for: presentation))
+}
+
+private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
     let leadingCount = (slots.count + 1) / 2
     return CompactSlotLayout(
         leading: Array(slots.prefix(leadingCount)),
         trailing: Array(slots.dropFirst(leadingCount))
     )
+}
+
+struct CompactMusicIconVisibility: Equatable, Sendable {
+    static let visibleDuration: Duration = .seconds(5)
+
+    private var announcedSlotIDs: Set<String> = []
+    private var hiddenSlotIDs: Set<String> = []
+
+    init() {}
+
+    mutating func synchronize(activeSlots: [CompactSlot]) -> [String] {
+        let activeMusicSlotIDs = Set(
+            activeSlots.lazy
+                .filter { $0.musicSourceIdentity != nil }
+                .map(\.id)
+        )
+        announcedSlotIDs.formIntersection(activeMusicSlotIDs)
+        hiddenSlotIDs.formIntersection(activeMusicSlotIDs)
+
+        let newSlotIDs = activeMusicSlotIDs.subtracting(announcedSlotIDs)
+        announcedSlotIDs.formUnion(newSlotIDs)
+        return newSlotIDs.sorted()
+    }
+
+    mutating func hide(slotID: String) {
+        guard announcedSlotIDs.contains(slotID) else { return }
+        hiddenSlotIDs.insert(slotID)
+    }
+
+    func visibleSlots(from slots: [CompactSlot]) -> [CompactSlot] {
+        slots.filter { !hiddenSlotIDs.contains($0.id) }
+    }
 }
 
 public func compactSymbolName(_ kind: ActivityKind) -> String {
@@ -176,6 +218,8 @@ public struct CompactActivityView: View {
     private let metrics: CompactPillMetrics
     private let motion: IslandMotion
 
+    @State private var musicIconVisibility = CompactMusicIconVisibility()
+
     public init(
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
@@ -189,7 +233,9 @@ public struct CompactActivityView: View {
     }
 
     public var body: some View {
-        let layout = compactSlotLayout(for: presentation)
+        let slots = compactSlots(for: presentation)
+        let visibleSlots = musicIconVisibility.visibleSlots(from: slots)
+        let layout = compactSlotLayout(for: visibleSlots)
         let size = compactPillSize(
             slotCount: layout.leading.count + layout.trailing.count,
             notchSize: notchSize,
@@ -217,6 +263,10 @@ public struct CompactActivityView: View {
             }
         }
         .environment(\.colorScheme, surface.preferredColorScheme)
+        .animation(slotAnimation, value: visibleSlots)
+        .task(id: musicSlotIDs(in: slots)) {
+            await scheduleMusicIconDismissals(for: slots)
+        }
     }
 
     private func slotRow(_ slots: [CompactSlot]) -> some View {
@@ -253,6 +303,8 @@ public struct CompactActivityView: View {
                 AnimatedScreenRecordingIcon(size: metrics.symbolSize * 0.84)
             } else if slot.recordingSource == .audio {
                 AnimatedMicrophoneRecordingIcon(size: metrics.symbolSize * 0.84)
+            } else if let aiAgentID = slot.aiAgentID {
+                AIAgentIcon(agentID: aiAgentID, size: metrics.symbolSize)
             } else if let sourceIdentity = slot.musicSourceIdentity {
                 if slot.isPlayingMusic {
                     MusicEqualiserSlotView(
@@ -273,6 +325,22 @@ public struct CompactActivityView: View {
         }
         .frame(width: metrics.slotWidth)
         .accessibilityLabel(slot.accessibilityLabel)
+    }
+
+    private func musicSlotIDs(in slots: [CompactSlot]) -> [String] {
+        slots.filter { $0.musicSourceIdentity != nil }.map(\.id).sorted()
+    }
+
+    private func scheduleMusicIconDismissals(for slots: [CompactSlot]) async {
+        let newSlotIDs = musicIconVisibility.synchronize(activeSlots: slots)
+        for slotID in newSlotIDs {
+            do {
+                try await Task.sleep(for: CompactMusicIconVisibility.visibleDuration)
+            } catch {
+                return
+            }
+            musicIconVisibility.hide(slotID: slotID)
+        }
     }
 }
 

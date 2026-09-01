@@ -57,7 +57,15 @@ public struct AIIntegrationsSettingsView: View {
     public func binding(for agentID: IPCAgentID) -> Binding<Bool> {
         Binding(
             get: { preferences.isEnabled(agentID) },
-            set: { preferences.setAgent(agentID, enabled: $0) }
+            set: { isEnabled in
+                let wasEnabled = preferences.isEnabled(agentID)
+                preferences.setAgent(agentID, enabled: isEnabled)
+
+                guard isEnabled, !wasEnabled, hookAction(for: agentID) == .install else {
+                    return
+                }
+                onHookAction(agentID, .install)
+            }
         )
     }
 

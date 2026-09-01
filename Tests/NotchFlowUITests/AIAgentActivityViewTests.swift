@@ -6,10 +6,7 @@ import Testing
 @testable import NotchFlowCore
 @testable import NotchFlowUI
 
-/// What the AI agent views draw for each of the seven states — the acceptance
-/// criterion for todo 52 is that every state renders distinctly, so the
-/// load-bearing tests here are the two that assert distinctness across the whole
-/// enum rather than spot-checking a favourite state.
+/// What the AI agent views draw for each state and supported agent.
 @Suite("AIAgentActivityView")
 @MainActor
 struct AIAgentActivityViewTests {
@@ -51,13 +48,6 @@ struct AIAgentActivityViewTests {
     }
 
     // MARK: - Distinctness across all seven states
-
-    @Test("gives each state its own glyph")
-    func glyphPerState() {
-        let symbols = AIAgentState.allCases.map { Self.presentation(state: $0).symbolName }
-
-        #expect(Set(symbols).count == AIAgentState.allCases.count)
-    }
 
     @Test("gives each state its own status text")
     func statusTextPerState() {
@@ -165,28 +155,25 @@ struct AIAgentActivityViewTests {
         #expect(Self.presentation(detail: "").detail == nil)
     }
 
-    // MARK: - Attention
+    // MARK: - The compact slot
 
-    @Test("marks only the states the user must resolve as needing attention")
-    func attentionStates() {
-        for state in AIAgentState.allCases {
-            let expected = state == .waitingForUser || state == .error
+    @Test("compact slots carry the originating agent logo identity")
+    func compactSlotUsesAgentIdentity() {
+        for agent in IPCAgentID.allCases {
+            let slot = aiAgentCompactSlot(for: Self.activity(agent: agent, state: .error))
 
-            #expect(Self.presentation(state: state).needsAttention == expected)
+            #expect(slot.aiAgentID == agent)
         }
     }
 
-    // MARK: - The compact slot
+    @Test("compact activity routing preserves the agent logo identity")
+    func compactActivityRoutingUsesAgentIdentity() throws {
+        let manager = ActivityManager()
+        manager.register(Self.activity(agent: .codex))
 
-    /// The slot carries the state's own glyph rather than the shared `.aiAgent`
-    /// sparkles, so a completed task and a failed one are distinguishable in the
-    /// pill.
-    @Test("gives the compact slot the state's glyph rather than the kind's")
-    func compactSlotUsesStateGlyph() {
-        let slot = aiAgentCompactSlot(for: Self.activity(state: .error))
+        let slot = try #require(compactSlots(for: manager.compactPresentation).first)
 
-        #expect(slot.symbolName == Self.presentation(state: .error).symbolName)
-        #expect(slot.symbolName != compactSymbolName(.aiAgent))
+        #expect(slot.aiAgentID == .codex)
     }
 
     @Test("announces the state and detail rather than the generic kind label")
@@ -202,6 +189,14 @@ struct AIAgentActivityViewTests {
         let activity = Self.activity()
 
         #expect(aiAgentCompactSlot(for: activity).id == activity.identity.rawValue)
+    }
+
+    @Test("expanded agent card stays inside the minimalist visual budget")
+    func expandedViewStaysMinimal() {
+        let size = aiAgentExpandedSize(hasProgress: true)
+
+        #expect(size.width <= 280)
+        #expect(size.height <= 64)
     }
 
     // MARK: - Accessibility

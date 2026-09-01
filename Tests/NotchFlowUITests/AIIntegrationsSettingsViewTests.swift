@@ -122,4 +122,56 @@ struct AIIntegrationsSettingsViewTests {
         #expect(received.first?.0 == .claudeCode)
         #expect(received.first?.1 == .install)
     }
+
+    @Test("enabling an agent automatically installs its missing hook once")
+    func enablingAgentInstallsMissingHookOnce() {
+        let store = Store()
+        var received: [(IPCAgentID, AIHookAction)] = []
+        let view = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            hookStates: [.codex: .hookAbsent],
+            onHookAction: { received.append(($0, $1)) }
+        )
+
+        view.binding(for: .codex).wrappedValue = true
+        view.binding(for: .codex).wrappedValue = true
+
+        #expect(store.preferences.isEnabled(.codex))
+        #expect(received.count == 1)
+        #expect(received.first?.0 == .codex)
+        #expect(received.first?.1 == .install)
+    }
+
+    @Test("an already installed hook is not reinstalled when its agent is enabled")
+    func enablingAgentKeepsInstalledHook() {
+        let store = Store()
+        var received: [(IPCAgentID, AIHookAction)] = []
+        let view = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            hookStates: [.claudeCode: .hookInstalled],
+            onHookAction: { received.append(($0, $1)) }
+        )
+
+        view.binding(for: .claudeCode).wrappedValue = true
+
+        #expect(store.preferences.isEnabled(.claudeCode))
+        #expect(received.isEmpty)
+    }
+
+    @Test("disabling an agent does not silently uninstall its hook")
+    func disablingAgentKeepsHookInstalled() {
+        let store = Store()
+        store.preferences.setAgent(.opencode, enabled: true)
+        var received: [(IPCAgentID, AIHookAction)] = []
+        let view = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            hookStates: [.opencode: .hookInstalled],
+            onHookAction: { received.append(($0, $1)) }
+        )
+
+        view.binding(for: .opencode).wrappedValue = false
+
+        #expect(!store.preferences.isEnabled(.opencode))
+        #expect(received.isEmpty)
+    }
 }

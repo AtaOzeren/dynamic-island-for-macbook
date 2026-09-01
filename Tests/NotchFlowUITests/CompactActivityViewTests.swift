@@ -146,4 +146,38 @@ struct CompactActivityViewTests {
         #expect(size.height == notch.height)
         #expect(size.width > notch.width)
     }
+
+    @Test("music compact icon announcement lasts five seconds")
+    func musicIconAnnouncementDuration() {
+        #expect(CompactMusicIconVisibility.visibleDuration == .seconds(5))
+    }
+
+    @Test("music icon hides after its announcement and returns for a later session")
+    func musicIconVisibilityLifecycle() throws {
+        let manager = ActivityManager()
+        let music = MusicActivity(
+            nowPlaying: NowPlaying(
+                title: "Windowlicker",
+                artist: "Aphex Twin",
+                playbackState: .playing,
+                sourceApplicationName: "Spotify"
+            )
+        )
+        manager.register(music)
+        manager.register(Self.activity("timer", .timer, .high))
+        let slots = compactSlots(for: manager.compactPresentation)
+        let musicID = try #require(slots.first(where: { $0.musicSourceIdentity != nil })?.id)
+        var visibility = CompactMusicIconVisibility()
+
+        #expect(visibility.synchronize(activeSlots: slots) == [musicID])
+        #expect(visibility.synchronize(activeSlots: slots).isEmpty)
+
+        visibility.hide(slotID: musicID)
+
+        #expect(visibility.visibleSlots(from: slots).allSatisfy { $0.id != musicID })
+        #expect(visibility.visibleSlots(from: slots).contains { $0.id == "timer" })
+
+        #expect(visibility.synchronize(activeSlots: []).isEmpty)
+        #expect(visibility.synchronize(activeSlots: slots) == [musicID])
+    }
 }
