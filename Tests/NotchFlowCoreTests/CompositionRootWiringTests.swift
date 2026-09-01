@@ -103,6 +103,15 @@ struct CompositionRootWiringTests {
         #expect(directEntitlements.contains("com.apple.security.automation.apple-events"))
     }
 
+    @Test("music automation changes refresh the live provider immediately")
+    func automationChangesRefreshMusicProvider() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(source.contains("refreshCurrentState()"))
+        #expect(source.contains("NSApplication.didBecomeActiveNotification"))
+        #expect(source.contains("refreshMusicAutomationState()"))
+    }
+
     @Test("timer commands reach the provider, and the menu can start one")
     func timerDispatchIsWired() throws {
         let presenter = try Self.appSource("NotchFlow/IslandPresenter.swift")

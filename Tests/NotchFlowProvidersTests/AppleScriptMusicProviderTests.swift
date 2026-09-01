@@ -84,6 +84,19 @@ struct AppleScriptMusicProviderTests {
         #expect(Set(players.queriedTargets) == Set(MusicPlayerTarget.allCases))
     }
 
+    @Test("re-reads Apple Music immediately after automation access is granted")
+    func refreshesCurrentStateAfterPermissionGrant() {
+        let (provider, players, _) = Self.make()
+        var received: [NowPlaying?] = []
+
+        provider.startObserving { received.append($0) }
+        players.snapshots[.appleMusic] = Self.snapshot("Nannou")
+        provider.refreshCurrentState()
+
+        #expect(received.last??.title == "Nannou")
+        #expect(received.last??.sourceApplicationName == "Music")
+    }
+
     /// The one read on start is the *only* unprompted read: each player is
     /// asked exactly once, and nothing re-reads on a timer.
     @Test("queries each player exactly once when observation starts")

@@ -268,16 +268,32 @@ struct PresentationControllerTests {
         #expect(harness.panel.ignoresMouseEvents == false)
     }
 
-    @Test("keeps accepting the mouse when the pointer leaves an expanded panel, so click-outside can collapse it")
-    func expandedIgnoresHover() {
+    @Test("collapses when the pointer leaves the expanded island")
+    func expandedCollapsesOnPointerExit() {
         let harness = Self.makeHarness()
         harness.manager.register(Self.activity("timer.focus"))
+        harness.mouse.move(to: Self.insideTheHitRect)
+        harness.controller.expand()
+
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.controller.isHovered == false)
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("externally managed hover reports exit without collapsing one display alone")
+    func externalHoverManagementOnlyReportsPointerExit() {
+        let harness = Self.makeHarness()
+        harness.controller.automaticallyExpandsOnHover = false
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.mouse.move(to: Self.insideTheHitRect)
         harness.controller.expand()
 
         harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
 
         #expect(harness.controller.state == .expanded)
-        #expect(harness.panel.ignoresMouseEvents == false)
+        #expect(harness.controller.isHovered == false)
     }
 
     @Test("reverts to click-through when collapsing away from the pointer")
