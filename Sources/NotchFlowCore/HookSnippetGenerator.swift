@@ -22,15 +22,26 @@ public struct HookSnippetGenerator: Sendable {
     }
 
     public func claudeCodeSettingsFragment() -> String {
-        let command = Self.shellCommand(
-            eventExpression: #"event=json.loads(sys.argv[1]); raw_session=event["session_id"]"#,
-            agentID: "claude-code",
-            state: "usingTool",
-            detail: "Using tool"
-        )
-        let fragment: [String: Any] = [
-            "hooks": [
-                "PreToolUse": [
+        let lifecycle: [(event: String, state: String, detail: String)] = [
+            ("SessionStart", "thinking", "Session started"),
+            ("UserPromptSubmit", "working", "Working"),
+            ("PreToolUse", "usingTool", "Using tool"),
+            ("PostToolUse", "working", "Tool completed"),
+            ("Notification", "waitingForUser", "Needs attention"),
+            ("Stop", "completed", "Task completed"),
+            ("StopFailure", "error", "Task failed"),
+            ("SessionEnd", "idle", "Session ended"),
+        ]
+        let hooks = Dictionary(uniqueKeysWithValues: lifecycle.map { event in
+            let command = Self.shellCommand(
+                eventExpression: #"event=json.loads(sys.argv[1]); raw_session=event["session_id"]"#,
+                agentID: "claude-code",
+                state: event.state,
+                detail: event.detail
+            )
+            return (
+                event.event,
+                [
                     [
                         "hooks": [
                             [
@@ -40,7 +51,10 @@ public struct HookSnippetGenerator: Sendable {
                         ]
                     ]
                 ]
-            ]
+            )
+        })
+        let fragment: [String: Any] = [
+            "hooks": hooks
         ]
 
         guard
@@ -54,15 +68,28 @@ public struct HookSnippetGenerator: Sendable {
         return String(decoding: data, as: UTF8.self) + "\n"
     }
 
-    public func codexNotifyFragment() -> String {
-        let script = Self.shellCommand(
-            eventExpression: #"event=json.loads(sys.argv[1]); raw_session=event["thread-id"]"#,
-            agentID: "codex",
-            state: "completed",
-            detail: "Turn completed",
-            inputExpression: #"$1"#
-        )
-        return "notify = \(Self.jsonLiteral(["sh", "-c", script, "sh"]))\n"
+    public func codexNotifyFragment(forwarding existingArguments: [String] = []) -> String {
+        let forwardedJSON = Self.jsonLiteral(existingArguments)
+        let forwardedBase64 = Data(forwardedJSON.utf8).base64EncodedString()
+        let script =
+            #"import datetime,json,subprocess,sys,urllib.parse,uuid; "#
+            + #"notchflow_codex_notify_v2=True; "#
+            + #"notchflow_forward_b64='"# + forwardedBase64 + #"'; "#
+            + #"forward="# + forwardedJSON + #"; event_args=sys.argv[1:]; "#
+            + #"event_json=event_args[0]; event=json.loads(event_json); "#
+            + #"raw_session=event["thread-id"]; "#
+            + #"session=str(uuid.uuid5(uuid.NAMESPACE_URL,"codex:"+raw_session)); "#
+            + #"payload={"schemaVersion":"1.0","agentId":"codex","sessionId":session,"#
+            + #""state":"completed","detail":"Turn completed","timestamp":"#
+            + #"datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")"#
+            + #".replace("+00:00","Z")}; "#
+            + #"url="notchflow://ai-status?payload="+urllib.parse.quote("#
+            + #"json.dumps(payload,separators=(",",":")),safe=""); "#
+            + #"forward and subprocess.Popen(forward+event_args,start_new_session=True,"#
+            + #"stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "#
+            + #"subprocess.Popen(["open","-g",url],start_new_session=True,"#
+            + #"stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)"#
+        return "notify = \(Self.jsonLiteral(["python3", "-c", script]))\n"
     }
 
     public func openCodePluginFile() -> String {

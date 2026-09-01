@@ -98,6 +98,8 @@ public struct AIAgentActivity: Activity, Equatable {
         }
     }
 
+    public var compactRegion: CompactActivityRegion { .agentTrailing }
+
     public var kind: ActivityKind { .aiAgent }
 
     /// Per the V1 priority table in `docs/05-activity-model.md`: the states the

@@ -202,6 +202,10 @@ struct NotchFlowApp: App {
             // it waits on the same turn the onboarding window does.
             statusItemPresenter.start()
             islandPresenter.start()
+            Self.repairEnabledHooks(
+                preferences: settingsStore.aiIntegrationPreferences,
+                manualSetupPresenter: manualSetupPresenter
+            )
 
             presenter.presentIfNeeded(
                 hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding] || Self.isUITesting,
@@ -292,6 +296,27 @@ struct NotchFlowApp: App {
                 _ = try await listener.updatePreferences(preferences)
             } catch {
                 present(error)
+            }
+        }
+    }
+
+    private static func repairEnabledHooks(
+        preferences: AIIntegrationPreferences,
+        manualSetupPresenter: ManualSetupPresenter
+    ) {
+        for agentID in preferences.enabledAgentIDs {
+            let state = hookState(for: agentID)
+            guard state == .configurationMissing || state == .hookAbsent else {
+                continue
+            }
+            do {
+                try installHook(for: agentID)
+            } catch {
+                presentManualSetup(
+                    for: agentID,
+                    with: manualSetupPresenter,
+                    fallbackError: error
+                )
             }
         }
     }

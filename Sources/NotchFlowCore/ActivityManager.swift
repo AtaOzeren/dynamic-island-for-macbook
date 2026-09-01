@@ -15,6 +15,14 @@ public final class ActivityManager {
         let generation: Int
     }
 
+    private struct CompactGroup {
+        var representative: any Activity
+        let order: Int
+        var latestRegistrationTime: Date
+    }
+
+    private static let compactAgentCapacity = 2
+
     private let compactCapacity: Int
     private let sleep: Sleep
     private var entries: [ActivityIdentity: Entry] = [:]
@@ -44,15 +52,29 @@ public final class ActivityManager {
     }
 
     public var compactPresentation: CompactActivityPresentation {
-        let activities = compactActivities
-        guard activities.count > compactCapacity else {
-            return CompactActivityPresentation(activities: activities, overflowCount: 0)
+        let groups = compactGroups
+        let standardActivities = groups
+            .filter { $0.representative.compactRegion == .standard }
+            .sorted { $0.order < $1.order }
+            .map(\.representative)
+        let agentActivities = groups
+            .filter { $0.representative.compactRegion == .agentTrailing }
+            .sorted { $0.latestRegistrationTime > $1.latestRegistrationTime }
+            .prefix(Self.compactAgentCapacity)
+            .sorted { $0.latestRegistrationTime < $1.latestRegistrationTime }
+            .map(\.representative)
+
+        guard standardActivities.count > compactCapacity else {
+            return CompactActivityPresentation(
+                activities: standardActivities + agentActivities,
+                overflowCount: 0
+            )
         }
 
-        let visibleCount = compactCapacity - 1
+        let visibleStandardCount = compactCapacity - 1
         return CompactActivityPresentation(
-            activities: Array(activities.prefix(visibleCount)),
-            overflowCount: activities.count - visibleCount
+            activities: Array(standardActivities.prefix(visibleStandardCount)) + agentActivities,
+            overflowCount: standardActivities.count - visibleStandardCount
         )
     }
 
@@ -98,26 +120,31 @@ public final class ActivityManager {
         }
     }
 
-    private var compactActivities: [any Activity] {
-        var groupIndexes: [ActivityIdentity: Int] = [:]
-        var representatives: [any Activity] = []
+    private var compactGroups: [CompactGroup] {
+        var groups: [ActivityIdentity: CompactGroup] = [:]
 
-        for activity in activeActivities {
+        for (order, entry) in orderedEntries.enumerated() {
+            let activity = entry.activity
             let groupIdentity = activity.compactGroupIdentity
-            guard let index = groupIndexes[groupIdentity] else {
-                groupIndexes[groupIdentity] = representatives.count
-                representatives.append(activity)
+            guard var group = groups[groupIdentity] else {
+                groups[groupIdentity] = CompactGroup(
+                    representative: activity,
+                    order: order,
+                    latestRegistrationTime: entry.registrationTime
+                )
                 continue
             }
 
-            if representatives[index].compactRepresentationPriority
+            if group.representative.compactRepresentationPriority
                 < activity.compactRepresentationPriority
             {
-                representatives[index] = activity
+                group.representative = activity
             }
+            group.latestRegistrationTime = max(group.latestRegistrationTime, entry.registrationTime)
+            groups[groupIdentity] = group
         }
 
-        return representatives
+        return Array(groups.values)
     }
 
     private func store(_ activity: any Activity, registrationTime: Date) {

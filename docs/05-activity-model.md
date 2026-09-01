@@ -9,12 +9,15 @@ Every feature in NotchFlow — music, timers, recording indicators, charging sta
 | Member | Kind | Purpose |
 |---|---|---|
 | `identity` | property | A stable, unique identifier used for deduplication — the same identity replaces an existing activity instead of creating a second one |
+| `compactGroupIdentity` | property | Presentation-only grouping key; concurrent sessions from one AI agent share one compact icon while retaining separate activity identities |
+| `compactRepresentationPriority` | property | Chooses the most important representative when multiple activities share a compact group |
+| `compactRegion` | property | Selects the standard compact capacity or the dedicated trailing AI-agent region |
 | `kind` | property | Which activity type this is (music, timer, recording, charging, AI, …), used for routing to the right view and for the priority table below |
 | `priority` | property | An `ActivityPriority` value that determines ordering and, at `critical`/`high`, whether the activity forces the panel visible |
 | `autoDismiss` | optional property | If set, the `ActivityManager` removes this activity automatically after the given duration elapses with no intervening registration or update; defaults to `nil` |
 | `primaryAction` | optional property | If set, defines what a click on this activity's compact or expanded view does (e.g. open the source app, focus a terminal); if unset, the activity is inert to clicks beyond the panel's own expand/collapse behaviour; defaults to `nil` |
 
-`identity`, `kind`, and `priority` are required on every activity. `autoDismiss` and `primaryAction` are optional with `nil` defaults — the `ActivityManager` can manage any activity without them.
+`identity`, `kind`, and `priority` are required on every activity. Compact grouping properties have defaults that keep an activity ungrouped in the standard region. `autoDismiss` and `primaryAction` are optional with `nil` defaults — the `ActivityManager` can manage any activity without them.
 
 Lifecycle management (`register`, `update`, `end`) lives on `ActivityManager`, not on the `Activity` protocol. Providers call the manager's methods; the manager owns the active set and the auto-dismiss timers. View rendering is handled in `NotchFlowUI` by type-switching on `ActivityKind`, not by view-builder methods on the protocol.
 
@@ -54,7 +57,7 @@ The `ActivityManager` lives in `NotchFlowCore` and is the only component that pr
 | Registration | A provider calls into the manager to register a new `Activity` or push an `update()` to an existing one |
 | Deduplication | Registration is keyed by `identity`; a second registration with the same identity updates the existing activity in place rather than creating a duplicate |
 | Ordering | The active set is sorted by `priority` (highest first), then by registration time (oldest first) within the same priority, so a `high` activity always outranks a `normal` one regardless of when either arrived |
-| Compact view capacity | The compact pill can show a limited number of activities at once (target: up to 3, see `04-overlay-window.md` for the pill's sizing constraints); activities beyond that limit are represented by a single overflow indicator (e.g. `+2`) rather than being hidden silently |
+| Compact view capacity | The standard compact region shows up to 3 positions; activities beyond that limit use one overflow indicator. A separate trailing AI region shows the two most recently started agent groups and never consumes standard capacity. |
 | Expanded view | Shows every active activity, in the same priority order as the compact view, with no overflow — expansion exists precisely so nothing is truncated |
 | Auto-dismiss | The manager owns the timers for any activity with an auto-dismiss duration set; when the duration elapses without an intervening `update()`, the manager calls `end()` on that activity itself, the provider does not need to |
 | Panel visibility | The panel remains in compact form when the active set is empty. The controller orders it out only for suspension, teardown, or a missing target screen; `ActivityManager` decides compact content and whether expansion is allowed. |
@@ -83,7 +86,7 @@ This follows `draft.md:189-220`. Assume music, a running timer, and a file trans
 
 If a fourth `normal`-or-higher activity registers while these three are active and the compact capacity is 3, the pill instead shows two of the highest-priority icons plus an overflow indicator (e.g. `🎵 ⏱ +2`); the expanded view still lists all four, because the expanded view never truncates.
 
-Concurrent sessions from the same AI agent share one compact slot. The manager keeps every session independently active, but capacity and overflow count the agent group once. In the expanded view that group is one compact summary row; when more than one session is live, a count disclosure reveals every session below it.
+Concurrent sessions from the same AI agent share one compact slot. The manager keeps every session independently active, but capacity and overflow count the agent group once. AI slots stay together at the far-right edge; if more than two agents are active, only the two most recently started agent groups appear compactly. In the expanded view every agent group remains available as a summary row, and a count disclosure reveals concurrent sessions below it.
 
 ## Extension guide: adding a new activity type
 

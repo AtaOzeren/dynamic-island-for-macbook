@@ -67,10 +67,18 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
         let neckHeight = min(compactSize.height, bounds.height)
         guard neckWidth > 0, neckHeight > 0 else { return Path() }
 
-        if bounds.height <= neckHeight + 0.5 || bounds.width <= neckWidth + 0.5 {
+        if bounds.height <= neckHeight + 0.5 {
             return Path(
                 roundedRect: bounds,
                 cornerRadius: min(bounds.width, bounds.height) / 2,
+                style: .continuous
+            )
+        }
+
+        if bounds.width <= neckWidth + 0.5 {
+            return Path(
+                roundedRect: bounds,
+                cornerRadius: min(18, bounds.width / 2, bounds.height / 2),
                 style: .continuous
             )
         }

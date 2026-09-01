@@ -48,7 +48,12 @@ public struct FoundationCodexHookFileSystem: CodexHookFileSystem {
 public struct CodexHookInstaller: Sendable {
     private static let configPath = ".codex/config.toml"
     private static let backupSuffix = ".notchflow-backup"
-    private static let rootNotifyPattern = #"(?m)^notify[ \t]*=[ \t]*[^\r\n]*(?:\r?\n|$)"#
+    private static let rootNotifyPattern = #"(?m)^[ \t]*notify[ \t]*="#
+
+    private struct RootNotifyAssignment {
+        let range: Range<String.Index>
+        let arguments: [String]
+    }
 
     private let fileSystem: any CodexHookFileSystem
     private let syntaxValidator: CodexTOMLSyntaxValidator
@@ -162,63 +167,257 @@ public struct CodexHookInstaller: Sendable {
             existing = ""
         }
 
-        let generated = generatedNotifySetting()
-        let merged = try configurationBySettingRootNotify(generated, in: existing)
+        let merged = try configurationBySettingRootNotify(in: existing)
         guard syntaxValidator(merged) else {
             throw CodexHookInstallerError.invalidGeneratedConfiguration
         }
         return (merged, merged != existing)
     }
 
-    private func generatedNotifySetting() -> String {
-        HookSnippetGenerator().codexNotifyFragment()
+    private func generatedNotifySetting(forwarding arguments: [String] = []) -> String {
+        HookSnippetGenerator().codexNotifyFragment(forwarding: arguments)
     }
 
-    private func configurationBySettingRootNotify(
-        _ generated: String,
-        in existing: String
-    ) throws -> String {
-        let expression = try NSRegularExpression(pattern: Self.rootNotifyPattern)
-        let rootRange = NSRange(existing.startIndex..<rootTableEnd(in: existing), in: existing)
-        let matches = expression.matches(in: existing, range: rootRange)
-
-        if matches.count > 1 {
-            throw CodexHookInstallerError.invalidExistingConfiguration
-        }
-        if let match = matches.first, let range = Range(match.range, in: existing) {
-            return existing.replacingCharacters(in: range, with: generated)
+    private func configurationBySettingRootNotify(in existing: String) throws -> String {
+        if let assignment = try rootNotifyAssignment(in: existing) {
+            if isCurrentManagedNotify(assignment.arguments) {
+                return existing
+            }
+            let forwardedArguments = isLegacyManagedNotify(assignment.arguments)
+                ? []
+                : assignment.arguments
+            return existing.replacingCharacters(
+                in: assignment.range,
+                with: generatedNotifySetting(forwarding: forwardedArguments)
+            )
         }
         if existing.isEmpty {
-            return generated
+            return generatedNotifySetting()
         }
 
         let tableStart = rootTableEnd(in: existing)
         let prefix = existing[..<tableStart]
         let separator = prefix.isEmpty || prefix.hasSuffix("\n") ? "" : "\n"
-        let insertion = separator + generated
+        let insertion = separator + generatedNotifySetting()
         return String(existing[..<tableStart]) + insertion + String(existing[tableStart...])
     }
 
     private func configurationRemovingGeneratedNotify(
         from existing: String
     ) throws -> (text: String, changed: Bool) {
+        guard let assignment = try rootNotifyAssignment(in: existing) else {
+            return (existing, false)
+        }
+
+        if isCurrentManagedNotify(assignment.arguments) {
+            let forwarded = forwardedArguments(from: assignment.arguments) ?? []
+            let replacement = forwarded.isEmpty ? "" : plainNotifySetting(forwarded)
+            return (
+                existing.replacingCharacters(in: assignment.range, with: replacement),
+                true
+            )
+        }
+        guard isLegacyManagedNotify(assignment.arguments) else {
+            return (existing, false)
+        }
+
+        return (existing.replacingCharacters(in: assignment.range, with: ""), true)
+    }
+
+    private func rootNotifyAssignment(in existing: String) throws -> RootNotifyAssignment? {
         let expression = try NSRegularExpression(pattern: Self.rootNotifyPattern)
         let rootRange = NSRange(existing.startIndex..<rootTableEnd(in: existing), in: existing)
         let matches = expression.matches(in: existing, range: rootRange)
-
         guard matches.count <= 1 else {
             throw CodexHookInstallerError.invalidExistingConfiguration
         }
         guard
             let match = matches.first,
-            let range = Range(match.range, in: existing),
-            String(existing[range]).trimmingCharacters(in: .whitespacesAndNewlines)
-                == generatedNotifySetting().trimmingCharacters(in: .whitespacesAndNewlines)
+            let matchRange = Range(match.range, in: existing)
         else {
-            return (existing, false)
+            return nil
         }
 
-        return (existing.replacingCharacters(in: range, with: ""), true)
+        let range = try notifyAssignmentRange(
+            startingAt: matchRange.upperBound,
+            in: existing
+        )
+        let arguments = try notifyArguments(in: existing[range])
+        return RootNotifyAssignment(
+            range: matchRange.lowerBound..<range.upperBound,
+            arguments: arguments
+        )
+    }
+
+    private func notifyAssignmentRange(
+        startingAt valueStart: String.Index,
+        in text: String
+    ) throws -> Range<String.Index> {
+        var index = valueStart
+        while index < text.endIndex, text[index] == " " || text[index] == "\t" {
+            index = text.index(after: index)
+        }
+        guard index < text.endIndex, text[index] == "[" else {
+            throw CodexHookInstallerError.invalidExistingConfiguration
+        }
+
+        let arrayStart = index
+        var depth = 0
+        var quote: Character?
+        var escaped = false
+        var inComment = false
+        while index < text.endIndex {
+            let character = text[index]
+            if inComment {
+                inComment = character != "\n"
+            } else if let activeQuote = quote {
+                if activeQuote == "\"", character == "\\", escaped == false {
+                    escaped = true
+                } else {
+                    if character == activeQuote, escaped == false {
+                        quote = nil
+                    }
+                    escaped = false
+                }
+            } else if character == "#" {
+                inComment = true
+            } else if character == "\"" || character == "'" {
+                quote = character
+            } else if character == "[" {
+                depth += 1
+            } else if character == "]" {
+                depth -= 1
+                if depth == 0 {
+                    var end = text.index(after: index)
+                    while end < text.endIndex, text[end] != "\n" {
+                        guard text[end] == " " || text[end] == "\t" || text[end] == "#" else {
+                            throw CodexHookInstallerError.invalidExistingConfiguration
+                        }
+                        if text[end] == "#" {
+                            end = text[end...].firstIndex(of: "\n") ?? text.endIndex
+                            break
+                        }
+                        end = text.index(after: end)
+                    }
+                    if end < text.endIndex {
+                        end = text.index(after: end)
+                    }
+                    return arrayStart..<end
+                }
+            }
+            index = text.index(after: index)
+        }
+        throw CodexHookInstallerError.invalidExistingConfiguration
+    }
+
+    private func notifyArguments(in assignment: Substring) throws -> [String] {
+        guard
+            let arrayStart = assignment.firstIndex(of: "["),
+            let arrayEnd = assignment.lastIndex(of: "]"),
+            arrayStart < arrayEnd
+        else {
+            throw CodexHookInstallerError.invalidExistingConfiguration
+        }
+
+        var index = assignment.index(after: arrayStart)
+        var arguments: [String] = []
+        while index < arrayEnd {
+            skipNotifySeparators(in: assignment, index: &index, end: arrayEnd)
+            guard index < arrayEnd else { break }
+            let quote = assignment[index]
+            guard quote == "\"" || quote == "'" else {
+                throw CodexHookInstallerError.invalidExistingConfiguration
+            }
+            let tokenStart = index
+            index = assignment.index(after: index)
+            var escaped = false
+            while index < arrayEnd {
+                let character = assignment[index]
+                if quote == "\"", character == "\\", escaped == false {
+                    escaped = true
+                } else {
+                    if character == quote, escaped == false { break }
+                    escaped = false
+                }
+                index = assignment.index(after: index)
+            }
+            guard index < arrayEnd else {
+                throw CodexHookInstallerError.invalidExistingConfiguration
+            }
+            let tokenEnd = assignment.index(after: index)
+            let token = String(assignment[tokenStart..<tokenEnd])
+            if quote == "'" {
+                arguments.append(String(token.dropFirst().dropLast()))
+            } else {
+                guard let argument = try? JSONDecoder().decode(String.self, from: Data(token.utf8)) else {
+                    throw CodexHookInstallerError.invalidExistingConfiguration
+                }
+                arguments.append(argument)
+            }
+            index = tokenEnd
+            skipNotifySeparators(in: assignment, index: &index, end: arrayEnd)
+            guard index >= arrayEnd || assignment[index] == "," else {
+                throw CodexHookInstallerError.invalidExistingConfiguration
+            }
+            if index < arrayEnd {
+                index = assignment.index(after: index)
+            }
+        }
+        return arguments
+    }
+
+    private func skipNotifySeparators(
+        in text: Substring,
+        index: inout String.Index,
+        end: String.Index
+    ) {
+        while index < end {
+            if text[index].isWhitespace {
+                index = text.index(after: index)
+                continue
+            }
+            if text[index] == "#" {
+                index = text[index...].firstIndex(of: "\n") ?? end
+                continue
+            }
+            break
+        }
+    }
+
+    private func isCurrentManagedNotify(_ arguments: [String]) -> Bool {
+        arguments.count >= 3
+            && arguments[0] == "python3"
+            && arguments[2].contains("notchflow_codex_notify_v2=True")
+    }
+
+    private func isLegacyManagedNotify(_ arguments: [String]) -> Bool {
+        let command = arguments.joined(separator: " ")
+        return command.contains("notchflow://ai-status")
+            && command.contains(#"agentId":"codex"#)
+    }
+
+    private func forwardedArguments(from arguments: [String]) -> [String]? {
+        guard isCurrentManagedNotify(arguments) else { return nil }
+        let script = arguments[2]
+        let marker = "notchflow_forward_b64='"
+        guard
+            let markerRange = script.range(of: marker),
+            let end = script[markerRange.upperBound...].firstIndex(of: "'")
+        else {
+            return nil
+        }
+        let encoded = String(script[markerRange.upperBound..<end])
+        guard let data = Data(base64Encoded: encoded) else { return nil }
+        return try? JSONDecoder().decode([String].self, from: data)
+    }
+
+    private func plainNotifySetting(_ arguments: [String]) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.withoutEscapingSlashes]
+        guard let data = try? encoder.encode(arguments) else {
+            preconditionFailure("Codex notify arguments must encode")
+        }
+        return "notify = \(String(decoding: data, as: UTF8.self))\n"
     }
 
     private func rootTableEnd(in text: String) -> String.Index {

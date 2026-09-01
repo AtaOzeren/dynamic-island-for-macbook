@@ -1,6 +1,6 @@
 # AI Integration
 
-This document specifies the AI agent state machine, the IPC protocol that carries agent state into NotchFlow, the per-agent hook integrations for Claude Code, Codex CLI, and OpenCode, and the hook installer's consent model. It is a design specification — the fenced snippets in it are the literal output of `HookSnippetGenerator`, quoted for reference and pinned by a drift test, not hand-maintained code.
+This document specifies the AI agent state machine, the IPC protocol that carries agent state into NotchFlow, the per-agent hook integrations for Claude Code, Codex CLI, and OpenCode, and the hook installer's consent model. `HookSnippetGenerator` is the source of truth for emitted configuration; Settings shows its current output when manual setup is required.
 
 ## Design principle
 
@@ -118,27 +118,100 @@ Three agents are supported in V1: Claude Code, Codex CLI, and OpenCode. Each int
 
 ### Claude Code
 
-Claude Code supports hook configuration in `~/.claude/settings.json`. NotchFlow's installer adds a hook entry that maps Claude Code's `PreToolUse` event to an IPC message.
+Claude Code supports hook configuration in `~/.claude/settings.json`. NotchFlow maps its lifecycle hooks onto agent state so a tool call cannot leave a permanently active card after the turn ends.
 
 | Claude Code hook event | NotchFlow state sent |
 |---|---|
+| `SessionStart` | `thinking` |
+| `UserPromptSubmit` | `working` |
 | `PreToolUse` | `usingTool` (detail "Using tool"; the session id is derived from the event JSON's `session_id` field) |
-
-The generated snippet covers `PreToolUse` only — the hook that fires most frequently and gives the most useful signal (the agent is actively running a tool). Other lifecycle events (`SessionStart`, `PostToolUse`, `Notification`, `Stop`) are not wired in V1; the agent's state transitions to `usingTool` on tool invocation and the activity ends when the session ends or the user dismisses it.
+| `PostToolUse` | `working` |
+| `Notification` | `waitingForUser` |
+| `Stop` | `completed` |
+| `StopFailure` | `error` |
+| `SessionEnd` | `idle` (ends presentation immediately) |
 
 Claude Code hooks receive the event as JSON on stdin. The generated hook command is **asynchronous** — it fires the IPC call and returns immediately — so NotchFlow's presence never adds latency to the agent's own execution. The snippet uses the URL-scheme transport with `open -g` precisely because it backgrounds trivially from a shell hook.
-
-The literal fragment the installer merges into `~/.claude/settings.json`, exactly as `HookSnippetGenerator` emits it (a drift test in `NotchFlowCoreTests` fails the build if this block and the generator ever disagree):
 
 <!-- notchflow-snippet: claude-code -->
 ```json
 {
   "hooks" : {
+    "Notification" : [
+      {
+        "hooks" : [
+          {
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"waitingForUser\",\"detail\":\"Needs attention\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUse" : [
+      {
+        "hooks" : [
+          {
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"working\",\"detail\":\"Tool completed\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
+          }
+        ]
+      }
+    ],
     "PreToolUse" : [
       {
         "hooks" : [
           {
             "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"usingTool\",\"detail\":\"Using tool\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
+          }
+        ]
+      }
+    ],
+    "SessionEnd" : [
+      {
+        "hooks" : [
+          {
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"idle\",\"detail\":\"Session ended\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
+          }
+        ]
+      }
+    ],
+    "SessionStart" : [
+      {
+        "hooks" : [
+          {
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"thinking\",\"detail\":\"Session started\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
+          }
+        ]
+      }
+    ],
+    "Stop" : [
+      {
+        "hooks" : [
+          {
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"completed\",\"detail\":\"Task completed\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
+          }
+        ]
+      }
+    ],
+    "StopFailure" : [
+      {
+        "hooks" : [
+          {
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"error\",\"detail\":\"Task failed\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
+            "type" : "command"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit" : [
+      {
+        "hooks" : [
+          {
+            "command" : "EVENT=$(cat); URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"session_id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"claude-code:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"claude-code\",\"sessionId\":session,\"state\":\"working\",\"detail\":\"Working\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $EVENT); [ -n \"$URL\" ] && open -g \"$URL\" &",
             "type" : "command"
           }
         ]
@@ -150,13 +223,13 @@ The literal fragment the installer merges into `~/.claude/settings.json`, exactl
 
 ### Codex CLI
 
-Codex CLI supports a `notify` program setting in `~/.codex/config.toml`, invoked with a single JSON argument describing the event. There is a catch that dictates the shape of NotchFlow's snippet: Codex spawns the configured program directly, **without a shell**, and **appends the event JSON** as an extra argument after the configured array. A plain script relying on `$()`, `[ -n ... ]`, or `&&` would never run — there is no shell to interpret it. The generated value is therefore a four-element array, `["sh", "-c", <script>, "sh"]`: the `sh -c` wrapper supplies the shell that parses the script, and the trailing `"sh"` element occupies `$0` so that the event JSON Codex appends lands in `$1`, where the script reads it with `sys.argv[1]`. The script derives the session id from the event's `thread-id`, builds the envelope URL with `python3`, and dispatches it in the background with `open -g`.
+Codex CLI supports one `notify` argv setting in `~/.codex/config.toml`. Codex spawns that program directly and appends event JSON as the final argument. NotchFlow therefore emits a direct three-element Python command (`python3`, `-c`, script), without shell interpolation. The script reads Codex's appended argument, derives the session UUID from `thread-id`, and launches `open -g` detached.
 
-The literal line the installer writes into `~/.codex/config.toml`, exactly as `HookSnippetGenerator` emits it:
+The installer parses both single-line and multiline root `notify` arrays. If another notifier already exists, NotchFlow preserves its argv and forwards every event to it before sending its own status. This is required for tools such as Codex Computer Use: installing NotchFlow must not disable an existing notification integration. Original bytes are still backed up and restored on uninstall.
 
 <!-- notchflow-snippet: codex -->
 ```toml
-notify = ["sh","-c","URL=$(python3 -c 'import json,sys,urllib.parse,uuid; event=json.loads(sys.argv[1]); raw_session=event[\"thread-id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"codex:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"codex\",\"sessionId\":session,\"state\":\"completed\",\"detail\":\"Turn completed\",\"timestamp\":__import__(\"datetime\").datetime.now(__import__(\"datetime\").timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; print(\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"))' $1); [ -n \"$URL\" ] && open -g \"$URL\"","sh"]
+notify = ["python3","-c","import datetime,json,subprocess,sys,urllib.parse,uuid; notchflow_codex_notify_v2=True; notchflow_forward_b64='W10='; forward=[]; event_args=sys.argv[1:]; event_json=event_args[0]; event=json.loads(event_json); raw_session=event[\"thread-id\"]; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"codex:\"+raw_session)); payload={\"schemaVersion\":\"1.0\",\"agentId\":\"codex\",\"sessionId\":session,\"state\":\"completed\",\"detail\":\"Turn completed\",\"timestamp\":datetime.datetime.now(datetime.timezone.utc).isoformat(timespec=\"milliseconds\").replace(\"+00:00\",\"Z\")}; url=\"notchflow://ai-status?payload=\"+urllib.parse.quote(json.dumps(payload,separators=(\",\",\":\")),safe=\"\"); forward and subprocess.Popen(forward+event_args,start_new_session=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); subprocess.Popen([\"open\",\"-g\",url],start_new_session=True,stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)"]
 ```
 
 ### OpenCode
@@ -218,13 +291,14 @@ export const NotchFlowPlugin: Plugin = async () => ({
 
 ## The hook installer
 
-NotchFlow never edits an agent's configuration file silently. The installer flow is:
+NotchFlow writes an agent configuration only after that agent has been explicitly enabled or its install action accepted. The installer flow is:
 
 1. **Detect.** On first run and on demand from Settings, NotchFlow checks for the presence of `~/.claude/settings.json`, `~/.codex/config.toml`, and an OpenCode plugin directory, to determine which agents are installed on the machine.
 2. **Propose.** For each detected agent, NotchFlow shows the user the exact snippet it would add or change — not a summary, the literal text — before touching anything.
 3. **Consent.** Nothing is written until the user explicitly approves. There is no "recommended settings" default that writes on the user's behalf.
 4. **Back up.** Before writing, NotchFlow copies the original file alongside itself (e.g. `settings.json.notchflow-backup`) so the change is trivially reversible outside the app as well as through it.
 5. **Uninstall.** A one-click "Remove NotchFlow hooks" action in Settings reverses the change, restoring the backed-up file or removing exactly the entries NotchFlow added.
+6. **Repair.** On later launches, an enabled agent whose generated hook is missing or older is repaired automatically. This reuses the user's existing enablement consent; disabled agents are never changed.
 
 ### Sandbox note
 

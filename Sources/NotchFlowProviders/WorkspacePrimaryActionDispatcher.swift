@@ -252,7 +252,7 @@ public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
                 $0.bundleIdentifier == bundleIdentifier && $0.activationPolicy == .regular
             })
         {
-            return running.activate()
+            return activate(running, in: workspace)
         }
 
         for bundleIdentifier in resolver.dedicatedBundleIdentifiers(for: agent) {
@@ -268,7 +268,7 @@ public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
         if let running = NSWorkspace.shared.runningApplications.first(where: {
             $0.localizedName == name && $0.activationPolicy == .regular
         }) {
-            return running.activate()
+            return activate(running, in: NSWorkspace.shared)
         }
 
         guard
@@ -281,5 +281,18 @@ public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
         // the click's result must be knowable at the call site, and launching
         // an app URL is the one operation `open` answers honestly with a Bool.
         return NSWorkspace.shared.open(url)
+    }
+
+    private func activate(_ application: NSRunningApplication, in workspace: NSWorkspace) -> Bool {
+        if application.activate(options: [.activateAllWindows]) {
+            return true
+        }
+        guard
+            let url = application.bundleURL
+                ?? application.bundleIdentifier.flatMap(workspace.urlForApplication)
+        else {
+            return false
+        }
+        return workspace.open(url)
     }
 }
