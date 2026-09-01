@@ -330,6 +330,8 @@ NotchFlow writes an agent configuration only after that agent has been explicitl
 
 ### Sandbox note
 
+The measured extent of these restrictions, and the routes that would remove the manual step, are in `docs/15-build-configuration-parity.md`. That document also records a second sandbox limit this section does not cover: the App Store build cannot see the process table at all, so it cannot link a running agent to the application hosting it.
+
 The App Store build's App Sandbox does not permit writing to `~/.claude` or `~/.codex`, and it has no user-selected-file entitlement or file-picker flow. It therefore shows each hook or plugin as a copyable snippet for manual installation. The Direct build has no sandbox restriction on the home directory and may write directly once the user consents in-app; if the user declines, it also leaves the snippet available for manual installation.
 
 ## Privacy

@@ -14,6 +14,8 @@ NotchFlow ships from one codebase in two forms: a sandboxed Mac App Store build 
 | Distribution | App Store Connect, reviewed | `.dmg` on GitHub Releases, and a Homebrew Cask |
 | Update mechanism | App Store automatic updates | Homebrew Cask upgrade, or manual `.dmg` reinstall |
 
+`docs/15-build-configuration-parity.md` carries the user-facing consequences of this table — which capabilities the sandbox removes, measured rather than inferred, and what would have to become true to close each gap.
+
 Both configurations build from the same `NotchFlowCore`, `NotchFlowProviders`, and `NotchFlowUI` targets described in `01-architecture.md`. Only the provider chosen at compile time and the entitlements file differ.
 
 ## How the split is implemented
