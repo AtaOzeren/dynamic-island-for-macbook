@@ -70,11 +70,26 @@ public final class PresentationController {
             )
             onHoverChange?(isHovered)
             synchronizeMouseHandling()
-            synchronizeHoverExpansion()
+            if automaticallyExpandsOnHover {
+                synchronizeHoverExpansion()
+            }
         }
     }
 
     private var hoverExpansionTimer: Timer?
+
+    /// Multi-display presentation owns one shared hover timer. Standalone
+    /// controllers keep the original automatic behaviour by default.
+    public var automaticallyExpandsOnHover = true {
+        didSet {
+            guard automaticallyExpandsOnHover != oldValue else { return }
+            hoverExpansionTimer?.invalidate()
+            hoverExpansionTimer = nil
+            if automaticallyExpandsOnHover {
+                synchronizeHoverExpansion()
+            }
+        }
+    }
 
     /// How the most recent hover change should be drawn, on the same
     /// assigned-before-the-callback contract as `transition`.
@@ -231,13 +246,12 @@ public final class PresentationController {
         lastPointerLocation = nil
     }
 
-    /// Hover only decides hit-testing while the pill is the whole target. Once
-    /// expanded the panel must keep accepting the mouse wherever the pointer
-    /// goes, because the click that collapses it lands outside its own bounds.
+    /// Tracks the exact drawn silhouette in both states. The panel window keeps
+    /// its maximum allocation, but transparent space around the island must not
+    /// pin expansion or steal menu-bar clicks.
     private func pointerMoved(to location: CGPoint) {
         lastPointerLocation = location
-        guard state != .expanded else { return }
-        isHovered = hitRect.contains(location)
+        isHovered = pointerIsInsideIsland(location)
     }
 
     private func refreshHoverFromLastPointerLocation() {
@@ -249,6 +263,40 @@ public final class PresentationController {
             for: screen,
             slotCount: compactSlots(for: manager.compactPresentation).count,
             metrics: metrics
+        )
+    }
+
+    private func pointerIsInsideIsland(_ location: CGPoint) -> Bool {
+        guard state == .expanded else { return hitRect.contains(location) }
+        guard let currentScreen = screen() else { return false }
+
+        let hardwareNotch = notchRect(for: currentScreen)
+        let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
+        let compactSize = compactPillSize(
+            slotCount: compactSlots(for: manager.compactPresentation).count,
+            notchSize: notchSize
+        )
+        let expandedContentSize = expandedPanelSize(
+            for: manager.expandedActivities,
+            panelMetrics: metrics,
+            topInset: notchSize.height
+        )
+        let geometry = ConnectedIslandGeometry(
+            compactSize: compactSize,
+            expandedContentSize: expandedContentSize
+        )
+        let screenFrame = geometry.expandedScreenFrame(
+            in: panelFrame(for: currentScreen, metrics: metrics)
+        )
+        guard screenFrame.contains(location) else { return false }
+
+        let localPoint = CGPoint(
+            x: location.x - screenFrame.minX,
+            y: screenFrame.maxY - location.y
+        )
+        return geometry.contains(
+            localPoint,
+            in: CGRect(origin: .zero, size: screenFrame.size)
         )
     }
 

@@ -249,6 +249,7 @@ public func expandedPanelOverflowsWindow(
 public struct ExpandedActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
 
     private let activities: [any Activity]
     private let metrics: ExpandedItemMetrics
@@ -300,12 +301,14 @@ public struct ExpandedActivityView: View {
             .modifier(ScrollWhenTaller(isEnabled: scrolls))
             .foregroundStyle(surface.foreground.style)
             .background {
-                surface.fill(
-                    in: RoundedRectangle(
-                        cornerRadius: metrics.panel.cornerRadius,
-                        style: .continuous
+                if drawsOwnSurface {
+                    surface.fill(
+                        in: RoundedRectangle(
+                            cornerRadius: metrics.panel.cornerRadius,
+                            style: .continuous
+                        )
                     )
-                )
+                }
             }
             .environment(\.colorScheme, surface.preferredColorScheme)
     }

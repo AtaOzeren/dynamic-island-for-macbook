@@ -49,9 +49,38 @@ struct IslandRootView: View {
     @ObservedObject var model: IslandViewModel
 
     var body: some View {
-        content
+        ZStack(alignment: .top) {
+            if model.state != .hidden {
+                connectedSurface
+            }
+            content
+        }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
+            .opacity(model.state == .compact ? model.hoverOpacity : 1)
             .environment(\.colorScheme, .dark)
+    }
+
+    private var geometry: ConnectedIslandGeometry {
+        let compactSize = compactPillSize(
+            slotCount: compactSlots(for: model.compact).count,
+            notchSize: model.notchSize
+        )
+        let expandedContentSize = expandedPanelSize(
+            for: model.expanded,
+            topInset: model.notchSize.height
+        )
+        return ConnectedIslandGeometry(
+            compactSize: compactSize,
+            expandedContentSize: expandedContentSize
+        )
+    }
+
+    private var connectedSurface: some View {
+        let size = model.state == .expanded ? geometry.expandedSize : geometry.compactSize
+        return ConnectedIslandShape(geometry: geometry)
+            .fill(.black)
+            .frame(width: size.width, height: size.height)
     }
 
     @ViewBuilder
@@ -60,10 +89,12 @@ struct IslandRootView: View {
         case .hidden:
             Color.clear
         case .compact:
-            CompactActivityView(presentation: model.compact, notchSize: model.notchSize)
+            CompactActivityView(
+                presentation: model.compact,
+                notchSize: model.notchSize
+            )
+                .sharingIslandSurface()
                 .contentShape(Rectangle())
-                .scaleEffect(model.hoverScale, anchor: .top)
-                .opacity(model.hoverOpacity)
                 .onTapGesture(perform: model.onExpand)
                 .transition(contentTransition)
         case .expanded:
@@ -86,6 +117,7 @@ struct IslandRootView: View {
                     onMusicTransport: model.onMusicTransport,
                     onTimerCommand: model.onTimerCommand
                 )
+                .sharingIslandSurface()
                 .padding(.top, model.notchSize.height)
                 .simultaneousGesture(
                     TapGesture().onEnded(model.onBeginInteraction)
@@ -126,6 +158,8 @@ extension TimerControlCommand {
 /// type only assembles them and keeps the view model in step.
 @MainActor
 final class IslandPresenter {
+    private static let primaryHoverSourceID = "notchflow.primary-display"
+
     private let manager: ActivityManager
     private let settingsStore: SettingsStore
     private let metrics: PanelMetrics
@@ -137,6 +171,7 @@ final class IslandPresenter {
     private let musicProvider: (any MusicProvider)?
     private let timerProvider: TimerProvider?
     private let primaryActions: any PrimaryActionDispatching
+    private let hoverCoordinator = SynchronizedHoverCoordinator()
     private var secondaryPresentations: [String: SecondaryIslandPresentation] = [:]
 
     init(
@@ -190,9 +225,18 @@ final class IslandPresenter {
             reduceMotion: reduceMotion,
             screen: { Self.targetScreen(preference: displayTarget()) }
         )
+        controller.automaticallyExpandsOnHover = false
     }
 
     func start() {
+        hoverCoordinator.onExpansionChange = { [weak self] isExpanded in
+            guard let self else { return }
+            if isExpanded {
+                expandAllPresentations()
+            } else {
+                collapseAllPresentations()
+            }
+        }
         controller.onStateChange = { [weak self] state in
             guard let self else { return }
             let curve = controller.transition
@@ -214,13 +258,17 @@ final class IslandPresenter {
                 model.hoverScale = isHovered && curve.movesGeometry ? 1.03 : 1
                 model.hoverOpacity = isHovered ? 0.94 : 1
             }
+            hoverCoordinator.setHovered(
+                isHovered,
+                sourceID: Self.primaryHoverSourceID
+            )
         }
         controller.onSynchronize = { [weak self] in
             self?.refreshContent()
         }
-        model.onCollapse = { [weak self] in self?.controller.collapse() }
+        model.onCollapse = { [weak self] in self?.hoverCoordinator.collapseNow() }
         model.onExpand = { [weak self] in
-            self?.controller.expand()
+            self?.hoverCoordinator.expandNow()
             self?.controller.beginInteractiveMode()
         }
         model.onBeginInteraction = { [weak self] in
@@ -235,9 +283,7 @@ final class IslandPresenter {
         model.onPrimaryAction = { [weak self] identity in
             self?.performPrimaryAction(for: identity)
         }
-        panel.onCancel = { [weak self] in
-            self?.controller.collapse()
-        }
+        panel.onCancel = { [weak self] in self?.hoverCoordinator.collapseNow() }
 
         screenChanges.startObserving { [weak self] change in
             self?.screenSetChanged(change)
@@ -286,6 +332,7 @@ final class IslandPresenter {
     private func screenSetChanged(_ change: ScreenChange) {
         switch change.event {
         case .systemWillSleep:
+            hoverCoordinator.collapseNow()
             controller.suspend()
             for secondary in secondaryPresentations.values {
                 secondary.suspend()
@@ -330,6 +377,9 @@ final class IslandPresenter {
         for secondary in secondaryPresentations.values {
             secondary.refreshContent()
         }
+        hoverCoordinator.updateExpansionAvailability(
+            manager.activeActivities.isEmpty == false
+        )
     }
 
     private func reconcileSecondaryPresentations() {
@@ -349,6 +399,7 @@ final class IslandPresenter {
                 continue
             }
             secondary.stop()
+            hoverCoordinator.removeSource(identifier)
         }
 
         for display in secondaryDisplays where secondaryPresentations[display.identifier] == nil {
@@ -368,8 +419,37 @@ final class IslandPresenter {
                     self?.performPrimaryAction(for: identity)
                 }
             )
+            secondary.onHoverChange = { [weak self] isHovered in
+                self?.hoverCoordinator.setHovered(
+                    isHovered,
+                    sourceID: identifier
+                )
+            }
+            secondary.onExpandRequest = { [weak self] in
+                self?.hoverCoordinator.expandNow()
+            }
+            secondary.onCollapseRequest = { [weak self] in
+                self?.hoverCoordinator.collapseNow()
+            }
             secondaryPresentations[identifier] = secondary
             secondary.start()
+            if hoverCoordinator.isExpanded {
+                secondary.expand()
+            }
+        }
+    }
+
+    private func expandAllPresentations() {
+        controller.expand()
+        for secondary in secondaryPresentations.values {
+            secondary.expand()
+        }
+    }
+
+    private func collapseAllPresentations() {
+        controller.collapse()
+        for secondary in secondaryPresentations.values {
+            secondary.collapse()
         }
     }
 

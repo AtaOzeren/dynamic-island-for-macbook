@@ -149,6 +149,7 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
 public struct CompactActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
 
     private let presentation: CompactActivityPresentation
     private let notchSize: CGSize
@@ -186,12 +187,14 @@ public struct CompactActivityView: View {
         .frame(width: size.width, height: size.height)
         .foregroundStyle(surface.foreground.style)
         .background {
-            surface.fill(
-                in: RoundedRectangle(
-                    cornerRadius: compactPillCornerRadius(for: size),
-                    style: .continuous
+            if drawsOwnSurface {
+                surface.fill(
+                    in: RoundedRectangle(
+                        cornerRadius: compactPillCornerRadius(for: size),
+                        style: .continuous
+                    )
                 )
-            )
+            }
         }
         .environment(\.colorScheme, surface.preferredColorScheme)
     }

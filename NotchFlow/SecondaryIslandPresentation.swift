@@ -13,6 +13,10 @@ final class SecondaryIslandPresentation {
     private let panel: NotchPanel
     private let controller: PresentationController
 
+    var onHoverChange: ((Bool) -> Void)?
+    var onExpandRequest: (() -> Void)?
+    var onCollapseRequest: (() -> Void)?
+
     init(
         manager: ActivityManager,
         metrics: PanelMetrics,
@@ -48,6 +52,7 @@ final class SecondaryIslandPresentation {
             screen: screen
         )
         self.controller = controller
+        controller.automaticallyExpandsOnHover = false
 
         controller.onStateChange = { [weak self, weak controller, weak model] state in
             guard let self, let controller, let model else { return }
@@ -58,21 +63,23 @@ final class SecondaryIslandPresentation {
             }
             refreshContent()
         }
-        controller.onHoverChange = { [weak controller, weak model] isHovered in
-            guard let controller, let model else { return }
+        controller.onHoverChange = { [weak self, weak controller, weak model] isHovered in
+            guard let self, let controller, let model else { return }
             let curve = controller.peek
             withAnimation(curve.animation) {
                 model.hoverScale = isHovered && curve.movesGeometry ? 1.03 : 1
                 model.hoverOpacity = isHovered ? 0.94 : 1
             }
+            onHoverChange?(isHovered)
         }
         controller.onSynchronize = { [weak self] in
             self?.refreshContent()
         }
-        model.onCollapse = { [weak controller] in controller?.collapse() }
-        model.onExpand = { [weak controller] in
-            controller?.expand()
-            controller?.beginInteractiveMode()
+        model.onCollapse = { [weak self] in
+            self?.requestCollapse()
+        }
+        model.onExpand = { [weak self] in
+            self?.requestExpansion()
         }
         model.onBeginInteraction = { [weak controller] in
             controller?.beginInteractiveMode()
@@ -80,7 +87,7 @@ final class SecondaryIslandPresentation {
         model.onMusicTransport = onMusicTransport
         model.onTimerCommand = onTimerCommand
         model.onPrimaryAction = onPrimaryAction
-        panel.onCancel = { [weak controller] in controller?.collapse() }
+        panel.onCancel = { [weak self] in self?.requestCollapse() }
     }
 
     func start() {
@@ -105,9 +112,34 @@ final class SecondaryIslandPresentation {
         panel.applyAppearance(.dark)
     }
 
+    func expand() {
+        controller.expand()
+    }
+
+    func collapse() {
+        controller.collapse()
+    }
+
     func refreshContent() {
         model.compact = manager.compactPresentation
         model.expanded = manager.expandedActivities
         model.notchSize = resolvedNotchSize(screen: screen(), metrics: metrics)
+    }
+
+    private func requestExpansion() {
+        if let onExpandRequest {
+            onExpandRequest()
+        } else {
+            controller.expand()
+        }
+        controller.beginInteractiveMode()
+    }
+
+    private func requestCollapse() {
+        if let onCollapseRequest {
+            onCollapseRequest()
+        } else {
+            controller.collapse()
+        }
     }
 }

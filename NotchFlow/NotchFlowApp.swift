@@ -356,6 +356,14 @@ struct NotchFlowApp: App {
             aiPreferences = settingsStore.aiIntegrationPreferences
             hookStates = Self.currentHookStates()
             refreshAvailableDisplays()
+            refreshMusicAutomationState()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            refreshMusicAutomationState()
         }
         .onReceive(
             NotificationCenter.default.publisher(
@@ -405,7 +413,12 @@ struct NotchFlowApp: App {
     /// row asserting something the system no longer agrees with.
     private func requestAutomation(_ target: MusicPlayerTarget) {
         automationGate.requestAccess(for: target)
+        refreshMusicAutomationState()
+    }
+
+    private func refreshMusicAutomationState() {
         musicAutomation = makeMusicAutomationAccess(gate: automationGate)
+        (musicProvider as? AppleScriptMusicProvider)?.refreshCurrentState()
     }
 
     private func handleHookAction(_ agentID: IPCAgentID, _ action: AIHookAction) {

@@ -224,6 +224,14 @@ public final class AppleScriptMusicProvider: MusicProvider {
         reported = nil
     }
 
+    /// Re-reads both players after a user grants Automation access. The grant
+    /// itself does not produce a playback notification, so waiting for one can
+    /// leave an already-playing Music track invisible until its next change.
+    public func refreshCurrentState() {
+        guard observer != nil else { return }
+        refresh(wokenBy: nil)
+    }
+
     /// Transport goes to the player being reported, not to whichever app
     /// answered most recently — the island shows one track, and its buttons
     /// have to control that one. With nothing reported there is no honest
