@@ -62,13 +62,13 @@ OS event or IPC message
    Activity ends
         │
         ▼
-  Panel ordered out
+  Panel returns compact
         │
         ▼
        Idle
 ```
 
-The panel is ordered out when, and only when, the active-activity set becomes empty. This single rule is what guarantees the idle performance budget in `docs/02-performance-contract.md`: no activities means no timers, no re-renders, and no visible window.
+The compact island remains visible while the app is running. When the active-activity set becomes empty, expanded content collapses but the panel is not ordered out. The idle performance budget in `docs/02-performance-contract.md` is preserved by keeping that compact surface static: no timers, animations, polling, or content updates run without an activity.
 
 ### Sequence diagram: track change while a timer is running
 

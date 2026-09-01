@@ -3,29 +3,6 @@ import Foundation
 import NotchFlowCore
 import ScriptingBridge
 
-/// The scripting interface both target apps expose. One protocol serves both
-/// because their `.sdef`s agree on every term NotchFlow uses — the track's
-/// `name` and `artist`, the four-char `playerState`, and the four transport
-/// commands — so the difference between the two apps is the bundle identifier
-/// and nothing else.
-///
-/// Every member is `optional` because ScriptingBridge answers through a proxy:
-/// an app that is not running, is an older version, or has refused the Apple
-/// Event simply does not respond, and an optional requirement turns that into
-/// `nil` instead of a trap.
-@objc private protocol ScriptingBridgeTrack {
-    @objc optional var name: String { get }
-    @objc optional var artist: String { get }
-}
-
-@objc private protocol ScriptingBridgePlayer {
-    @objc optional var playerState: Int { get }
-    @objc optional var currentTrack: ScriptingBridgeTrack { get }
-    @objc optional func playpause()
-    @objc optional func nextTrack()
-    @objc optional func previousTrack()
-}
-
 /// Asks Spotify and Music.app what they are playing, and relays transport back.
 ///
 /// This is the half of the App Store music backend that cannot run in CI: it
@@ -65,29 +42,32 @@ final class ScriptingBridgeMusicPlayerClient: MusicPlayerQuerying {
     func snapshot(for target: MusicPlayerTarget) -> MusicPlayerSnapshot? {
         guard
             let player = player(for: target),
-            let playbackState = Self.playbackState(player.playerState),
-            let track = player.currentTrack,
-            let title = track.name,
+            let rawState = (player.value(forKey: "playerState") as? NSNumber)?.intValue,
+            let playbackState = Self.playbackState(rawState),
+            let track = player.value(forKey: "currentTrack") as? SBObject,
+            let title = track.value(forKey: "name") as? String,
             title.isEmpty == false
-        else {
-            return nil
-        }
+        else { return nil }
 
         return MusicPlayerSnapshot(
             title: title,
-            artist: track.artist ?? "",
-            playbackState: playbackState
+            artist: track.value(forKey: "artist") as? String ?? "",
+            playbackState: playbackState,
+            artworkData: Self.artworkData(from: track, target: target),
+            artworkURL: Self.artworkURL(from: track, target: target)
         )
     }
 
     func send(_ command: MusicTransportCommand, to target: MusicPlayerTarget) {
         guard let player = player(for: target) else { return }
 
+        let selectorName: String
         switch command {
-        case .previousTrack: player.previousTrack?()
-        case .playPause: player.playpause?()
-        case .nextTrack: player.nextTrack?()
+        case .previousTrack: selectorName = "previousTrack"
+        case .playPause: selectorName = "playpause"
+        case .nextTrack: selectorName = "nextTrack"
         }
+        player.perform(NSSelectorFromString(selectorName))
     }
 
     /// Proxies are cached because building one is the expensive half of the
@@ -101,18 +81,18 @@ final class ScriptingBridgeMusicPlayerClient: MusicPlayerQuerying {
     /// snapshot path already reads as "not playing" and the transport path as a
     /// dropped command. That is where the permission flow's graceful degradation
     /// actually happens.
-    private func player(for target: MusicPlayerTarget) -> ScriptingBridgePlayer? {
+    private func player(for target: MusicPlayerTarget) -> SBApplication? {
         guard runningBundleIdentifiers().contains(target.bundleIdentifier) else { return nil }
         guard gate.canQuery(target) else { return nil }
 
         if let cached = applications[target] {
-            return cached as? ScriptingBridgePlayer
+            return cached
         }
 
         guard let application = SBApplication(bundleIdentifier: target.bundleIdentifier) else { return nil }
         application.delegate = errorSuppressor
         applications[target] = application
-        return application as? ScriptingBridgePlayer
+        return application
     }
 
     /// A stopped player has no snapshot, per the teardown rule in
@@ -130,6 +110,29 @@ final class ScriptingBridgeMusicPlayerClient: MusicPlayerQuerying {
         code.unicodeScalars.reduce(into: 0) { result, scalar in
             result = result << 8 + Int(scalar.value)
         }
+    }
+
+    private static func artworkURL(from track: SBObject, target: MusicPlayerTarget) -> URL? {
+        guard target == .spotify else { return nil }
+        guard
+            let value = (track.value(forKey: "artworkUrl") as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines),
+            value.isEmpty == false
+        else { return nil }
+        return URL(string: value)
+    }
+
+    private static func artworkData(from track: SBObject, target: MusicPlayerTarget) -> Data? {
+        guard target == .appleMusic else { return nil }
+        guard
+            let artworks = track.value(forKey: "artworks") as? SBElementArray,
+            let artwork = artworks.firstObject as? SBObject,
+            let image = artwork.value(forKey: "data") as? NSImage,
+            let tiffData = image.tiffRepresentation,
+            let bitmap = NSBitmapImageRep(data: tiffData)
+        else { return nil }
+
+        return bitmap.representation(using: NSBitmapImageRep.FileType.png, properties: [:])
     }
 }
 

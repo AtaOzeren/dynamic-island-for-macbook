@@ -54,4 +54,46 @@ struct ActivityPriorityTests {
     private func date(_ seconds: TimeInterval) -> Date {
         Date(timeIntervalSinceReferenceDate: seconds)
     }
+
+    // MARK: - Media and capture stay on top
+
+    /// What is playing and what is recording sit above everything else, however
+    /// urgent the rest is. Sorting by urgency alone put a finished agent above
+    /// the track the user was listening to.
+    @Test("the pinned band outranks every priority")
+    func pinnedBandOutranksPriority() {
+        let now = Date(timeIntervalSinceReferenceDate: 0)
+        let pinnedAndLeastUrgent = ActivityOrderingKey(
+            band: .pinned,
+            priority: .low,
+            startTime: now.addingTimeInterval(1_000)
+        )
+
+        for priority in ActivityPriority.allCases {
+            let standard = ActivityOrderingKey(
+                band: .standard,
+                priority: priority,
+                startTime: now
+            )
+
+            #expect(pinnedAndLeastUrgent < standard, "\(priority) outranked the pinned band")
+        }
+    }
+
+    /// Inside the band, the old rules still apply.
+    @Test("priority and start time still order within a band")
+    func priorityStillOrdersWithinTheBand() {
+        let now = Date(timeIntervalSinceReferenceDate: 0)
+        let urgent = ActivityOrderingKey(band: .pinned, priority: .high, startTime: now)
+        let calm = ActivityOrderingKey(band: .pinned, priority: .low, startTime: now)
+        let older = ActivityOrderingKey(band: .pinned, priority: .low, startTime: now)
+        let newer = ActivityOrderingKey(
+            band: .pinned,
+            priority: .low,
+            startTime: now.addingTimeInterval(1)
+        )
+
+        #expect(urgent < calm)
+        #expect(older < newer)
+    }
 }

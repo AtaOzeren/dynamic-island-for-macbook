@@ -1,52 +1,41 @@
+import AppKit
 import CoreGraphics
+import Foundation
 import NotchFlowCore
 import SwiftUI
 
 /// Everything the AI agent views draw, derived from `AIAgentActivity` alone.
 ///
-/// The type is the privacy rule's last enforcement point: it exposes a glyph, a
-/// pair of short strings, and an optional fraction, and it is built from an
+/// The type is the privacy rule's last enforcement point: it exposes agent
+/// identity, short status text, and an optional fraction, and it is built from an
 /// activity that carries no prompt, no code, and no transcript to begin with.
 /// `docs/07-ai-integration.md` forbids any of that reaching the screen, and a
 /// view cannot render what this presentation has no field for.
 public struct AIAgentPresentation: Equatable, Sendable {
     public let state: AIAgentState
+    public let agentID: IPCAgentID
     public let agentName: String
     /// The envelope's `detail` line, or `nil` when the agent sent an empty one —
     /// so the expanded view drops the line rather than drawing a blank row.
     public let detail: String?
     public let toolName: String?
     public let progress: Double?
+    public let primaryAction: PrimaryAction?
 
     public init(activity: AIAgentActivity) {
         state = activity.state
+        agentID = activity.agent
         agentName = activity.agent.displayName
         detail = activity.detail.isEmpty ? nil : activity.detail
         toolName = activity.toolName
         progress = activity.progress
-    }
-
-    /// One glyph per state, and the three states that need the user's attention
-    /// get shapes rather than sparkles: `docs/07-ai-integration.md` renders
-    /// needs-input, completed, and error with their own marks so the pill says
-    /// *which* of the seven states it is without being expanded.
-    public var symbolName: String {
-        switch state {
-        case .idle: "sparkles"
-        case .thinking: "brain"
-        case .working: "gearshape.2.fill"
-        case .usingTool: "wrench.and.screwdriver.fill"
-        case .waitingForUser: "exclamationmark.bubble.fill"
-        case .completed: "checkmark.circle.fill"
-        case .error: "xmark.octagon.fill"
-        }
+        primaryAction = activity.primaryAction
     }
 
     /// The state in words, as the island says it.
     ///
     /// `usingTool` names the tool when the agent sent one — "Running Bash…"
-    /// rather than the generic phrasing — which is the one place the tool name
-    /// earns its space in the compact pill.
+    /// rather than the generic phrasing.
     public var statusText: String {
         switch state {
         case .idle: localized("Idle")
@@ -59,21 +48,9 @@ public struct AIAgentPresentation: Equatable, Sendable {
         }
     }
 
-    /// The compact pill's line, per the state table's compact column: the agent
-    /// and its status, separated by the table's own middle dot.
+    /// The minimal card's status line: agent and state separated by a middle dot.
     public var compactTitle: String {
         localized("activity.ai.compactTitle", default: "\(agentName) · \(statusText)")
-    }
-
-    /// The expanded view's heading. The agent name alone, because the status and
-    /// the detail get their own lines below it.
-    public var title: String { agentName }
-
-    /// Whether the state is one the user has to act on. Drives the accent the
-    /// expanded view draws, so needs-input and error read as demands rather than
-    /// as progress reports.
-    public var needsAttention: Bool {
-        state == .waitingForUser || state == .error
     }
 
     /// What VoiceOver reads for the whole activity: the compact line, with the
@@ -84,15 +61,169 @@ public struct AIAgentPresentation: Equatable, Sendable {
     }
 }
 
-/// The AI activity's compact slot: the state's own glyph rather than the shared
-/// `.aiAgent` sparkles, so a finished task and a failed one are distinguishable
-/// in the pill without expanding it.
+struct AIAgentActivityGroup: Identifiable, Equatable, Sendable {
+    let agentID: IPCAgentID
+    let sessions: [AIAgentActivity]
+
+    init(session: AIAgentActivity) {
+        agentID = session.agent
+        sessions = [session]
+    }
+
+    private init(agentID: IPCAgentID, sessions: [AIAgentActivity]) {
+        self.agentID = agentID
+        self.sessions = sessions
+    }
+
+    var id: String { "notchflow.ai.expanded.\(agentID.rawValue)" }
+    var showsDisclosure: Bool { sessions.count > 1 }
+
+    var representative: AIAgentActivity {
+        sessions.dropFirst().reduce(sessions[0]) { current, candidate in
+            candidate.compactRepresentationPriority > current.compactRepresentationPriority
+                ? candidate
+                : current
+        }
+    }
+
+    func appending(_ session: AIAgentActivity) -> Self {
+        precondition(session.agent == agentID)
+        return Self(agentID: agentID, sessions: sessions + [session])
+    }
+}
+
+struct AIAgentGroupViewMetrics: Equatable, Sendable {
+    static let `default` = AIAgentGroupViewMetrics()
+
+    let detailRowHeight: CGFloat = 26
+    let separatorHeight: CGFloat = 1
+    let titleSize: CGFloat = 11
+    let detailSize: CGFloat = 9
+    let countControlHeight: CGFloat = 18
+
+    private init() {}
+}
+
+func aiAgentGroupDisclosureHeight(sessionCount: Int, isDisclosed: Bool) -> CGFloat {
+    guard isDisclosed, sessionCount > 1 else { return 0 }
+    let metrics = AIAgentGroupViewMetrics.default
+    return metrics.separatorHeight + CGFloat(sessionCount) * metrics.detailRowHeight
+}
+
+enum AIAgentCompactBadgeTone: Equatable, Sendable {
+    case yellow
+    case red
+    case green
+}
+
+enum AIAgentCompactIndicator: Equatable, Sendable {
+    case none
+    case working
+    case question
+    case error
+    case completed
+
+    init(state: AIAgentState) {
+        switch state {
+        case .idle:
+            self = .none
+        case .thinking, .working, .usingTool:
+            self = .working
+        case .waitingForUser:
+            self = .question
+        case .error:
+            self = .error
+        case .completed:
+            self = .completed
+        }
+    }
+
+    var symbolName: String? {
+        switch self {
+        case .question: "questionmark"
+        case .error: "exclamationmark"
+        case .completed: "checkmark"
+        case .none, .working: nil
+        }
+    }
+
+    var badgeTone: AIAgentCompactBadgeTone? {
+        switch self {
+        case .question: .yellow
+        case .error: .red
+        case .completed: .green
+        case .none, .working: nil
+        }
+    }
+}
+
+struct CompactAIAgentSlotPresentation: Equatable, Sendable {
+    let agentID: IPCAgentID
+    let state: AIAgentState
+    let indicator: AIAgentCompactIndicator
+
+    init(activity: AIAgentActivity) {
+        agentID = activity.agent
+        state = activity.state
+        indicator = AIAgentCompactIndicator(state: activity.state)
+    }
+}
+
+/// The drawn box for one agent's compact slot: the logo, plus room beneath it
+/// for the status indicator.
+///
+/// The same for every state on purpose. The indicator always sits under the
+/// icon, so the slot never changes width with what the agent happens to be
+/// doing — a pill that reflowed each time an agent asked a question was a pill
+/// whose icons appeared to jump sideways.
+func compactAIAgentIconSize(iconSize: CGFloat, state _: AIAgentState) -> CGSize {
+    let metrics = CompactAIAgentMetrics.default
+    return CGSize(
+        width: max(iconSize, metrics.travelDistance + metrics.dotDiameter),
+        height: iconSize + metrics.badgeDiameter + 1
+    )
+}
+
+struct CompactAIAgentMetrics: Equatable, Sendable {
+    static let `default` = CompactAIAgentMetrics()
+
+    let dotDiameter: CGFloat = 3
+    let travelDistance: CGFloat = 8
+    let oneWayDuration: TimeInterval = 0.65
+    let badgeDiameter: CGFloat = 7
+    let badgeSymbolSize: CGFloat = 5
+
+    private init() {}
+}
+
+func compactAIAgentWorkingDotOffset(
+    at elapsedTime: TimeInterval,
+    reduceMotion: Bool
+) -> CGFloat {
+    guard reduceMotion == false else { return 0 }
+
+    let metrics = CompactAIAgentMetrics.default
+    let cycleDuration = metrics.oneWayDuration * 2
+    var cycleTime = elapsedTime.truncatingRemainder(dividingBy: cycleDuration)
+    if cycleTime < 0 {
+        cycleTime += cycleDuration
+    }
+
+    let outwardProgress = cycleTime / metrics.oneWayDuration
+    let linearProgress = outwardProgress <= 1 ? outwardProgress : 2 - outwardProgress
+    let easedProgress = (1 - cos(.pi * linearProgress)) / 2
+    return -metrics.travelDistance / 2 + metrics.travelDistance * CGFloat(easedProgress)
+}
+
+/// The AI activity's compact slot carries the originating agent identity so the
+/// pill can render Claude, Codex, or OpenCode instead of generic AI sparkles.
 public func aiAgentCompactSlot(for activity: AIAgentActivity) -> CompactSlot {
     let presentation = AIAgentPresentation(activity: activity)
     return CompactSlot(
         activity: activity,
-        symbolName: presentation.symbolName,
-        accessibilityLabel: presentation.accessibilityLabel
+        id: activity.compactGroupIdentity,
+        accessibilityLabel: presentation.accessibilityLabel,
+        aiAgentPresentation: CompactAIAgentSlotPresentation(activity: activity)
     )
 }
 
@@ -112,15 +243,15 @@ public struct AIAgentViewMetrics: Equatable, Sendable {
     public let width: CGFloat
 
     public init(
-        glyphSize: CGFloat = 44,
-        contentInset: CGFloat = 12,
+        glyphSize: CGFloat = 36,
+        contentInset: CGFloat = 10,
         textSpacing: CGFloat = 2,
-        columnSpacing: CGFloat = 12,
-        titleSize: CGFloat = 13,
-        detailSize: CGFloat = 11,
-        progressBarHeight: CGFloat = 4,
-        cornerRadius: CGFloat = 18,
-        width: CGFloat = 320
+        columnSpacing: CGFloat = 8,
+        titleSize: CGFloat = 12,
+        detailSize: CGFloat = 10,
+        progressBarHeight: CGFloat = 3,
+        cornerRadius: CGFloat = 16,
+        width: CGFloat = 276
     ) {
         self.glyphSize = glyphSize
         self.contentInset = contentInset
@@ -153,8 +284,8 @@ public func aiAgentExpandedSize(
     )
 }
 
-/// The expanded agent row: the state glyph, the agent and its status, the detail
-/// line, and a progress bar only when the agent reported a fraction.
+/// The expanded agent row: the agent logo and status, the detail line, and a
+/// progress bar only when the agent reported a fraction.
 ///
 /// Takes the activity rather than a transport, which is what keeps the view
 /// layer ignorant of whether the state arrived over the URL scheme or the
@@ -202,6 +333,15 @@ public struct AIAgentActivityView: View {
                 glyph
                 text
                 Spacer(minLength: 0)
+                if let action = presentation.primaryAction {
+                    Button(action: performPrimaryAction) {
+                        Image(systemName: action.symbolName)
+                            .frame(width: metrics.glyphSize, height: metrics.glyphSize)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(action.title)
+                }
             }
 
             if let progress = presentation.progress {
@@ -209,23 +349,20 @@ public struct AIAgentActivityView: View {
             }
         }
         .padding(metrics.contentInset)
-        .frame(width: size.width, height: size.height, alignment: .leading)
         .foregroundStyle(surface.foreground.style)
-        .background {
-            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-        }
-        .accessibilityElement(children: .ignore)
+        .islandCard(
+            width: size.width,
+            height: size.height,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
+        .environment(\.colorScheme, surface.preferredColorScheme)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilityLabel)
     }
 
     private var glyph: some View {
-        RoundedRectangle(cornerRadius: metrics.textSpacing * 2, style: .continuous)
-            .fill(presentation.needsAttention ? AnyShapeStyle(.tertiary) : AnyShapeStyle(.quaternary))
-            .frame(width: metrics.glyphSize, height: metrics.glyphSize)
-            .overlay {
-                Image(systemName: presentation.symbolName)
-                    .font(.system(size: metrics.titleSize, weight: .medium))
-            }
+        AIAgentIcon(agentID: presentation.agentID, size: metrics.glyphSize)
             .accessibilityHidden(true)
     }
 
@@ -249,5 +386,372 @@ public struct AIAgentActivityView: View {
             .progressViewStyle(.linear)
             .frame(height: metrics.progressBarHeight)
             .accessibilityHidden(true)
+    }
+}
+
+struct AIAgentActivityGroupView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    let group: AIAgentActivityGroup
+    let metrics: ExpandedPanelMetrics
+    let isDisclosed: Bool
+    let onToggleDisclosure: () -> Void
+    let onPrimaryAction: () -> Void
+
+    private let groupMetrics = AIAgentGroupViewMetrics.default
+
+    var body: some View {
+        let surface = islandExpandedSurface(
+            scheme: colorScheme.islandColorScheme,
+            reduceTransparency: reduceTransparency
+        )
+
+        VStack(spacing: 0) {
+            header
+            if group.showsDisclosure, isDisclosed {
+                Divider()
+                    .frame(height: groupMetrics.separatorHeight)
+                    .opacity(0.18)
+                ForEach(Array(group.sessions.enumerated()), id: \.element.sessionID) { index, session in
+                    sessionRow(index: index, session: session)
+                }
+            }
+        }
+        .foregroundStyle(surface.foreground.style)
+        .islandCard(
+            width: metrics.width,
+            height: metrics.rowHeight
+                + aiAgentGroupDisclosureHeight(
+                    sessionCount: group.sessions.count,
+                    isDisclosed: isDisclosed
+                ),
+            alignment: .top,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
+        .environment(\.colorScheme, surface.preferredColorScheme)
+    }
+
+    private var header: some View {
+        let presentation = AIAgentPresentation(activity: group.representative)
+
+        return HStack(spacing: metrics.columnSpacing) {
+            AIAgentIcon(agentID: group.agentID, size: metrics.symbolSize)
+                .frame(width: metrics.symbolColumnWidth)
+
+            Text(presentation.compactTitle)
+                .font(.system(size: groupMetrics.titleSize, weight: .medium))
+                .lineLimit(1)
+
+            Spacer(minLength: 4)
+
+            if group.showsDisclosure {
+                Button(action: onToggleDisclosure) {
+                    HStack(spacing: 3) {
+                        Text("\(group.sessions.count)")
+                        Image(systemName: isDisclosed ? "chevron.up" : "chevron.down")
+                    }
+                    .font(.system(size: groupMetrics.detailSize, weight: .semibold))
+                    .padding(.horizontal, 5)
+                    .frame(height: groupMetrics.countControlHeight)
+                    .background(.white.opacity(0.12), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(
+                    localized(isDisclosed ? "Hide agent sessions" : "Show agent sessions")
+                )
+            }
+
+            if let action = presentation.primaryAction {
+                Button(action: onPrimaryAction) {
+                    Image(systemName: action.symbolName)
+                        .font(.system(size: metrics.symbolSize - 2, weight: .semibold))
+                        .frame(width: metrics.symbolColumnWidth, height: metrics.rowHeight)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(action.title)
+            }
+        }
+        .padding(.horizontal, metrics.contentInset)
+        .frame(height: metrics.rowHeight)
+    }
+
+    private func sessionRow(index: Int, session: AIAgentActivity) -> some View {
+        let presentation = AIAgentPresentation(activity: session)
+        let indicator = AIAgentCompactIndicator(state: session.state)
+
+        return HStack(spacing: 6) {
+            Circle()
+                .fill(statusColor(indicator))
+                .frame(width: 5, height: 5)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("\(index + 1) · \(presentation.statusText)")
+                    .font(.system(size: groupMetrics.detailSize, weight: .medium))
+                    .lineLimit(1)
+
+                if let detail = presentation.detail {
+                    Text(detail)
+                        .font(.system(size: groupMetrics.detailSize))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, metrics.contentInset)
+        .frame(height: groupMetrics.detailRowHeight)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(presentation.accessibilityLabel)
+    }
+
+    private func statusColor(_ indicator: AIAgentCompactIndicator) -> Color {
+        switch indicator {
+        case .none: .gray
+        case .working: .white
+        case .question: .yellow
+        case .error: .red
+        case .completed: .green
+        }
+    }
+}
+
+struct AIAgentIcon: View {
+    let agentID: IPCAgentID
+    let size: CGFloat
+
+    var body: some View {
+        Group {
+            if let image = AIAgentIconResolver.image(for: agentID) {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(
+                        width: size * aiAgentIconArtworkScale(for: agentID),
+                        height: size * aiAgentIconArtworkScale(for: agentID)
+                    )
+            } else {
+                fallback
+                    .frame(width: size, height: size)
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var fallback: some View {
+        switch agentID {
+        case .claudeCode:
+            ZStack {
+                Color(red: 0.84, green: 0.42, blue: 0.27)
+                Image(systemName: "asterisk")
+                    .font(.system(size: size * 0.56, weight: .medium))
+                    .foregroundStyle(.white)
+            }
+        case .codex:
+            ZStack {
+                Color(red: 0.29, green: 0.35, blue: 0.96)
+                HStack(spacing: size * 0.04) {
+                    Image(systemName: "chevron.right")
+                    Rectangle().frame(width: size * 0.28, height: size * 0.08)
+                }
+                .font(.system(size: size * 0.32, weight: .bold))
+                .foregroundStyle(.white)
+            }
+        case .opencode:
+            OpenCodeLogo()
+        }
+    }
+}
+
+func aiAgentIconArtworkScale(for agentID: IPCAgentID) -> CGFloat {
+    switch agentID {
+    case .codex: 1.24
+    case .claudeCode, .opencode: 1
+    }
+}
+
+struct CompactAIAgentIcon: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let presentation: CompactAIAgentSlotPresentation
+    let iconSize: CGFloat
+
+    private let metrics = CompactAIAgentMetrics.default
+
+    /// The agent's logo with its status directly beneath it.
+    ///
+    /// Every state reports in the same place. Needing input and failing used to
+    /// hang a badge off the icon's side while working put a dot underneath, so
+    /// the slot changed width with the state and the eye had two places to
+    /// check. One position below the icon reads as a single status light.
+    var body: some View {
+        let size = compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)
+
+        return ZStack(alignment: .top) {
+            AIAgentIcon(agentID: presentation.agentID, size: iconSize)
+            statusIndicator
+                .offset(y: iconSize + 1)
+        }
+        .frame(width: size.width, height: size.height, alignment: .top)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var statusIndicator: some View {
+        switch presentation.indicator {
+        case .none:
+            EmptyView()
+        case .working:
+            workingDot
+        case .question, .error, .completed:
+            if let symbolName = presentation.indicator.symbolName,
+                let tone = presentation.indicator.badgeTone
+            {
+                badge(symbolName: symbolName, tone: tone)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var workingDot: some View {
+        if reduceMotion {
+            dot(offset: 0)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                dot(
+                    offset: compactAIAgentWorkingDotOffset(
+                        at: context.date.timeIntervalSinceReferenceDate,
+                        reduceMotion: false
+                    )
+                )
+            }
+        }
+    }
+
+    private func dot(offset: CGFloat) -> some View {
+        Circle()
+            .fill(.white)
+            .frame(width: metrics.dotDiameter, height: metrics.dotDiameter)
+            .offset(x: offset)
+    }
+
+    private func badge(
+        symbolName: String,
+        tone: AIAgentCompactBadgeTone
+    ) -> some View {
+        Circle()
+            .fill(badgeColor(tone))
+            .frame(width: metrics.badgeDiameter, height: metrics.badgeDiameter)
+            .overlay {
+                Image(systemName: symbolName)
+                    .font(.system(size: metrics.badgeSymbolSize, weight: .black))
+                    .foregroundStyle(badgeForegroundColor(tone))
+            }
+    }
+
+    private func badgeColor(_ tone: AIAgentCompactBadgeTone) -> Color {
+        switch tone {
+        case .yellow: .yellow
+        case .red: .red
+        case .green: .green
+        }
+    }
+
+    private func badgeForegroundColor(_ tone: AIAgentCompactBadgeTone) -> Color {
+        tone == .yellow ? .black : .white
+    }
+}
+
+private struct OpenCodeLogo: View {
+    var body: some View {
+        GeometryReader { geometry in
+            let size = min(geometry.size.width, geometry.size.height)
+            let x = (geometry.size.width - size) / 2
+            let y = (geometry.size.height - size) / 2
+
+            ZStack(alignment: .topLeading) {
+                Color.black
+                Group {
+                    Rectangle().frame(width: size * 0.8, height: size * 0.2)
+                    Rectangle().frame(width: size * 0.8, height: size * 0.2)
+                        .offset(y: size * 0.8)
+                    Rectangle().frame(width: size * 0.2, height: size * 0.6)
+                        .offset(y: size * 0.2)
+                    Rectangle().frame(width: size * 0.2, height: size * 0.6)
+                        .offset(x: size * 0.6, y: size * 0.2)
+                }
+                .foregroundStyle(Color(white: 0.94))
+                .offset(x: size * 0.1)
+
+                Rectangle()
+                    .fill(Color(white: 0.29))
+                    .frame(width: size * 0.4, height: size * 0.4)
+                    .offset(x: size * 0.3, y: size * 0.4)
+            }
+            .frame(width: size, height: size)
+            .offset(x: x, y: y)
+        }
+    }
+}
+
+@MainActor
+private enum AIAgentIconResolver {
+    private static var cachedImages: [IPCAgentID: NSImage] = [:]
+    private static var resolvedAgentIDs: Set<IPCAgentID> = []
+
+    static func image(for agentID: IPCAgentID) -> NSImage? {
+        guard resolvedAgentIDs.insert(agentID).inserted else {
+            return cachedImages[agentID]
+        }
+        let image = loadImage(for: agentID)
+        cachedImages[agentID] = image
+        return image
+    }
+
+    private static func loadImage(for agentID: IPCAgentID) -> NSImage? {
+        switch agentID {
+        case .claudeCode:
+            return applicationIcon(bundleIdentifiers: ["com.anthropic.claudefordesktop"])
+        case .codex:
+            return codexIcon()
+                ?? applicationIcon(bundleIdentifiers: ["com.openai.codex", "com.openai.chat"])
+        case .opencode:
+            return applicationIcon(bundleIdentifiers: ["dev.opencode.app"])
+        }
+    }
+
+    private static func codexIcon() -> NSImage? {
+        for bundleIdentifier in ["com.openai.codex", "com.openai.chat"] {
+            guard
+                let applicationURL = NSWorkspace.shared.urlForApplication(
+                    withBundleIdentifier: bundleIdentifier
+                ), let bundle = Bundle(url: applicationURL),
+                let iconURL = bundle.url(forResource: "icon-codex-dark-color", withExtension: "png"),
+                let image = NSImage(contentsOf: iconURL)
+            else {
+                continue
+            }
+            return image
+        }
+        return nil
+    }
+
+    private static func applicationIcon(bundleIdentifiers: [String]) -> NSImage? {
+        for bundleIdentifier in bundleIdentifiers {
+            guard
+                let applicationURL = NSWorkspace.shared.urlForApplication(
+                    withBundleIdentifier: bundleIdentifier
+                )
+            else {
+                continue
+            }
+            return NSWorkspace.shared.icon(forFile: applicationURL.path)
+        }
+        return nil
     }
 }

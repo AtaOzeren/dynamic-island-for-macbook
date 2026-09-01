@@ -2,6 +2,24 @@ import CoreGraphics
 import NotchFlowCore
 import SwiftUI
 
+public struct CompactMusicSlotPresentation: Equatable, Sendable {
+    public let isPlaying: Bool
+    public let sourceIdentity: MusicSourceIdentity
+    public let animationIdentity: String
+
+    public init(activity: MusicActivity) {
+        isPlaying = activity.nowPlaying.playbackState == .playing
+        sourceIdentity = MusicSourceIdentity(
+            applicationName: activity.nowPlaying.sourceApplicationName
+        )
+        animationIdentity = [
+            activity.nowPlaying.title,
+            activity.nowPlaying.artist,
+            isPlaying ? "playing" : "paused",
+        ].joined(separator: "|")
+    }
+}
+
 /// One drawn element of the compact pill: either an activity's icon or the
 /// single overflow indicator that stands in for everything past the capacity in
 /// `docs/05-activity-model.md`.
@@ -12,24 +30,67 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     public let overflowCount: Int?
     public let accessibilityLabel: String
 
+    /// Draws moving equaliser bars in place of the glyph. Carried as a flag
+    /// rather than as a second symbol name because the bars are not a symbol:
+    /// they animate, and only while something is actually playing.
+    public let isPlayingMusic: Bool
+    public let musicSourceIdentity: MusicSourceIdentity?
+    public let animationIdentity: String?
+    public let recordingSource: RecordingSource?
+    let aiAgentPresentation: CompactAIAgentSlotPresentation?
+    public var aiAgentID: IPCAgentID? { aiAgentPresentation?.agentID }
+
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
         symbolName = compactSymbolName(activity.kind)
         label = nil
         overflowCount = nil
         accessibilityLabel = compactAccessibilityLabel(activity.kind)
+        isPlayingMusic = false
+        musicSourceIdentity = nil
+        animationIdentity = nil
+        recordingSource = nil
+        aiAgentPresentation = nil
     }
 
     /// For activities whose per-instance detail outgrows what the kind alone can
     /// say — music announces "Windowlicker — Aphex Twin" rather than "Music", and
     /// charging draws a full battery rather than the shared bolt once the charge
     /// is done. Omitting `symbolName` keeps the kind's glyph.
-    init(activity: any Activity, symbolName: String? = nil, accessibilityLabel: String) {
-        id = activity.identity.rawValue
+    init(
+        activity: any Activity,
+        id: ActivityIdentity? = nil,
+        symbolName: String? = nil,
+        accessibilityLabel: String,
+        musicPresentation: CompactMusicSlotPresentation? = nil,
+        aiAgentPresentation: CompactAIAgentSlotPresentation? = nil
+    ) {
+        self.id = (id ?? activity.identity).rawValue
         self.symbolName = symbolName ?? compactSymbolName(activity.kind)
         label = nil
         overflowCount = nil
         self.accessibilityLabel = accessibilityLabel
+        isPlayingMusic = musicPresentation?.isPlaying ?? false
+        musicSourceIdentity = musicPresentation?.sourceIdentity
+        animationIdentity = musicPresentation?.animationIdentity
+        recordingSource = nil
+        self.aiAgentPresentation = aiAgentPresentation
+    }
+
+    init(
+        recording activity: RecordingActivity,
+        presentation: RecordingPresentation
+    ) {
+        id = activity.identity.rawValue
+        symbolName = presentation.symbolName
+        label = nil
+        overflowCount = nil
+        accessibilityLabel = presentation.accessibilityLabel
+        isPlayingMusic = false
+        musicSourceIdentity = nil
+        animationIdentity = nil
+        recordingSource = activity.source
+        aiAgentPresentation = nil
     }
 
     fileprivate init(overflowCount: Int) {
@@ -38,6 +99,11 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         label = "+\(overflowCount)"
         self.overflowCount = overflowCount
         accessibilityLabel = localized("\(overflowCount) more activities")
+        isPlayingMusic = false
+        musicSourceIdentity = nil
+        animationIdentity = nil
+        recordingSource = nil
+        aiAgentPresentation = nil
     }
 
     private static let overflowIdentifier = "notchflow.compact.overflow"
@@ -52,44 +118,133 @@ public struct CompactSlotLayout: Equatable, Sendable {
     public let trailing: [CompactSlot]
 }
 
-/// The pill's fixed visual budget. Every size the compact view draws comes from
-/// here, so a change to the island's density is one edit, not a sweep.
-public struct CompactPillMetrics: Equatable, Sendable {
-    public static let `default` = CompactPillMetrics()
+/// The pill's drawn size for `layout`, allocating each flank the width of the
+/// busier one so an uneven split — every arrangement with an agent in it — still
+/// draws both sides inside the capsule.
+public func compactPillSize(
+    for layout: CompactSlotLayout,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    compactPillSize(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
 
-    public let slotWidth: CGFloat
-    public let slotSpacing: CGFloat
-    public let edgeInset: CGFloat
-    public let symbolSize: CGFloat
-    public let cornerRadius: CGFloat
+/// The pill's drawn size for `presentation`, routed through the same layout the
+/// view draws so hit testing and rendering cannot disagree about the width.
+public func compactPillSize(
+    for presentation: CompactActivityPresentation,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    compactPillSize(
+        for: compactSlotLayout(for: presentation),
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
 
-    public init(
-        slotWidth: CGFloat = 22,
-        slotSpacing: CGFloat = 6,
-        edgeInset: CGFloat = 10,
-        symbolSize: CGFloat = 13,
-        cornerRadius: CGFloat = 12
-    ) {
-        self.slotWidth = slotWidth
-        self.slotSpacing = slotSpacing
-        self.edgeInset = edgeInset
-        self.symbolSize = symbolSize
-        self.cornerRadius = cornerRadius
+/// The pill's full geometry — size and notch position — for `layout`.
+public func compactPillGeometry(
+    for layout: CompactSlotLayout,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CompactPillGeometry {
+    compactPillGeometry(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
+/// The pill's full geometry for `presentation`.
+public func compactPillGeometry(
+    for presentation: CompactActivityPresentation,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CompactPillGeometry {
+    compactPillGeometry(
+        for: compactSlotLayout(for: presentation),
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
+/// The symmetric width for `layout`, for the elements that must stay centred on
+/// the notch however the slots divide.
+public func balancedCompactPillSize(
+    for layout: CompactSlotLayout,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    balancedCompactPillSize(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
+/// The symmetric width for `presentation`, for the elements that must stay
+/// centred on the notch however the slots divide.
+public func balancedCompactPillSize(
+    for presentation: CompactActivityPresentation,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    let layout = compactSlotLayout(for: presentation)
+    return balancedCompactPillSize(
+        leadingSlotCount: layout.leading.count,
+        trailingSlotCount: layout.trailing.count,
+        notchSize: notchSize,
+        metrics: metrics
+    )
+}
+
+/// One activity's slot, routed to the kind that knows how to describe itself.
+///
+/// Music and charging both announce per-instance detail the shared kind label
+/// cannot carry — the actual track, and a full battery once charging completes.
+private func compactSlot(for activity: any Activity) -> CompactSlot {
+    switch activity {
+    case let music as MusicActivity: musicCompactSlot(for: music)
+    case let recording as RecordingActivity: recordingCompactSlot(for: recording)
+    case let charging as ChargingActivity: chargingCompactSlot(for: charging)
+    case let aiAgent as AIAgentActivity: aiAgentCompactSlot(for: aiAgent)
+    default: CompactSlot(activity: activity)
     }
 }
 
 /// The ordered slots for `presentation`, which has already applied the priority
 /// ordering and the capacity limit in `ActivityManager`.
 public func compactSlots(for presentation: CompactActivityPresentation) -> [CompactSlot] {
-    let slots = presentation.activities.map(CompactSlot.init(activity:))
+    var slots = presentation.activities.map(compactSlot(for:))
     guard presentation.overflowCount > 0 else { return slots }
-    return slots + [CompactSlot(overflowCount: presentation.overflowCount)]
+    let insertionIndex = slots.firstIndex { $0.aiAgentID != nil } ?? slots.endIndex
+    slots.insert(CompactSlot(overflowCount: presentation.overflowCount), at: insertionIndex)
+    return slots
 }
 
 /// Splits the slots around the notch, filling the leading side first so the
 /// overflow indicator — always last — lands on the trailing side.
 public func compactSlotLayout(for presentation: CompactActivityPresentation) -> CompactSlotLayout {
-    let slots = compactSlots(for: presentation)
+    compactSlotLayout(for: compactSlots(for: presentation))
+}
+
+private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
+    let agentSlots = slots.filter { $0.aiAgentID != nil }
+    if agentSlots.isEmpty == false {
+        return CompactSlotLayout(
+            leading: slots.filter { $0.aiAgentID == nil },
+            trailing: agentSlots
+        )
+    }
+
     let leadingCount = (slots.count + 1) / 2
     return CompactSlotLayout(
         leading: Array(slots.prefix(leadingCount)),
@@ -97,22 +252,66 @@ public func compactSlotLayout(for presentation: CompactActivityPresentation) -> 
     )
 }
 
-/// The pill's drawn size: exactly as tall as the notch it hugs, and wide enough
-/// for the notch plus the slots flanking it, per the compact row of the state
-/// table in `docs/04-overlay-window.md`.
-public func compactPillSize(
-    slotCount: Int,
-    notchSize: CGSize,
-    metrics: CompactPillMetrics = .default
-) -> CGSize {
-    let slots = max(slotCount, 0)
-    guard slots > 0 else { return notchSize }
+/// Tracks which music slots have already started their visibility timer.
+///
+/// The *hidden* set deliberately does not live here. It decides how wide the
+/// pill is drawn, and the pill's black surface and its hover target are sized
+/// by an ancestor of the view that owns this — while the set was private view
+/// state, hiding the icon shrank the icons and left the bar and the hover
+/// target at their old width. Only this bookkeeping, which nothing outside the
+/// view needs, stayed behind.
+struct CompactMusicIconVisibility: Equatable, Sendable {
+    static let visibleDuration: Duration = .seconds(5)
 
-    let slotsWidth = CGFloat(slots) * metrics.slotWidth
-    let spacing = CGFloat(slots) * metrics.slotSpacing
-    return CGSize(
-        width: notchSize.width + slotsWidth + spacing + metrics.edgeInset * 2,
-        height: notchSize.height
+    private var announcedSlotIDs: Set<String> = []
+
+    init() {}
+
+    /// Prunes slots that are gone and returns the ones whose timer must start.
+    mutating func synchronize(
+        activeSlots: [CompactSlot],
+        hiddenSlotIDs: inout Set<String>
+    ) -> [String] {
+        let activeMusicSlotIDs = compactMusicSlotIDs(in: activeSlots)
+        announcedSlotIDs.formIntersection(activeMusicSlotIDs)
+        hiddenSlotIDs.formIntersection(activeMusicSlotIDs)
+
+        let newSlotIDs = activeMusicSlotIDs.subtracting(announcedSlotIDs)
+        announcedSlotIDs.formUnion(newSlotIDs)
+        return newSlotIDs.sorted()
+    }
+
+    func hasAnnounced(_ slotID: String) -> Bool {
+        announcedSlotIDs.contains(slotID)
+    }
+}
+
+/// The music slots in `slots`, by identifier.
+func compactMusicSlotIDs(in slots: [CompactSlot]) -> Set<String> {
+    Set(slots.lazy.filter { $0.musicSourceIdentity != nil }.map(\.id))
+}
+
+/// The slots still drawn, once the music icons that have timed out are removed.
+///
+/// Public because everything that sizes the compact pill has to agree on it:
+/// the view that draws the icons, the surface drawn behind them, and the hover
+/// target. Sizing any of those from the unfiltered set is what left a long
+/// black bar behind a hidden icon.
+public func visibleCompactSlots(
+    _ slots: [CompactSlot],
+    hiding hiddenSlotIDs: Set<String>
+) -> [CompactSlot] {
+    guard hiddenSlotIDs.isEmpty == false else { return slots }
+    return slots.filter { !hiddenSlotIDs.contains($0.id) }
+}
+
+/// The pill's layout for `presentation`, with timed-out music icons removed.
+public func compactSlotLayout(
+    for presentation: CompactActivityPresentation,
+    hiding hiddenSlotIDs: Set<String>
+) -> CompactSlotLayout {
+    compactSlotLayout(
+        for: visibleCompactSlots(compactSlots(for: presentation), hiding: hiddenSlotIDs)
     )
 }
 
@@ -142,52 +341,106 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
 /// notch's own width held open between them.
 public struct CompactActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
 
     private let presentation: CompactActivityPresentation
     private let notchSize: CGSize
     private let metrics: CompactPillMetrics
+    private let motion: IslandMotion
+
+    @State private var musicIconVisibility = CompactMusicIconVisibility()
+    @Binding private var hiddenMusicSlotIDs: Set<String>
 
     public init(
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
-        metrics: CompactPillMetrics = .default
+        hiddenMusicSlotIDs: Binding<Set<String>> = .constant([]),
+        metrics: CompactPillMetrics = .default,
+        motion: IslandMotion = .default
     ) {
         self.presentation = presentation
         self.notchSize = notchSize
+        _hiddenMusicSlotIDs = hiddenMusicSlotIDs
         self.metrics = metrics
+        self.motion = motion
     }
 
     public var body: some View {
-        let layout = compactSlotLayout(for: presentation)
-        let size = compactPillSize(
-            slotCount: layout.leading.count + layout.trailing.count,
-            notchSize: notchSize,
-            metrics: metrics
-        )
+        let slots = compactSlots(for: presentation)
+        let visibleSlots = visibleCompactSlots(slots, hiding: hiddenMusicSlotIDs)
+        let layout = compactSlotLayout(for: visibleSlots)
+        let size = compactPillSize(for: layout, notchSize: notchSize, metrics: metrics)
 
         let surface = islandCompactSurface(scheme: colorScheme.islandColorScheme)
 
-        HStack(spacing: metrics.slotSpacing) {
+        // Zero spacing on the row, because each flank already carries its own
+        // gap to the notch — and only when it has slots. An `HStack` spacing
+        // would add that gap on an empty flank too, which is the stub this
+        // layout exists to avoid.
+        HStack(spacing: 0) {
             slotRow(layout.leading)
-            Color.clear.frame(width: notchSize.width)
+            Color.clear.frame(width: notchWidthWithGaps(for: layout))
             slotRow(layout.trailing)
         }
         .padding(.horizontal, metrics.edgeInset)
         .frame(width: size.width, height: size.height)
         .foregroundStyle(surface.foreground.style)
         .background {
-            surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
+            if drawsOwnSurface {
+                surface.fill(
+                    in: RoundedRectangle(
+                        cornerRadius: compactPillCornerRadius(for: size),
+                        style: .continuous
+                    )
+                )
+            }
         }
-        .environment(\.colorScheme, surface.foreground == .onDark ? .dark : .light)
+        .environment(\.colorScheme, surface.preferredColorScheme)
+        .animation(slotAnimation, value: visibleSlots)
+        .task(id: musicSlotIDs(in: slots)) {
+            await scheduleMusicIconDismissals(for: slots)
+        }
     }
 
+    /// The opaque notch plus the gap owed to each occupied flank.
+    ///
+    /// Folded into the notch spacer rather than left to the enclosing stack's
+    /// spacing so an empty flank contributes nothing at all — no slot width and
+    /// no gap.
+    private func notchWidthWithGaps(for layout: CompactSlotLayout) -> CGFloat {
+        notchSize.width
+            + (layout.leading.isEmpty ? 0 : metrics.slotSpacing)
+            + (layout.trailing.isEmpty ? 0 : metrics.slotSpacing)
+    }
+
+    /// One flank, at exactly the width of the slots it holds.
+    ///
+    /// Sized to its content rather than given `maxWidth: .infinity`: with the
+    /// latter the two flanks split the free space evenly, so an empty flank
+    /// still claimed half of it and the occupied one was drawn too narrow.
     private func slotRow(_ slots: [CompactSlot]) -> some View {
         HStack(spacing: metrics.slotSpacing) {
             ForEach(slots) { slot in
                 slotView(slot)
+                    .transition(slotTransition)
             }
         }
-        .frame(maxWidth: .infinity)
+        .animation(slotAnimation, value: slots)
+    }
+
+    /// Slots grow out of, and shrink back into, the notch's edge rather than
+    /// appearing at full size, so an activity starting reads as the island
+    /// extending rather than as a glyph blinking into place.
+    private var slotTransition: AnyTransition {
+        guard reduceMotion == false else { return .opacity }
+        return .scale(scale: 0.6).combined(with: .opacity)
+    }
+
+    private var slotAnimation: Animation {
+        reduceMotion
+            ? .easeOut(duration: motion.reducedMotionCrossFadeDuration)
+            : .spring(response: motion.springResponse, dampingFraction: motion.springDamping)
     }
 
     private func slotView(_ slot: CompactSlot) -> some View {
@@ -195,6 +448,28 @@ public struct CompactActivityView: View {
             if let label = slot.label {
                 Text(label)
                     .font(.system(size: metrics.symbolSize, weight: .semibold, design: .rounded))
+            } else if slot.recordingSource == .screen {
+                AnimatedScreenRecordingIcon(size: metrics.symbolSize * 0.84)
+            } else if slot.recordingSource == .audio {
+                AnimatedMicrophoneRecordingIcon(size: metrics.symbolSize * 0.84)
+            } else if let aiAgentPresentation = slot.aiAgentPresentation {
+                CompactAIAgentIcon(
+                    presentation: aiAgentPresentation,
+                    iconSize: metrics.symbolSize
+                )
+            } else if let sourceIdentity = slot.musicSourceIdentity {
+                if slot.isPlayingMusic {
+                    MusicEqualiserSlotView(
+                        metrics: metrics,
+                        symbolName: slot.symbolName,
+                        sourceIdentity: sourceIdentity
+                    )
+                    .id(slot.animationIdentity)
+                } else {
+                    Image(systemName: slot.symbolName)
+                        .font(.system(size: metrics.symbolSize, weight: .medium))
+                        .foregroundStyle(musicAccentColor(sourceIdentity))
+                }
             } else {
                 Image(systemName: slot.symbolName)
                     .font(.system(size: metrics.symbolSize, weight: .medium))
@@ -203,4 +478,89 @@ public struct CompactActivityView: View {
         .frame(width: metrics.slotWidth)
         .accessibilityLabel(slot.accessibilityLabel)
     }
+
+    private func musicSlotIDs(in slots: [CompactSlot]) -> [String] {
+        slots.filter { $0.musicSourceIdentity != nil }.map(\.id).sorted()
+    }
+
+    private func scheduleMusicIconDismissals(for slots: [CompactSlot]) async {
+        let newSlotIDs = musicIconVisibility.synchronize(
+            activeSlots: slots,
+            hiddenSlotIDs: &hiddenMusicSlotIDs
+        )
+        for slotID in newSlotIDs {
+            do {
+                try await Task.sleep(for: CompactMusicIconVisibility.visibleDuration)
+            } catch {
+                return
+            }
+            guard musicIconVisibility.hasAnnounced(slotID) else { continue }
+            hiddenMusicSlotIDs.insert(slotID)
+        }
+    }
+}
+
+/// The moving equaliser drawn in the music slot while a track is playing.
+///
+/// Settles into the static glyph after `animationDuration`, so the island does
+/// not keep an animation running for the entire length of an album — the idle
+/// budget in `docs/02-performance-contract.md` is the whole reason the pill is
+/// cheap to leave on screen. The motion is announcement, not status.
+struct MusicEqualiserSlotView: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isAnimating = false
+    @State private var hasSettled = false
+
+    /// How long the bars move before settling to the glyph.
+    static let animationDuration: Duration = .seconds(3)
+
+    private static let barScales: [CGFloat] = [0.45, 1.0, 0.7]
+    private static let barPhaseOffsets: [Double] = [0, 0.18, 0.36]
+
+    let metrics: CompactPillMetrics
+    let symbolName: String
+    let sourceIdentity: MusicSourceIdentity
+
+    var body: some View {
+        content
+            .foregroundStyle(musicAccentColor(sourceIdentity))
+            .task {
+                guard reduceMotion == false else { return }
+                isAnimating = true
+                try? await Task.sleep(for: Self.animationDuration)
+                isAnimating = false
+                hasSettled = true
+            }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if reduceMotion || hasSettled {
+            Image(systemName: symbolName)
+                .font(.system(size: metrics.symbolSize, weight: .medium))
+                .transition(.opacity)
+        } else {
+            bars
+        }
+    }
+
+    private var bars: some View {
+        HStack(alignment: .center, spacing: barSpacing) {
+            ForEach(Array(Self.barScales.enumerated()), id: \.offset) { index, restingScale in
+                Capsule()
+                    .frame(width: barWidth, height: metrics.symbolSize * restingScale)
+                    .scaleEffect(y: isAnimating ? 1 : 0.35, anchor: .center)
+                    .animation(
+                        .easeInOut(duration: 0.42)
+                            .repeatForever(autoreverses: true)
+                            .delay(Self.barPhaseOffsets[index]),
+                        value: isAnimating
+                    )
+            }
+        }
+        .frame(height: metrics.symbolSize)
+    }
+
+    private var barWidth: CGFloat { metrics.symbolSize / 5 }
+    private var barSpacing: CGFloat { metrics.symbolSize / 6 }
 }

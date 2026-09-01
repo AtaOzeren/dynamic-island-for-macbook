@@ -59,4 +59,47 @@ struct DisplaySelectionTests {
         #expect(selectDisplay(from: [], preference: .automatic) == nil)
         #expect(selectDisplay(from: [], preference: .named(studioDisplay.name)) == nil)
     }
+
+    @Test("stable identity distinguishes two displays with the same model name")
+    func duplicateNamesUseIdentity() {
+        let left = DisplayDescription(identifier: "101", name: "Studio Display", isBuiltIn: false)
+        let right = DisplayDescription(identifier: "202", name: "Studio Display", isBuiltIn: false)
+
+        #expect(
+            selectDisplay(
+                from: [left, right],
+                preference: .identified(id: right.identifier, name: right.name)
+            ) == right
+        )
+    }
+
+    @Test("all-displays mode selects every connected display")
+    func allDisplaysSelectsEveryScreen() {
+        #expect(
+            selectDisplays(
+                from: [studioDisplay, builtIn],
+                preference: .allDisplays
+            ) == [studioDisplay, builtIn]
+        )
+    }
+
+    @Test("all-displays mode degrades to the sole connected display")
+    func allDisplaysWithOneScreen() {
+        #expect(selectDisplays(from: [builtIn], preference: .allDisplays) == [builtIn])
+        #expect(selectDisplays(from: [], preference: .allDisplays).isEmpty)
+        #expect(normalizeDisplayPreference(.allDisplays, availableDisplayCount: 1) == .automatic)
+        #expect(normalizeDisplayPreference(.allDisplays, availableDisplayCount: 0) == .automatic)
+        #expect(normalizeDisplayPreference(.allDisplays, availableDisplayCount: 2) == .allDisplays)
+    }
+
+    @Test("single-display preferences still produce one target")
+    func singleDisplayPreferenceProducesOneTarget() {
+        #expect(selectDisplays(from: [studioDisplay, builtIn], preference: .automatic) == [builtIn])
+        #expect(
+            selectDisplays(
+                from: [studioDisplay, builtIn],
+                preference: .identified(id: studioDisplay.identifier, name: studioDisplay.name)
+            ) == [studioDisplay]
+        )
+    }
 }

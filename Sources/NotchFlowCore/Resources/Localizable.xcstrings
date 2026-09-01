@@ -75,6 +75,14 @@
         "tr" : { "stringUnit" : { "state" : "translated", "value" : "Şarj oluyor" } }
       }
     },
+    "Connected" : {
+      "comment" : "Activities pane, Apple Events row: replaces the permission button after access is granted.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connected" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bağlandı" } }
+      }
+    },
     "Countdowns and elapsed time." : {
       "comment" : "Activities pane: why the timer switch exists.",
       "extractionState" : "manual",

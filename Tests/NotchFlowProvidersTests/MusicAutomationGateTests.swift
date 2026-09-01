@@ -27,6 +27,47 @@ private final class FakeAutomationAuthority: MusicAutomationAuthorizing {
         statuses[target] = outcome
         return outcome
     }
+
+    func requestWithoutBlocking(
+        for target: MusicPlayerTarget
+    ) async -> AutomationPermissionStatus {
+        request(for: target)
+    }
+}
+
+@MainActor
+private final class SuspendingAutomationAuthority: MusicAutomationAuthorizing {
+    private(set) var requestedTargets: [MusicPlayerTarget] = []
+    private var requestContinuation: CheckedContinuation<AutomationPermissionStatus, Never>?
+    private var startContinuation: CheckedContinuation<Void, Never>?
+
+    func status(for target: MusicPlayerTarget) -> AutomationPermissionStatus {
+        .notDetermined
+    }
+
+    func request(for target: MusicPlayerTarget) -> AutomationPermissionStatus {
+        requestedTargets.append(target)
+        return .granted
+    }
+
+    func requestWithoutBlocking(
+        for target: MusicPlayerTarget
+    ) async -> AutomationPermissionStatus {
+        requestedTargets.append(target)
+        startContinuation?.resume()
+        startContinuation = nil
+        return await withCheckedContinuation { requestContinuation = $0 }
+    }
+
+    func waitUntilRequestStarts() async {
+        guard requestedTargets.isEmpty else { return }
+        await withCheckedContinuation { startContinuation = $0 }
+    }
+
+    func finishRequest(with status: AutomationPermissionStatus) {
+        requestContinuation?.resume(returning: status)
+        requestContinuation = nil
+    }
 }
 
 /// The sequencing half of todo 64. Every rule the permission flow states as
@@ -169,11 +210,11 @@ struct MusicAutomationGateTests {
     /// straight to the system — and a prompt the user pressed for is not a nag,
     /// which is why it does not consume the ask-once record.
     @Test("the settings button prompts without going through the explainer")
-    func settingsRequestSkipsTheExplainer() {
+    func settingsRequestSkipsTheExplainer() async {
         let (gate, authority, explained) = Self.make()
         authority.outcomes[.appleMusic] = .granted
 
-        let access = gate.requestAccess(for: .appleMusic)
+        let access = await gate.requestAccess(for: .appleMusic)
 
         #expect(access.status == .granted)
         #expect(explained.value.isEmpty)
@@ -183,15 +224,33 @@ struct MusicAutomationGateTests {
     /// Once the pane has asked, the observation path must not ask again behind
     /// the user's back on the next track change.
     @Test("a target asked about from settings is not explained later")
-    func settingsRequestConsumesTheOneOffer() {
+    func settingsRequestConsumesTheOneOffer() async {
         let (gate, authority, explained) = Self.make(explainerAnswers: true)
         authority.outcomes[.spotify] = .denied
 
-        _ = gate.requestAccess(for: .spotify)
+        _ = await gate.requestAccess(for: .spotify)
         authority.statuses[.spotify] = .notDetermined
 
         #expect(gate.canQuery(.spotify) == false)
         #expect(explained.value.isEmpty)
         #expect(authority.requestedTargets == [.spotify])
+    }
+
+    @Test("repeated settings requests for one target share one system prompt")
+    func concurrentSettingsRequestsAreDeduplicated() async {
+        let authority = SuspendingAutomationAuthority()
+        let gate = MusicAutomationGate(authority: authority)
+        let firstRequest = Task { await gate.requestAccess(for: .spotify) }
+        await authority.waitUntilRequestStarts()
+
+        let repeatedRequest = await gate.requestAccess(for: .spotify)
+
+        #expect(gate.isRequestInProgress(for: .spotify))
+        #expect(repeatedRequest.status == .notDetermined)
+        #expect(authority.requestedTargets == [.spotify])
+
+        authority.finishRequest(with: .granted)
+        #expect(await firstRequest.value.status == .granted)
+        #expect(gate.isRequestInProgress(for: .spotify) == false)
     }
 }

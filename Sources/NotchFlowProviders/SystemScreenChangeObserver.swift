@@ -104,7 +104,11 @@ final class NotificationSubscriptionBag: @unchecked Sendable {
 
 extension DisplayDescription {
     public init(_ screen: NSScreen) {
-        self.init(name: screen.localizedName, isBuiltIn: screen.isBuiltIn)
+        self.init(
+            identifier: screen.notchFlowIdentifier,
+            name: screen.localizedName,
+            isBuiltIn: screen.isBuiltIn
+        )
     }
 }
 
@@ -123,6 +127,12 @@ extension ScreenDescription {
 }
 
 extension NSScreen {
+    fileprivate var notchFlowIdentifier: String {
+        let key = NSDeviceDescriptionKey("NSScreenNumber")
+        return (deviceDescription[key] as? NSNumber)?.stringValue
+            ?? "\(localizedName):\(frame.origin.x):\(frame.origin.y)"
+    }
+
     /// A screen is built in when the window server says its display is; the
     /// safe-area inset is the fallback for the rare screen that reports no
     /// display number.

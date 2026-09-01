@@ -16,10 +16,31 @@ public struct ExpandedRow: Identifiable, Equatable, Sendable {
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
-        symbolName = compactSymbolName(activity.kind)
-        title = compactAccessibilityLabel(activity.kind)
+        let recording = (activity as? RecordingActivity).map(RecordingPresentation.init)
+        symbolName = recording?.symbolName ?? compactSymbolName(activity.kind)
+        title = recording?.title ?? compactAccessibilityLabel(activity.kind)
         primaryAction = activity.primaryAction
-        accessibilityLabel = compactAccessibilityLabel(activity.kind)
+        accessibilityLabel =
+            recording?.accessibilityLabel
+            ?? compactAccessibilityLabel(activity.kind)
+    }
+}
+
+struct ExpandedActivityItem: Identifiable {
+    let id: String
+    let activity: (any Activity)?
+    let aiAgentGroup: AIAgentActivityGroup?
+
+    fileprivate init(activity: any Activity) {
+        id = activity.identity.rawValue
+        self.activity = activity
+        aiAgentGroup = nil
+    }
+
+    fileprivate init(aiAgentGroup: AIAgentActivityGroup) {
+        id = aiAgentGroup.id
+        activity = nil
+        self.aiAgentGroup = aiAgentGroup
     }
 }
 
@@ -29,7 +50,15 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
     public static let `default` = ExpandedPanelMetrics()
 
     public let rowHeight: CGFloat
+    /// The vertical gap between two items: the space between cards when each
+    /// draws its own surface, and the band the hairline separator sits in when
+    /// they share one.
     public let rowSpacing: CGFloat
+    /// The horizontal gap inside one row, between its glyph, its text, and its
+    /// trailing control. Separate from `rowSpacing` because the two answer to
+    /// different things — a divider needs room to breathe, a glyph and its label
+    /// need to stay together.
+    public let columnSpacing: CGFloat
     public let contentInset: CGFloat
     public let symbolSize: CGFloat
     public let symbolColumnWidth: CGFloat
@@ -38,7 +67,8 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
 
     public init(
         rowHeight: CGFloat = 34,
-        rowSpacing: CGFloat = 4,
+        rowSpacing: CGFloat = 9,
+        columnSpacing: CGFloat = 4,
         contentInset: CGFloat = 12,
         symbolSize: CGFloat = 15,
         symbolColumnWidth: CGFloat = 24,
@@ -47,11 +77,81 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
     ) {
         self.rowHeight = rowHeight
         self.rowSpacing = rowSpacing
+        self.columnSpacing = columnSpacing
         self.contentInset = contentInset
         self.symbolSize = symbolSize
         self.symbolColumnWidth = symbolColumnWidth
         self.cornerRadius = cornerRadius
         self.width = width
+    }
+}
+
+/// Which renderer the expanded panel uses for an activity.
+///
+/// A concrete payload type (`MusicActivity`, `TimerActivity`, …) earns its
+/// dedicated view; anything else — including a stub in a test or a kind added
+/// before it got a view — falls back to the generic row, never to nothing.
+public enum ExpandedItemRenderer: Equatable, Sendable {
+    case music
+    case timer
+    case aiAgent
+    case charging
+    case recording
+    case genericRow
+}
+
+public func expandedItemRenderer(for activity: any Activity) -> ExpandedItemRenderer {
+    switch activity {
+    case is MusicActivity: .music
+    case is TimerActivity: .timer
+    case is AIAgentActivity: .aiAgent
+    case is ChargingActivity: .charging
+    case is RecordingActivity: .recording
+    default: .genericRow
+    }
+}
+
+/// Every metric set the expanded panel needs, so the height model and the view
+/// cannot disagree about which numbers govern layout.
+public struct ExpandedItemMetrics: Equatable, Sendable {
+    public static let `default` = ExpandedItemMetrics()
+
+    public let panel: ExpandedPanelMetrics
+    public let music: MusicViewMetrics
+    public let timer: TimerViewMetrics
+    public let aiAgent: AIAgentViewMetrics
+
+    public init(
+        panel: ExpandedPanelMetrics = .default,
+        music: MusicViewMetrics = .default,
+        timer: TimerViewMetrics = .default,
+        aiAgent: AIAgentViewMetrics = .default
+    ) {
+        self.panel = panel
+        self.music = music
+        self.timer = timer
+        self.aiAgent = aiAgent
+    }
+}
+
+/// The drawn height of one expanded item, at its real content height rather
+/// than a `rowHeight` multiple — per-kind views are taller and more variable
+/// than the uniform generic row, and sizing them as rows would clip their
+/// bottoms.
+public func expandedItemHeight(
+    for activity: any Activity,
+    metrics: ExpandedItemMetrics = .default,
+    panelMetrics: PanelMetrics = .default
+) -> CGFloat {
+    switch expandedItemRenderer(for: activity) {
+    case .music:
+        return musicExpandedSize(metrics: metrics.music, panelMetrics: panelMetrics).height
+    case .timer:
+        return timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).height
+    case .aiAgent:
+        return metrics.panel.rowHeight
+    case .charging, .recording, .genericRow:
+        return metrics.panel.rowHeight
     }
 }
 
@@ -62,13 +162,120 @@ public func expandedRows(for activities: [any Activity]) -> [ExpandedRow] {
     activities.map(ExpandedRow.init(activity:))
 }
 
-/// The expanded panel's drawn size, clamped to the window's allocated maximum.
+func expandedActivityItems(for activities: [any Activity]) -> [ExpandedActivityItem] {
+    var agentIndexes: [IPCAgentID: Int] = [:]
+    var items: [ExpandedActivityItem] = []
+
+    for activity in activities {
+        guard let agent = activity as? AIAgentActivity else {
+            items.append(ExpandedActivityItem(activity: activity))
+            continue
+        }
+
+        if let index = agentIndexes[agent.agent], let group = items[index].aiAgentGroup {
+            items[index] = ExpandedActivityItem(aiAgentGroup: group.appending(agent))
+        } else {
+            agentIndexes[agent.agent] = items.count
+            items.append(ExpandedActivityItem(aiAgentGroup: AIAgentActivityGroup(session: agent)))
+        }
+    }
+
+    return items
+}
+
+/// The expanded panel's drawn size for a mixed set, clamped to the window's
+/// allocated maximum.
 ///
 /// The clamp matters because the `NSPanel` frame is allocated once at
 /// `PanelMetrics.maximumExpandedSize` and never resized (`docs/04-overlay-window.md`);
 /// a list that grew past it would be drawn outside the window and silently
 /// clipped, which is the one way the "never truncates" rule could be broken by
 /// geometry rather than by policy.
+public func expandedPanelSize(
+    for activities: [any Activity],
+    disclosedAgentIDs: Set<IPCAgentID> = [],
+    metrics: ExpandedItemMetrics = .default,
+    panelMetrics: PanelMetrics = .default,
+    topInset: CGFloat = 0
+) -> CGSize {
+    let items = expandedActivityItems(for: activities)
+    guard !items.isEmpty else { return .zero }
+
+    let heights = items.map {
+        expandedItemHeight(
+            for: $0,
+            disclosedAgentIDs: disclosedAgentIDs,
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+    }
+    let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
+    let height = heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2
+
+    // The inset is applied on both axes by the view's `.padding`, so the width
+    // has to carry it too. Sizing the frame to the bare card width squeezes
+    // every card by twice the inset — enough to push a trailing control button
+    // outside the frame and make it unclickable.
+    let widest =
+        items.map { expandedItemWidth(for: $0, metrics: metrics, panelMetrics: panelMetrics) }
+        .max() ?? metrics.panel.width
+    let width = widest + metrics.panel.contentInset * 2
+
+    let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
+    return CGSize(
+        width: min(width, panelMetrics.maximumExpandedSize.width),
+        height: min(height, availableHeight)
+    )
+}
+
+private func expandedItemHeight(
+    for item: ExpandedActivityItem,
+    disclosedAgentIDs: Set<IPCAgentID>,
+    metrics: ExpandedItemMetrics,
+    panelMetrics: PanelMetrics
+) -> CGFloat {
+    if let group = item.aiAgentGroup {
+        return metrics.panel.rowHeight
+            + aiAgentGroupDisclosureHeight(
+                sessionCount: group.sessions.count,
+                isDisclosed: disclosedAgentIDs.contains(group.agentID)
+            )
+    }
+    guard let activity = item.activity else { return 0 }
+    return expandedItemHeight(for: activity, metrics: metrics, panelMetrics: panelMetrics)
+}
+
+private func expandedItemWidth(
+    for item: ExpandedActivityItem,
+    metrics: ExpandedItemMetrics,
+    panelMetrics: PanelMetrics
+) -> CGFloat {
+    if item.aiAgentGroup != nil {
+        return metrics.panel.width
+    }
+    guard let activity = item.activity else { return 0 }
+    return expandedItemWidth(for: activity, metrics: metrics, panelMetrics: panelMetrics)
+}
+
+func expandedItemWidth(
+    for activity: any Activity,
+    metrics: ExpandedItemMetrics = .default,
+    panelMetrics: PanelMetrics = .default
+) -> CGFloat {
+    switch expandedItemRenderer(for: activity) {
+    case .music:
+        musicExpandedSize(metrics: metrics.music, panelMetrics: panelMetrics).width
+    case .timer:
+        timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).width
+    case .aiAgent:
+        aiAgentExpandedSize(hasProgress: false, metrics: metrics.aiAgent, panelMetrics: panelMetrics).width
+    case .charging, .recording, .genericRow:
+        metrics.panel.width
+    }
+}
+
+/// The expanded panel's drawn size when every row is a generic row — the
+/// original shape, kept for callers that have only a row count.
 public func expandedPanelSize(
     rowCount: Int,
     metrics: ExpandedPanelMetrics = .default,
@@ -87,8 +294,33 @@ public func expandedPanelSize(
     )
 }
 
-/// Whether `rowCount` rows still fit the allocated window at these metrics.
+/// Whether the set's real content heights still fit the allocated window.
 /// Once this goes false the list scrolls rather than being cut off.
+public func expandedPanelOverflowsWindow(
+    for activities: [any Activity],
+    disclosedAgentIDs: Set<IPCAgentID> = [],
+    metrics: ExpandedItemMetrics = .default,
+    panelMetrics: PanelMetrics = .default,
+    topInset: CGFloat = 0
+) -> Bool {
+    let items = expandedActivityItems(for: activities)
+    guard !items.isEmpty else { return false }
+
+    let heights = items.map {
+        expandedItemHeight(
+            for: $0,
+            disclosedAgentIDs: disclosedAgentIDs,
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+    }
+    let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
+    let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
+    return heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2 > availableHeight
+}
+
+/// Whether `rowCount` generic rows still fit the allocated window at these
+/// metrics. Once this goes false the list scrolls rather than being cut off.
 public func expandedPanelOverflowsWindow(
     rowCount: Int,
     metrics: ExpandedPanelMetrics = .default,
@@ -102,68 +334,229 @@ public func expandedPanelOverflowsWindow(
     return rowsHeight + spacing + metrics.contentInset * 2 > panelMetrics.maximumExpandedSize.height
 }
 
-/// The expanded list: every active activity in priority order, growing downward
-/// from the notch, per the expanded row of the state table in
+/// The expanded list: every active activity in priority order, each rendered by
+/// its per-kind view — real detail, not the generic glyph-and-label row —
+/// growing downward from the notch, per the expanded row of the state table in
 /// `docs/04-overlay-window.md`.
+///
+/// Each item draws its own surface, so the panel reads as a stack of cards
+/// rather than one sheet with rows scratched into it; kinds without a dedicated
+/// view keep the generic row so nothing ever renders as blank space.
 public struct ExpandedActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
 
     private let activities: [any Activity]
-    private let metrics: ExpandedPanelMetrics
+    private let metrics: ExpandedItemMetrics
     private let panelMetrics: PanelMetrics
+    private let topInset: CGFloat
     private let onPrimaryAction: (ActivityIdentity) -> Void
+    private let onMusicTransport: (MusicTransportCommand) -> Void
+    private let onTimerCommand: (TimerControlCommand) -> Void
+
+    /// Which agent groups are showing their sessions.
+    ///
+    /// Bound from outside rather than held here as `@State`: the island's black
+    /// surface is sized by an ancestor, and while this view owned the set
+    /// privately that ancestor sized the surface for collapsed groups. Opening a
+    /// group then drew its rows past the bottom of the island onto the desktop.
+    @Binding private var disclosedAgentIDs: Set<IPCAgentID>
 
     public init(
         activities: [any Activity],
-        metrics: ExpandedPanelMetrics = .default,
+        disclosedAgentIDs: Binding<Set<IPCAgentID>> = .constant([]),
+        metrics: ExpandedItemMetrics = .default,
         panelMetrics: PanelMetrics = .default,
-        onPrimaryAction: @escaping (ActivityIdentity) -> Void = { _ in }
+        topInset: CGFloat = 0,
+        onPrimaryAction: @escaping (ActivityIdentity) -> Void = { _ in },
+        onMusicTransport: @escaping (MusicTransportCommand) -> Void = { _ in },
+        onTimerCommand: @escaping (TimerControlCommand) -> Void = { _ in }
     ) {
         self.activities = activities
+        _disclosedAgentIDs = disclosedAgentIDs
         self.metrics = metrics
         self.panelMetrics = panelMetrics
+        self.topInset = topInset
         self.onPrimaryAction = onPrimaryAction
+        self.onMusicTransport = onMusicTransport
+        self.onTimerCommand = onTimerCommand
     }
 
     public var body: some View {
-        let rows = expandedRows(for: activities)
+        let surface = islandExpandedSurface(
+            scheme: colorScheme.islandColorScheme,
+            reduceTransparency: reduceTransparency
+        )
         let size = expandedPanelSize(
-            rowCount: rows.count,
+            for: activities,
+            disclosedAgentIDs: disclosedAgentIDs,
             metrics: metrics,
-            panelMetrics: panelMetrics
+            panelMetrics: panelMetrics,
+            topInset: topInset
         )
         let scrolls = expandedPanelOverflowsWindow(
-            rowCount: rows.count,
+            for: activities,
+            disclosedAgentIDs: disclosedAgentIDs,
             metrics: metrics,
-            panelMetrics: panelMetrics
+            panelMetrics: panelMetrics,
+            topInset: topInset
         )
 
+        // Height goes on the scroll container, never on the content: forcing the
+        // content to the clamped height left the scroll view with nothing longer
+        // than itself to scroll, so a list that overflowed was simply cut off at
+        // both ends instead of scrolling.
+        itemStack
+            .padding(metrics.panel.contentInset)
+            .frame(width: size.width, alignment: .top)
+            .modifier(ScrollWhenTaller(isEnabled: scrolls, height: size.height))
+            .foregroundStyle(surface.foreground.style)
+            .background {
+                if drawsOwnSurface {
+                    surface.fill(
+                        in: RoundedRectangle(
+                            cornerRadius: metrics.panel.cornerRadius,
+                            style: .continuous
+                        )
+                    )
+                }
+            }
+            .environment(\.colorScheme, surface.preferredColorScheme)
+            .animation(disclosureAnimation, value: disclosedAgentIDs)
+    }
+
+    /// The items, separated the way the surface they sit on calls for.
+    ///
+    /// Sharing the island's surface, the panel is one sheet and the items are
+    /// its rows: a hairline between them reads as a list. Drawing their own
+    /// surfaces they are cards, and a gap is what separates cards. The gap is
+    /// `rowSpacing` either way, so the panel's height model does not change with
+    /// the treatment.
+    private var itemStack: some View {
+        let items = expandedActivityItems(for: activities)
+
+        return VStack(alignment: .leading, spacing: drawsOwnSurface ? metrics.panel.rowSpacing : 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if drawsOwnSurface == false, index > 0 {
+                    IslandItemSeparator(height: metrics.panel.rowSpacing)
+                }
+                itemView(for: item)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func itemView(for item: ExpandedActivityItem) -> some View {
+        if let group = item.aiAgentGroup {
+            AIAgentActivityGroupView(
+                group: group,
+                metrics: metrics.panel,
+                isDisclosed: group.showsDisclosure
+                    && disclosedAgentIDs.contains(group.agentID),
+                onToggleDisclosure: { toggleDisclosure(for: group.agentID) },
+                onPrimaryAction: { onPrimaryAction(group.representative.identity) }
+            )
+        } else if let activity = item.activity {
+            itemView(for: activity)
+        }
+    }
+
+    @ViewBuilder
+    private func itemView(for activity: any Activity) -> some View {
+        switch expandedItemRenderer(for: activity) {
+        case .music:
+            if let music = activity as? MusicActivity {
+                MusicExpandedView(
+                    activity: music,
+                    metrics: metrics.music,
+                    panelMetrics: panelMetrics,
+                    onTransport: onMusicTransport,
+                    onPrimaryAction: { onPrimaryAction(activity.identity) }
+                )
+            } else {
+                genericRow(for: activity)
+            }
+        case .timer:
+            if let timer = activity as? TimerActivity {
+                TimerExpandedView(
+                    activity: timer,
+                    metrics: metrics.timer,
+                    panelMetrics: panelMetrics,
+                    onCommand: onTimerCommand
+                )
+            } else {
+                genericRow(for: activity)
+            }
+        case .aiAgent:
+            if let agent = activity as? AIAgentActivity {
+                AIAgentActivityView(
+                    activity: agent,
+                    metrics: metrics.aiAgent,
+                    panelMetrics: panelMetrics,
+                    onPrimaryAction: { onPrimaryAction(activity.identity) }
+                )
+            } else {
+                genericRow(for: activity)
+            }
+        case .charging:
+            if let charging = activity as? ChargingActivity {
+                ChargingActivityView(activity: charging, metrics: metrics.panel)
+            } else {
+                genericRow(for: activity)
+            }
+        case .recording:
+            if let recording = activity as? RecordingActivity {
+                RecordingActivityView(activity: recording, metrics: metrics.panel)
+            } else {
+                genericRow(for: activity)
+            }
+        case .genericRow:
+            genericRow(for: activity)
+        }
+    }
+
+    private var disclosureAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.18)
+    }
+
+    private func toggleDisclosure(for agentID: IPCAgentID) {
+        if disclosedAgentIDs.contains(agentID) {
+            disclosedAgentIDs.remove(agentID)
+        } else {
+            disclosedAgentIDs.insert(agentID)
+        }
+    }
+
+    private func genericRow(for activity: any Activity) -> some View {
+        GenericActivityRowView(
+            row: ExpandedRow(activity: activity),
+            metrics: metrics.panel,
+            colorScheme: colorScheme,
+            reduceTransparency: reduceTransparency,
+            onPrimaryAction: onPrimaryAction
+        )
+    }
+}
+
+/// The fallback card: the generic glyph-and-label row with its own surface, so
+/// a set of unknown kinds reads as the same stack of cards as the per-kind
+/// views beside it.
+private struct GenericActivityRowView: View {
+    let row: ExpandedRow
+    let metrics: ExpandedPanelMetrics
+    let colorScheme: ColorScheme
+    let reduceTransparency: Bool
+    let onPrimaryAction: (ActivityIdentity) -> Void
+
+    var body: some View {
         let surface = islandExpandedSurface(
             scheme: colorScheme.islandColorScheme,
             reduceTransparency: reduceTransparency
         )
 
-        rowList(rows)
-            .padding(metrics.contentInset)
-            .frame(width: size.width, height: size.height, alignment: .top)
-            .foregroundStyle(surface.foreground.style)
-            .background {
-                surface.fill(in: RoundedRectangle(cornerRadius: metrics.cornerRadius, style: .continuous))
-            }
-            .modifier(ScrollWhenTaller(isEnabled: scrolls))
-    }
-
-    private func rowList(_ rows: [ExpandedRow]) -> some View {
-        VStack(alignment: .leading, spacing: metrics.rowSpacing) {
-            ForEach(rows) { row in
-                rowView(row)
-            }
-        }
-    }
-
-    private func rowView(_ row: ExpandedRow) -> some View {
-        HStack(spacing: metrics.rowSpacing) {
+        HStack(spacing: metrics.columnSpacing) {
             Image(systemName: row.symbolName)
                 .font(.system(size: metrics.symbolSize, weight: .medium))
                 .frame(width: metrics.symbolColumnWidth)
@@ -175,24 +568,28 @@ public struct ExpandedActivityView: View {
             Spacer(minLength: 0)
 
             if let action = row.primaryAction {
-                primaryActionButton(action, for: row)
+                Button {
+                    onPrimaryAction(ActivityIdentity(row.id))
+                } label: {
+                    Label(action.title, systemImage: action.symbolName)
+                        .font(.system(size: metrics.symbolSize - 2, weight: .semibold))
+                        .labelStyle(.iconOnly)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(action.title)
             }
         }
-        .frame(height: metrics.rowHeight)
+        .padding(metrics.contentInset)
+        .foregroundStyle(surface.foreground.style)
+        .islandCard(
+            width: metrics.width,
+            height: metrics.rowHeight,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
+        .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(row.accessibilityLabel)
-    }
-
-    private func primaryActionButton(_ action: PrimaryAction, for row: ExpandedRow) -> some View {
-        Button {
-            onPrimaryAction(ActivityIdentity(row.id))
-        } label: {
-            Label(action.title, systemImage: action.symbolName)
-                .font(.system(size: metrics.symbolSize - 2, weight: .semibold))
-                .labelStyle(.iconOnly)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(action.title)
     }
 }
 
@@ -201,12 +598,23 @@ public struct ExpandedActivityView: View {
 /// clipping and bounce behaviour even when everything already fits.
 private struct ScrollWhenTaller: ViewModifier {
     let isEnabled: Bool
+    /// The visible height. Applied to the scroll container, never to the content
+    /// inside it — content clamped to the viewport is content with nothing left
+    /// to scroll.
+    let height: CGFloat
 
     func body(content: Content) -> some View {
         if isEnabled {
             ScrollView(.vertical) { content }
+                .frame(height: height)
+                // Hidden: an overlay this small reads as chrome-free, and a
+                // scroller pinned inside a rounded black card looks like a
+                // scratch on it. The list scrolls on trackpad and wheel either
+                // way.
+                .scrollIndicators(.hidden)
+                .scrollBounceBehavior(.basedOnSize)
         } else {
-            content
+            content.frame(height: height, alignment: .top)
         }
     }
 }

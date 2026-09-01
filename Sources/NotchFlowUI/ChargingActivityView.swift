@@ -61,6 +61,9 @@ public func chargingCompactSlot(for activity: ChargingActivity) -> CompactSlot {
 /// a four-second notification into the permanent battery readout the design
 /// exists to avoid.
 public struct ChargingActivityView: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
     private let presentation: ChargingPresentation
     private let metrics: ExpandedPanelMetrics
 
@@ -73,6 +76,11 @@ public struct ChargingActivityView: View {
     }
 
     public var body: some View {
+        let surface = islandExpandedSurface(
+            scheme: colorScheme.islandColorScheme,
+            reduceTransparency: reduceTransparency
+        )
+
         HStack(spacing: 0) {
             Image(systemName: presentation.symbolName)
                 .font(.system(size: metrics.symbolSize))
@@ -84,7 +92,15 @@ public struct ChargingActivityView: View {
 
             Spacer(minLength: 0)
         }
-        .frame(height: metrics.rowHeight)
+        .padding(.horizontal, metrics.contentInset)
+        .foregroundStyle(surface.foreground.style)
+        .islandCard(
+            width: metrics.width,
+            height: metrics.rowHeight,
+            cornerRadius: metrics.cornerRadius,
+            surface: surface
+        )
+        .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(presentation.accessibilityLabel)
     }

@@ -45,7 +45,13 @@ public struct SettingsWindowView: View {
     private let information: AboutInformation
     private let languages: [LanguageOption]
     private let metrics: SettingsPaneMetrics
+    private let automationRequestsInProgress: Set<MusicPlayerTarget>
     private let onRequestAutomation: (MusicPlayerTarget) -> Void
+    private let hookStates: [IPCAgentID: HookInstallationState]
+    private let onAIPreferencesChange: (AIIntegrationPreferences) -> Void
+    private let onHookAction: (IPCAgentID, AIHookAction) -> Void
+    private let restartRequired: Bool
+    private let onRestart: () -> Void
 
     @State private var selectedTab: SettingsTab = .general
 
@@ -58,19 +64,31 @@ public struct SettingsWindowView: View {
         information: AboutInformation,
         languages: [LanguageOption] = [.systemDefault],
         musicAutomation: Binding<[MusicAutomationAccess]> = .constant([]),
+        hookStates: [IPCAgentID: HookInstallationState] = [:],
         metrics: SettingsPaneMetrics = .default,
-        onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in }
+        automationRequestsInProgress: Set<MusicPlayerTarget> = [],
+        onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in },
+        onAIPreferencesChange: @escaping (AIIntegrationPreferences) -> Void = { _ in },
+        onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in },
+        restartRequired: Bool = false,
+        onRestart: @escaping () -> Void = {}
     ) {
         self._general = general
         self._enabledIdentifiers = enabledIdentifiers
         self._aiPreferences = aiPreferences
         self._languageOverride = languageOverride
         self._musicAutomation = musicAutomation
+        self.hookStates = hookStates
         self.availableDisplays = availableDisplays
         self.information = information
         self.languages = languages
         self.metrics = metrics
+        self.automationRequestsInProgress = automationRequestsInProgress
         self.onRequestAutomation = onRequestAutomation
+        self.onAIPreferencesChange = onAIPreferencesChange
+        self.onHookAction = onHookAction
+        self.restartRequired = restartRequired
+        self.onRestart = onRestart
     }
 
     public var body: some View {
@@ -95,23 +113,33 @@ public struct SettingsWindowView: View {
             GeneralSettingsView(
                 preferences: $general,
                 availableDisplays: availableDisplays,
-                metrics: metrics
+                metrics: metrics,
+                restartRequired: restartRequired,
+                onRestart: onRestart
             )
         case .activities:
             ActivitiesSettingsView(
                 enabledIdentifiers: $enabledIdentifiers,
                 musicAutomation: $musicAutomation,
                 metrics: metrics,
+                automationRequestsInProgress: automationRequestsInProgress,
                 onRequestAutomation: onRequestAutomation
             )
         case .aiIntegrations:
-            AIIntegrationsSettingsView(preferences: $aiPreferences, metrics: metrics)
+            AIIntegrationsSettingsView(
+                preferences: $aiPreferences,
+                hookStates: hookStates,
+                metrics: metrics,
+                onPreferencesChange: onAIPreferencesChange,
+                onHookAction: onHookAction
+            )
         case .about:
             AboutSettingsView(
                 information: information,
                 languageOverride: $languageOverride,
                 languages: languages,
-                metrics: metrics
+                metrics: metrics,
+                restartRequired: restartRequired
             )
         }
     }

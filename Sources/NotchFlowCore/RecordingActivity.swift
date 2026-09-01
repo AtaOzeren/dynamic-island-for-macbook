@@ -60,6 +60,10 @@ public struct RecordingActivity: Activity, Equatable {
     /// `high`, and never auto-dismissing: per `docs/06-activity-providers.md`
     /// an extra always-on indicator is the cheaper failure than silently
     /// missing that something is being recorded.
+    /// A live camera or microphone belongs at the top whatever else is running.
+    /// It is the card that answers "is something capturing me right now".
+    public var orderBand: ActivityOrderBand { .pinned }
+
     public var priority: ActivityPriority { .high }
 
     public var autoDismiss: AutoDismissDescriptor? { nil }

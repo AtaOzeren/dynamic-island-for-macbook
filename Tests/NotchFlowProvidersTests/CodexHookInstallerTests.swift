@@ -1,16 +1,17 @@
 import Foundation
 import Testing
 
+@testable import NotchFlowCore
 @testable import NotchFlowProviders
 
 @Suite("CodexHookInstaller")
 struct CodexHookInstallerTests {
     private static let homeDirectory = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
     private static let configURL = homeDirectory.appending(path: ".codex/config.toml")
+    private static let hooksURL = homeDirectory.appending(path: ".codex/hooks.json")
     private static let backupURL = homeDirectory.appending(
         path: ".codex/config.toml.notchflow-backup"
     )
-    private static let notifierPath = "/Applications/NotchFlow.app/Contents/MacOS/notchflow-notify"
 
     @Test("fresh install creates the config directory and notify setting")
     func freshInstall() throws {
@@ -24,6 +25,43 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.text(at: Self.configURL) == proposal)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(proposal.contains(Self.expectedNotifySetting))
+        #expect(fileSystem.text(at: Self.hooksURL)?.contains(HookSnippetGenerator.codexLifecycleHookMarker) == true)
+    }
+
+    @Test("install preserves existing lifecycle hooks and adds one managed handler per event")
+    func installMergesLifecycleHooks() throws {
+        let existingHooks = Data(
+            """
+            {
+              "description": "Keep user hooks",
+              "hooks": {
+                "SessionStart": [
+                  {
+                    "hooks": [
+                      {
+                        "type": "command",
+                        "command": "python3 existing.py"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.hooksURL: existingHooks]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let document = try #require(fileSystem.jsonObject(at: Self.hooksURL))
+        #expect(document["description"] as? String == "Keep user hooks")
+        let hooks = try #require(document["hooks"] as? [String: Any])
+        #expect(hooks["SessionStart"] != nil)
+        for event in Self.managedLifecycleEvents {
+            #expect(Self.managedHandlerCount(for: event, in: hooks) == 1)
+        }
     }
 
     @Test("install preserves unrelated TOML and backs up the original bytes")
@@ -67,9 +105,82 @@ struct CodexHookInstallerTests {
 
         let installed = try #require(fileSystem.text(at: Self.configURL))
         #expect(!installed.contains("notify = [\"existing-notifier\"]"))
-        #expect(installed.contains(Self.expectedNotifySetting))
+        #expect(installed.contains(HookSnippetGenerator.codexNotifyMarker))
+        #expect(installed.contains("existing-notifier"))
         #expect(installed.contains("notify = \"leave-this-table-value\""))
         #expect(installed.contains("model = \"gpt-5\""))
+    }
+
+    @Test("install replaces multiline notify and preserves its command chain")
+    func installReplacesMultilineNotify() throws {
+        let originalText = """
+            model = "gpt-5.6-sol"
+            notify = [
+                "/Applications/Codex Computer Use.app/Contents/MacOS/Notifier",
+                "turn-ended",
+            ]
+            service_tier = "default"
+
+            [projects."/Users/tester/Work"]
+            trust_level = "trusted"
+            """
+        let original = Data(originalText.utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: original])
+        let installer = CodexHookInstaller(
+            homeDirectory: Self.homeDirectory,
+            fileSystem: fileSystem
+        )
+
+        try installer.install()
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+
+        #expect(installer.installationState() == .hookInstalled)
+        #expect(installed.contains("Codex Computer Use.app/Contents/MacOS/Notifier"))
+        #expect(installed.contains("turn-ended"))
+        #expect(installed.contains("service_tier = \"default\""))
+        #expect(fileSystem.data(at: Self.backupURL) == original)
+
+        try installer.uninstall()
+        #expect(fileSystem.data(at: Self.configURL) == original)
+    }
+
+    @Test("install recognizes NotchFlow nested by another notifier")
+    func installPreservesNotifierWrappingNotchFlow() throws {
+        let managedArguments = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    HookSnippetGenerator()
+                        .codexNotifyFragment()
+                        .dropFirst("notify = ".count)
+                        .utf8
+                )
+            ) as? [String]
+        )
+        let nestedData = try JSONSerialization.data(
+            withJSONObject: managedArguments,
+            options: [.withoutEscapingSlashes]
+        )
+        let outerArguments = [
+            "/Applications/ComputerUse.app/Contents/MacOS/Notifier",
+            "turn-ended",
+            "--previous-notify",
+            String(decoding: nestedData, as: UTF8.self),
+        ]
+        let outerData = try JSONSerialization.data(
+            withJSONObject: outerArguments,
+            options: [.withoutEscapingSlashes]
+        )
+        let original = Data("notify = \(String(decoding: outerData, as: UTF8.self))\n".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: original]
+        )
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+
+        #expect(fileSystem.data(at: Self.configURL) == original)
+        #expect(fileSystem.data(at: Self.backupURL) == nil)
+        #expect(installer.installationState() == .hookInstalled)
     }
 
     @Test("install inserts notify before the first TOML table")
@@ -120,6 +231,61 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.data(at: Self.configURL) == original)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(fileSystem.writeCount == writesAfterFirstUninstall)
+    }
+
+    @Test("uninstall removes only managed lifecycle handlers")
+    func uninstallPreservesForeignLifecycleHooks() throws {
+        let existingHooks = Data(
+            """
+            {
+              "hooks": {
+                "UserPromptSubmit": [
+                  {
+                    "hooks": [
+                      {
+                        "type": "command",
+                        "command": "python3 existing.py"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.hooksURL: existingHooks]
+        )
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+        try installer.uninstall()
+
+        let document = try #require(fileSystem.jsonObject(at: Self.hooksURL))
+        let hooks = try #require(document["hooks"] as? [String: Any])
+        #expect(Self.managedHandlerCount(for: "UserPromptSubmit", in: hooks) == 0)
+        let promptGroups = try #require(hooks["UserPromptSubmit"] as? [[String: Any]])
+        let promptGroup = try #require(promptGroups.first)
+        let promptHandlers = try #require(promptGroup["hooks"] as? [[String: Any]])
+        #expect(promptHandlers.first?["command"] as? String == "python3 existing.py")
+    }
+
+    @Test("uninstall never overwrites configuration changed after installation")
+    func uninstallPreservesLaterChanges() throws {
+        let original = Data("model = \"gpt-5\"\n".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: original])
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+        let changed = try #require(fileSystem.text(at: Self.configURL))
+            .replacingOccurrences(of: "gpt-5", with: "gpt-5.1")
+        fileSystem.setText(changed, at: Self.configURL)
+
+        #expect(throws: CodexHookInstallerError.configurationChangedSinceInstall) {
+            try installer.uninstall()
+        }
+        #expect(fileSystem.text(at: Self.configURL) == changed)
+        #expect(fileSystem.data(at: Self.backupURL) == original)
     }
 
     @Test("uninstall removes a fresh config file")
@@ -173,7 +339,7 @@ struct CodexHookInstallerTests {
         let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: original])
         let installer = Self.makeInstaller(
             fileSystem: fileSystem,
-            syntaxValidator: { !$0.contains("--agent") }
+            syntaxValidator: { !$0.contains("python3") }
         )
 
         #expect(throws: CodexHookInstallerError.invalidGeneratedConfiguration) {
@@ -196,8 +362,97 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.data(at: Self.configURL) == original)
     }
 
+    @Test("installation state is missing when no config file exists")
+    func installationStateWithoutConfigFile() {
+        let fileSystem = InMemoryCodexHookFileSystem()
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .configurationMissing)
+        #expect(fileSystem.writeCount == 0)
+        #expect(fileSystem.createdDirectories.isEmpty)
+    }
+
+    @Test("installation state is absent when config exists without our notify")
+    func installationStateWithForeignConfiguration() {
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data("model = \"gpt-5\"\n".utf8)]
+        )
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .hookAbsent)
+        #expect(fileSystem.writeCount == 0)
+    }
+
+    @Test("legacy notify without lifecycle hooks is reported absent")
+    func installationStateRequiresLifecycleHooks() {
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data((Self.expectedNotifySetting + "\n").utf8)]
+        )
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .hookAbsent)
+    }
+
+    @Test("invalid hooks JSON aborts without writing")
+    func invalidHooksDocumentDoesNotWrite() {
+        let invalidHooks = Data("{\"hooks\": [".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.hooksURL: invalidHooks]
+        )
+
+        #expect(throws: CodexHookInstallerError.invalidExistingConfiguration) {
+            try Self.makeInstaller(fileSystem: fileSystem).install()
+        }
+        #expect(fileSystem.data(at: Self.hooksURL) == invalidHooks)
+        #expect(fileSystem.writeCount == 0)
+    }
+
+    @Test("installation state is installed after install writes the notify setting")
+    func installationStateAfterInstall() throws {
+        let fileSystem = InMemoryCodexHookFileSystem()
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+        try installer.install()
+
+        let writesAfterInstall = fileSystem.writeCount
+
+        #expect(installer.installationState() == .hookInstalled)
+        #expect(fileSystem.writeCount == writesAfterInstall)
+    }
+
+    @Test("installation state is unreadable when the config fails validation")
+    func installationStateWithInvalidConfiguration() {
+        let invalid = Data("notify = [unterminated\n".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: invalid])
+        let installer = Self.makeInstaller(
+            fileSystem: fileSystem,
+            syntaxValidator: { !$0.contains("unterminated") }
+        )
+
+        #expect(installer.installationState() == .configurationUnreadable)
+        #expect(fileSystem.data(at: Self.configURL) == invalid)
+        #expect(fileSystem.writeCount == 0)
+    }
+
     private static var expectedNotifySetting: String {
-        "notify = [\"\(notifierPath)\",\"--agent\",\"codex\"]"
+        HookSnippetGenerator().codexNotifyFragment().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static let managedLifecycleEvents = [
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PermissionRequest",
+        "Stop",
+    ]
+
+    private static func managedHandlerCount(
+        for event: String,
+        in hooks: [String: Any]
+    ) -> Int {
+        guard let groups = hooks[event] as? [[String: Any]] else { return 0 }
+        return groups.reduce(into: 0) { count, group in
+            guard let handlers = group["hooks"] as? [[String: Any]] else { return }
+            count += handlers.filter { handler in
+                (handler["command"] as? String)?.contains(HookSnippetGenerator.codexLifecycleHookMarker) == true
+            }.count
+        }
     }
 
     private static func makeInstaller(
@@ -206,10 +461,80 @@ struct CodexHookInstallerTests {
     ) -> CodexHookInstaller {
         CodexHookInstaller(
             homeDirectory: homeDirectory,
-            notifierExecutablePath: notifierPath,
             fileSystem: fileSystem,
             syntaxValidator: syntaxValidator
         )
+    }
+
+    // MARK: - Upgrading from an earlier NotchFlow
+
+    /// A `notify` an earlier NotchFlow wrote must be replaced, not treated as
+    /// current. Treating any NotchFlow command as installed froze every user on
+    /// the version they first installed.
+    @Test("install replaces a notify an earlier version wrote")
+    func installReplacesLegacyManagedNotify() throws {
+        // Built rather than written out, so the fixture is valid TOML by
+        // construction and the test cannot fail on its own quoting.
+        let legacyScript =
+            #"import x; url="notchflow://ai-status"; payload={"agentId":"codex"}"#
+        let legacy = "notify = "
+            + Self.jsonArrayLiteral(["python3", "-c", legacyScript])
+            + "\nmodel = \"gpt-5\"\n"
+
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data(legacy.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+        #expect(installed.contains(HookSnippetGenerator.codexNotifyMarker))
+        #expect(installed.contains(#"model = "gpt-5""#))
+        // Forwarding to our own previous command would report every turn twice.
+        #expect(!installed.contains(#"forward = json.loads("[\"python3\""#))
+    }
+
+    /// When another tool has wrapped our notify inside its own, the chain is
+    /// not ours to rewrite — and the lifecycle hooks carry the same states.
+    @Test("install leaves a notify nested inside another tool alone")
+    func installLeavesNestedManagedNotifyAlone() throws {
+        let nested = HookSnippetGenerator()
+            .codexNotifyFragment()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let inner = String(nested.dropFirst("notify = ".count))
+        let wrapper = "notify = [\"other-tool\",\"--previous-notify\","
+            + Self.jsonStringLiteral(inner)
+            + "]\n"
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data(wrapper.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+        #expect(installed.contains("other-tool"))
+        #expect(installed.hasPrefix("notify = [\"other-tool\""))
+    }
+
+    private static func jsonArrayLiteral(_ values: [String]) -> String {
+        guard
+            let data = try? JSONSerialization.data(withJSONObject: values),
+            let text = String(data: data, encoding: .utf8)
+        else {
+            preconditionFailure("string array must encode")
+        }
+        return text
+    }
+
+    private static func jsonStringLiteral(_ value: String) -> String {
+        let data = try? JSONSerialization.data(
+            withJSONObject: [value],
+            options: [.fragmentsAllowed]
+        )
+        guard let data, let array = String(data: data, encoding: .utf8) else {
+            preconditionFailure("string must encode")
+        }
+        return String(array.dropFirst().dropLast())
     }
 }
 
@@ -257,5 +582,10 @@ private final class InMemoryCodexHookFileSystem: CodexHookFileSystem, @unchecked
 
     func setText(_ text: String, at url: URL) {
         files[url] = Data(text.utf8)
+    }
+
+    func jsonObject(at url: URL) -> [String: Any]? {
+        guard let data = files[url] else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 }

@@ -16,6 +16,7 @@ struct SettingsStoreTests {
         #expect(storage.lastRegisteredDefaults.count == SettingsKeys.registeredDefaults.count)
         #expect(store[.displayTarget] == .automatic)
         #expect(store[.launchAtLogin] == false)
+        #expect(store[.showMenuBarIcon])
         #expect(store[.appearance] == SettingsAppearance.auto)
         #expect(store[.reducedMotionOverride] == nil)
         #expect(store[.showMusic])
@@ -41,6 +42,7 @@ struct SettingsStoreTests {
 
         store[.displayTarget] = .named("Studio Display")
         store[.launchAtLogin] = true
+        store[.showMenuBarIcon] = false
         store[.appearance] = SettingsAppearance.dark
         store[.reducedMotionOverride] = true
         store[.showMusic] = false
@@ -61,6 +63,7 @@ struct SettingsStoreTests {
 
         #expect(store[.displayTarget] == .named("Studio Display"))
         #expect(store[.launchAtLogin])
+        #expect(store[.showMenuBarIcon] == false)
         #expect(store[.appearance] == SettingsAppearance.dark)
         #expect(store[.reducedMotionOverride] == true)
         #expect(store[.showMusic] == false)
@@ -86,6 +89,28 @@ struct SettingsStoreTests {
         #expect(store[.displayTarget] == .builtIn)
         #expect(store[.reducedMotionOverride] == nil)
         #expect(store[.languageOverride] == nil)
+    }
+
+    @Test("round-trips stable display identity even when it contains separators")
+    func roundTripsStableDisplayIdentity() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+        let preference = DisplayPreference.identified(
+            id: "Studio Display:1920:0",
+            name: "Studio Display"
+        )
+
+        store[.displayTarget] = preference
+
+        #expect(store[.displayTarget] == preference)
+    }
+
+    @Test("round-trips the all-displays target")
+    func roundTripsAllDisplays() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+
+        store[.displayTarget] = .allDisplays
+
+        #expect(store[.displayTarget] == .allDisplays)
     }
 
     @Test("reports the changed key and typed value once")
@@ -122,6 +147,7 @@ struct SettingsStoreTests {
         let preferences = GeneralPreferences(
             displayTarget: .named("Studio Display"),
             launchAtLogin: true,
+            showMenuBarIcon: false,
             appearance: .dark,
             reducedMotionOverride: false
         )
@@ -130,6 +156,7 @@ struct SettingsStoreTests {
 
         #expect(store.generalPreferences == preferences)
         #expect(store[.displayTarget] == .named("Studio Display"))
+        #expect(store[.showMenuBarIcon] == false)
         #expect(store[.appearance] == .dark)
     }
 

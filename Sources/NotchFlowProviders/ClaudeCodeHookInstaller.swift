@@ -5,6 +5,7 @@ public enum ClaudeCodeHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingSettings
     case invalidGeneratedSettings
     case incompatibleHooksStructure
+    case configurationChangedSinceInstall
 }
 
 public protocol ClaudeCodeHookFileSystem: Sendable {
@@ -47,17 +48,14 @@ public struct ClaudeCodeHookInstaller: Sendable {
     private static let settingsPath = ".claude/settings.json"
     private static let backupSuffix = ".notchflow-backup"
 
-    private let notifierExecutablePath: String
     private let fileSystem: any ClaudeCodeHookFileSystem
     private let settingsURL: URL
     private let backupURL: URL
 
     public init(
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
-        notifierExecutablePath: String,
         fileSystem: any ClaudeCodeHookFileSystem = FoundationClaudeCodeHookFileSystem()
     ) {
-        self.notifierExecutablePath = notifierExecutablePath
         self.fileSystem = fileSystem
         settingsURL = homeDirectory.appending(path: Self.settingsPath)
         backupURL = settingsURL.appendingPathExtension(
@@ -84,6 +82,28 @@ public struct ClaudeCodeHookInstaller: Sendable {
         )
     }
 
+    /// Whether `~/.claude/settings.json` already carries our hook.
+    ///
+    /// Answers by asking `mergedSettings(from:)` the same question `install()`
+    /// asks — "would writing change anything?" — rather than re-deriving what a
+    /// hook looks like. A second copy of the merge rules is exactly how a
+    /// settings pane starts disagreeing with the installer it drives.
+    ///
+    /// Reads only; it never creates the directory, the backup, or the file.
+    public func installationState() -> HookInstallationState {
+        do {
+            guard let existingData = try fileSystem.readFile(at: settingsURL) else {
+                return .configurationMissing
+            }
+            return try mergedSettings(from: existingData).changed ? .hookAbsent : .hookInstalled
+        } catch {
+            // Every throw reachable from here means the file on disk is not
+            // settings we can reason about, which is the state's own answer
+            // rather than a failure of the query.
+            return .configurationUnreadable
+        }
+    }
+
     public func install() throws {
         let existingData = try fileSystem.readFile(at: settingsURL)
         let merged = try mergedSettings(from: existingData)
@@ -101,6 +121,10 @@ public struct ClaudeCodeHookInstaller: Sendable {
     public func uninstall() throws {
         if let backup = try fileSystem.readFile(at: backupURL) {
             _ = try validatedRoot(from: backup, error: .invalidExistingSettings)
+            let installedData = try mergedSettings(from: backup).data
+            guard try fileSystem.readFile(at: settingsURL) == installedData else {
+                throw ClaudeCodeHookInstallerError.configurationChangedSinceInstall
+            }
             try fileSystem.writeFileAtomically(backup, to: settingsURL)
             try fileSystem.removeFile(at: backupURL)
             return
@@ -138,9 +162,7 @@ public struct ClaudeCodeHookInstaller: Sendable {
     }
 
     private func generatedSettingsRoot() throws -> [String: Any] {
-        let fragment = try HookSnippetGenerator(
-            notifierExecutablePath: notifierExecutablePath
-        ).claudeCodeSettingsFragment()
+        let fragment = HookSnippetGenerator().claudeCodeSettingsFragment()
         return try validatedRoot(
             from: Data(fragment.utf8),
             error: .invalidGeneratedSettings
@@ -163,6 +185,19 @@ public struct ClaudeCodeHookInstaller: Sendable {
                 throw ClaudeCodeHookInstallerError.invalidGeneratedSettings
             }
             var groups = try hookGroups(for: event, in: hooks)
+
+            // Drop the commands an earlier NotchFlow wrote before adding this
+            // version's. Appending alone left the previous command in place:
+            // the old, broken hook kept firing beside the new one and every
+            // event was delivered twice.
+            let staleCount = groups.count
+            groups.removeAll { group in
+                isManagedGroup(group) && !contains(group, in: generatedGroups)
+            }
+            if groups.count != staleCount {
+                changed = true
+            }
+
             for generatedGroup in generatedGroups where !contains(generatedGroup, in: groups) {
                 groups.append(generatedGroup)
                 changed = true
@@ -170,10 +205,39 @@ public struct ClaudeCodeHookInstaller: Sendable {
             hooks[event] = groups
         }
 
+        // An event this version no longer subscribes to but an earlier one did
+        // — `StopFailure`, which Claude Code never emitted — leaves a hook that
+        // can never fire. Nothing else would ever remove it.
+        for (event, value) in hooks where generatedHooks[event] == nil {
+            guard var groups = value as? [[String: Any]] else { continue }
+            let staleCount = groups.count
+            groups.removeAll(where: isManagedGroup)
+            guard groups.count != staleCount else { continue }
+            changed = true
+            hooks[event] = groups.isEmpty ? nil : groups
+        }
+
         if changed {
             root["hooks"] = hooks
         }
         return changed
+    }
+
+    /// Whether this hook group is one NotchFlow wrote, in any version.
+    ///
+    /// Matched on the marker the generator emits rather than on an exact
+    /// command comparison, because the whole point is to recognise commands
+    /// whose text has since changed.
+    private func isManagedGroup(_ group: [String: Any]) -> Bool {
+        guard let handlers = group["hooks"] as? [[String: Any]] else { return false }
+        return handlers.contains { handler in
+            guard let command = handler["command"] as? String else { return false }
+            if command.contains(HookSnippetGenerator.managedHookMarker) {
+                return true
+            }
+            // Every legacy token, not any: see `legacyManagedHookMarkers`.
+            return HookSnippetGenerator.legacyManagedHookMarkers.allSatisfy(command.contains)
+        }
     }
 
     private func settingsRemovingGeneratedHook(
@@ -198,10 +262,12 @@ public struct ClaudeCodeHookInstaller: Sendable {
             }
             var groups = try hookGroups(for: event, in: hooks)
             let initialCount = groups.count
+            // The same predicate `mergeGeneratedHooks` adds by, so uninstall
+            // removes a command this version did not write but an earlier one
+            // did, instead of stranding it.
             groups.removeAll { group in
-                generatedGroups.contains { generatedGroup in
-                    jsonObjectsAreEqual(group, generatedGroup)
-                }
+                isManagedGroup(group)
+                    || generatedGroups.contains { jsonObjectsAreEqual(group, $0) }
             }
             guard groups.count != initialCount else {
                 continue
@@ -212,6 +278,18 @@ public struct ClaudeCodeHookInstaller: Sendable {
             } else {
                 hooks[event] = groups
             }
+        }
+
+        // Events an earlier version subscribed to and this one does not, so an
+        // uninstall leaves nothing of ours behind under a name we stopped
+        // generating.
+        for (event, value) in hooks where generatedHooks[event] == nil {
+            guard var groups = value as? [[String: Any]] else { continue }
+            let initialCount = groups.count
+            groups.removeAll(where: isManagedGroup)
+            guard groups.count != initialCount else { continue }
+            changed = true
+            hooks[event] = groups.isEmpty ? nil : groups
         }
 
         if changed {

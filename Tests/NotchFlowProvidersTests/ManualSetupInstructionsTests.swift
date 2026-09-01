@@ -12,7 +12,6 @@ import Testing
 @Suite("ManualSetupInstructions")
 struct ManualSetupInstructionsTests {
     private static let homeDirectory = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
-    private static let notifierPath = "/Applications/NotchFlow.app/Contents/MacOS/notchflow-notify"
 
     // MARK: - Snippet equals what the installer writes
 
@@ -21,7 +20,6 @@ struct ManualSetupInstructionsTests {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = ClaudeCodeHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
         let settingsURL = Self.homeDirectory.appending(path: ".claude/settings.json")
@@ -36,23 +34,21 @@ struct ManualSetupInstructionsTests {
         #expect(instructions.agent == .claudeCode)
     }
 
-    @Test("Codex's snippet is the configuration the installer writes")
+    @Test("Codex's snippet is the lifecycle hooks file the installer writes")
     func codexSnippetMatchesInstalledFile() throws {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = CodexHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
-        let configURL = Self.homeDirectory.appending(path: ".codex/config.toml")
+        let hooksURL = Self.homeDirectory.appending(path: ".codex/hooks.json")
 
         let instructions = try installer.manualSetupInstructions()
-        let proposed = try installer.proposedConfiguration()
         try installer.install()
 
-        #expect(instructions.snippet == proposed)
-        #expect(instructions.snippet == fileSystem.text(at: configURL))
-        #expect(instructions.destinationPath == configURL.path)
+        #expect(instructions.snippet == fileSystem.text(at: hooksURL))
+        #expect(instructions.snippet.contains(HookSnippetGenerator.codexLifecycleHookMarker))
+        #expect(instructions.destinationPath == hooksURL.path)
         #expect(instructions.agent == .codex)
     }
 
@@ -60,7 +56,6 @@ struct ManualSetupInstructionsTests {
     func openCodeSnippetMatchesInstalledFile() throws {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = OpenCodePluginInstaller(
-            notifierExecutablePath: Self.notifierPath,
             homeDirectory: Self.homeDirectory,
             fileSystem: fileSystem
         )
@@ -88,7 +83,6 @@ struct ManualSetupInstructionsTests {
         let fileSystem = InMemoryManualSetupFileSystem(files: [settingsURL: existing])
         let installer = ClaudeCodeHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
 
@@ -108,7 +102,6 @@ struct ManualSetupInstructionsTests {
         let fileSystem = InMemoryManualSetupFileSystem()
         let installer = ClaudeCodeHookInstaller(
             homeDirectory: Self.homeDirectory,
-            notifierExecutablePath: Self.notifierPath,
             fileSystem: fileSystem
         )
 

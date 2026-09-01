@@ -20,6 +20,20 @@
                ReferencedContainer = "container:NotchFlow.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A20000062C81000000000001"
+               BuildableName = "NotchFlowAppUITests.xctest"
+               BlueprintName = "NotchFlowAppUITests"
+               ReferencedContainer = "container:NotchFlow.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
       <PostActions>
          <ExecutionAction
@@ -46,6 +60,16 @@
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
       shouldUseLaunchSchemeArgsEnv = "YES">
       <Testables>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A20000062C81000000000001"
+               BuildableName = "NotchFlowAppUITests.xctest"
+               BlueprintName = "NotchFlowAppUITests"
+               ReferencedContainer = "container:NotchFlow.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction

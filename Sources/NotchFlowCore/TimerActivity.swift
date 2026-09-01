@@ -122,12 +122,12 @@ public struct TimerActivity: Activity, Equatable {
     public var autoDismiss: AutoDismissDescriptor? { nil }
 
     public var primaryAction: PrimaryAction? {
-        isExpiring
-            ? PrimaryAction(title: "Dismiss", symbolName: "checkmark")
-            : PrimaryAction(
-                title: isRunning ? "Pause" : "Resume",
-                symbolName: isRunning ? "pause.fill" : "play.fill"
-            )
+        if isExpiring {
+            return PrimaryAction(title: "Dismiss", symbolName: "checkmark", intent: .stopTimer)
+        }
+        return isRunning
+            ? PrimaryAction(title: "Pause", symbolName: "pause.fill", intent: .pauseTimer)
+            : PrimaryAction(title: "Resume", symbolName: "play.fill", intent: .resumeTimer)
     }
 
     /// The same timer re-read at a later instant — what a tick produces.

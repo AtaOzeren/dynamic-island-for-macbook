@@ -6,15 +6,15 @@ import Testing
 @testable import NotchFlowCore
 @testable import NotchFlowUI
 
-/// What the AI agent views draw for each of the seven states — the acceptance
-/// criterion for todo 52 is that every state renders distinctly, so the
-/// load-bearing tests here are the two that assert distinctness across the whole
-/// enum rather than spot-checking a favourite state.
+/// What the AI agent views draw for each state and supported agent.
 @Suite("AIAgentActivityView")
 @MainActor
 struct AIAgentActivityViewTests {
     private static func activity(
         agent: IPCAgentID = .claudeCode,
+        sessionID: UUID = UUID(
+            uuid: (0x6F, 0x96, 0x19, 0xFF, 0x8B, 0x86, 0xD0, 0x11, 0xB4, 0x2D, 0x00, 0xC0, 0x4F, 0xC9, 0x64, 0xFF)
+        ),
         state: AIAgentState = .working,
         detail: String = "Editing src/App.swift",
         toolName: String? = nil,
@@ -22,9 +22,7 @@ struct AIAgentActivityViewTests {
     ) -> AIAgentActivity {
         AIAgentActivity(
             agent: agent,
-            sessionID: UUID(
-                uuid: (0x6F, 0x96, 0x19, 0xFF, 0x8B, 0x86, 0xD0, 0x11, 0xB4, 0x2D, 0x00, 0xC0, 0x4F, 0xC9, 0x64, 0xFF)
-            ),
+            sessionID: sessionID,
             state: state,
             detail: detail,
             toolName: toolName,
@@ -51,13 +49,6 @@ struct AIAgentActivityViewTests {
     }
 
     // MARK: - Distinctness across all seven states
-
-    @Test("gives each state its own glyph")
-    func glyphPerState() {
-        let symbols = AIAgentState.allCases.map { Self.presentation(state: $0).symbolName }
-
-        #expect(Set(symbols).count == AIAgentState.allCases.count)
-    }
 
     @Test("gives each state its own status text")
     func statusTextPerState() {
@@ -165,28 +156,133 @@ struct AIAgentActivityViewTests {
         #expect(Self.presentation(detail: "").detail == nil)
     }
 
-    // MARK: - Attention
+    // MARK: - The compact slot
 
-    @Test("marks only the states the user must resolve as needing attention")
-    func attentionStates() {
-        for state in AIAgentState.allCases {
-            let expected = state == .waitingForUser || state == .error
+    @Test("normalizes Codex artwork to the OpenCode icon footprint")
+    func normalizesCodexArtworkSize() {
+        #expect(aiAgentIconArtworkScale(for: .claudeCode) == 1)
+        #expect(aiAgentIconArtworkScale(for: .opencode) == 1)
+        #expect(aiAgentIconArtworkScale(for: .codex) == 1.24)
+    }
 
-            #expect(Self.presentation(state: state).needsAttention == expected)
+    @Test("compact slots carry the originating agent logo identity")
+    func compactSlotUsesAgentIdentity() {
+        for agent in IPCAgentID.allCases {
+            let slot = aiAgentCompactSlot(for: Self.activity(agent: agent, state: .error))
+
+            #expect(slot.aiAgentPresentation?.agentID == agent)
         }
     }
 
-    // MARK: - The compact slot
+    @Test("maps every agent state to its compact indicator")
+    func compactIndicatorPerState() {
+        let expectations: [(AIAgentState, AIAgentCompactIndicator)] = [
+            (.idle, .none),
+            (.thinking, .working),
+            (.working, .working),
+            (.usingTool, .working),
+            (.waitingForUser, .question),
+            (.error, .error),
+            (.completed, .completed),
+        ]
 
-    /// The slot carries the state's own glyph rather than the shared `.aiAgent`
-    /// sparkles, so a completed task and a failed one are distinguishable in the
-    /// pill.
-    @Test("gives the compact slot the state's glyph rather than the kind's")
-    func compactSlotUsesStateGlyph() {
-        let slot = aiAgentCompactSlot(for: Self.activity(state: .error))
+        for (state, indicator) in expectations {
+            let slot = aiAgentCompactSlot(for: Self.activity(state: state))
 
-        #expect(slot.symbolName == Self.presentation(state: .error).symbolName)
-        #expect(slot.symbolName != compactSymbolName(.aiAgent))
+            #expect(slot.aiAgentPresentation?.indicator == indicator)
+        }
+    }
+
+    @Test("uses compact status symbols with the chosen meanings")
+    func compactStatusSymbols() {
+        #expect(AIAgentCompactIndicator.question.symbolName == "questionmark")
+        #expect(AIAgentCompactIndicator.error.symbolName == "exclamationmark")
+        #expect(AIAgentCompactIndicator.completed.symbolName == "checkmark")
+        #expect(AIAgentCompactIndicator.question.badgeTone == .yellow)
+        #expect(AIAgentCompactIndicator.error.badgeTone == .red)
+        #expect(AIAgentCompactIndicator.completed.badgeTone == .green)
+        #expect(AIAgentCompactIndicator.none.symbolName == nil)
+        #expect(AIAgentCompactIndicator.working.symbolName == nil)
+    }
+
+    @Test("keeps every supported agent on the same state mapping")
+    func compactIndicatorsAreAgentIndependent() {
+        for agent in IPCAgentID.allCases {
+            let slot = aiAgentCompactSlot(
+                for: Self.activity(agent: agent, state: .waitingForUser)
+            )
+
+            #expect(slot.aiAgentPresentation?.indicator == .question)
+        }
+    }
+
+    @Test("compact activity routing preserves the agent logo identity")
+    func compactActivityRoutingUsesAgentIdentity() throws {
+        let manager = ActivityManager()
+        manager.register(Self.activity(agent: .codex))
+
+        let slot = try #require(compactSlots(for: manager.compactPresentation).first)
+
+        #expect(slot.aiAgentPresentation?.agentID == .codex)
+        #expect(slot.aiAgentPresentation?.indicator == .working)
+    }
+
+    @Test("uses a three-point working dot with short horizontal travel")
+    func compactWorkingIndicatorMetrics() {
+        let metrics = CompactAIAgentMetrics.default
+
+        #expect(metrics.dotDiameter == 3)
+        #expect(metrics.travelDistance == 8)
+        #expect(metrics.oneWayDuration == 0.65)
+    }
+
+    @Test("moves the working dot between both endpoints and back")
+    func compactWorkingDotMotion() {
+        let metrics = CompactAIAgentMetrics.default
+        let halfTravel = metrics.travelDistance / 2
+
+        #expect(
+            compactAIAgentWorkingDotOffset(
+                at: 0,
+                reduceMotion: false
+            ) == -halfTravel
+        )
+        #expect(
+            abs(
+                compactAIAgentWorkingDotOffset(
+                    at: metrics.oneWayDuration,
+                    reduceMotion: false
+                ) - halfTravel
+            ) < 0.001
+        )
+        #expect(
+            abs(
+                compactAIAgentWorkingDotOffset(
+                    at: metrics.oneWayDuration * 2,
+                    reduceMotion: false
+                ) + halfTravel
+            ) < 0.001
+        )
+    }
+
+    @Test("centres the working dot when reduced motion is enabled")
+    func compactWorkingDotReducedMotion() {
+        #expect(
+            compactAIAgentWorkingDotOffset(
+                at: 10,
+                reduceMotion: true
+            ) == 0
+        )
+    }
+
+    /// The green tick is the one thing the user looks up *after* the work is
+    /// done, so it has to survive a glance away from the screen.
+    @Test("the completed tick stays long enough to be caught")
+    func compactCompletedLifetime() {
+        let slot = aiAgentCompactSlot(for: Self.activity(state: .completed))
+
+        #expect(slot.aiAgentPresentation?.indicator == .completed)
+        #expect(AIAgentActivity.completedAutoDismissAfter == .seconds(15))
     }
 
     @Test("announces the state and detail rather than the generic kind label")
@@ -197,11 +293,93 @@ struct AIAgentActivityViewTests {
         #expect(slot.accessibilityLabel != compactAccessibilityLabel(.aiAgent))
     }
 
-    @Test("keeps the slot identity aligned with the activity's")
+    @Test("keeps one compact slot identity while the representative session changes")
     func compactSlotIdentity() {
-        let activity = Self.activity()
+        let first = Self.activity(sessionID: UUID())
+        let second = Self.activity(sessionID: UUID())
 
-        #expect(aiAgentCompactSlot(for: activity).id == activity.identity.rawValue)
+        #expect(aiAgentCompactSlot(for: first).id == first.compactGroupIdentity.rawValue)
+        #expect(aiAgentCompactSlot(for: first).id == aiAgentCompactSlot(for: second).id)
+    }
+
+    @Test("expanded agent card stays inside the minimalist visual budget")
+    func expandedViewStaysMinimal() {
+        let size = aiAgentExpandedSize(hasProgress: true)
+
+        #expect(size.width <= 280)
+        #expect(size.height <= 64)
+    }
+
+    @Test("groups concurrent sessions from one agent into one expanded item")
+    func expandedItemsGroupAgentSessions() throws {
+        let first = Self.activity(
+            agent: .opencode,
+            sessionID: UUID(),
+            detail: "Editing first project"
+        )
+        let second = Self.activity(
+            agent: .opencode,
+            sessionID: UUID(),
+            detail: "Running second project"
+        )
+
+        let items = expandedActivityItems(for: [first, second])
+        let group = try #require(items.first?.aiAgentGroup)
+
+        #expect(items.count == 1)
+        #expect(group.agentID == .opencode)
+        #expect(group.sessions.map(\.sessionID) == [first.sessionID, second.sessionID])
+        #expect(group.showsDisclosure)
+    }
+
+    @Test("does not combine different agents in the expanded panel")
+    func expandedItemsKeepAgentsSeparate() {
+        let items = expandedActivityItems(
+            for: [
+                Self.activity(agent: .opencode, sessionID: UUID()),
+                Self.activity(agent: .opencode, sessionID: UUID()),
+                Self.activity(agent: .codex, sessionID: UUID()),
+            ]
+        )
+
+        #expect(items.count == 2)
+        #expect(items.compactMap { $0.aiAgentGroup?.agentID } == [.opencode, .codex])
+    }
+
+    @Test("uses recording-row height until a multi-session group is disclosed")
+    func expandedAgentGroupDisclosureHeight() {
+        let sessions: [any Activity] = [
+            Self.activity(agent: .opencode, sessionID: UUID()),
+            Self.activity(agent: .opencode, sessionID: UUID()),
+        ]
+        let metrics = ExpandedItemMetrics.default
+        let collapsed = expandedPanelSize(for: sessions, metrics: metrics)
+        let disclosed = expandedPanelSize(
+            for: sessions,
+            disclosedAgentIDs: [.opencode],
+            metrics: metrics
+        )
+
+        #expect(
+            collapsed.height
+                == metrics.panel.rowHeight + metrics.panel.contentInset * 2
+        )
+        #expect(disclosed.height > collapsed.height)
+        #expect(
+            disclosed.height - collapsed.height
+                == AIAgentGroupViewMetrics.default.separatorHeight
+                + AIAgentGroupViewMetrics.default.detailRowHeight * 2
+        )
+        #expect(disclosed.height <= PanelMetrics.default.maximumExpandedSize.height)
+    }
+
+    @Test("single-session groups show no disclosure control")
+    func singleAgentSessionHasNoDisclosure() throws {
+        let item = try #require(
+            expandedActivityItems(for: [Self.activity(agent: .codex)]).first
+        )
+
+        #expect(item.aiAgentGroup?.showsDisclosure == false)
     }
 
     // MARK: - Accessibility
@@ -230,5 +408,59 @@ struct AIAgentActivityViewTests {
         let rows = expandedRows(for: [Self.activity(agent: .codex)])
 
         #expect(rows.first?.primaryAction?.title == "Open Codex")
+    }
+
+    @Test("dedicated agent view carries the same visible action")
+    func dedicatedViewCarriesAction() {
+        #expect(Self.presentation(agent: .codex).primaryAction?.title == "Open Codex")
+    }
+
+    // MARK: - One status position
+
+    /// The slot leaves room *under* the icon for the indicator.
+    @Test("the slot reserves space beneath the icon")
+    func slotReservesSpaceBeneathTheIcon() {
+        let iconSize: CGFloat = 13
+        let metrics = CompactAIAgentMetrics.default
+        let size = compactAIAgentIconSize(iconSize: iconSize, state: .waitingForUser)
+
+        #expect(size.height >= iconSize + metrics.badgeDiameter)
+    }
+
+    /// And no room *beside* it.
+    ///
+    /// Needing input and failing used to hang the badge off the icon's side,
+    /// which needed `iconSize + badgeDiameter` of width. Staying under that is
+    /// what makes "the indicator is below, not beside" a measurable property
+    /// rather than a description of the code.
+    @Test("the slot is too narrow to hold a badge beside the icon")
+    func slotHasNoRoomForASideBadge() {
+        let iconSize: CGFloat = 13
+        let metrics = CompactAIAgentMetrics.default
+        let sideBySide = iconSize + metrics.badgeDiameter
+
+        for state in AIAgentState.allCases {
+            let size = compactAIAgentIconSize(iconSize: iconSize, state: state)
+
+            #expect(size.width < sideBySide, "\(state) leaves room for a side badge")
+        }
+    }
+
+    /// The view has to actually use that box, or the numbers above describe
+    /// nothing. Asserted on the source because a SwiftUI body cannot be
+    /// measured without a window server.
+    @Test("the compact agent icon is laid out from the shared box")
+    func compactIconUsesTheSharedBox() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Sources/NotchFlowUI/AIAgentActivityView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)"))
+        #expect(source.contains("statusIndicator\n                .offset(y: iconSize + 1)"))
     }
 }

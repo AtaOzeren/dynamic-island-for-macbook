@@ -15,10 +15,19 @@ public final class ActivityManager {
         let generation: Int
     }
 
+    private struct CompactGroup {
+        var representative: any Activity
+        let order: Int
+        var latestRegistrationTime: Date
+    }
+
+    private static let compactAgentCapacity = 2
+
     private let compactCapacity: Int
     private let sleep: Sleep
     private var entries: [ActivityIdentity: Entry] = [:]
     private var dismissTasks: [ActivityIdentity: Task<Void, Never>] = [:]
+    private var activitiesObservers: [UUID: () -> Void] = [:]
     private var nextGeneration = 0
 
     public var onBecomeIdle: (() -> Void)?
@@ -43,20 +52,45 @@ public final class ActivityManager {
     }
 
     public var compactPresentation: CompactActivityPresentation {
-        let activities = activeActivities
-        guard activities.count > compactCapacity else {
-            return CompactActivityPresentation(activities: activities, overflowCount: 0)
+        let groups = compactGroups
+        let standardActivities = groups
+            .filter { $0.representative.compactRegion == .standard }
+            .sorted { $0.order < $1.order }
+            .map(\.representative)
+        let agentActivities = groups
+            .filter { $0.representative.compactRegion == .agentTrailing }
+            .sorted { $0.latestRegistrationTime > $1.latestRegistrationTime }
+            .prefix(Self.compactAgentCapacity)
+            .sorted { $0.latestRegistrationTime < $1.latestRegistrationTime }
+            .map(\.representative)
+
+        guard standardActivities.count > compactCapacity else {
+            return CompactActivityPresentation(
+                activities: standardActivities + agentActivities,
+                overflowCount: 0
+            )
         }
 
-        let visibleCount = compactCapacity - 1
+        let visibleStandardCount = compactCapacity - 1
         return CompactActivityPresentation(
-            activities: Array(activities.prefix(visibleCount)),
-            overflowCount: activities.count - visibleCount
+            activities: Array(standardActivities.prefix(visibleStandardCount)) + agentActivities,
+            overflowCount: standardActivities.count - visibleStandardCount
         )
     }
 
     public var expandedActivities: [any Activity] {
         activeActivities
+    }
+
+    @discardableResult
+    public func observeActivitiesChanged(_ observer: @escaping () -> Void) -> UUID {
+        let identifier = UUID()
+        activitiesObservers[identifier] = observer
+        return identifier
+    }
+
+    public func removeActivitiesObserver(_ identifier: UUID) {
+        activitiesObservers[identifier] = nil
     }
 
     public func register(_ activity: any Activity, at registrationTime: Date = Date()) {
@@ -75,19 +109,47 @@ public final class ActivityManager {
 
     private var orderedEntries: [Entry] {
         entries.values.sorted { left, right in
-            ActivityOrderingKey(
-                priority: left.activity.priority,
-                startTime: left.registrationTime
-            )
-                < ActivityOrderingKey(
-                    priority: right.activity.priority,
-                    startTime: right.registrationTime
-                )
+            Self.orderingKey(for: left) < Self.orderingKey(for: right)
         }
     }
 
+    private static func orderingKey(for entry: Entry) -> ActivityOrderingKey {
+        ActivityOrderingKey(
+            band: entry.activity.orderBand,
+            priority: entry.activity.priority,
+            startTime: entry.registrationTime
+        )
+    }
+
+    private var compactGroups: [CompactGroup] {
+        var groups: [ActivityIdentity: CompactGroup] = [:]
+
+        for (order, entry) in orderedEntries.enumerated() {
+            let activity = entry.activity
+            let groupIdentity = activity.compactGroupIdentity
+            guard var group = groups[groupIdentity] else {
+                groups[groupIdentity] = CompactGroup(
+                    representative: activity,
+                    order: order,
+                    latestRegistrationTime: entry.registrationTime
+                )
+                continue
+            }
+
+            if group.representative.compactRepresentationPriority
+                < activity.compactRepresentationPriority
+            {
+                group.representative = activity
+            }
+            group.latestRegistrationTime = max(group.latestRegistrationTime, entry.registrationTime)
+            groups[groupIdentity] = group
+        }
+
+        return Array(groups.values)
+    }
+
     private func store(_ activity: any Activity, registrationTime: Date) {
-        defer { onActivitiesChanged?() }
+        defer { notifyActivitiesChanged() }
 
         dismissTasks[activity.identity]?.cancel()
         nextGeneration += 1
@@ -121,10 +183,17 @@ public final class ActivityManager {
         dismissTasks[identity]?.cancel()
         dismissTasks[identity] = nil
 
-        onActivitiesChanged?()
+        notifyActivitiesChanged()
 
         if entries.isEmpty {
             onBecomeIdle?()
+        }
+    }
+
+    private func notifyActivitiesChanged() {
+        onActivitiesChanged?()
+        for observer in activitiesObservers.values {
+            observer()
         }
     }
 }

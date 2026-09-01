@@ -26,9 +26,17 @@ struct AppleScriptMusicProviderTests {
     private static func snapshot(
         _ title: String,
         artist: String = "Aphex Twin",
-        state: MusicPlaybackState = .playing
+        state: MusicPlaybackState = .playing,
+        artworkData: Data? = nil,
+        artworkURL: URL? = nil
     ) -> MusicPlayerSnapshot {
-        MusicPlayerSnapshot(title: title, artist: artist, playbackState: state)
+        MusicPlayerSnapshot(
+            title: title,
+            artist: artist,
+            playbackState: state,
+            artworkData: artworkData,
+            artworkURL: artworkURL
+        )
     }
 
     // MARK: - Targets
@@ -60,17 +68,58 @@ struct AppleScriptMusicProviderTests {
 
     // MARK: - Cadence
 
-    /// The update-cadence rule in `docs/06-activity-providers.md` is "purely
-    /// event-driven, no polling of player state at any interval". A provider
-    /// that queried on `startObserving` would already be reading state nobody
-    /// asked about; the first read must come from a notification.
-    @Test("queries no player until a notification wakes it")
-    func doesNotQueryBeforeAnyNotification() {
+    /// The update-cadence rule in `docs/06-activity-providers.md` forbids
+    /// polling player state "at any interval" — it does not forbid the single
+    /// read that establishes the starting state. A notification reports only a
+    /// *change*, so a track already playing when observation begins posts
+    /// nothing, and without this read the island stays empty until the user
+    /// changes track. `SystemPowerSourceObserver.startObserving` reads once on
+    /// the same rule for the same reason.
+    @Test("reads both players once when observation starts")
+    func readsCurrentStateOnStart() {
         let (provider, players, _) = Self.make()
 
         provider.startObserving { _ in }
 
-        #expect(players.queriedTargets.isEmpty)
+        #expect(Set(players.queriedTargets) == Set(MusicPlayerTarget.allCases))
+    }
+
+    @Test("re-reads Apple Music immediately after automation access is granted")
+    func refreshesCurrentStateAfterPermissionGrant() {
+        let (provider, players, _) = Self.make()
+        var received: [NowPlaying?] = []
+
+        provider.startObserving { received.append($0) }
+        players.snapshots[.appleMusic] = Self.snapshot("Nannou")
+        provider.refreshCurrentState()
+
+        #expect(received.last??.title == "Nannou")
+        #expect(received.last??.sourceApplicationName == "Music")
+    }
+
+    @Test("re-reads players when an asynchronous permission lookup completes")
+    func refreshesAfterPermissionStatusChanges() {
+        let (provider, players, center) = Self.make()
+        provider.startObserving { _ in }
+        let queryCountBeforePermissionChange = players.queriedTargets.count
+
+        center.post(name: .musicAutomationPermissionDidChange, object: nil)
+
+        #expect(
+            players.queriedTargets.count
+                == queryCountBeforePermissionChange + MusicPlayerTarget.allCases.count
+        )
+    }
+
+    /// The one read on start is the *only* unprompted read: each player is
+    /// asked exactly once, and nothing re-reads on a timer.
+    @Test("queries each player exactly once when observation starts")
+    func doesNotQueryAgainBeforeAnyNotification() {
+        let (provider, players, _) = Self.make()
+
+        provider.startObserving { _ in }
+
+        #expect(players.queriedTargets.count == MusicPlayerTarget.allCases.count)
     }
 
     @Test("emits the playing track when a player posts a change")
@@ -87,6 +136,43 @@ struct AppleScriptMusicProviderTests {
         #expect(received.first??.artist == "Aphex Twin")
         #expect(received.first??.playbackState == .playing)
         #expect(received.first??.sourceApplicationName == "Spotify")
+    }
+
+    @Test("forwards artwork bytes returned by the player")
+    func forwardsEmbeddedArtwork() {
+        let (provider, players, _) = Self.make()
+        let artwork = Data([0x89, 0x50, 0x4E, 0x47])
+        players.snapshots[.appleMusic] = Self.snapshot("Nannou", artworkData: artwork)
+        var received: [NowPlaying?] = []
+
+        provider.startObserving { received.append($0) }
+
+        #expect(received.last??.artworkData == artwork)
+    }
+
+    @Test("loads remote artwork without blocking the player query")
+    func loadsRemoteArtwork() async {
+        let players = FakeMusicPlayerClient()
+        let center = NotificationCenter()
+        let artwork = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        let loader = FakeArtworkDataLoader(result: artwork)
+        let provider = AppleScriptMusicProvider(
+            players: players,
+            notifications: center,
+            artworkLoader: loader
+        )
+        let url = URL(string: "https://i.scdn.co/image/cover")!
+        players.snapshots[.spotify] = Self.snapshot("Nannou", artworkURL: url)
+        var received: [NowPlaying?] = []
+
+        provider.startObserving { received.append($0) }
+        for _ in 0..<20 where received.last??.artworkData == nil {
+            await Task.yield()
+        }
+
+        #expect(received.first??.artworkData == nil)
+        #expect(received.last??.artworkData == artwork)
+        #expect(await loader.requestedURLs() == [url])
     }
 
     /// Either app's notification refreshes the whole picture: Music.app posting
@@ -132,7 +218,7 @@ struct AppleScriptMusicProviderTests {
         provider.startObserving { received.append($0) }
         Self.post(.appleMusic, on: center)
 
-        #expect(received.first??.title == "Nannou")
+        #expect(received.last??.title == "Nannou")
     }
 
     // MARK: - Absence
@@ -263,10 +349,12 @@ struct AppleScriptMusicProviderTests {
 
         provider.startObserving { _ in firstCount += 1 }
         provider.startObserving { _ in secondCount += 1 }
+        let firstCountAfterRestart = firstCount
+        players.snapshots[.spotify] = Self.snapshot("Avril 14th")
         Self.post(.spotify, on: center)
 
-        #expect(firstCount == 0)
-        #expect(secondCount == 1)
+        #expect(firstCount == firstCountAfterRestart)
+        #expect(secondCount > 0)
     }
 
     // MARK: - Transport
@@ -335,5 +423,23 @@ private final class FakeMusicPlayerClient: MusicPlayerQuerying {
 
     func send(_ command: MusicTransportCommand, to target: MusicPlayerTarget) {
         sentCommands.append((command, target))
+    }
+}
+
+private actor FakeArtworkDataLoader: ArtworkDataLoading {
+    private let result: Data?
+    private var urls: [URL] = []
+
+    init(result: Data?) {
+        self.result = result
+    }
+
+    func data(from url: URL) async -> Data? {
+        urls.append(url)
+        return result
+    }
+
+    func requestedURLs() -> [URL] {
+        urls
     }
 }

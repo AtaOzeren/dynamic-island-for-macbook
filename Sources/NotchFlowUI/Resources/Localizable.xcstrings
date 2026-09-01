@@ -1,6 +1,114 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Application": {
+      "comment": "General pane, application lifecycle section title.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Application"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulama"
+          }
+        }
+      }
+    },
+    "Restart NotchFlow": {
+      "comment": "General pane button that relaunches NotchFlow.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart NotchFlow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow'u yeniden başlat"
+          }
+        }
+      }
+    },
+    "Restart required": {
+      "comment": "Settings warning shown while a change needs an app relaunch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart required"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden başlatma gerekiyor"
+          }
+        }
+      }
+    },
+    "Restarts NotchFlow without changing your settings.": {
+      "comment": "General pane caption for the app restart action when no restart is pending.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restarts NotchFlow without changing your settings."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlarınızı değiştirmeden NotchFlow'u yeniden başlatır."
+          }
+        }
+      }
+    },
+    "Some changes need a restart. Finish your selections, then restart NotchFlow.": {
+      "comment": "General pane caption shown while a restart-requiring setting is pending.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some changes need a restart. Finish your selections, then restart NotchFlow."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bazı değişiklikler yeniden başlatma gerektiriyor. Seçimlerinizi tamamlayıp NotchFlow'u yeniden başlatın."
+          }
+        }
+      }
+    },
+    "macOS shows this icon on the main menu bar. With multiple displays, it may appear on another screen.": {
+      "comment": "General pane hint explaining menu bar icon placement with multiple displays.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS shows this icon on the main menu bar. With multiple displays, it may appear on another screen."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS bu simgeyi ana menü çubuğunda gösterir. Birden fazla ekran varsa başka bir ekranda görünebilir."
+          }
+        }
+      }
+    },
     "%lld more activities": {
       "comment": "VoiceOver label for the compact pill's overflow slot, when more activities are running than the pill can show.",
       "extractionState": "manual",
@@ -92,7 +200,7 @@
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Yapay Zekâ Tümleştirmeleri"
+            "value": "AI Araçları"
           }
         }
       }
@@ -331,6 +439,24 @@
         }
       }
     },
+    "Connecting…": {
+      "comment": "Activities pane, Apple Events row: shown while macOS resolves an explicit permission request.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlanıyor…"
+          }
+        }
+      }
+    },
     "Continue": {
       "comment": "Onboarding: advances to the next step.",
       "extractionState": "manual",
@@ -507,6 +633,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "Genel"
+          }
+        }
+      }
+    },
+    "Hide agent sessions": {
+      "comment": "Expanded AI agent group: VoiceOver label for collapsing the running-session list.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide agent sessions"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajan oturumlarını gizle"
           }
         }
       }
@@ -781,20 +925,20 @@
         }
       }
     },
-    "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login.": {
+    "NotchFlow has no Dock icon. Open the app again to show Settings when its menu bar icon is hidden.": {
       "comment": "General pane, Startup section caption.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login."
+            "value": "NotchFlow has no Dock icon. Open the app again to show Settings when its menu bar icon is hidden."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NotchFlow'un Dock simgesi yoktur — oturum açılışında başlasa da başlamasa da menü çubuğunda yaşar."
+            "value": "NotchFlow'un Dock simgesi yoktur. Menü çubuğu simgesi gizliyken Ayarlar'ı göstermek için uygulamayı yeniden açın."
           }
         }
       }
@@ -1051,6 +1195,42 @@
         }
       }
     },
+    "Screen recording in progress": {
+      "comment": "Recording activity: concise expanded status and VoiceOver label.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen recording in progress"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran kaydı yapılıyor"
+          }
+        }
+      }
+    },
+    "Microphone in use": {
+      "comment": "Recording activity: concise expanded microphone status and VoiceOver label.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone in use"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon kullanılıyor"
+          }
+        }
+      }
+    },
     "Reduced motion also follows the system accessibility setting unless you override it.": {
       "comment": "General pane, Appearance section caption.",
       "extractionState": "manual",
@@ -1065,6 +1245,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "Azaltılmış hareket de, siz geçersiz kılmadıkça sistemin erişilebilirlik ayarını izler."
+          }
+        }
+      }
+    },
+    "Show menu bar icon": {
+      "comment": "General pane, Appearance section toggle for the AppKit status item.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show menu bar icon"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menü çubuğu simgesini göster"
           }
         }
       }
@@ -1137,6 +1335,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ için kurulum parçacığı"
+          }
+        }
+      }
+    },
+    "Show agent sessions": {
+      "comment": "Expanded AI agent group: VoiceOver label for revealing the running-session list.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show agent sessions"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajan oturumlarını göster"
           }
         }
       }
@@ -1551,6 +1767,114 @@
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "Install hook": {
+      "comment": "AI Integrations pane: install the selected agent hook.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install hook"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hook'u yükle"
+          }
+        }
+      }
+    },
+    "Install hook and show status in the notch": {
+      "comment": "Onboarding hook offer subtitle.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install hook and show status in the notch"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hook'u yükle ve durumu çentikte göster"
+          }
+        }
+      }
+    },
+    "Manual setup": {
+      "comment": "AI Integrations pane: open manual hook setup instructions.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manual setup"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elle kurulum"
+          }
+        }
+      }
+    },
+    "NotchFlow found configuration for the agents below. Turning one on approves installing its hook when setup finishes. Existing configuration is preserved with a backup before any change.": {
+      "comment": "Onboarding agents step when configurations were detected.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow found configuration for the agents below. Turning one on approves installing its hook when setup finishes. Existing configuration is preserved with a backup before any change."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow aşağıdaki aracıların yapılandırmasını buldu. Birini açmanız, kurulum tamamlandığında hook'unun yüklenmesini onaylar. Herhangi bir değişiklikten önce mevcut yapılandırma yedeklenerek korunur."
+          }
+        }
+      }
+    },
+    "Uninstall hook": {
+      "comment": "AI Integrations pane: remove the selected agent hook.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uninstall hook"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hook'u kaldır"
+          }
+        }
+      }
+    },
+    "All displays": {
+      "comment": "General pane, display picker: show the island on every connected display.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All displays"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tüm ekranlar"
           }
         }
       }

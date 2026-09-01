@@ -35,6 +35,36 @@ struct MusicActivityViewTests {
         #expect(presentation.subtitle == "Aphex Twin")
     }
 
+    @Test("classifies Spotify and Apple Music for source-coloured presentation")
+    func classifiesMusicSource() {
+        #expect(
+            MusicPresentation(activity: Self.activity(source: "Spotify")).sourceIdentity
+                == .spotify
+        )
+        #expect(
+            MusicPresentation(activity: Self.activity(source: "Music")).sourceIdentity
+                == .appleMusic
+        )
+        #expect(
+            MusicPresentation(activity: Self.activity(source: "Apple Music")).sourceIdentity
+                == .appleMusic
+        )
+        #expect(
+            MusicPresentation(activity: Self.activity(source: nil)).sourceIdentity
+                == .other
+        )
+    }
+
+    @Test("forwards artwork bytes into expanded presentation")
+    func forwardsArtworkData() {
+        let artwork = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        let activity = MusicActivity(
+            nowPlaying: Self.activity().nowPlaying.withArtworkData(artwork)
+        )
+
+        #expect(MusicPresentation(activity: activity).artworkData == artwork)
+    }
+
     /// A backend that reports a title but no artist must not draw a dangling
     /// separator or an empty second line.
     @Test("omits the subtitle when the backend reports no artist")
@@ -108,6 +138,19 @@ struct MusicActivityViewTests {
         #expect(sent == [.previousTrack, .playPause, .nextTrack])
     }
 
+    @Test("expanded music exposes and dispatches the source-app action")
+    func sourceApplicationActionIsReachable() {
+        var fired = 0
+        let view = MusicExpandedView(
+            activity: Self.activity(source: "Spotify"),
+            onPrimaryAction: { fired += 1 }
+        )
+
+        #expect(view.presentation.primaryAction?.title == "Open Spotify")
+        view.performPrimaryAction()
+        #expect(fired == 1)
+    }
+
     // MARK: - Compact presentation
 
     @Test("the compact slot uses the music glyph and announces the track")
@@ -116,6 +159,7 @@ struct MusicActivityViewTests {
 
         #expect(slot.symbolName == "music.note")
         #expect(slot.accessibilityLabel == "Windowlicker — Aphex Twin")
+        #expect(slot.musicSourceIdentity == .spotify)
     }
 
     @Test("the compact slot announces the paused state")
@@ -123,6 +167,16 @@ struct MusicActivityViewTests {
         let slot = musicCompactSlot(for: Self.activity(state: .paused))
 
         #expect(slot.accessibilityLabel == "Paused: Windowlicker — Aphex Twin")
+    }
+
+    @Test("track or playback changes restart the compact announcement animation")
+    func compactAnimationIdentityTracksPlayback() {
+        let playing = musicCompactSlot(for: Self.activity())
+        let paused = musicCompactSlot(for: Self.activity(state: .paused))
+        let nextTrack = musicCompactSlot(for: Self.activity(title: "Nannou"))
+
+        #expect(playing.animationIdentity != paused.animationIdentity)
+        #expect(playing.animationIdentity != nextTrack.animationIdentity)
     }
 
     // MARK: - The backend-independence rule
@@ -151,5 +205,13 @@ struct MusicActivityViewTests {
         #expect(size.width <= PanelMetrics.default.maximumExpandedSize.width)
         #expect(size.height <= PanelMetrics.default.maximumExpandedSize.height)
         #expect(size.height > 0)
+    }
+
+    @Test("the music card stays within the minimalist visual budget")
+    func expandedViewStaysMinimal() {
+        let size = musicExpandedSize()
+
+        #expect(size.width <= 300)
+        #expect(size.height <= 64)
     }
 }

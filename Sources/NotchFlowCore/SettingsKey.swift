@@ -45,8 +45,25 @@ extension SettingsKey where Value == DisplayPreference {
                 guard let representation = object as? String else { return nil }
                 switch representation {
                 case "automatic": return .automatic
+                case "allDisplays": return .allDisplays
                 case "builtIn": return .builtIn
                 default:
+                    let identifiedPrefix = "identified:"
+                    if representation.hasPrefix(identifiedPrefix) {
+                        let payload = representation.dropFirst(identifiedPrefix.count)
+                        let parts = payload.split(separator: ":", maxSplits: 1).map(String.init)
+                        guard
+                            parts.count == 2,
+                            let idData = Data(base64Encoded: parts[0]),
+                            let nameData = Data(base64Encoded: parts[1])
+                        else {
+                            return nil
+                        }
+                        return .identified(
+                            id: String(decoding: idData, as: UTF8.self),
+                            name: String(decoding: nameData, as: UTF8.self)
+                        )
+                    }
                     let prefix = "named:"
                     guard representation.hasPrefix(prefix) else { return nil }
                     return .named(String(representation.dropFirst(prefix.count)))
@@ -55,8 +72,11 @@ extension SettingsKey where Value == DisplayPreference {
             encode: { preference in
                 switch preference {
                 case .automatic: "automatic"
+                case .allDisplays: "allDisplays"
                 case .builtIn: "builtIn"
                 case .named(let name): "named:\(name)"
+                case .identified(let id, let name):
+                    "identified:\(Data(id.utf8).base64EncodedString()):\(Data(name.utf8).base64EncodedString())"
                 }
             }
         )
@@ -74,6 +94,9 @@ extension SettingsKey where Value == SettingsAppearance {
 
 extension SettingsKey where Value == Bool {
     public static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
+    public static var showMenuBarIcon: Self {
+        boolKey(path: "general.showMenuBarIcon", defaultValue: true)
+    }
     public static var showMusic: Self { boolKey(path: "providers.music.enabled", defaultValue: true) }
     public static var showTimer: Self { boolKey(path: "providers.timer.enabled", defaultValue: true) }
     public static var showScreenRecording: Self {
@@ -131,6 +154,7 @@ public enum SettingsKeys {
         var defaults: [String: Any] = [:]
         register(.displayTarget, in: &defaults)
         register(.launchAtLogin, in: &defaults)
+        register(.showMenuBarIcon, in: &defaults)
         register(.appearance, in: &defaults)
         register(.showMusic, in: &defaults)
         register(.showTimer, in: &defaults)

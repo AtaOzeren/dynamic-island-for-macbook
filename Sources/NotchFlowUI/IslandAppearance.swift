@@ -90,6 +90,11 @@ public enum IslandSurface: Equatable, Sendable {
             }
         }
     }
+
+    /// Environment scheme descendants need for semantic text and controls.
+    public var preferredColorScheme: ColorScheme {
+        foreground == .onDark ? .dark : .light
+    }
 }
 
 /// The compact pill's background.
@@ -101,36 +106,23 @@ public func islandCompactSurface(scheme _: IslandColorScheme) -> IslandSurface {
     .notchBlack
 }
 
-/// The expanded panel's background: translucent material normally, an opaque
-/// fill of the same scheme under Reduce Transparency.
+/// The expanded panel's background: the notch's own black, in both schemes and
+/// with or without Reduce Transparency.
 ///
-/// The setting swaps the material for a solid, never for a different scheme —
-/// Reduce Transparency is an opacity preference, not an appearance one.
+/// The panel hangs directly below the physical cutout, so anything translucent
+/// or light reads as a separate floating card butted against the notch rather
+/// than as the notch itself growing downwards. Matching the pill's `notchBlack`
+/// is what makes the two read as one surface.
+///
+/// The parameters are kept even though neither changes the answer: every call
+/// site passes the scheme and the Reduce Transparency flag it resolved, and
+/// dropping them would push the decision back out into four views the day a
+/// light-mode panel is wanted.
 public func islandExpandedSurface(
-    scheme: IslandColorScheme,
-    reduceTransparency: Bool
+    scheme _: IslandColorScheme,
+    reduceTransparency _: Bool
 ) -> IslandSurface {
-    reduceTransparency ? .solid(scheme) : .material(scheme)
-}
-
-/// The seam between the island's appearance policy and the system's Reduce
-/// Transparency setting, mirroring `ReduceMotionQuerying`. Production reads
-/// `NSWorkspace`; tests substitute a fake so both branches are assertable
-/// without touching System Settings.
-@MainActor
-public protocol ReduceTransparencyQuerying: Sendable {
-    var prefersReducedTransparency: Bool { get }
-}
-
-/// Reads Reduce Transparency from `NSWorkspace` at the moment a surface is about
-/// to be drawn, on the same query-on-demand rationale as `SystemReduceMotion`.
-@MainActor
-public struct SystemReduceTransparency: ReduceTransparencyQuerying {
-    public init() {}
-
-    public var prefersReducedTransparency: Bool {
-        NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
-    }
+    .notchBlack
 }
 
 extension ColorScheme {

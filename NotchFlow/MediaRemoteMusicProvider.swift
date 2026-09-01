@@ -51,7 +51,7 @@
                 artist: snapshot.artist ?? "",
                 playbackState: snapshot.playbackState,
                 sourceApplicationName: snapshot.sourceApplicationName
-            )
+            ).withArtworkData(snapshot.artworkData)
 
             guard nowPlaying != lastReported else { return }
             lastReported = nowPlaying

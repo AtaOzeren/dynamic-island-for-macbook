@@ -2,9 +2,9 @@ import Foundation
 
 /// One agent session's status, as the island's activity model sees it.
 ///
-/// The state itself lives in `AIAgentState` and its legal transitions in
-/// `AIAgentStateMachine`; this type is the activity wrapper around a single
-/// reading of that state, carrying the four things `docs/07-ai-integration.md`
+/// The state itself lives in `AIAgentState` and the ordering of the messages
+/// that carry it in `AIAgentSessionLedger`; this type is the activity wrapper
+/// around a single reading of that state, carrying the four things `docs/07-ai-integration.md`
 /// lets cross the process boundary — the state, the agent, the short detail
 /// line, and the optional tool name and progress — and nothing else.
 ///
@@ -16,10 +16,12 @@ import Foundation
 public struct AIAgentActivity: Activity, Equatable {
     /// How long a `completed` state stays on screen before the manager ends it.
     ///
-    /// The same five seconds `AIAgentStateMachine` uses for its own expiry, so
-    /// the machine's idea of when a finished task is over and the island's
-    /// cannot drift apart.
-    public static let completedAutoDismissAfter: Duration = .seconds(5)
+    /// Long enough to actually catch the green tick after looking away, which
+    /// is the whole point of showing it. Cut short the moment the next turn
+    /// starts: `ActivityManager` cancels this timer on every update, so a new
+    /// prompt inside the window replaces the tick with the work immediately
+    /// rather than waiting it out.
+    public static let completedAutoDismissAfter: Duration = .seconds(15)
 
     public let agent: IPCAgentID
     /// One running instance of an agent, per the `Session` definition in
@@ -70,8 +72,8 @@ public struct AIAgentActivity: Activity, Equatable {
 
     /// One identity per session, not per agent: `docs/07-ai-integration.md`
     /// gives each concurrent session its own activity, so two Claude sessions
-    /// running side by side are two elements in the island rather than one
-    /// flickering between their states.
+    /// remain independently tracked. Presentation may group them under one
+    /// agent icon, while its disclosure still lists both sessions.
     ///
     /// It is stable across the whole state machine for that session, so
     /// `thinking` becoming `usingTool` updates the element already on screen —
@@ -84,6 +86,21 @@ public struct AIAgentActivity: Activity, Equatable {
     public var identity: ActivityIdentity {
         Self.identity(agent: agent, sessionID: sessionID)
     }
+
+    public var compactGroupIdentity: ActivityIdentity {
+        ActivityIdentity("notchflow.ai.group.\(agent.rawValue)")
+    }
+
+    public var compactRepresentationPriority: CompactRepresentationPriority {
+        switch state {
+        case .idle, .completed: .passive
+        case .thinking, .working, .usingTool: .active
+        case .waitingForUser: .attention
+        case .error: .failure
+        }
+    }
+
+    public var compactRegion: CompactActivityRegion { .agentTrailing }
 
     public var kind: ActivityKind { .aiAgent }
 
@@ -103,15 +120,42 @@ public struct AIAgentActivity: Activity, Equatable {
         }
     }
 
-    /// Only `completed` dismisses itself.
+    /// How long a session may say nothing at all before the island gives up on
+    /// it.
     ///
-    /// `error` deliberately does not, per `docs/07-ai-integration.md`: a failed
-    /// task waits for dismissal, because an error that vanished on a timer is
-    /// an error the user can miss entirely. `idle` needs no timer either — it
-    /// is the state where the activity ends outright rather than lingering for
-    /// a few seconds first, which is what `endsPresentation` says.
+    /// Not a display timeout — every message for a session restarts it. It exists
+    /// because a hook only fires while its agent is alive: force-quit a terminal
+    /// mid-task, or lose the process to a crash, and no `Stop` and no
+    /// `SessionEnd` ever arrive. Without a bound the card that was on screen at
+    /// that moment stays there for the rest of the session, and the only way to
+    /// clear it is to quit NotchFlow.
+    ///
+    /// Long enough that a genuinely slow tool call is never mistaken for a dead
+    /// agent — the states this governs are the ones that legitimately sit still,
+    /// `waitingForUser` most of all.
+    public static let silenceTimeout: Duration = .seconds(30 * 60)
+
+    /// When this activity ends on its own.
+    ///
+    /// `completed` is a display timeout: the task is over and the card is a
+    /// receipt. Everything else is the silence bound above, which the manager
+    /// restarts on every message — so it only ever fires for a session that has
+    /// stopped talking altogether.
+    ///
+    /// `error` still does not vanish on a short timer, per
+    /// `docs/07-ai-integration.md`: a failure the user could miss is worse than
+    /// one that lingers. It is simply no longer unbounded. `idle` needs no timer
+    /// — it is the state where the activity ends outright, which is what
+    /// `endsPresentation` says.
     public var autoDismiss: AutoDismissDescriptor? {
-        state == .completed ? AutoDismissDescriptor(after: Self.completedAutoDismissAfter) : nil
+        switch state {
+        case .completed:
+            AutoDismissDescriptor(after: Self.completedAutoDismissAfter)
+        case .idle:
+            nil
+        case .thinking, .working, .usingTool, .waitingForUser, .error:
+            AutoDismissDescriptor(after: Self.silenceTimeout)
+        }
     }
 
     /// Whether the session still has anything to show.
@@ -123,15 +167,19 @@ public struct AIAgentActivity: Activity, Equatable {
     /// the one place that owns the active set.
     public var endsPresentation: Bool { state == .idle }
 
-    /// Brings the agent's own application forward, per the primary action in
-    /// `docs/05-activity-model.md`.
+    /// Brings the application hosting the agent session forward, per the
+    /// primary action in `docs/05-activity-model.md`.
     ///
     /// Absent in `idle` for the same reason the activity ends there: an
     /// affordance on an element that is about to disappear is an affordance
     /// nobody can hit.
     public var primaryAction: PrimaryAction? {
         guard endsPresentation == false else { return nil }
-        return PrimaryAction(title: localized("Open \(agent.displayName)"), symbolName: "arrow.up.forward")
+        return PrimaryAction(
+            title: localized("Open \(agent.displayName)"),
+            symbolName: "arrow.up.forward",
+            intent: .openAgentApplication(agent)
+        )
     }
 }
 

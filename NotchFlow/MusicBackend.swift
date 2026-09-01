@@ -1,7 +1,8 @@
 import NotchFlowCore
 import NotchFlowProviders
 
-/// The one line that differs between build configurations.
+/// Selects the strongest music backend the current build and macOS release can
+/// use.
 ///
 /// It lives in the app target rather than in `NotchFlowProviders` because
 /// Xcode's active compilation conditions never reach Swift package targets: an
@@ -12,29 +13,62 @@ import NotchFlowProviders
 ///
 /// Configurations that define neither condition (`Debug`, `Release`) get the
 /// App Store backend: the private-framework path is opt-in, never a default.
-/// The gate is ignored by the Direct build on purpose: MediaRemote reads the
-/// system's own now-playing state and sends no Apple Events, so there is no
-/// permission for it to be gated on.
+/// macOS 15.4 restricted MediaRemote metadata to Apple-signed processes. Direct
+/// builds therefore use the same scriptable Spotify/Music path on newer macOS
+/// releases, while older systems retain system-wide MediaRemote coverage.
 @MainActor
 func makeMusicProvider(gate: MusicAutomationGate) -> any MusicProvider {
     #if DIRECT_BUILD
-        MediaRemoteMusicProvider()
+        if #available(macOS 15.4, *) {
+            AppleScriptMusicProvider(
+                gate: gate,
+                artworkLoader: URLSessionArtworkDataLoader()
+            )
+        } else {
+            MediaRemoteMusicProvider()
+        }
     #else
         AppleScriptMusicProvider(gate: gate)
     #endif
 }
 
-/// The permission rows the Activities pane should show, which is none in the
-/// Direct build.
+/// The permission rows the Activities pane should show for the selected
+/// backend.
 ///
 /// It branches beside `makeMusicProvider` rather than inside the pane so the two
-/// answers cannot disagree: a build whose backend needs no Apple Events must not
-/// offer to request them, and both facts now come from the same `#if`.
+/// answers cannot disagree: a backend that needs no Apple Events must not offer
+/// to request them, and both facts come from the same availability branch.
 @MainActor
 func makeMusicAutomationAccess(gate: MusicAutomationGate) -> [MusicAutomationAccess] {
     #if DIRECT_BUILD
-        []
+        if #available(macOS 15.4, *) {
+            gate.access()
+        } else {
+            []
+        }
     #else
         gate.access()
+    #endif
+}
+
+/// Rows shown before the asynchronous TCC status lookup completes.
+///
+/// Constructing these values performs no Apple Events call, so application
+/// launch can always reach its menu bar scene even when the consent service is
+/// slow or waiting on a stale prompt.
+@MainActor
+func makePendingMusicAutomationAccess() -> [MusicAutomationAccess] {
+    #if DIRECT_BUILD
+        if #available(macOS 15.4, *) {
+            MusicPlayerTarget.allCases.map {
+                MusicAutomationAccess(target: $0, status: .notDetermined)
+            }
+        } else {
+            []
+        }
+    #else
+        MusicPlayerTarget.allCases.map {
+            MusicAutomationAccess(target: $0, status: .notDetermined)
+        }
     #endif
 }

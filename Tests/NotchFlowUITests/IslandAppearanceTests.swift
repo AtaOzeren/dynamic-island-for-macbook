@@ -35,16 +35,20 @@ struct IslandAppearanceTests {
         #expect(AppearancePreference.allCases.map(\.rawValue) == ["auto", "light", "dark"])
     }
 
-    @Test("the expanded panel is translucent material by default in both schemes")
-    func expandedPanelIsMaterialByDefault() {
-        #expect(islandExpandedSurface(scheme: .dark, reduceTransparency: false) == .material(.dark))
-        #expect(islandExpandedSurface(scheme: .light, reduceTransparency: false) == .material(.light))
+    /// The panel hangs directly below the physical cutout, so it draws the
+    /// notch's own black in both schemes — anything lighter or translucent
+    /// reads as a separate card butted against the notch rather than as the
+    /// notch growing downwards.
+    @Test("the expanded panel stays notch black in both schemes")
+    func expandedPanelIsNotchBlack() {
+        #expect(islandExpandedSurface(scheme: .dark, reduceTransparency: false) == .notchBlack)
+        #expect(islandExpandedSurface(scheme: .light, reduceTransparency: false) == .notchBlack)
     }
 
-    @Test("Reduce Transparency swaps the material for a solid fill, not for a different scheme")
-    func reduceTransparencySwapsMaterialForSolid() {
-        #expect(islandExpandedSurface(scheme: .dark, reduceTransparency: true) == .solid(.dark))
-        #expect(islandExpandedSurface(scheme: .light, reduceTransparency: true) == .solid(.light))
+    @Test("Reduce Transparency leaves the already-opaque panel unchanged")
+    func reduceTransparencyLeavesTheOpaquePanelUnchanged() {
+        #expect(islandExpandedSurface(scheme: .dark, reduceTransparency: true) == .notchBlack)
+        #expect(islandExpandedSurface(scheme: .light, reduceTransparency: true) == .notchBlack)
     }
 
     @Test("no surface is translucent once Reduce Transparency is on")
@@ -72,6 +76,11 @@ struct IslandAppearanceTests {
         #expect(IslandSurface.solid(.dark).foreground == .onDark)
         #expect(IslandSurface.material(.light).foreground == .onLight)
         #expect(IslandSurface.solid(.light).foreground == .onLight)
+    }
+
+    @Test("notch-black always resolves descendants in dark mode")
+    func notchBlackForcesDarkDescendants() {
+        #expect(IslandSurface.notchBlack.preferredColorScheme == .dark)
     }
 
     @Test("changing the preference restyles the live panel instead of rebuilding it")

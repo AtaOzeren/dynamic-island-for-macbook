@@ -23,6 +23,7 @@ This folder is a design specification, not code. Every document here describes w
 | 12 | [API Feasibility Matrix](12-api-feasibility-matrix.md) | Which macOS APIs are usable, sandbox-blocked, or impossible, and why |
 | 13 | [Deferred Backlog](13-deferred-backlog.md) | Everything valuable that didn't make V1, and the trigger that revives it |
 | 14 | [Glossary and Conventions](14-glossary-and-conventions.md) | Shared vocabulary, naming rules, and code/git/documentation conventions |
+| 15 | [Build Configuration Parity](15-build-configuration-parity.md) | What the sandboxed App Store build cannot do, measured, and what would close each gap |
 
 ## How to use this folder
 
@@ -30,3 +31,4 @@ This folder is a design specification, not code. Every document here describes w
 - Building a specific piece? Jump directly to its document — each one is self-contained enough to implement from.
 - Unsure whether an API is usable? Check **12-api-feasibility-matrix** before you design around it.
 - Wondering why something isn't in V1? It's probably in **13-deferred-backlog**, with the reason and the trigger to revisit it.
+- Wondering whether a feature survives the App Store sandbox? **15-build-configuration-parity** measures it, and says what would have to change.

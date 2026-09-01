@@ -122,8 +122,10 @@ public struct OnboardingWindowView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
-            step(for: flow.step)
-            Spacer(minLength: 0)
+            ScrollView {
+                step(for: flow.step)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             Divider()
             navigation
         }
@@ -177,10 +179,14 @@ public struct OnboardingWindowView: View {
                 body: agentsBodyText
             )
             ForEach(flow.detectedAgents, id: \.self) { agentID in
-                Toggle(
-                    localized("Show \(agentID.displayName) status in the notch"),
-                    isOn: hookOffer(for: agentID)
-                )
+                Toggle(isOn: hookOffer(for: agentID)) {
+                    VStack(alignment: .leading, spacing: metrics.rowSpacing / 2) {
+                        Text(agentID.displayName)
+                        Text(localized("Install hook and show status in the notch"))
+                            .font(.system(size: metrics.footnoteSize))
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 .toggleStyle(.switch)
                 .font(.system(size: metrics.bodySize))
             }
@@ -216,9 +222,8 @@ public struct OnboardingWindowView: View {
             : localized(
                 """
                 NotchFlow found configuration for the agents below. Turning one \
-                on here only records that you want it — nothing is written to \
-                any file. Installing the hook itself happens in Settings, where \
-                you see the exact snippet and approve the write.
+                on approves installing its hook when setup finishes. Existing \
+                configuration is preserved with a backup before any change.
                 """)
     }
 

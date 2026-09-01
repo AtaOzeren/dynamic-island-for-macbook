@@ -3,6 +3,7 @@ import NotchFlowCore
 
 public enum OpenCodePluginInstallerError: Error, Equatable, Sendable {
     case invalidGeneratedPlugin
+    case pluginChangedSinceInstall
 }
 
 public protocol OpenCodePluginFileSystem: Sendable {
@@ -60,17 +61,14 @@ public struct OpenCodePluginInstaller: Sendable {
     private static let backupSuffix = ".notchflow-backup"
     private static let removableParentCount = 3
 
-    private let notifierExecutablePath: String
     private let fileSystem: any OpenCodePluginFileSystem
     private let pluginURL: URL
     private let backupURL: URL
 
     public init(
-        notifierExecutablePath: String,
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser,
         fileSystem: any OpenCodePluginFileSystem = FoundationOpenCodePluginFileSystem()
     ) {
-        self.notifierExecutablePath = notifierExecutablePath
         self.fileSystem = fileSystem
         pluginURL = homeDirectory.appending(path: Self.pluginPath)
         backupURL = URL(fileURLWithPath: pluginURL.path + Self.backupSuffix)
@@ -90,6 +88,28 @@ public struct OpenCodePluginInstaller: Sendable {
         )
     }
 
+    /// Whether `~/.config/opencode/plugins/notchflow.ts` is already our plugin.
+    ///
+    /// The file is one NotchFlow owns outright, so the same whole-file byte
+    /// comparison `install()` gates on is the entire definition of "installed";
+    /// a file present but differing is the user's own plugin under our name,
+    /// which is `hookAbsent`, not a merge to attempt.
+    ///
+    /// Reads only; it never creates the directory, the backup, or the file.
+    public func installationState() -> HookInstallationState {
+        do {
+            guard let existingData = try fileSystem.readFile(at: pluginURL) else {
+                return .configurationMissing
+            }
+            return try existingData == generatedPlugin().data ? .hookInstalled : .hookAbsent
+        } catch {
+            // Covers both an unreadable file and a generator that failed its own
+            // validation. Neither can honestly answer "installed", and the
+            // conservative case is the one that stops the UI claiming it is.
+            return .configurationUnreadable
+        }
+    }
+
     public func install() throws {
         let generated = try generatedPlugin()
         let existingData = try fileSystem.readFile(at: pluginURL)
@@ -106,25 +126,29 @@ public struct OpenCodePluginInstaller: Sendable {
 
     public func uninstall() throws {
         if let backupData = try fileSystem.readFile(at: backupURL) {
+            guard try fileSystem.readFile(at: pluginURL) == generatedPlugin().data else {
+                throw OpenCodePluginInstallerError.pluginChangedSinceInstall
+            }
             try fileSystem.writeFileAtomically(backupData, to: pluginURL)
             try fileSystem.removeFile(at: backupURL)
             return
         }
 
-        guard try fileSystem.readFile(at: pluginURL) != nil else {
+        guard let pluginData = try fileSystem.readFile(at: pluginURL) else {
             return
+        }
+        let generatedData = try generatedPlugin().data
+        guard pluginData == generatedData else {
+            throw OpenCodePluginInstallerError.pluginChangedSinceInstall
         }
         try fileSystem.removeFile(at: pluginURL)
         try removeEmptyParents()
     }
 
     private func generatedPlugin() throws -> (text: String, data: Data) {
-        let text = HookSnippetGenerator(
-            notifierExecutablePath: notifierExecutablePath
-        ).openCodePluginFile()
-        guard !notifierExecutablePath.isEmpty,
-            text.contains("export const NotchFlowPlugin: Plugin"),
-            text.contains("--agent\", \"opencode\""),
+        let text = HookSnippetGenerator().openCodePluginFile()
+        guard text.contains("export const NotchFlowPlugin: Plugin"),
+            text.contains("agentId: \"opencode\""),
             text.contains("session.created"),
             text.contains("tool.execute.before"),
             let data = text.data(using: .utf8)

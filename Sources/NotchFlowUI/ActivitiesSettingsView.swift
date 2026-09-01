@@ -11,17 +11,20 @@ public struct ActivitiesSettingsView: View {
     @Binding private var musicAutomation: [MusicAutomationAccess]
 
     private let metrics: SettingsPaneMetrics
+    private let automationRequestsInProgress: Set<MusicPlayerTarget>
     private let onRequestAutomation: (MusicPlayerTarget) -> Void
 
     public init(
         enabledIdentifiers: Binding<Set<ActivityProviderIdentifier>>,
         musicAutomation: Binding<[MusicAutomationAccess]> = .constant([]),
         metrics: SettingsPaneMetrics = .default,
+        automationRequestsInProgress: Set<MusicPlayerTarget> = [],
         onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in }
     ) {
         self._enabledIdentifiers = enabledIdentifiers
         self._musicAutomation = musicAutomation
         self.metrics = metrics
+        self.automationRequestsInProgress = automationRequestsInProgress
         self.onRequestAutomation = onRequestAutomation
     }
 
@@ -41,7 +44,16 @@ public struct ActivitiesSettingsView: View {
     }
 
     public func requestAutomation(for target: MusicPlayerTarget) {
+        guard canRequestAutomation else { return }
         onRequestAutomation(target)
+    }
+
+    public func isAutomationRequestInProgress(for target: MusicPlayerTarget) -> Bool {
+        automationRequestsInProgress.contains(target)
+    }
+
+    public var canRequestAutomation: Bool {
+        automationRequestsInProgress.isEmpty
     }
 
     public func binding(for identifier: ActivityProviderIdentifier) -> Binding<Bool> {
@@ -106,9 +118,22 @@ public struct ActivitiesSettingsView: View {
                 .font(.system(size: metrics.footnoteSize))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            if let actionTitle = access.actionTitle {
+            if let connectionTitle = access.connectionTitle {
+                Label(connectionTitle, systemImage: "checkmark.circle.fill")
+                    .font(.system(size: metrics.footnoteSize, weight: .medium))
+                    .foregroundStyle(.green)
+            } else if isAutomationRequestInProgress(for: access.target) {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(localized("Connecting…"))
+                }
+                .font(.system(size: metrics.footnoteSize))
+                .foregroundStyle(.secondary)
+            } else if let actionTitle = access.actionTitle {
                 Button(actionTitle) { requestAutomation(for: access.target) }
                     .font(.system(size: metrics.footnoteSize))
+                    .disabled(canRequestAutomation == false)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

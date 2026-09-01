@@ -51,8 +51,8 @@ struct ActivitiesSettingsViewTests {
         #expect(Self.view(enabled: [.timer]).isMusicAutomationSectionVisible == false)
     }
 
-    /// The Direct build's MediaRemote backend sends no Apple Events, so it
-    /// supplies no access values and must show no permission UI.
+    /// A backend that sends no Apple Events supplies no access values and must
+    /// show no permission UI.
     @Test("a backend that needs no permission shows no permission rows")
     func rowsHideWithoutAnyAutomationTargets() {
         #expect(Self.view(automation: []).isMusicAutomationSectionVisible == false)
@@ -71,6 +71,38 @@ struct ActivitiesSettingsViewTests {
         view.requestAutomation(for: .appleMusic)
 
         #expect(requested.value == [.appleMusic])
+    }
+
+    @Test("an in-flight permission request ignores repeated presses")
+    func inFlightRequestCannotBeRepeated() {
+        let requested = Box<[MusicPlayerTarget]>([])
+        let view = ActivitiesSettingsView(
+            enabledIdentifiers: Box(Set([ActivityProviderIdentifier.music])).binding,
+            musicAutomation: Box([Self.access(.notDetermined, .spotify)]).binding,
+            automationRequestsInProgress: [.spotify],
+            onRequestAutomation: { requested.value.append($0) }
+        )
+
+        view.requestAutomation(for: .spotify)
+
+        #expect(view.isAutomationRequestInProgress(for: .spotify))
+        #expect(requested.value.isEmpty)
+    }
+
+    @Test("one player request blocks another player until TCC finishes")
+    func inFlightRequestBlocksOtherTargets() {
+        let requested = Box<[MusicPlayerTarget]>([])
+        let view = ActivitiesSettingsView(
+            enabledIdentifiers: Box(Set([ActivityProviderIdentifier.music])).binding,
+            musicAutomation: Box([Self.access(.notDetermined, .appleMusic)]).binding,
+            automationRequestsInProgress: [.spotify],
+            onRequestAutomation: { requested.value.append($0) }
+        )
+
+        view.requestAutomation(for: .appleMusic)
+
+        #expect(view.canRequestAutomation == false)
+        #expect(requested.value.isEmpty)
     }
 
     @Test("the pane renders whatever status it is given, for both targets")

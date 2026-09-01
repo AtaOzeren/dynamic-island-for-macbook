@@ -74,6 +74,7 @@ The hook installer (see `07-ai-integration.md`) modifies configuration files bel
 - **Exact diff shown first.** Before writing, NotchFlow shows the precise snippet it will add or remove, in the same format the target file uses, so the user can read exactly what changes before approving.
 - **Backup before write.** NotchFlow copies the original file alongside itself (for example, `settings.json.notchflow-backup`) before making any change.
 - **One-click uninstall.** Removing the integration restores the file to its pre-installation state using the backup, and removes only the snippet NotchFlow added — it never rewrites the rest of the user's configuration.
+- **Process visibility.** The App Sandbox hides the process table outright: `proc_listallpids` returns zero processes in the sandboxed build, so it cannot tell which application a running agent belongs to. This is not a permission the user can grant — no entitlement unlocks it. See `docs/15-build-configuration-parity.md` for the measurement and the consequence.
 - **Manual fallback.** If the user declines to grant NotchFlow write access (relevant in the sandboxed build, see the sandbox note in `07-ai-integration.md`), NotchFlow still shows the exact snippet in a copyable text view so the user can add it by hand.
 
 ## Data at rest

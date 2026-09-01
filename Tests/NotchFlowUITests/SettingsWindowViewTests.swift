@@ -28,7 +28,7 @@ struct SettingsWindowViewTests {
         }
     }
 
-    @Test("the display picker offers the two rules plus every attached display")
+    @Test("the display picker offers all displays only when multiple screens are attached")
     func displayPickerEnumeratesAttachedDisplays() {
         let box = Box(GeneralPreferences.default)
         let view = GeneralSettingsView(
@@ -42,11 +42,44 @@ struct SettingsWindowViewTests {
         #expect(
             view.displayOptions == [
                 .automatic,
+                .allDisplays,
                 .builtIn,
-                .named("Built-in Retina Display"),
-                .named("Studio Display"),
+                .identified(id: "Built-in Retina Display", name: "Built-in Retina Display"),
+                .identified(id: "Studio Display", name: "Studio Display"),
             ])
         #expect(view.title(for: .named("Studio Display")) == "Studio Display")
+        #expect(view.title(for: .allDisplays) == "All displays")
+    }
+
+    @Test("the display picker hides all displays when only one screen is attached")
+    func displayPickerHidesAllDisplaysForOneScreen() {
+        let box = Box(GeneralPreferences.default)
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: [
+                DisplayDescription(name: "Built-in Retina Display", isBuiltIn: true),
+            ]
+        )
+
+        #expect(!view.displayOptions.contains(.allDisplays))
+    }
+
+    @Test("the menu bar placement hint appears only for an enabled icon with multiple displays")
+    func menuBarPlacementHintUsesLiveDisplayState() {
+        let box = Box(GeneralPreferences.default)
+        let multipleDisplays = [
+            DisplayDescription(name: "Built-in Retina Display", isBuiltIn: true),
+            DisplayDescription(name: "Studio Display", isBuiltIn: false),
+        ]
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: multipleDisplays
+        )
+
+        #expect(view.shouldShowMenuBarPlacementHint)
+
+        view.menuBarIconVisibility.wrappedValue = false
+        #expect(!view.shouldShowMenuBarPlacementHint)
     }
 
     @Test("every General control writes through to the preferences")
@@ -56,11 +89,50 @@ struct SettingsWindowViewTests {
 
         view.displayTarget.wrappedValue = .named("Studio Display")
         view.launchAtLogin.wrappedValue = true
+        view.menuBarIconVisibility.wrappedValue = false
         view.appearance.wrappedValue = .dark
 
         #expect(box.value.displayTarget == .named("Studio Display"))
         #expect(box.value.launchAtLogin)
+        #expect(box.value.showMenuBarIcon == false)
         #expect(box.value.appearance == .dark)
+    }
+
+    @Test("the General restart control delegates one restart request")
+    func generalRestartControlDelegates() {
+        let box = Box(GeneralPreferences.default)
+        var requestCount = 0
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: [],
+            restartRequired: true,
+            onRestart: { requestCount += 1 }
+        )
+
+        #expect(view.restartRequired)
+        view.requestRestart()
+
+        #expect(requestCount == 1)
+    }
+
+    @Test("duplicate display names receive distinct picker labels")
+    func duplicateDisplayNamesAreDisambiguated() {
+        let box = Box(GeneralPreferences.default)
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: [
+                DisplayDescription(identifier: "101", name: "Studio Display", isBuiltIn: false),
+                DisplayDescription(identifier: "202", name: "Studio Display", isBuiltIn: false),
+            ]
+        )
+
+        #expect(view.displayOptions.map(view.title(for:)) == [
+            "Automatic",
+            "All displays",
+            "Built-in display",
+            "Studio Display (1)",
+            "Studio Display (2)",
+        ])
     }
 
     /// The three-way motion control maps onto a `Bool?`, so the round trip is
@@ -140,5 +212,17 @@ struct SettingsWindowViewTests {
         )
 
         #expect(view.selectedLanguage.wrappedValue == .systemDefault)
+    }
+
+    @Test("the language pane exposes a pending restart")
+    func languagePaneExposesPendingRestart() {
+        let box = Box(String?.some("tr"))
+        let view = AboutSettingsView(
+            information: AboutInformation(version: "1.0", build: "1", musicBackendName: "test"),
+            languageOverride: box.binding,
+            restartRequired: true
+        )
+
+        #expect(view.restartRequired)
     }
 }

@@ -126,6 +126,26 @@ struct MusicActivityTests {
         #expect(nowPlaying.artist.count == NowPlaying.maximumFieldLength)
     }
 
+    @Test("carries bounded artwork data without changing track metadata")
+    func carriesArtworkData() {
+        let artwork = Data([0xFF, 0xD8, 0xFF, 0xD9])
+        let nowPlaying = Self.nowPlaying().withArtworkData(artwork)
+
+        #expect(nowPlaying.artworkData == artwork)
+        #expect(nowPlaying.title == "Windowlicker")
+        #expect(nowPlaying.artist == "Aphex Twin")
+    }
+
+    @Test("rejects oversized artwork instead of retaining unbounded media data")
+    func rejectsOversizedArtworkData() {
+        let oversizedArtwork = Data(
+            repeating: 0,
+            count: NowPlaying.maximumArtworkByteCount + 1
+        )
+
+        #expect(Self.nowPlaying().withArtworkData(oversizedArtwork).artworkData == nil)
+    }
+
     @Test("every transport command is representable")
     func transportCommands() {
         #expect(

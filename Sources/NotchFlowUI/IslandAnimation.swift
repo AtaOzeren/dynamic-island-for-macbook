@@ -23,17 +23,23 @@ public struct IslandMotion: Equatable, Sendable {
     /// removes the motion component of a transition but never skips the
     /// transition outright, because the state still has to visually change.
     public let reducedMotionCrossFadeDuration: Double
+    /// How long the pointer must rest on the pill before it expands. Hover is
+    /// the only gesture that opens the island, so this is what separates a
+    /// deliberate rest from a pointer crossing the notch on its way elsewhere.
+    public let hoverExpansionDelay: Double
 
     public init(
         springResponse: Double = 0.35,
         springDamping: Double = 0.8,
         peekDuration: Double = 0.15,
-        reducedMotionCrossFadeDuration: Double = 0.1
+        reducedMotionCrossFadeDuration: Double = 0.1,
+        hoverExpansionDelay: Double = 0.25
     ) {
         self.springResponse = springResponse
         self.springDamping = springDamping
         self.peekDuration = peekDuration
         self.reducedMotionCrossFadeDuration = reducedMotionCrossFadeDuration
+        self.hoverExpansionDelay = hoverExpansionDelay
     }
 }
 
@@ -58,7 +64,7 @@ public enum IslandAnimationCurve: Equatable, Sendable {
     ///
     /// `nil` rather than a zero-duration animation because a zero-duration
     /// `Animation` still enters the animation machinery for a frame, which is
-    /// exactly the idle work the hidden state is not allowed to do.
+    /// exactly the idle work a resting compact or hidden state must avoid.
     public var animation: Animation? {
         switch self {
         case .none:
@@ -141,5 +147,28 @@ public struct SystemReduceMotion: ReduceMotionQuerying {
 
     public var prefersReducedMotion: Bool {
         NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    }
+}
+
+/// Runtime motion preference: explicit user choice wins, `nil` follows macOS.
+@MainActor
+public final class ConfigurableReduceMotion: ReduceMotionQuerying {
+    private var preferenceOverride: Bool?
+    private let system: any ReduceMotionQuerying
+
+    public init(
+        override preferenceOverride: Bool?,
+        system: any ReduceMotionQuerying = SystemReduceMotion()
+    ) {
+        self.preferenceOverride = preferenceOverride
+        self.system = system
+    }
+
+    public var prefersReducedMotion: Bool {
+        preferenceOverride ?? system.prefersReducedMotion
+    }
+
+    public func updateOverride(_ preferenceOverride: Bool?) {
+        self.preferenceOverride = preferenceOverride
     }
 }

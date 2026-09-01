@@ -35,9 +35,14 @@ public enum LoopbackListenerDecision: Equatable, Sendable {
 }
 
 public struct LoopbackListenerPolicy: Sendable {
+    private struct Acceptance {
+        let state: AIAgentState
+        let date: Date
+    }
+
     private var preferences: AIIntegrationPreferences
     private let configuration: LoopbackListenerPolicyConfiguration
-    private var lastAcceptedAtBySessionID: [UUID: Date] = [:]
+    private var lastAcceptanceBySessionID: [UUID: Acceptance] = [:]
 
     public init(
         preferences: AIIntegrationPreferences = .default,
@@ -81,14 +86,23 @@ public struct LoopbackListenerPolicy: Sendable {
         guard preferences.allows(message) else {
             return .ignored
         }
+        // The limiter exists to absorb a chatty agent repeating one state, not to
+        // thin out a session's timeline. A *changed* state is never dropped: a
+        // fast tool call can put `completed` within a few milliseconds of the
+        // `working` before it, and dropping that leaves the island showing an
+        // agent that finished minutes ago as still running.
         let now = configuration.now()
-        if let lastAcceptedAt = lastAcceptedAtBySessionID[message.sessionId],
-            now.timeIntervalSince(lastAcceptedAt) < configuration.minimumInterval
+        if let last = lastAcceptanceBySessionID[message.sessionId],
+            last.state == message.state,
+            now.timeIntervalSince(last.date) < configuration.minimumInterval
         {
             return .rejected(.rateLimited)
         }
 
-        lastAcceptedAtBySessionID[message.sessionId] = now
+        lastAcceptanceBySessionID[message.sessionId] = Acceptance(
+            state: message.state,
+            date: now
+        )
         return .accepted(message)
     }
 }

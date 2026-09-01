@@ -115,6 +115,72 @@ struct LoopbackListenerPolicyTests {
         #expect(policy.evaluate(Self.payload(sessionID: firstSession)) == .rejected(.rateLimited))
     }
 
+    /// A fast tool call puts `completed` within milliseconds of the `working`
+    /// before it. Dropping that leaves the island showing an agent that
+    /// finished as still running, with nothing later to correct it.
+    @Test("never rate-limits a change of state")
+    func stateChangesBypassTheRateLimit() {
+        let clock = Clock()
+        var policy = LoopbackListenerPolicy(
+            preferences: .init(
+                enabledAgentIDs: [.claudeCode],
+                enabledEventClasses: Set(AIEventClass.allCases)
+            ),
+            configuration: LoopbackListenerPolicyConfiguration(
+                minimumInterval: 1_000,
+                now: { clock.now }
+            )
+        )
+
+        #expect(policy.evaluate(Self.payload(state: "usingTool")).isAccepted)
+        #expect(policy.evaluate(Self.payload(state: "working")).isAccepted)
+        #expect(policy.evaluate(Self.payload(state: "completed")).isAccepted)
+    }
+
+    /// The limiter still exists: an agent repeating one state as fast as it can
+    /// must not drive a redraw per message.
+    @Test("still rate-limits a repeated state")
+    func repeatedStatesAreRateLimited() {
+        let clock = Clock()
+        var policy = LoopbackListenerPolicy(
+            preferences: .init(
+                enabledAgentIDs: [.claudeCode],
+                enabledEventClasses: Set(AIEventClass.allCases)
+            ),
+            configuration: LoopbackListenerPolicyConfiguration(
+                minimumInterval: 1,
+                now: { clock.now }
+            )
+        )
+
+        #expect(policy.evaluate(Self.payload(state: "usingTool")).isAccepted)
+        #expect(policy.evaluate(Self.payload(state: "usingTool")) == .rejected(.rateLimited))
+
+        clock.advance(by: 1)
+
+        #expect(policy.evaluate(Self.payload(state: "usingTool")).isAccepted)
+    }
+
+    /// Two agents can be mid-task at once; one being chatty must not silence
+    /// the other.
+    @Test("rate limits each session independently across state changes")
+    func rateLimitIsPerSession() {
+        let other = UUID(
+            uuid: (0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x47, 0x88, 0x89, 0x9A, 0xAB, 0xBC, 0xCD, 0xDE, 0xEF, 0xF0)
+        )
+        var policy = LoopbackListenerPolicy(
+            preferences: .init(
+                enabledAgentIDs: [.claudeCode],
+                enabledEventClasses: Set(AIEventClass.allCases)
+            ),
+            configuration: LoopbackListenerPolicyConfiguration(minimumInterval: 1_000)
+        )
+
+        #expect(policy.evaluate(Self.payload(state: "usingTool")).isAccepted)
+        #expect(policy.evaluate(Self.payload(sessionID: other, state: "usingTool")).isAccepted)
+        #expect(policy.evaluate(Self.payload(state: "usingTool")) == .rejected(.rateLimited))
+    }
+
     @Test("rejects bodies above the validator size cap")
     func payloadSizeGate() {
         var policy = LoopbackListenerPolicy(preferences: .init(enabledAgentIDs: [.claudeCode]))

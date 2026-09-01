@@ -2,7 +2,7 @@
 ///
 /// This is the counterpart to `AIIntegrationPreferences`: the pane owns no
 /// state, it edits this value, and the composition root writes the value back
-/// through the store. Grouping the four rows into one value is what lets the
+/// through the store. Grouping the rows into one value is what lets the
 /// pane's write-through be tested without a `UserDefaults` domain, and what
 /// keeps the display target and the appearance from being observed through two
 /// separate paths that can report different generations of the same edit.
@@ -13,6 +13,7 @@ public struct GeneralPreferences: Equatable, Sendable {
 
     public var displayTarget: DisplayPreference
     public var launchAtLogin: Bool
+    public var showMenuBarIcon: Bool
     public var appearance: SettingsAppearance
 
     /// `nil` means follow the system, which is why this is an optional rather
@@ -24,11 +25,13 @@ public struct GeneralPreferences: Equatable, Sendable {
     public init(
         displayTarget: DisplayPreference = .automatic,
         launchAtLogin: Bool = false,
+        showMenuBarIcon: Bool = true,
         appearance: SettingsAppearance = .auto,
         reducedMotionOverride: Bool? = nil
     ) {
         self.displayTarget = displayTarget
         self.launchAtLogin = launchAtLogin
+        self.showMenuBarIcon = showMenuBarIcon
         self.appearance = appearance
         self.reducedMotionOverride = reducedMotionOverride
     }

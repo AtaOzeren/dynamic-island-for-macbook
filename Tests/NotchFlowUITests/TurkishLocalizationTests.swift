@@ -44,6 +44,64 @@ struct TurkishLocalizationTests {
         }
     }
 
+    @Test("the General multi-display control is fully Turkish")
+    func generalMultiDisplaySettingIsTurkish() throws {
+        let expectedTranslations = [
+            "All displays": "Tüm ekranlar",
+            "Show menu bar icon": "Menü çubuğu simgesini göster",
+            "Restart NotchFlow": "NotchFlow'u yeniden başlat",
+            "Restart required": "Yeniden başlatma gerekiyor",
+        ]
+
+        try withTurkishBundle(
+            for: "Sources/NotchFlowUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            for (key, translation) in expectedTranslations {
+                #expect(bundle.localizedString(forKey: key, value: nil, table: nil) == translation)
+            }
+        }
+    }
+
+    @Test("recording status copy is fully Turkish")
+    func recordingStatusIsTurkish() throws {
+        let expectedTranslations = [
+            "Screen recording in progress": "Ekran kaydı yapılıyor",
+            "Microphone in use": "Mikrofon kullanılıyor",
+        ]
+
+        try withTurkishBundle(
+            for: "Sources/NotchFlowUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            for (key, translation) in expectedTranslations {
+                #expect(bundle.localizedString(forKey: key, value: nil, table: nil) == translation)
+            }
+        }
+    }
+
+    @Test("music connection status is Turkish")
+    func musicConnectionStatusIsTurkish() throws {
+        try withTurkishBundle(
+            for: "Sources/NotchFlowCore/Resources/Localizable.xcstrings"
+        ) { bundle in
+            #expect(
+                bundle.localizedString(forKey: "Connected", value: nil, table: nil)
+                    == "Bağlandı"
+            )
+        }
+    }
+
+    @Test("AI tools tab uses the requested Turkish title")
+    func aiToolsTabTitleIsTurkish() throws {
+        try withTurkishBundle(
+            for: "Sources/NotchFlowUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            #expect(
+                bundle.localizedString(forKey: "AI Integrations", value: nil, table: nil)
+                    == "AI Araçları"
+            )
+        }
+    }
+
     /// The picker names each language in that language, so a user who cannot
     /// read the current one can still find their own.
     @Test("the language picker names Turkish in Turkish")

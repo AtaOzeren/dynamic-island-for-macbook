@@ -3,9 +3,9 @@ import CoreGraphics
 import NotchFlowCore
 import SwiftUI
 
-/// The seam between the copy button and the system pasteboard, on the same
-/// rationale as `ReduceTransparencyQuerying`: a test can assert that the button
-/// copies the snippet *exactly* without writing to the user's real clipboard.
+/// The seam between the copy button and the system pasteboard: a test can
+/// assert that the button copies the snippet *exactly* without writing to the
+/// user's real clipboard.
 public protocol SnippetPasteboardWriting: Sendable {
     func write(_ snippet: String)
 }

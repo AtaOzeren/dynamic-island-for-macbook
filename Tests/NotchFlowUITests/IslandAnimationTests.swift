@@ -119,4 +119,36 @@ struct IslandAnimationTests {
                 == .crossFade(duration: 0.05)
         )
     }
+
+    @Test("user motion override wins and can change at runtime")
+    func userMotionOverrideWins() {
+        let preference = ConfigurableReduceMotion(
+            override: nil,
+            system: FixedReduceMotion(prefersReducedMotion: false)
+        )
+        #expect(!preference.prefersReducedMotion)
+
+        preference.updateOverride(true)
+        #expect(preference.prefersReducedMotion)
+
+        preference.updateOverride(false)
+        #expect(!preference.prefersReducedMotion)
+    }
+
+    @Test("clearing override resumes following system")
+    func clearingOverrideFollowsSystem() {
+        let preference = ConfigurableReduceMotion(
+            override: false,
+            system: FixedReduceMotion(prefersReducedMotion: true)
+        )
+        #expect(!preference.prefersReducedMotion)
+
+        preference.updateOverride(nil)
+        #expect(preference.prefersReducedMotion)
+    }
+}
+
+@MainActor
+private struct FixedReduceMotion: ReduceMotionQuerying {
+    let prefersReducedMotion: Bool
 }

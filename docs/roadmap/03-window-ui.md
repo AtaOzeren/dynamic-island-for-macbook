@@ -7,7 +7,7 @@
 
 ## What this phase delivers
 
-The actual notch window on screen: the borderless `NSPanel` positioned under the notch, the hidden/compact/expanded state machine that decides when it's visible, click-through so the menu bar stays usable while idle, the SwiftUI containers that render whatever activities are active, spring animations between states, and support for light/dark mode and accessibility settings. Everything in Phase 2 was pure logic with no window on screen — this phase is where the app becomes visible.
+The actual notch window on screen: the borderless `NSPanel` positioned under the notch, the hidden/compact/expanded state machine, a persistent compact idle form, click-through so the menu bar stays usable, the SwiftUI containers that render active activities, spring animations between states, and accessibility settings. Everything in Phase 2 was pure logic with no window on screen — this phase is where the app becomes visible.
 
 ## Todos
 
@@ -29,10 +29,10 @@ The `NSPanel` subclass with every property from `docs/04`, positioned by the cor
 
 ### 35. Implement the three-state presentation controller
 
-Hidden, compact, expanded. Hidden means `orderOut(nil)`. The controller subscribes to the manager's activity set and the idle signal, and orders the window out on idle.
+Hidden, compact, expanded. Hidden means `orderOut(nil)` and is reserved for suspension, teardown, or a missing screen. The controller subscribes to the manager's activity set, keeps the panel compact while idle, and collapses expanded content when the set empties.
 
-- **Acceptance:** With no activity the window is not on screen (`isVisible == false`); the transition to hidden happens within the documented delay.
-- **QA (HW):** Start an activity, end it, assert `isVisible` becomes false; capture the window list before and after. Evidence: `.omo/evidence/task-35-notchflow-v1.log`.
+- **Acceptance:** With no activity the compact window remains visible; ending the final activity collapses expanded content without ordering the panel out.
+- **QA (HW):** Start an activity, expand it, end it, and assert `isVisible` remains true with compact state. Evidence: `.omo/evidence/task-35-notchflow-v1.log`.
 - **Commit:** `feat(ui): add hidden/compact/expanded presentation states`
 
 ### 36. Implement click-through and hit-testing

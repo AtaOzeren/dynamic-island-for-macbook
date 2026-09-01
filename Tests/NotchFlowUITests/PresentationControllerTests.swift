@@ -32,7 +32,8 @@ struct PresentationControllerTests {
 
     private static func makeHarness(
         screen: ScreenDescription? = notchedScreen,
-        reduceMotion: Bool = false
+        reduceMotion: Bool = false,
+        motion: IslandMotion = .default
     ) -> Harness {
         let manager = ActivityManager()
         let panel = NotchPanel(metrics: metrics, content: Color.clear)
@@ -42,6 +43,7 @@ struct PresentationControllerTests {
             manager: manager,
             metrics: metrics,
             mouse: mouse,
+            motion: motion,
             reduceMotion: FakeReduceMotion(prefersReducedMotion: reduceMotion),
             screen: { screen }
         )
@@ -50,13 +52,24 @@ struct PresentationControllerTests {
     }
 
     private static var insideTheHitRect: CGPoint {
-        let hit = compactHitRect(for: notchedScreen, metrics: metrics)
+        let hit = compactHitRect(for: notchedScreen, slotCount: 1, metrics: metrics)
         return CGPoint(x: hit.midX, y: hit.midY)
     }
 
     private static var overTheMenuBarBesideTheNotch: CGPoint {
-        let hit = compactHitRect(for: notchedScreen, metrics: metrics)
+        let hit = compactHitRect(for: notchedScreen, slotCount: 1, metrics: metrics)
         return CGPoint(x: hit.minX - 1, y: hit.midY)
+    }
+
+    /// A point inside the panel window but outside the expanded island.
+    ///
+    /// Beside the *notch* is no longer beside the *island*: the expanded shape
+    /// is one rounded rectangle wider than the compact pill, so a point a
+    /// pixel left of the pill now lands on it. The panel's own edge is still
+    /// well clear of the card, which is centred and far narrower.
+    private static var besideTheExpandedIsland: CGPoint {
+        let panel = panelFrame(for: notchedScreen, metrics: metrics)
+        return CGPoint(x: panel.minX + 1, y: panel.maxY - 10)
     }
 
     private static func activity(_ name: String) -> StubPresentedActivity {
@@ -67,12 +80,12 @@ struct PresentationControllerTests {
         )
     }
 
-    @Test("starts hidden with the window off screen")
-    func startsHidden() {
+    @Test("starts compact so the island never disappears while the app is running")
+    func startsCompact() {
         let harness = Self.makeHarness()
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("orders the window in as compact when the first activity registers")
@@ -85,8 +98,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("orders the window out when the last activity ends")
-    func idleOrdersOut() {
+    @Test("keeps the compact island visible when the last activity ends")
+    func idleRemainsCompact() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
 
@@ -95,8 +108,8 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("stays compact while any activity remains")
@@ -143,14 +156,14 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("refuses to expand while hidden, since no animation may start off screen")
-    func refusesToExpandWhileHidden() {
+    @Test("refuses to expand an empty compact island")
+    func refusesToExpandWhileEmpty() {
         let harness = Self.makeHarness()
 
         harness.controller.expand()
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("collapses from expanded back to compact without ordering out")
@@ -165,8 +178,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible)
     }
 
-    @Test("hides directly from expanded when the last activity ends")
-    func hidesFromExpanded() {
+    @Test("collapses from expanded when the last activity ends")
+    func collapsesFromExpandedWhenEmpty() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
         harness.manager.register(activity)
@@ -174,8 +187,8 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.panel.isVisible == false)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
     }
 
     @Test("publishes every state change exactly once")
@@ -193,7 +206,7 @@ struct PresentationControllerTests {
         harness.manager.end(activity.identity)
         harness.manager.end(ActivityIdentity("timer.break"))
 
-        #expect(observed == [.compact, .expanded, .compact, .hidden])
+        #expect(observed == [.expanded, .compact])
     }
 
     @Test("stops presenting once torn down")
@@ -207,8 +220,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible == false)
     }
 
-    @Test("stays click-through while hidden so nothing intercepts a menu-bar click")
-    func hiddenIsClickThrough() {
+    @Test("an empty compact island stays click-through away from the pill")
+    func emptyCompactIslandIsClickThrough() {
         let harness = Self.makeHarness()
 
         #expect(harness.panel.ignoresMouseEvents)
@@ -266,16 +279,32 @@ struct PresentationControllerTests {
         #expect(harness.panel.ignoresMouseEvents == false)
     }
 
-    @Test("keeps accepting the mouse when the pointer leaves an expanded panel, so click-outside can collapse it")
-    func expandedIgnoresHover() {
+    @Test("collapses when the pointer leaves the expanded island")
+    func expandedCollapsesOnPointerExit() {
         let harness = Self.makeHarness()
         harness.manager.register(Self.activity("timer.focus"))
+        harness.mouse.move(to: Self.insideTheHitRect)
         harness.controller.expand()
 
-        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+        harness.mouse.move(to: Self.besideTheExpandedIsland)
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.controller.isHovered == false)
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("externally managed hover reports exit without collapsing one display alone")
+    func externalHoverManagementOnlyReportsPointerExit() {
+        let harness = Self.makeHarness()
+        harness.controller.automaticallyExpandsOnHover = false
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.mouse.move(to: Self.insideTheHitRect)
+        harness.controller.expand()
+
+        harness.mouse.move(to: Self.besideTheExpandedIsland)
 
         #expect(harness.controller.state == .expanded)
-        #expect(harness.panel.ignoresMouseEvents == false)
+        #expect(harness.controller.isHovered == false)
     }
 
     @Test("reverts to click-through when collapsing away from the pointer")
@@ -303,8 +332,8 @@ struct PresentationControllerTests {
         #expect(harness.panel.ignoresMouseEvents == false)
     }
 
-    @Test("drops hover and click-through the moment the last activity ends")
-    func hidingClearsHover() {
+    @Test("keeps the compact island interactive when the last activity ends")
+    func endingLastActivityPreservesCompactIsland() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
         harness.manager.register(activity)
@@ -312,21 +341,86 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.isHovered == false)
-        #expect(harness.panel.ignoresMouseEvents)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+        #expect(harness.controller.isHovered)
+        #expect(harness.panel.ignoresMouseEvents == false)
     }
 
-    @Test("watches the pointer only while the window is on screen")
-    func observesTheMouseOnlyWhileVisible() {
+    @Test("keeps an empty pill on screen without a configurable opt-out")
+    func alwaysKeepsAnEmptyPillUp() {
         let harness = Self.makeHarness()
-        #expect(harness.mouse.isObserving == false)
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+    }
+
+    @Test("the compact pill survives the last activity ending")
+    func compactPillSurvivesActivitiesEnding() {
+        let harness = Self.makeHarness()
+        let activity = Self.activity("timer.focus")
+        harness.manager.register(activity)
+
+        harness.manager.end(activity.identity)
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+    }
+
+    @Test("hovering an empty pill never expands it")
+    func hoveringAnEmptyPillDoesNotExpand() {
+        let harness = Self.makeHarness(
+            motion: IslandMotion(hoverExpansionDelay: 0.01)
+        )
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .compact)
+    }
+
+    @Test("resting on the pill expands it after the hover delay")
+    func hoverExpandsAfterTheDelay() {
+        let harness = Self.makeHarness(
+            motion: IslandMotion(hoverExpansionDelay: 0.01)
+        )
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .expanded)
+    }
+
+    @Test("crossing the pill without resting never expands it")
+    func passingOverThePillDoesNotExpandIt() {
+        let harness = Self.makeHarness(motion: IslandMotion(hoverExpansionDelay: 10))
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.mouse.move(to: Self.insideTheHitRect)
+        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .compact)
+    }
+
+    /// Drains the main run loop long enough for a scheduled `Timer` with a
+    /// shorter interval to have fired, without sleeping the test thread itself.
+    private static func runMainRunLoop(for interval: TimeInterval) {
+        RunLoop.main.run(until: Date().addingTimeInterval(interval))
+    }
+
+    @Test("keeps watching the pointer while the compact island is on screen")
+    func observesTheMouseWhileCompact() {
+        let harness = Self.makeHarness()
+        #expect(harness.mouse.isObserving)
         let activity = Self.activity("timer.focus")
 
         harness.manager.register(activity)
         #expect(harness.mouse.isObserving)
 
         harness.manager.end(activity.identity)
-        #expect(harness.mouse.isObserving == false)
+        #expect(harness.mouse.isObserving)
     }
 
     @Test("stops watching the pointer once torn down")
@@ -372,8 +466,8 @@ struct PresentationControllerTests {
         #expect(harness.controller.transition == .none)
     }
 
-    @Test("ordering out on the last activity animates nothing")
-    func orderingOutIsUnanimated() {
+    @Test("ending the last expanded activity animates back to compact")
+    func endingLastActivityCollapses() {
         let harness = Self.makeHarness()
         let activity = Self.activity("timer.focus")
         harness.manager.register(activity)
@@ -381,8 +475,8 @@ struct PresentationControllerTests {
 
         harness.manager.end(activity.identity)
 
-        #expect(harness.controller.state == .hidden)
-        #expect(harness.controller.transition == .none)
+        #expect(harness.controller.state == .compact)
+        #expect(harness.controller.transition == .spring(response: 0.35, dampingFraction: 0.8))
         #expect(harness.controller.peek == .none)
     }
 

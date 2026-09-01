@@ -5,33 +5,61 @@ import Testing
 
 @Suite("HookGeneration")
 struct HookGenerationTests {
-    private let notifierPath = #"/Applications/Notch "Flow"/bin/notchflow-notify"#
+    @Test("builds a URL that round-trips through the IPC parser")
+    func statusURLRoundTrip() throws {
+        let message = IPCMessage(
+            schemaVersion: IPCMessageValidator.supportedSchemaVersion,
+            agentId: .claudeCode,
+            sessionId: UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!,
+            state: .usingTool,
+            detail: "Editing App.swift",
+            toolName: "Edit",
+            progress: 0.5,
+            timestamp: Date(timeIntervalSince1970: 1_700_000_000)
+        )
 
-    @Test("generates a valid Claude Code settings fragment")
+        let url = try HookSnippetGenerator.statusURL(for: message)
+
+        #expect(url.scheme == "notchflow")
+        #expect(url.host == "ai-status")
+        #expect(try IPCURLParser().parse(url) == message)
+    }
+
+    @Test("generates Claude Code lifecycle hooks using stdin event fields")
     func claudeCodeSettingsFragment() throws {
-        let fragment = try HookSnippetGenerator(
-            notifierExecutablePath: notifierPath
-        ).claudeCodeSettingsFragment()
+        let fragment = HookSnippetGenerator().claudeCodeSettingsFragment()
         let settings = try #require(
             JSONSerialization.jsonObject(with: Data(fragment.utf8)) as? [String: Any]
         )
         let hooks = try #require(settings["hooks"] as? [String: Any])
+        #expect(
+            Set(hooks.keys) == [
+                "UserPromptSubmit",
+                "PreToolUse",
+                "PostToolUse",
+                "Notification",
+                "Stop",
+                "SessionEnd",
+            ]
+        )
         let preToolUse = try #require(hooks["PreToolUse"] as? [[String: Any]])
         let hookGroup = try #require(preToolUse.first)
         let commands = try #require(hookGroup["hooks"] as? [[String: String]])
         let command = try #require(commands.first)
-        let expectedCommand =
-            #"'/Applications/Notch "Flow"/bin/notchflow-notify' --agent claude-code "#
-            + #"--state usingTool --session "$CLAUDE_SESSION_ID" &"#
 
         #expect(command["type"] == "command")
-        #expect(command["command"] == expectedCommand)
+        #expect(command["command"]?.contains("EVENT=$(cat)") == true)
+        #expect(command["command"]?.contains("session_id") == true)
+        #expect(command["command"]?.contains("uuid.uuid5") == true)
+        #expect(command["command"]?.contains("CLAUDE_SESSION_ID") == false)
+
+        #expect(try hookCommand(for: "Stop", in: hooks).contains(#""completed""#))
+        #expect(try hookCommand(for: "SessionEnd", in: hooks).contains(#""idle""#))
     }
 
-    @Test("generates a valid Codex notify fragment")
+    @Test("generates a direct Codex Python notify fragment")
     func codexNotifyFragment() throws {
-        let generator = HookSnippetGenerator(notifierExecutablePath: notifierPath)
-        let fragment = generator.codexNotifyFragment()
+        let fragment = HookSnippetGenerator().codexNotifyFragment()
         let assignmentPrefix = "notify = "
 
         #expect(fragment.hasPrefix(assignmentPrefix))
@@ -41,45 +69,280 @@ struct HookGenerationTests {
             JSONSerialization.jsonObject(with: Data(encodedArguments.utf8)) as? [String]
         )
 
-        #expect(arguments == [notifierPath, "--agent", "codex"])
-        #expect(fragment.contains(#"Notch \"Flow\""#))
+        #expect(arguments.count == 3)
+        #expect(arguments[0] == "/usr/bin/python3")
+        #expect(arguments[1] == "-c")
+        #expect(arguments[2].contains("sys.argv[1:]"))
+        #expect(arguments[2].contains("thread-id"))
+        #expect(arguments[2].contains("uuid.uuid5"))
+        #expect(arguments[2].contains("subprocess.Popen"))
+        #expect(arguments[2].contains("notchflow://ai-status"))
     }
 
-    @Test("generates an OpenCode TypeScript plugin")
-    func openCodePluginFile() throws {
-        let generator = HookSnippetGenerator(notifierExecutablePath: notifierPath)
-        let plugin = generator.openCodePluginFile()
-        let pathDeclarationPrefix = "const notifierExecutablePath = "
-        let pathDeclaration = try #require(
-            plugin.split(separator: "\n").first {
-                $0.hasPrefix(pathDeclarationPrefix)
-            }
-        )
-        let encodedPath = pathDeclaration.dropFirst(pathDeclarationPrefix.count)
-        let decodedPath = try JSONDecoder().decode(
-            String.self,
-            from: Data(encodedPath.utf8)
+    @Test("Codex notify forwards events to an existing notifier")
+    func codexNotifyForwardsExistingNotifier() throws {
+        let existing = ["/Applications/Notifier.app/Contents/MacOS/Notifier", "turn-ended"]
+        let fragment = HookSnippetGenerator().codexNotifyFragment(forwarding: existing)
+        let arguments = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(fragment.dropFirst("notify = ".count).utf8)
+            ) as? [String]
         )
 
-        #expect(decodedPath == notifierPath)
+        #expect(arguments[2].contains(existing[0]))
+        #expect(arguments[2].contains(existing[1]))
+        #expect(arguments[2].contains("forward + event_args"))
+    }
+
+    @Test("generates Codex lifecycle hooks for visible task states")
+    func codexLifecycleHooksFragment() throws {
+        let fragment = HookSnippetGenerator().codexLifecycleHooksFragment()
+        let document = try #require(
+            JSONSerialization.jsonObject(with: Data(fragment.utf8)) as? [String: Any]
+        )
+        let hooks = try #require(document["hooks"] as? [String: Any])
+
+        #expect(
+            Set(hooks.keys) == [
+                "UserPromptSubmit",
+                "PreToolUse",
+                "PostToolUse",
+                "PermissionRequest",
+                "Stop",
+            ]
+        )
+
+        for event in hooks.keys {
+            let groups = try #require(hooks[event] as? [[String: Any]])
+            let group = try #require(groups.first)
+            let handlers = try #require(group["hooks"] as? [[String: Any]])
+            let handler = try #require(handlers.first)
+            let command = try #require(handler["command"] as? String)
+
+            #expect(handler["type"] as? String == "command")
+            #expect(handler["async"] as? Bool == true)
+            #expect(command.contains(HookSnippetGenerator.codexLifecycleHookMarker))
+            #expect(command.contains("hook_event_name"))
+            #expect(command.contains("session_id"))
+            #expect(command.contains("uuid.uuid5"))
+            #expect(command.contains("notchflow://ai-status"))
+        }
+
+        let promptCommand = try hookCommand(for: "UserPromptSubmit", in: hooks)
+        #expect(promptCommand.contains(#""UserPromptSubmit": ("thinking", "Task started""#))
+        #expect(promptCommand.contains(#""PermissionRequest": ("waitingForUser", "Needs attention""#))
+        #expect(promptCommand.contains(#""Stop": ("completed", "Task completed""#))
+    }
+
+    @Test("generates an OpenCode plugin that posts to loopback and falls back to open")
+    func openCodePluginFile() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+
         #expect(plugin.contains(#"import type { Plugin } from "@opencode-ai/plugin""#))
-        #expect(plugin.contains(#""session.created""#))
+        #expect(plugin.contains(#"spawn("open", ["-g", url]"#))
+        #expect(plugin.contains(#"agentId: "opencode""#))
+        #expect(plugin.contains(#"encodeURIComponent(body)"#))
+        #expect(plugin.contains("/ai-status"))
+        #expect(plugin.contains(#"createHash("sha256")"#))
         #expect(plugin.contains(#""tool.execute.before": async"#))
         #expect(plugin.contains(#""tool.execute.after": async"#))
         #expect(plugin.contains(#""session.idle""#))
         #expect(plugin.contains(#""session.error""#))
+        #expect(plugin.contains(#""chat.message": async"#))
+        #expect(plugin.contains(#""permission.asked""#))
+    }
+
+    /// The event JSON reaches Python on stdin, never as a shell word.
+    ///
+    /// An earlier form interpolated it unquoted into the command line. Under
+    /// `sh` and `bash` that word-split every event carrying a space — a
+    /// submitted prompt, a path with a space — so the hook silently delivered
+    /// nothing, which on screen is indistinguishable from a broken agent.
+    @Test("Claude Code hooks read the event from stdin, never from an unquoted word")
+    func claudeCodeHooksNeverWordSplitTheEvent() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        for event in hooks.keys {
+            let command = try hookCommand(for: event, in: hooks)
+
+            #expect(command.contains(#"printf %s "$EVENT""#), "\(event) lost its quoting")
+            #expect(!command.contains("-c ' $EVENT"), "\(event) passes the event as a word")
+            #expect(command.contains("json.load(sys.stdin)"), "\(event) does not read stdin")
+        }
+    }
+
+    /// A CLI that OpenCode launched reports as OpenCode. Without this the user
+    /// starts one agent and the island shows two.
+    @Test("Claude Code and Codex hooks stand down under OpenCode")
+    func hooksSuppressThemselvesUnderOpenCode() throws {
+        let hooks = try Self.claudeCodeHooks()
+        let claudeCommand = try hookCommand(for: "Stop", in: hooks)
+
+        #expect(claudeCommand.contains(#"os.environ.get("OPENCODE")"#))
+        #expect(claudeCommand.contains(#"os.environ.get("OPENCODE_PID")"#))
+
+        let codexDocument = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(HookSnippetGenerator().codexLifecycleHooksFragment().utf8)
+            ) as? [String: Any]
+        )
+        let codexHooks = try #require(codexDocument["hooks"] as? [String: Any])
+        let codexCommand = try hookCommand(for: "Stop", in: codexHooks)
+
+        #expect(codexCommand.contains(#"os.environ.get("OPENCODE")"#))
+    }
+
+    /// The loopback socket reaches a running island in milliseconds; `open` is
+    /// an order of magnitude slower but is the only path that can launch
+    /// NotchFlow when it is not running. Both have to be present.
+    @Test("hooks prefer the loopback socket and keep the URL scheme as a fallback")
+    func hooksPreferLoopbackAndFallBackToTheURLScheme() throws {
+        let hooks = try Self.claudeCodeHooks()
+        let command = try hookCommand(for: "Stop", in: hooks)
+
+        #expect(command.contains("127.0.0.1"))
+        #expect(command.contains("/ai-status"))
+        #expect(command.contains("ipc-port"))
+        #expect(command.contains("notchflow://ai-status?payload="))
+        #expect(command.contains("urllib.request.urlopen"))
+    }
+
+    /// Every hook is backgrounded, so no agent waits on the island.
+    @Test("Claude Code hooks never block the agent")
+    func claudeCodeHooksAreBackgrounded() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        for event in hooks.keys {
+            #expect(try hookCommand(for: event, in: hooks).hasSuffix("&"))
+        }
+    }
+
+    /// `StopFailure` is not an event Claude Code emits. Subscribing to it is a
+    /// hook that never fires, which reads on screen exactly like a broken one.
+    @Test("Claude Code hooks name only events Claude Code emits")
+    func claudeCodeHooksNameRealEventsOnly() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        #expect(hooks["StopFailure"] == nil)
+    }
+
+    /// The tool in flight is only meaningful in `usingTool`, and only
+    /// `PreToolUse` knows it.
+    @Test("only the tool-use hook carries a tool name")
+    func onlyPreToolUseCarriesAToolName() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        // The helper is defined in every script; what differs is whether the
+        // payload call passes it or passes `None`.
+        #expect(try hookCommand(for: "PreToolUse", in: hooks).contains("        notchflow_tool_name(event),"))
+        #expect(try hookCommand(for: "Stop", in: hooks).contains("        None,"))
+        #expect(try !hookCommand(for: "Stop", in: hooks).contains("        notchflow_tool_name(event),"))
+    }
+
+    /// The whole script sits inside a single-quoted shell word, so an
+    /// apostrophe anywhere in it would end the quoting early.
+    @Test("generated shell scripts contain no apostrophe")
+    func generatedScriptsAreSingleQuoteSafe() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        for event in hooks.keys {
+            let command = try hookCommand(for: event, in: hooks)
+            let script = try #require(command.split(separator: "'").dropFirst().first)
+
+            #expect(!script.contains("'"))
+        }
+    }
+
+    /// Opening a session is not work.
+    ///
+    /// Subscribing to `SessionStart` put the agent on screen as "Thinking…" the
+    /// moment a window opened, and `thinking` has no expiry — so an idle
+    /// terminal held the island for as long as it stayed open.
+    @Test("no hook fires merely because a session opened")
+    func sessionOpeningIsNotAnActivity() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        #expect(hooks["SessionStart"] == nil)
+        #expect(hooks["UserPromptSubmit"] != nil, "the real start must still be covered")
+        #expect(hooks["SessionEnd"] != nil, "a session ending must still clear a stale card")
+
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+        #expect(!plugin.contains(#"case "session.created""#))
+        #expect(plugin.contains(#""chat.message": async"#))
+    }
+
+    /// `/usr/bin/python3` is a stub that forwards into Xcode.
+    ///
+    /// On a Mac with no developer tools it opens the "install command line
+    /// developer tools" panel instead of running, so a hook that reached for it
+    /// unconditionally would put a system dialog in front of the user on every
+    /// tool call. It is tried last, and only behind an `xcode-select` check.
+    @Test("hooks resolve an interpreter instead of assuming the Xcode stub")
+    func hooksResolveTheirInterpreter() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        for event in hooks.keys {
+            let command = try hookCommand(for: event, in: hooks)
+
+            #expect(command.contains("NOTCHFLOW_PY"), "\(event) does not resolve an interpreter")
+            #expect(command.contains("xcode-select -p"), "\(event) does not gate the stub")
+            #expect(
+                command.contains("| /usr/bin/python3 -c") == false,
+                "\(event) still invokes the stub directly"
+            )
+        }
+
+        let codexDocument = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(HookSnippetGenerator().codexLifecycleHooksFragment().utf8)
+            ) as? [String: Any]
+        )
+        let codexHooks = try #require(codexDocument["hooks"] as? [String: Any])
+        let codexCommand = try hookCommand(for: "Stop", in: codexHooks)
+
+        #expect(codexCommand.contains("NOTCHFLOW_PY"))
+        #expect(codexCommand.hasPrefix("/usr/bin/python3") == false)
+    }
+
+    /// Finding no interpreter has to be silent. A hook that failed loudly would
+    /// print on every event of every turn.
+    @Test("a machine with no interpreter exits quietly")
+    func missingInterpreterExitsQuietly() throws {
+        let command = try hookCommand(for: "Stop", in: Self.claudeCodeHooks())
+
+        #expect(command.contains(#"[ -n "$NOTCHFLOW_PY" ] || exit 0"#))
     }
 
     @Test("generation is idempotent")
     func idempotentGeneration() throws {
-        let generator = HookSnippetGenerator(notifierExecutablePath: notifierPath)
+        let generator = HookSnippetGenerator()
 
-        let firstClaudeFragment = try generator.claudeCodeSettingsFragment()
+        let firstClaudeFragment = generator.claudeCodeSettingsFragment()
         let firstCodexFragment = generator.codexNotifyFragment()
+        let firstCodexLifecycleFragment = generator.codexLifecycleHooksFragment()
         let firstOpenCodePlugin = generator.openCodePluginFile()
 
-        #expect(try generator.claudeCodeSettingsFragment() == firstClaudeFragment)
+        #expect(generator.claudeCodeSettingsFragment() == firstClaudeFragment)
         #expect(generator.codexNotifyFragment() == firstCodexFragment)
+        #expect(generator.codexLifecycleHooksFragment() == firstCodexLifecycleFragment)
         #expect(generator.openCodePluginFile() == firstOpenCodePlugin)
+    }
+
+    private static func claudeCodeHooks() throws -> [String: Any] {
+        let fragment = HookSnippetGenerator().claudeCodeSettingsFragment()
+        let settings = try #require(
+            JSONSerialization.jsonObject(with: Data(fragment.utf8)) as? [String: Any]
+        )
+        return try #require(settings["hooks"] as? [String: Any])
+    }
+
+    private func hookCommand(
+        for event: String,
+        in hooks: [String: Any]
+    ) throws -> String {
+        let groups = try #require(hooks[event] as? [[String: Any]])
+        let group = try #require(groups.first)
+        let commands = try #require(group["hooks"] as? [[String: Any]])
+        return try #require(commands.first?["command"] as? String)
     }
 }
