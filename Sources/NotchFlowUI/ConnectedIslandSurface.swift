@@ -108,9 +108,20 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
         )
     }
 
+    /// The width the content actually occupies, before the top flare is added.
+    public var expandedBodyWidth: CGFloat {
+        max(compactSize.width, expandedContentSize.width)
+    }
+
+    /// Wider than the body by one flare on each side.
+    ///
+    /// The top corners turn *outwards* rather than inwards, so the shape is at
+    /// its widest along its very top edge. That extra width has to be part of
+    /// the size, or the flare would be drawn outside the frame the surface was
+    /// given and clipped away by anything that bounds it.
     public var expandedSize: CGSize {
         CGSize(
-            width: max(compactSize.width, expandedContentSize.width),
+            width: expandedBodyWidth + Self.topFlareRadius * 2,
             height: compactSize.height + expandedContentSize.height
         )
     }
@@ -143,6 +154,14 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
     /// row appeared.
     public static let expandedCornerRadius: CGFloat = 26
 
+    /// How far the top corners flare outwards before turning down into the
+    /// body's edge.
+    ///
+    /// A point value for the same reason the corner radius is one: the flare
+    /// has to look identical on every display, and a fraction of the bounds
+    /// would redraw it every time a row appeared.
+    public static let topFlareRadius: CGFloat = 16
+
     public func path(in bounds: CGRect) -> Path {
         guard bounds.width > 0, bounds.height > 0 else { return Path() }
         let neckHeight = min(compactSize.height, bounds.height)
@@ -157,25 +176,53 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
             )
         }
 
-        // Expanded: one evenly rounded rectangle.
+        // Expanded: rounded at the bottom, flared at the top.
         //
-        // It used to be drawn as a neck the width of the compact pill flaring
-        // into a wider body through a pair of shoulder curves. That silhouette
-        // read as two shapes fused together — the flare landed at a different
-        // place for every combination of pill width and row count — where a
-        // single rounded rectangle reads as one panel hanging from the notch.
-        //
-        // Clamped to half the smaller side so a panel smaller than the radius
-        // degrades to a capsule rather than producing an invalid path.
-        return Path(
-            roundedRect: bounds,
-            cornerRadius: min(
-                Self.expandedCornerRadius,
-                bounds.width / 2,
-                bounds.height / 2
-            ),
-            style: .continuous
+        // The bottom two corners turn inwards like any card. The top two turn
+        // *outwards*, so the panel widens as it reaches the menu bar and reads
+        // as flowing into it rather than as a rectangle parked underneath it.
+        // Rounding all four inwards left the top corners curving away from the
+        // bar with a sliver of desktop showing through the gap.
+        let flare = min(
+            Self.topFlareRadius,
+            bounds.width / 4,
+            max(bounds.height - 1, 0)
         )
+        let bodyMinX = bounds.minX + flare
+        let bodyMaxX = bounds.maxX - flare
+        let bottomRadius = min(
+            Self.expandedCornerRadius,
+            (bodyMaxX - bodyMinX) / 2,
+            max(bounds.height - flare, 0) / 2
+        )
+
+        var path = Path()
+        path.move(to: CGPoint(x: bounds.minX, y: bounds.minY))
+        path.addLine(to: CGPoint(x: bounds.maxX, y: bounds.minY))
+        // Top-right, turning outwards: the control point sits at the body's
+        // edge, which pulls the curve inside the chord and leaves the shape
+        // widest along the top.
+        path.addQuadCurve(
+            to: CGPoint(x: bodyMaxX, y: bounds.minY + flare),
+            control: CGPoint(x: bodyMaxX, y: bounds.minY)
+        )
+        path.addLine(to: CGPoint(x: bodyMaxX, y: bounds.maxY - bottomRadius))
+        path.addQuadCurve(
+            to: CGPoint(x: bodyMaxX - bottomRadius, y: bounds.maxY),
+            control: CGPoint(x: bodyMaxX, y: bounds.maxY)
+        )
+        path.addLine(to: CGPoint(x: bodyMinX + bottomRadius, y: bounds.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: bodyMinX, y: bounds.maxY - bottomRadius),
+            control: CGPoint(x: bodyMinX, y: bounds.maxY)
+        )
+        path.addLine(to: CGPoint(x: bodyMinX, y: bounds.minY + flare))
+        path.addQuadCurve(
+            to: CGPoint(x: bounds.minX, y: bounds.minY),
+            control: CGPoint(x: bodyMinX, y: bounds.minY)
+        )
+        path.closeSubpath()
+        return path
     }
 }
 
