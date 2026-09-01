@@ -607,9 +607,11 @@ private struct ScrollWhenTaller: ViewModifier {
         if isEnabled {
             ScrollView(.vertical) { content }
                 .frame(height: height)
-                // Visible because the island gives no other sign that there is
-                // more below: it has no window chrome and no resize handle.
-                .scrollIndicators(.visible)
+                // Hidden: an overlay this small reads as chrome-free, and a
+                // scroller pinned inside a rounded black card looks like a
+                // scratch on it. The list scrolls on trackpad and wheel either
+                // way.
+                .scrollIndicators(.hidden)
                 .scrollBounceBehavior(.basedOnSize)
         } else {
             content.frame(height: height, alignment: .top)

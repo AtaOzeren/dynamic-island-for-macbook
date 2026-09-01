@@ -134,12 +134,22 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
         path(in: bounds).contains(point)
     }
 
-    public func path(in bounds: CGRect) -> Path {
-        let neckWidth = min(compactSize.width, bounds.width)
-        let neckHeight = min(compactSize.height, bounds.height)
-        guard neckWidth > 0, neckHeight > 0 else { return Path() }
+    /// The expanded island's corner radius.
+    ///
+    /// A point value, not a fraction of the bounds. Points are already
+    /// resolution independent — the same 26 renders identically at 1x and 2x —
+    /// whereas a proportional radius would give the island a visibly different
+    /// shape on a 13" panel than on a 16" one, and change it again every time a
+    /// row appeared.
+    public static let expandedCornerRadius: CGFloat = 26
 
-        if bounds.height <= neckHeight + 0.5 {
+    public func path(in bounds: CGRect) -> Path {
+        guard bounds.width > 0, bounds.height > 0 else { return Path() }
+        let neckHeight = min(compactSize.height, bounds.height)
+
+        // Compact: a true capsule, so the pill's ends match the notch's own
+        // curvature whatever height the hardware reports.
+        if neckHeight > 0, bounds.height <= neckHeight + 0.5 {
             return Path(
                 roundedRect: bounds,
                 cornerRadius: min(bounds.width, bounds.height) / 2,
@@ -147,69 +157,25 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
             )
         }
 
-        if bounds.width <= neckWidth + 0.5 {
-            return Path(
-                roundedRect: bounds,
-                cornerRadius: min(18, bounds.width / 2, bounds.height / 2),
-                style: .continuous
-            )
-        }
-
-        let neckMinX = bounds.midX - neckWidth / 2
-        let neckMaxX = bounds.midX + neckWidth / 2
-        let bodyMinX = bounds.minX
-        let bodyMaxX = bounds.maxX
-        let topRadius = min(neckHeight / 2, neckWidth / 2)
-        let bodyRadius = min(18, bounds.width / 2, (bounds.height - neckHeight) / 2)
-        let shoulderDepth = min(
-            max(neckHeight * 0.32, 8),
-            max((bounds.height - neckHeight) * 0.45, 0)
+        // Expanded: one evenly rounded rectangle.
+        //
+        // It used to be drawn as a neck the width of the compact pill flaring
+        // into a wider body through a pair of shoulder curves. That silhouette
+        // read as two shapes fused together — the flare landed at a different
+        // place for every combination of pill width and row count — where a
+        // single rounded rectangle reads as one panel hanging from the notch.
+        //
+        // Clamped to half the smaller side so a panel smaller than the radius
+        // degrades to a capsule rather than producing an invalid path.
+        return Path(
+            roundedRect: bounds,
+            cornerRadius: min(
+                Self.expandedCornerRadius,
+                bounds.width / 2,
+                bounds.height / 2
+            ),
+            style: .continuous
         )
-        let neckShoulderY = max(
-            bounds.minY + topRadius,
-            bounds.minY + neckHeight - shoulderDepth / 2
-        )
-        let bodyStartY = min(
-            bounds.minY + neckHeight + shoulderDepth,
-            bounds.maxY - bodyRadius
-        )
-
-        var path = Path()
-        path.move(to: CGPoint(x: neckMinX + topRadius, y: bounds.minY))
-        path.addLine(to: CGPoint(x: neckMaxX - topRadius, y: bounds.minY))
-        path.addQuadCurve(
-            to: CGPoint(x: neckMaxX, y: bounds.minY + topRadius),
-            control: CGPoint(x: neckMaxX, y: bounds.minY)
-        )
-        path.addLine(to: CGPoint(x: neckMaxX, y: neckShoulderY))
-        path.addCurve(
-            to: CGPoint(x: bodyMaxX, y: bodyStartY),
-            control1: CGPoint(x: neckMaxX, y: bodyStartY),
-            control2: CGPoint(x: bodyMaxX - shoulderDepth, y: bounds.minY + neckHeight)
-        )
-        path.addLine(to: CGPoint(x: bodyMaxX, y: bounds.maxY - bodyRadius))
-        path.addQuadCurve(
-            to: CGPoint(x: bodyMaxX - bodyRadius, y: bounds.maxY),
-            control: CGPoint(x: bodyMaxX, y: bounds.maxY)
-        )
-        path.addLine(to: CGPoint(x: bodyMinX + bodyRadius, y: bounds.maxY))
-        path.addQuadCurve(
-            to: CGPoint(x: bodyMinX, y: bounds.maxY - bodyRadius),
-            control: CGPoint(x: bodyMinX, y: bounds.maxY)
-        )
-        path.addLine(to: CGPoint(x: bodyMinX, y: bodyStartY))
-        path.addCurve(
-            to: CGPoint(x: neckMinX, y: neckShoulderY),
-            control1: CGPoint(x: bodyMinX + shoulderDepth, y: bounds.minY + neckHeight),
-            control2: CGPoint(x: neckMinX, y: bodyStartY)
-        )
-        path.addLine(to: CGPoint(x: neckMinX, y: bounds.minY + topRadius))
-        path.addQuadCurve(
-            to: CGPoint(x: neckMinX + topRadius, y: bounds.minY),
-            control: CGPoint(x: neckMinX, y: bounds.minY)
-        )
-        path.closeSubpath()
-        return path
     }
 }
 

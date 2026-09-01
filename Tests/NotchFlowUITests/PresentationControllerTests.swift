@@ -61,6 +61,17 @@ struct PresentationControllerTests {
         return CGPoint(x: hit.minX - 1, y: hit.midY)
     }
 
+    /// A point inside the panel window but outside the expanded island.
+    ///
+    /// Beside the *notch* is no longer beside the *island*: the expanded shape
+    /// is one rounded rectangle wider than the compact pill, so a point a
+    /// pixel left of the pill now lands on it. The panel's own edge is still
+    /// well clear of the card, which is centred and far narrower.
+    private static var besideTheExpandedIsland: CGPoint {
+        let panel = panelFrame(for: notchedScreen, metrics: metrics)
+        return CGPoint(x: panel.minX + 1, y: panel.maxY - 10)
+    }
+
     private static func activity(_ name: String) -> StubPresentedActivity {
         StubPresentedActivity(
             identity: ActivityIdentity(name),
@@ -275,7 +286,7 @@ struct PresentationControllerTests {
         harness.mouse.move(to: Self.insideTheHitRect)
         harness.controller.expand()
 
-        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+        harness.mouse.move(to: Self.besideTheExpandedIsland)
 
         #expect(harness.controller.state == .compact)
         #expect(harness.controller.isHovered == false)
@@ -290,7 +301,7 @@ struct PresentationControllerTests {
         harness.mouse.move(to: Self.insideTheHitRect)
         harness.controller.expand()
 
-        harness.mouse.move(to: Self.overTheMenuBarBesideTheNotch)
+        harness.mouse.move(to: Self.besideTheExpandedIsland)
 
         #expect(harness.controller.state == .expanded)
         #expect(harness.controller.isHovered == false)
