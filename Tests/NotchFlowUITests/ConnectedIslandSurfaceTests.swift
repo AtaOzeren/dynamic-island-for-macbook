@@ -33,6 +33,18 @@ struct ConnectedIslandSurfaceTests {
         #expect(Self.geometry.contains(CGPoint(x: 2, y: 2), in: bounds) == false)
     }
 
+    @Test("wide compact neck keeps stable expanded body corners")
+    func wideNeckKeepsStableBodyCorners() {
+        let geometry = ConnectedIslandGeometry(
+            compactSize: CGSize(width: 360, height: 37),
+            expandedContentSize: CGSize(width: 320, height: 150)
+        )
+        let bounds = CGRect(origin: .zero, size: geometry.expandedSize)
+
+        #expect(geometry.contains(CGPoint(x: 1, y: 30), in: bounds))
+        #expect(geometry.contains(CGPoint(x: 1, y: 1), in: bounds) == false)
+    }
+
     @Test("expanded surface remains centered at the top of the panel")
     func surfaceFrameIsTopCentered() {
         let panel = CGRect(x: 100, y: 400, width: 640, height: 260)

@@ -529,6 +529,24 @@
         }
       }
     },
+    "Hide agent sessions": {
+      "comment": "Expanded AI agent group: VoiceOver label for collapsing the running-session list.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide agent sessions"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajan oturumlarını gizle"
+          }
+        }
+      }
+    },
     "Idle": {
       "comment": "AI agent status: registered, but with no active task.",
       "extractionState": "manual",
@@ -1191,6 +1209,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ için kurulum parçacığı"
+          }
+        }
+      }
+    },
+    "Show agent sessions": {
+      "comment": "Expanded AI agent group: VoiceOver label for revealing the running-session list.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show agent sessions"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajan oturumlarını göster"
           }
         }
       }

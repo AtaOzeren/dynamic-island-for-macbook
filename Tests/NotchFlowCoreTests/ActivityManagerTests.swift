@@ -145,6 +145,99 @@ struct ActivityManagerTests {
         #expect(manager.expandedActivities.count == 3)
     }
 
+    @Test("counts concurrent sessions from one agent as one compact activity")
+    func compactGroupsSessionsByAgent() {
+        let manager = ActivityManager(compactCapacity: 3)
+        for index in 0..<4 {
+            manager.register(
+                aiAgent(
+                    agent: .opencode,
+                    sessionID: UUID(),
+                    state: .working
+                ),
+                at: date(TimeInterval(index))
+            )
+        }
+
+        #expect(manager.expandedActivities.count == 4)
+        #expect(manager.compactPresentation.activities.count == 1)
+        #expect(manager.compactPresentation.overflowCount == 0)
+        #expect((manager.compactPresentation.activities.first as? AIAgentActivity)?.agent == .opencode)
+    }
+
+    @Test("keeps different agents as separate compact activities")
+    func compactKeepsAgentsSeparate() {
+        let manager = ActivityManager(compactCapacity: 3)
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(1))
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(2))
+        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(3))
+        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(4))
+
+        #expect(manager.compactPresentation.activities.count == 2)
+        #expect(manager.compactPresentation.overflowCount == 0)
+        #expect(
+            Set(
+                manager.compactPresentation.activities.compactMap {
+                    ($0 as? AIAgentActivity)?.agent
+                }
+            ) == [.opencode, .codex]
+        )
+    }
+
+    @Test("reserves two compact positions for the newest AI agents")
+    func compactReservesNewestAgentPositions() {
+        let manager = ActivityManager(compactCapacity: 3)
+        for index in 1...4 {
+            manager.register(
+                StubManagerActivity(
+                    identity: ActivityIdentity("standard.\(index)"),
+                    kind: .timer,
+                    priority: .high
+                ),
+                at: date(TimeInterval(index))
+            )
+        }
+        manager.register(aiAgent(agent: .claudeCode, sessionID: UUID()), at: date(5))
+        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(6))
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(7))
+
+        let presentation = manager.compactPresentation
+
+        #expect(presentation.activities.filter { $0.kind != .aiAgent }.count == 2)
+        #expect(
+            presentation.activities.compactMap { ($0 as? AIAgentActivity)?.agent }
+                == [.codex, .opencode]
+        )
+        #expect(presentation.overflowCount == 2)
+    }
+
+    @Test("represents an agent group with its most important live state")
+    func compactAgentRepresentativeState() throws {
+        let manager = ActivityManager()
+        manager.register(
+            aiAgent(agent: .opencode, sessionID: UUID(), state: .completed),
+            at: date(1)
+        )
+        manager.register(
+            aiAgent(agent: .opencode, sessionID: UUID(), state: .working),
+            at: date(2)
+        )
+
+        let activity = try #require(
+            manager.compactPresentation.activities.first as? AIAgentActivity
+        )
+        #expect(activity.state == .working)
+
+        manager.register(
+            aiAgent(agent: .opencode, sessionID: UUID(), state: .error),
+            at: date(3)
+        )
+        let error = try #require(
+            manager.compactPresentation.activities.first as? AIAgentActivity
+        )
+        #expect(error.state == .error)
+    }
+
     @Test("fires auto-dismiss when expiration condition is reached")
     func autoDismissFiring() async {
         let manager = ActivityManager(sleep: { _ in })
@@ -243,6 +336,19 @@ struct ActivityManagerTests {
         #expect(firstCount == 1)
         #expect(secondCount == 2)
     }
+}
+
+private func aiAgent(
+    agent: IPCAgentID,
+    sessionID: UUID,
+    state: AIAgentState = .working
+) -> AIAgentActivity {
+    AIAgentActivity(
+        agent: agent,
+        sessionID: sessionID,
+        state: state,
+        detail: "Working"
+    )
 }
 
 private struct StubManagerActivity: Activity {

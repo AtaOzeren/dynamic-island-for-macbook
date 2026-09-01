@@ -100,6 +100,32 @@ struct AIAgentActivityTests {
         #expect(identities.count == 4)
     }
 
+    @Test("shares one compact group identity across sessions of the same agent")
+    func compactIdentityIsPerAgent() {
+        let first = Self.activity(sessionID: UUID())
+        let second = Self.activity(sessionID: UUID())
+
+        #expect(first.identity != second.identity)
+        #expect(first.compactGroupIdentity == second.compactGroupIdentity)
+        #expect(first.compactGroupIdentity != Self.activity(agent: .codex).compactGroupIdentity)
+    }
+
+    @Test("ranks actionable and active states above completed compact status")
+    func compactRepresentationPreference() {
+        #expect(
+            Self.activity(state: .error).compactRepresentationPriority
+                > Self.activity(state: .waitingForUser).compactRepresentationPriority
+        )
+        #expect(
+            Self.activity(state: .waitingForUser).compactRepresentationPriority
+                > Self.activity(state: .working).compactRepresentationPriority
+        )
+        #expect(
+            Self.activity(state: .working).compactRepresentationPriority
+                > Self.activity(state: .completed).compactRepresentationPriority
+        )
+    }
+
     @Test("offers an action that opens the originating agent")
     func primaryActionNamesTheAgent() {
         #expect(Self.activity(agent: .claudeCode).primaryAction?.title == "Open Claude")

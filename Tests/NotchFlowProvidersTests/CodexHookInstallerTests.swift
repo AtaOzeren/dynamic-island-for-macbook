@@ -67,9 +67,43 @@ struct CodexHookInstallerTests {
 
         let installed = try #require(fileSystem.text(at: Self.configURL))
         #expect(!installed.contains("notify = [\"existing-notifier\"]"))
-        #expect(installed.contains(Self.expectedNotifySetting))
+        #expect(installed.contains("notchflow_codex_notify_v2=True"))
+        #expect(installed.contains("existing-notifier"))
         #expect(installed.contains("notify = \"leave-this-table-value\""))
         #expect(installed.contains("model = \"gpt-5\""))
+    }
+
+    @Test("install replaces multiline notify and preserves its command chain")
+    func installReplacesMultilineNotify() throws {
+        let originalText = """
+            model = "gpt-5.6-sol"
+            notify = [
+                "/Applications/Codex Computer Use.app/Contents/MacOS/Notifier",
+                "turn-ended",
+            ]
+            service_tier = "default"
+
+            [projects."/Users/tester/Work"]
+            trust_level = "trusted"
+            """
+        let original = Data(originalText.utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: original])
+        let installer = CodexHookInstaller(
+            homeDirectory: Self.homeDirectory,
+            fileSystem: fileSystem
+        )
+
+        try installer.install()
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+
+        #expect(installer.installationState() == .hookInstalled)
+        #expect(installed.contains("Codex Computer Use.app/Contents/MacOS/Notifier"))
+        #expect(installed.contains("turn-ended"))
+        #expect(installed.contains("service_tier = \"default\""))
+        #expect(fileSystem.data(at: Self.backupURL) == original)
+
+        try installer.uninstall()
+        #expect(fileSystem.data(at: Self.configURL) == original)
     }
 
     @Test("install inserts notify before the first TOML table")

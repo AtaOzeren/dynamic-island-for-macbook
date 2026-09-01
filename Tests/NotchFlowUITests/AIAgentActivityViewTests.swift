@@ -12,6 +12,9 @@ import Testing
 struct AIAgentActivityViewTests {
     private static func activity(
         agent: IPCAgentID = .claudeCode,
+        sessionID: UUID = UUID(
+            uuid: (0x6F, 0x96, 0x19, 0xFF, 0x8B, 0x86, 0xD0, 0x11, 0xB4, 0x2D, 0x00, 0xC0, 0x4F, 0xC9, 0x64, 0xFF)
+        ),
         state: AIAgentState = .working,
         detail: String = "Editing src/App.swift",
         toolName: String? = nil,
@@ -19,9 +22,7 @@ struct AIAgentActivityViewTests {
     ) -> AIAgentActivity {
         AIAgentActivity(
             agent: agent,
-            sessionID: UUID(
-                uuid: (0x6F, 0x96, 0x19, 0xFF, 0x8B, 0x86, 0xD0, 0x11, 0xB4, 0x2D, 0x00, 0xC0, 0x4F, 0xC9, 0x64, 0xFF)
-            ),
+            sessionID: sessionID,
             state: state,
             detail: detail,
             toolName: toolName,
@@ -283,11 +284,13 @@ struct AIAgentActivityViewTests {
         #expect(slot.accessibilityLabel != compactAccessibilityLabel(.aiAgent))
     }
 
-    @Test("keeps the slot identity aligned with the activity's")
+    @Test("keeps one compact slot identity while the representative session changes")
     func compactSlotIdentity() {
-        let activity = Self.activity()
+        let first = Self.activity(sessionID: UUID())
+        let second = Self.activity(sessionID: UUID())
 
-        #expect(aiAgentCompactSlot(for: activity).id == activity.identity.rawValue)
+        #expect(aiAgentCompactSlot(for: first).id == first.compactGroupIdentity.rawValue)
+        #expect(aiAgentCompactSlot(for: first).id == aiAgentCompactSlot(for: second).id)
     }
 
     @Test("expanded agent card stays inside the minimalist visual budget")
@@ -296,6 +299,78 @@ struct AIAgentActivityViewTests {
 
         #expect(size.width <= 280)
         #expect(size.height <= 64)
+    }
+
+    @Test("groups concurrent sessions from one agent into one expanded item")
+    func expandedItemsGroupAgentSessions() throws {
+        let first = Self.activity(
+            agent: .opencode,
+            sessionID: UUID(),
+            detail: "Editing first project"
+        )
+        let second = Self.activity(
+            agent: .opencode,
+            sessionID: UUID(),
+            detail: "Running second project"
+        )
+
+        let items = expandedActivityItems(for: [first, second])
+        let group = try #require(items.first?.aiAgentGroup)
+
+        #expect(items.count == 1)
+        #expect(group.agentID == .opencode)
+        #expect(group.sessions.map(\.sessionID) == [first.sessionID, second.sessionID])
+        #expect(group.showsDisclosure)
+    }
+
+    @Test("does not combine different agents in the expanded panel")
+    func expandedItemsKeepAgentsSeparate() {
+        let items = expandedActivityItems(
+            for: [
+                Self.activity(agent: .opencode, sessionID: UUID()),
+                Self.activity(agent: .opencode, sessionID: UUID()),
+                Self.activity(agent: .codex, sessionID: UUID()),
+            ]
+        )
+
+        #expect(items.count == 2)
+        #expect(items.compactMap { $0.aiAgentGroup?.agentID } == [.opencode, .codex])
+    }
+
+    @Test("uses recording-row height until a multi-session group is disclosed")
+    func expandedAgentGroupDisclosureHeight() {
+        let sessions: [any Activity] = [
+            Self.activity(agent: .opencode, sessionID: UUID()),
+            Self.activity(agent: .opencode, sessionID: UUID()),
+        ]
+        let metrics = ExpandedItemMetrics.default
+        let collapsed = expandedPanelSize(for: sessions, metrics: metrics)
+        let disclosed = expandedPanelSize(
+            for: sessions,
+            disclosedAgentIDs: [.opencode],
+            metrics: metrics
+        )
+
+        #expect(
+            collapsed.height
+                == metrics.panel.rowHeight + metrics.panel.contentInset * 2
+        )
+        #expect(disclosed.height > collapsed.height)
+        #expect(
+            disclosed.height - collapsed.height
+                == AIAgentGroupViewMetrics.default.separatorHeight
+                + AIAgentGroupViewMetrics.default.detailRowHeight * 2
+        )
+        #expect(disclosed.height <= PanelMetrics.default.maximumExpandedSize.height)
+    }
+
+    @Test("single-session groups show no disclosure control")
+    func singleAgentSessionHasNoDisclosure() throws {
+        let item = try #require(
+            expandedActivityItems(for: [Self.activity(agent: .codex)]).first
+        )
+
+        #expect(item.aiAgentGroup?.showsDisclosure == false)
     }
 
     // MARK: - Accessibility

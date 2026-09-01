@@ -135,9 +135,11 @@ private func compactSlot(for activity: any Activity) -> CompactSlot {
 /// The ordered slots for `presentation`, which has already applied the priority
 /// ordering and the capacity limit in `ActivityManager`.
 public func compactSlots(for presentation: CompactActivityPresentation) -> [CompactSlot] {
-    let slots = presentation.activities.map(compactSlot(for:))
+    var slots = presentation.activities.map(compactSlot(for:))
     guard presentation.overflowCount > 0 else { return slots }
-    return slots + [CompactSlot(overflowCount: presentation.overflowCount)]
+    let insertionIndex = slots.firstIndex { $0.aiAgentID != nil } ?? slots.endIndex
+    slots.insert(CompactSlot(overflowCount: presentation.overflowCount), at: insertionIndex)
+    return slots
 }
 
 /// Splits the slots around the notch, filling the leading side first so the
@@ -147,6 +149,14 @@ public func compactSlotLayout(for presentation: CompactActivityPresentation) -> 
 }
 
 private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
+    let agentSlots = slots.filter { $0.aiAgentID != nil }
+    if agentSlots.isEmpty == false {
+        return CompactSlotLayout(
+            leading: slots.filter { $0.aiAgentID == nil },
+            trailing: agentSlots
+        )
+    }
+
     let leadingCount = (slots.count + 1) / 2
     return CompactSlotLayout(
         leading: Array(slots.prefix(leadingCount)),
@@ -247,9 +257,9 @@ public struct CompactActivityView: View {
         let surface = islandCompactSurface(scheme: colorScheme.islandColorScheme)
 
         HStack(spacing: metrics.slotSpacing) {
-            slotRow(layout.leading)
+            slotRow(layout.leading, alignment: .trailing)
             Color.clear.frame(width: notchSize.width)
-            slotRow(layout.trailing)
+            slotRow(layout.trailing, alignment: .leading)
         }
         .padding(.horizontal, metrics.edgeInset)
         .frame(width: size.width, height: size.height)
@@ -271,14 +281,14 @@ public struct CompactActivityView: View {
         }
     }
 
-    private func slotRow(_ slots: [CompactSlot]) -> some View {
+    private func slotRow(_ slots: [CompactSlot], alignment: Alignment) -> some View {
         HStack(spacing: metrics.slotSpacing) {
             ForEach(slots) { slot in
                 slotView(slot)
                     .transition(slotTransition)
             }
         }
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: alignment)
         .animation(slotAnimation, value: slots)
     }
 

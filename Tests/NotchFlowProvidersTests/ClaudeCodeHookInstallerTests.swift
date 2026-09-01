@@ -44,7 +44,7 @@ struct ClaudeCodeHookInstallerTests {
         let hooks = try #require(root["hooks"] as? [String: Any])
 
         #expect(permissions["allow"] as? [String] == ["Bash(git status)"])
-        #expect((hooks["Stop"] as? [Any])?.count == 1)
+        #expect((hooks["Stop"] as? [Any])?.count == 2)
         #expect(fileSystem.data(at: Self.backupURL) == original)
         #expect(try hookCommands(in: String(decoding: installed, as: UTF8.self)).count == 1)
     }

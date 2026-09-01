@@ -114,17 +114,14 @@ struct ExpandedActivityDispatchTests {
         )
 
         let agentHeight = expandedItemHeight(for: Self.aiAgent(), metrics: metrics, panelMetrics: panelMetrics)
-        #expect(
-            agentHeight
-                == aiAgentExpandedSize(hasProgress: false, metrics: metrics.aiAgent, panelMetrics: panelMetrics).height
-        )
+        #expect(agentHeight == metrics.panel.rowHeight)
 
         let agentWithProgress = expandedItemHeight(
             for: Self.aiAgent(progress: 0.5),
             metrics: metrics,
             panelMetrics: panelMetrics
         )
-        #expect(agentWithProgress > agentHeight)
+        #expect(agentWithProgress == agentHeight)
 
         #expect(
             expandedItemHeight(for: Self.charging(), metrics: metrics, panelMetrics: panelMetrics)
@@ -183,11 +180,10 @@ struct ExpandedActivityDispatchTests {
                 <= panelMetrics.maximumExpandedSize.height
         )
 
-        let overflowingAgentCount = 5
-        let overflows: [any Activity] = Array(
-            repeating: Self.aiAgent(),
-            count: overflowingAgentCount
-        )
+        let overflowingItemCount = 10
+        let overflows: [any Activity] = (0..<overflowingItemCount).map {
+            SizedStubActivity(identity: ActivityIdentity("overflow.\($0)"))
+        }
         #expect(
             expandedPanelOverflowsWindow(for: overflows, metrics: metrics, panelMetrics: panelMetrics)
         )
@@ -197,8 +193,7 @@ struct ExpandedActivityDispatchTests {
         )
         #expect(
             expandedPanelSize(for: overflows, metrics: metrics, panelMetrics: panelMetrics).height
-                < expandedItemHeight(for: Self.aiAgent(), metrics: metrics, panelMetrics: panelMetrics)
-                * CGFloat(overflowingAgentCount)
+                < metrics.panel.rowHeight * CGFloat(overflowingItemCount)
         )
     }
 

@@ -83,6 +83,20 @@ struct CompactActivityViewTests {
         #expect(layout.trailing.last?.overflowCount == 2)
     }
 
+    @Test("keeps at most two AI agents together at the far right")
+    func agentsUseTrailingRegion() {
+        let manager = ActivityManager()
+        manager.register(Self.activity("timer", .timer, .high), at: Date(timeIntervalSince1970: 1))
+        manager.register(Self.aiAgent(.claudeCode), at: Date(timeIntervalSince1970: 2))
+        manager.register(Self.aiAgent(.codex), at: Date(timeIntervalSince1970: 3))
+        manager.register(Self.aiAgent(.opencode), at: Date(timeIntervalSince1970: 4))
+
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+
+        #expect(layout.leading.map(\.id) == ["timer"])
+        #expect(layout.trailing.compactMap(\.aiAgentID) == [.codex, .opencode])
+    }
+
     @Test("gives every activity kind its own symbol and spoken label")
     func everyKindIsDistinguishable() {
         let symbols = ActivityKind.allCases.map(compactSymbolName)
@@ -179,5 +193,14 @@ struct CompactActivityViewTests {
 
         #expect(visibility.synchronize(activeSlots: []).isEmpty)
         #expect(visibility.synchronize(activeSlots: slots) == [musicID])
+    }
+
+    private static func aiAgent(_ agent: IPCAgentID) -> AIAgentActivity {
+        AIAgentActivity(
+            agent: agent,
+            sessionID: UUID(),
+            state: .working,
+            detail: "Working"
+        )
     }
 }

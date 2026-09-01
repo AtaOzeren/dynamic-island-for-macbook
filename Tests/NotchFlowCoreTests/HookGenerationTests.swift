@@ -25,13 +25,25 @@ struct HookGenerationTests {
         #expect(try IPCURLParser().parse(url) == message)
     }
 
-    @Test("generates a Claude Code shell hook using stdin event fields")
+    @Test("generates Claude Code lifecycle hooks using stdin event fields")
     func claudeCodeSettingsFragment() throws {
         let fragment = HookSnippetGenerator().claudeCodeSettingsFragment()
         let settings = try #require(
             JSONSerialization.jsonObject(with: Data(fragment.utf8)) as? [String: Any]
         )
         let hooks = try #require(settings["hooks"] as? [String: Any])
+        #expect(
+            Set(hooks.keys) == [
+                "SessionStart",
+                "UserPromptSubmit",
+                "PreToolUse",
+                "PostToolUse",
+                "Notification",
+                "Stop",
+                "StopFailure",
+                "SessionEnd",
+            ]
+        )
         let preToolUse = try #require(hooks["PreToolUse"] as? [[String: Any]])
         let hookGroup = try #require(preToolUse.first)
         let commands = try #require(hookGroup["hooks"] as? [[String: String]])
@@ -43,9 +55,13 @@ struct HookGenerationTests {
         #expect(command["command"]?.contains("uuid.uuid5") == true)
         #expect(command["command"]?.contains(#"open -g "$URL" &"#) == true)
         #expect(command["command"]?.contains("CLAUDE_SESSION_ID") == false)
+
+        #expect(try hookCommand(for: "Stop", in: hooks).contains(#""state":"completed""#))
+        #expect(try hookCommand(for: "StopFailure", in: hooks).contains(#""state":"error""#))
+        #expect(try hookCommand(for: "SessionEnd", in: hooks).contains(#""state":"idle""#))
     }
 
-    @Test("generates a four-element Codex shell notify fragment")
+    @Test("generates a direct Codex Python notify fragment")
     func codexNotifyFragment() throws {
         let fragment = HookSnippetGenerator().codexNotifyFragment()
         let assignmentPrefix = "notify = "
@@ -57,14 +73,29 @@ struct HookGenerationTests {
             JSONSerialization.jsonObject(with: Data(encodedArguments.utf8)) as? [String]
         )
 
-        #expect(arguments.count == 4)
-        #expect(arguments[0] == "sh")
+        #expect(arguments.count == 3)
+        #expect(arguments[0] == "python3")
         #expect(arguments[1] == "-c")
-        #expect(arguments[2].contains("sys.argv[1]"))
+        #expect(arguments[2].contains("sys.argv[1:]"))
         #expect(arguments[2].contains("thread-id"))
         #expect(arguments[2].contains("uuid.uuid5"))
-        #expect(arguments[2].contains(#"open -g "$URL""#))
-        #expect(arguments[3] == "sh")
+        #expect(arguments[2].contains("subprocess.Popen"))
+        #expect(arguments[2].contains("notchflow://ai-status"))
+    }
+
+    @Test("Codex notify forwards events to an existing notifier")
+    func codexNotifyForwardsExistingNotifier() throws {
+        let existing = ["/Applications/Notifier.app/Contents/MacOS/Notifier", "turn-ended"]
+        let fragment = HookSnippetGenerator().codexNotifyFragment(forwarding: existing)
+        let arguments = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(fragment.dropFirst("notify = ".count).utf8)
+            ) as? [String]
+        )
+
+        #expect(arguments[2].contains(existing[0]))
+        #expect(arguments[2].contains(existing[1]))
+        #expect(arguments[2].contains("subprocess.Popen(forward+event_args"))
     }
 
     @Test("generates an OpenCode plugin that invokes open directly")
@@ -94,5 +125,15 @@ struct HookGenerationTests {
         #expect(generator.claudeCodeSettingsFragment() == firstClaudeFragment)
         #expect(generator.codexNotifyFragment() == firstCodexFragment)
         #expect(generator.openCodePluginFile() == firstOpenCodePlugin)
+    }
+
+    private func hookCommand(
+        for event: String,
+        in hooks: [String: Any]
+    ) throws -> String {
+        let groups = try #require(hooks[event] as? [[String: Any]])
+        let group = try #require(groups.first)
+        let commands = try #require(group["hooks"] as? [[String: String]])
+        return try #require(commands.first?["command"])
     }
 }
