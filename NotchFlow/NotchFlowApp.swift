@@ -162,10 +162,17 @@ struct NotchFlowApp: App {
         // the URL scheme and the loopback listener carry the same envelope, so
         // two copies of this would be two chances for one transport to start
         // registering what the other ends.
+        //
+        // Both transports share one ledger, for the same reason they share this
+        // closure: a session's messages can arrive over either, and two ledgers
+        // would each judge half a timeline as if it were the whole one.
         let activityManager = manager
+        let sessionLedger = AIAgentSessionLedgerBox()
         let messageSink: @MainActor @Sendable (IPCMessage) -> Void = { message in
+            guard sessionLedger.admit(message) else { return }
             let activity = AIAgentActivity(message: message)
             if activity.endsPresentation {
+                sessionLedger.forget(message.sessionId)
                 activityManager.end(activity.identity)
             } else {
                 activityManager.register(activity)
@@ -192,7 +199,7 @@ struct NotchFlowApp: App {
             Self.stopSynchronously(loopbackListener)
         }
 
-        // Deferred to the first turn of the run loop rather than run inline:
+        // Deferred to `applicationDidFinishLaunching` rather than run inline:
         // ordering a window front and activating the app before AppKit has
         // finished launching is unreliable, and this is the one screen that has
         // to come forward on its own in an app with no Dock icon.
@@ -201,10 +208,11 @@ struct NotchFlowApp: App {
         // common case — never probes the file system for agent configuration.
         let presenter = onboardingPresenter
         let manualSetupPresenter = manualSetupPresenter
-        DispatchQueue.main.async {
-            // Ordering a window front before AppKit has finished launching is
-            // unreliable. `start()` orders the persistent compact panel in, so
-            // it waits on the same turn the onboarding window does.
+        URLSchemeAppDelegate.onDidFinishLaunching = {
+            // Ordering a window front, or adding a menu bar item, before AppKit
+            // has finished launching is unreliable — the screen arrangement is
+            // not settled, and a status item placed against it lands on no
+            // menu bar at all.
             statusItemPresenter.setVisible(settingsStore.generalPreferences.showMenuBarIcon)
             islandPresenter.start()
             Self.repairEnabledHooks(
@@ -604,9 +612,31 @@ private extension NotchFlowApp {
     }
 }
 
+/// Holds the ordering ledger for the app's lifetime.
+///
+/// The sink is a closure shared by both transports and captured before any
+/// object that could own the ledger exists, so the mutable state needs a
+/// reference to live in — a captured `var` would be copied into the closure and
+/// every message would be judged against an empty table.
+@MainActor
+private final class AIAgentSessionLedgerBox {
+    private var ledger = AIAgentSessionLedger()
+
+    func admit(_ message: IPCMessage) -> Bool {
+        ledger.admit(message) == .admit
+    }
+
+    func forget(_ sessionID: UUID) {
+        ledger.forget(sessionID)
+    }
+}
+
 @MainActor
 private final class StatusItemPresenter: NSObject {
-    private static let visibilityRestorationDelay = Duration.milliseconds(500)
+    /// The image size the menu bar draws at. Constraining the `NSImage` rather
+    /// than trusting the asset keeps a future art change from producing an item
+    /// that is silently clipped to nothing.
+    private static let iconSize = NSSize(width: 18, height: 18)
     private static let timerPresets: [(minutes: Int, title: String)] = [
         (5, String(localized: "Start 5-Minute Timer")),
         (10, String(localized: "Start 10-Minute Timer")),
@@ -616,11 +646,35 @@ private final class StatusItemPresenter: NSObject {
     private let timerProvider: TimerProvider
     private let openSettings: () -> Void
     private var statusItem: NSStatusItem?
-    private var visibilityRestorationTask: Task<Void, Never>?
+    private var screenChangeObserver: (any NSObjectProtocol)?
 
     init(timerProvider: TimerProvider, openSettings: @escaping () -> Void) {
         self.timerProvider = timerProvider
         self.openSettings = openSettings
+        super.init()
+    }
+
+    /// Re-adds the item after the display arrangement changes.
+    ///
+    /// A status item is placed once, against the arrangement in force when it
+    /// was added. Plugging in or unplugging a display moves the menu bar without
+    /// re-placing it, which leaves the item at coordinates that no longer name
+    /// any menu bar — the same off-screen state a too-early creation produces,
+    /// arrived at from the other direction. Removing and re-adding is the only
+    /// way to ask for a fresh placement.
+    private func observeScreenChanges() {
+        guard screenChangeObserver == nil else { return }
+        screenChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.statusItem != nil else { return }
+                self.stop()
+                self.start()
+            }
+        }
     }
 
     func setVisible(_ isVisible: Bool) {
@@ -631,40 +685,46 @@ private final class StatusItemPresenter: NSObject {
         }
     }
 
+    /// Adds the menu bar item.
+    ///
+    /// The button is fully configured *before* the item is made visible. An
+    /// earlier version instead made it visible immediately and then toggled
+    /// `isVisible` off and on again half a second later to force a redraw; that
+    /// removed and re-added the item inside a single run loop turn, which is a
+    /// state the menu bar does not reliably recover from — the item reported
+    /// itself visible while nothing was ever drawn.
+    ///
+    /// `autosaveName` is deliberately absent. It persists a position and a
+    /// visibility flag under a key the app never reads, so a single accidental
+    /// ⌘-drag out of the menu bar hides the item for good, with the in-app
+    /// switch still reading "on" and no way back. The item's presence is the
+    /// user's setting, and that setting lives in `GeneralPreferences`.
     func start() {
         guard statusItem == nil else { return }
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        statusItem.autosaveName = "NotchFlowStatusItem"
+        statusItem.behavior = []
+        guard let button = statusItem.button else {
+            NSStatusBar.system.removeStatusItem(statusItem)
+            return
+        }
+
         let image = NSImage(named: "MenuBarIcon") ?? NSImage(
             systemSymbolName: "capsule.fill",
             accessibilityDescription: "NotchFlow"
         )
         image?.isTemplate = true
-        statusItem.button?.image = image
-        statusItem.button?.imagePosition = .imageOnly
-        statusItem.button?.setAccessibilityLabel("NotchFlow")
-        statusItem.button?.toolTip = "NotchFlow"
+        image?.size = Self.iconSize
+        button.image = image
+        button.imagePosition = .imageOnly
+        button.setAccessibilityLabel("NotchFlow")
+        button.toolTip = "NotchFlow"
         statusItem.menu = makeMenu()
         statusItem.isVisible = true
         self.statusItem = statusItem
-        visibilityRestorationTask = Task { @MainActor [weak self, weak statusItem] in
-            try? await Task.sleep(for: Self.visibilityRestorationDelay)
-            guard
-                Task.isCancelled == false,
-                let self,
-                self.statusItem === statusItem,
-                let statusItem
-            else { return }
-
-            statusItem.isVisible = false
-            await Task.yield()
-            statusItem.isVisible = true
-        }
+        observeScreenChanges()
     }
 
     func stop() {
-        visibilityRestorationTask?.cancel()
-        visibilityRestorationTask = nil
         guard let statusItem else { return }
         NSStatusBar.system.removeStatusItem(statusItem)
         self.statusItem = nil

@@ -63,7 +63,7 @@ struct IslandRootView: View {
 
     private var geometry: ConnectedIslandGeometry {
         let compactSize = compactPillSize(
-            slotCount: compactSlots(for: model.compact).count,
+            for: model.compact,
             notchSize: model.notchSize
         )
         let expandedContentSize = expandedPanelSize(

@@ -60,25 +60,58 @@ public struct CompactPillMetrics: Equatable, Sendable {
     }
 }
 
-/// Drawn compact size for `slotCount`, including opaque notch width.
+/// Width of one side's slot run, excluding the gap to the notch.
+private func compactSideWidth(slotCount: Int, metrics: CompactPillMetrics) -> CGFloat {
+    let slots = max(slotCount, 0)
+    guard slots > 0 else { return 0 }
+    return CGFloat(slots) * metrics.slotWidth + CGFloat(slots - 1) * metrics.slotSpacing
+}
+
+/// Drawn compact size for a pill carrying `leadingSlotCount` slots before the
+/// notch and `trailingSlotCount` after it, including the opaque notch width.
+///
+/// Both sides are allocated the width of the *busier* one. The pill is centred
+/// on the notch, so the two flanks have to be the same width or the notch stops
+/// sitting in the middle of the drawn capsule. Sizing from the total instead —
+/// which is what an earlier version did — under-allocates whenever the slots are
+/// unevenly split: two agent icons on the trailing side got half the width they
+/// needed, and the one nearest the notch was drawn outside the capsule.
 public func compactPillSize(
-    slotCount: Int,
+    leadingSlotCount: Int,
+    trailingSlotCount: Int,
     notchSize: CGSize,
     metrics: CompactPillMetrics = .default
 ) -> CGSize {
-    let slots = max(slotCount, 0)
-    guard slots > 0 else {
+    let sideSlots = max(max(leadingSlotCount, 0), max(trailingSlotCount, 0))
+    guard sideSlots > 0 else {
         return CGSize(
             width: notchSize.width + metrics.edgeInset * 2,
             height: notchSize.height
         )
     }
 
+    let sideWidth = compactSideWidth(slotCount: sideSlots, metrics: metrics)
     return CGSize(
         width: notchSize.width
-            + CGFloat(slots) * (metrics.slotWidth + metrics.slotSpacing)
+            + (sideWidth + metrics.slotSpacing) * 2
             + metrics.edgeInset * 2,
         height: notchSize.height
+    )
+}
+
+/// Drawn compact size for `slotCount` slots split evenly around the notch, the
+/// balanced arrangement `compactSlotLayout` produces when no agent is present.
+public func compactPillSize(
+    slotCount: Int,
+    notchSize: CGSize,
+    metrics: CompactPillMetrics = .default
+) -> CGSize {
+    let slots = max(slotCount, 0)
+    return compactPillSize(
+        leadingSlotCount: (slots + 1) / 2,
+        trailingSlotCount: slots / 2,
+        notchSize: notchSize,
+        metrics: metrics
     )
 }
 
@@ -125,7 +158,8 @@ public func panelFrame(
 /// `panelFrame(for:metrics:)`.
 public func compactHitRect(
     for screen: ScreenDescription,
-    slotCount: Int = 0,
+    leadingSlotCount: Int,
+    trailingSlotCount: Int,
     metrics: PanelMetrics = .default,
     pillMetrics: CompactPillMetrics = .default
 ) -> CGRect {
@@ -133,7 +167,8 @@ public func compactHitRect(
     let hardwareNotch = notchRect(for: screen)
     let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
     let drawnSize = compactPillSize(
-        slotCount: slotCount,
+        leadingSlotCount: leadingSlotCount,
+        trailingSlotCount: trailingSlotCount,
         notchSize: notchSize,
         metrics: pillMetrics
     )
@@ -148,6 +183,23 @@ public func compactHitRect(
     )
 
     return CGRect(x: originX, y: panel.maxY - height, width: width, height: height)
+}
+
+/// The hit target for `slotCount` slots split evenly around the notch.
+public func compactHitRect(
+    for screen: ScreenDescription,
+    slotCount: Int = 0,
+    metrics: PanelMetrics = .default,
+    pillMetrics: CompactPillMetrics = .default
+) -> CGRect {
+    let slots = max(slotCount, 0)
+    return compactHitRect(
+        for: screen,
+        leadingSlotCount: (slots + 1) / 2,
+        trailingSlotCount: slots / 2,
+        metrics: metrics,
+        pillMetrics: pillMetrics
+    )
 }
 
 private func clamp(_ value: CGFloat, lowerBound: CGFloat, upperBound: CGFloat) -> CGFloat {

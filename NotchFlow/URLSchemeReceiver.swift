@@ -26,6 +26,47 @@ final class URLSchemeAppDelegate: NSObject, NSApplicationDelegate {
     /// Set by the composition root, for the same reason `onOpenURL` is.
     nonisolated(unsafe) static var onTerminate: (@MainActor () -> Void)?
 
+    /// Runs once AppKit has finished launching.
+    ///
+    /// Everything that needs a laid-out screen belongs here rather than in a
+    /// `DispatchQueue.main.async` from the composition root's initialiser. That
+    /// hop only waits for the next turn of the run loop, which can still come
+    /// before AppKit knows the display arrangement — and a status item created
+    /// then is placed at coordinates belonging to no screen's menu bar and is
+    /// never re-laid-out, so it reports itself visible while nothing is drawn.
+    nonisolated(unsafe) static var onDidFinishLaunching: (@MainActor () -> Void)? {
+        didSet {
+            guard hasFinishedLaunching else { return }
+            MainActor.assumeIsolated { runDidFinishLaunching() }
+        }
+    }
+
+    /// Whether launch already happened.
+    ///
+    /// The composition root sets `onDidFinishLaunching` from `App.init()`, which
+    /// runs first — but a latch costs nothing and turns "first" from an ordering
+    /// assumption into a fact the code enforces.
+    nonisolated(unsafe) private static var hasFinishedLaunching = false
+
+    /// Guards against running the work twice, and against the `didSet` above
+    /// re-entering when the handler is cleared.
+    nonisolated(unsafe) private static var hasRunDidFinishLaunching = false
+
+    @MainActor
+    private static func runDidFinishLaunching() {
+        guard hasRunDidFinishLaunching == false, let work = onDidFinishLaunching else { return }
+        hasRunDidFinishLaunching = true
+        onDidFinishLaunching = nil
+        work()
+    }
+
+    nonisolated func applicationDidFinishLaunching(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            Self.hasFinishedLaunching = true
+            Self.runDidFinishLaunching()
+        }
+    }
+
     nonisolated func application(_ application: NSApplication, open urls: [URL]) {
         MainActor.assumeIsolated {
             for url in urls {

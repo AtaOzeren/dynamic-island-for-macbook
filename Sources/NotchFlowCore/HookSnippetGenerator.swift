@@ -1,6 +1,40 @@
 import Foundation
 
 public struct HookSnippetGenerator: Sendable {
+    /// The token the Codex installer matches to recognise the `notify` command
+    /// it wrote itself.
+    ///
+    /// Declared here, beside the script that carries it, because the installer
+    /// used to hold its own copy of the string: the generator changed, the
+    /// installer went on looking for the old token, and it stopped recognising
+    /// its own hook — reporting the configuration unreadable and refusing to
+    /// upgrade. One constant, emitted and matched, cannot drift.
+    public static let codexNotifyMarker = "notchflow_codex_notify_v3"
+
+    /// The same, for the Codex lifecycle hooks file.
+    public static let codexLifecycleHookMarker = "notchflow_codex_hook_v2"
+
+    /// The token every generated hook command carries, whatever the agent.
+    ///
+    /// It is what lets an installer recognise a command *it* wrote in an
+    /// earlier version and replace it. Without that, upgrading only appended
+    /// the new command and left the old one beside it: the previous, broken
+    /// hook kept firing, and every event was delivered twice.
+    public static let managedHookMarker = "notchflow_hook_v2"
+
+    /// Every token an earlier version's command carried, all of which must be
+    /// present for it to count as ours.
+    ///
+    /// Deliberately more than the URL scheme alone. A hook someone wrote by
+    /// hand may well open a `notchflow://` URL; deriving the session with
+    /// `uuid.uuid5` is this generator's own signature. Claiming too much would
+    /// mean deleting a user's own hook on upgrade, which is worse than leaving
+    /// a stale one behind.
+    public static let legacyManagedHookMarkers = [
+        "notchflow://ai-status",
+        "uuid.uuid5(",
+    ]
+
     public init() {}
 
     public static func statusURL(for message: IPCMessage) throws -> URL {
@@ -22,31 +56,19 @@ public struct HookSnippetGenerator: Sendable {
     }
 
     public func claudeCodeSettingsFragment() -> String {
-        let lifecycle: [(event: String, state: String, detail: String)] = [
-            ("SessionStart", "thinking", "Session started"),
-            ("UserPromptSubmit", "working", "Working"),
-            ("PreToolUse", "usingTool", "Using tool"),
-            ("PostToolUse", "working", "Tool completed"),
-            ("Notification", "waitingForUser", "Needs attention"),
-            ("Stop", "completed", "Task completed"),
-            ("StopFailure", "error", "Task failed"),
-            ("SessionEnd", "idle", "Session ended"),
-        ]
-        let hooks = Dictionary(uniqueKeysWithValues: lifecycle.map { event in
-            let command = Self.shellCommand(
-                eventExpression: #"event=json.loads(sys.argv[1]); raw_session=event["session_id"]"#,
-                agentID: "claude-code",
-                state: event.state,
-                detail: event.detail
-            )
-            return (
+        let hooks = Dictionary(uniqueKeysWithValues: Self.claudeCodeLifecycle.map { event in
+            (
                 event.event,
                 [
                     [
                         "hooks": [
                             [
                                 "type": "command",
-                                "command": "EVENT=$(cat); \(command) &",
+                                "command": HookScript.claudeCodeHookCommand(
+                                    state: event.state,
+                                    detail: event.detail,
+                                    carriesToolName: event.carriesToolName
+                                ),
                             ]
                         ]
                     ]
@@ -69,45 +91,43 @@ public struct HookSnippetGenerator: Sendable {
     }
 
     public func codexNotifyFragment(forwarding existingArguments: [String] = []) -> String {
-        let forwardedJSON = Self.jsonLiteral(existingArguments)
-        let forwardedBase64 = Data(forwardedJSON.utf8).base64EncodedString()
+        let forwardedJSON = HookTextEncoding.jsonLiteral(existingArguments)
         let script =
-            #"import datetime,json,subprocess,sys,urllib.parse,uuid; "#
-            + #"notchflow_codex_notify_v2=True; "#
-            + #"notchflow_forward_b64='"# + forwardedBase64 + #"'; "#
-            + #"forward="# + forwardedJSON + #"; event_args=sys.argv[1:]; "#
-            + #"event_json=event_args[0]; event=json.loads(event_json); "#
-            + #"raw_session=event["thread-id"]; "#
-            + #"session=str(uuid.uuid5(uuid.NAMESPACE_URL,"codex:"+raw_session)); "#
-            + #"payload={"schemaVersion":"1.0","agentId":"codex","sessionId":session,"#
-            + #""state":"completed","detail":"Turn completed","timestamp":"#
-            + #"datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")"#
-            + #".replace("+00:00","Z")}; "#
-            + #"url="notchflow://ai-status?payload="+urllib.parse.quote("#
-            + #"json.dumps(payload,separators=(",",":")),safe=""); "#
-            + #"forward and subprocess.Popen(forward+event_args,start_new_session=True,"#
-            + #"stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "#
-            + #"subprocess.Popen(["open","-g",url],start_new_session=True,"#
-            + #"stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)"#
-        return "notify = \(Self.jsonLiteral(["python3", "-c", script]))\n"
+            HookScript.pythonPreamble(agentID: "codex")
+            + """
+            \(Self.codexNotifyMarker) = True
+            forward = json.loads(\(HookTextEncoding.pythonStringLiteral(forwardedJSON)))
+            event_args = sys.argv[1:]
+            forward and subprocess.Popen(
+                forward + event_args,
+                start_new_session=True,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if not event_args:
+                sys.exit(0)
+            event = notchflow_load(event_args[0])
+            notchflow_send(
+                notchflow_payload(
+                    notchflow_session(event.get("thread-id") or event.get("thread_id")),
+                    "completed",
+                    "Turn completed",
+                )
+            )
+            """
+        return "notify = \(HookTextEncoding.jsonLiteral(["/usr/bin/python3", "-c", script]))\n"
     }
 
     public func codexLifecycleHooksFragment() -> String {
-        let events = [
-            "UserPromptSubmit",
-            "PreToolUse",
-            "PostToolUse",
-            "PermissionRequest",
-            "Stop",
-        ]
         let handler: [String: Any] = [
             "type": "command",
-            "command": Self.codexLifecycleHookCommand(),
+            "command": HookScript.codexLifecycleHookCommand(),
             "async": true,
             "timeout": 5,
         ]
-        let hooks = Dictionary(uniqueKeysWithValues: events.map { event in
-            (event, [["hooks": [handler]]])
+        let hooks = Dictionary(uniqueKeysWithValues: Self.codexLifecycleEvents.map { event in
+            (event.event, [["hooks": [handler]]])
         })
         let document: [String: Any] = ["hooks": hooks]
 
@@ -123,10 +143,20 @@ public struct HookSnippetGenerator: Sendable {
     }
 
     public func openCodePluginFile() -> String {
-        """
+        Self.openCodePluginSource
+    }
+
+    /// Stored rather than returned inline, so an embedded TypeScript module is
+    /// a constant rather than a hundred-line function body.
+    private static let openCodePluginSource = """
         import type { Plugin } from "@opencode-ai/plugin"
         import { spawn } from "node:child_process"
         import { createHash } from "node:crypto"
+        import { readFileSync } from "node:fs"
+        import { homedir } from "node:os"
+        import { join } from "node:path"
+
+        const PORT_FILE = join(homedir(), "Library", "Application Support", "NotchFlow", "ipc-port")
 
         const sessionUUID = (agentId: string, sessionId: string) => {
           const bytes = createHash("sha256").update(`${agentId}:${sessionId}`).digest().subarray(0, 16)
@@ -136,8 +166,43 @@ public struct HookSnippetGenerator: Sendable {
           return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
         }
 
-        const notify = (state: string, sessionId: string, detail: string) => {
-          const payload = {
+        // Falls back to the URL scheme when the island is not listening: `open`
+        // launches NotchFlow, the loopback socket only reaches it once running.
+        const deliver = (body: string) => {
+          let port = ""
+          try {
+            port = readFileSync(PORT_FILE, "utf8").trim()
+          } catch {
+            port = ""
+          }
+          if (port) {
+            const controller = new AbortController()
+            const timeout = setTimeout(() => controller.abort(), 2000)
+            fetch(`http://127.0.0.1:${port}/ai-status`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body,
+              signal: controller.signal,
+            })
+              .then(() => clearTimeout(timeout))
+              .catch(() => {
+                clearTimeout(timeout)
+                openURL(body)
+              })
+            return
+          }
+          openURL(body)
+        }
+
+        const openURL = (body: string) => {
+          const url = `notchflow://ai-status?payload=${encodeURIComponent(body)}`
+          const child = spawn("open", ["-g", url], { detached: true, stdio: "ignore" })
+          child.unref()
+        }
+
+        const notify = (state: string, sessionId: string, detail: string, toolName?: string) => {
+          if (!sessionId) return
+          const payload: Record<string, unknown> = {
             schemaVersion: "1.0",
             agentId: "opencode",
             sessionId: sessionUUID("opencode", sessionId),
@@ -145,9 +210,8 @@ public struct HookSnippetGenerator: Sendable {
             detail,
             timestamp: new Date().toISOString(),
           }
-          const url = `notchflow://ai-status?payload=${encodeURIComponent(JSON.stringify(payload))}`
-          const child = spawn("open", ["-g", url], { detached: true, stdio: "ignore" })
-          child.unref()
+          if (state === "usingTool" && toolName) payload.toolName = toolName
+          deliver(JSON.stringify(payload))
         }
 
         export const NotchFlowPlugin: Plugin = async () => ({
@@ -157,77 +221,96 @@ public struct HookSnippetGenerator: Sendable {
                 notify("thinking", event.properties.info.id, "Session started")
                 break
               case "session.idle":
-                notify("completed", event.properties.sessionID, "Session completed")
+                notify("completed", event.properties.sessionID, "Task completed")
                 break
               case "session.error":
                 notify("error", event.properties.sessionID, "Session error")
                 break
+              case "session.deleted":
+                notify("idle", event.properties.info.id, "Session ended")
+                break
+              case "permission.asked":
+                notify("waitingForUser", event.properties.sessionID, "Needs attention")
+                break
             }
           },
+          "chat.message": async (_input, output) => {
+            notify("thinking", output.message.sessionID, "Task started")
+          },
           "tool.execute.before": async (input) => {
-            notify("usingTool", input.sessionID, "Using tool")
+            notify("usingTool", input.sessionID, "Using tool", input.tool)
           },
           "tool.execute.after": async (input) => {
-            notify("working", input.sessionID, "Tool completed")
+            notify("working", input.sessionID, "Working…")
           },
         })
 
         """
+
+    // MARK: - Lifecycle tables
+
+    struct LifecycleEvent {
+        let event: String
+        let state: String
+        let detail: String
+        var carriesToolName = false
     }
 
-    private static func shellCommand(
-        eventExpression: String,
-        agentID: String,
-        state: String,
-        detail: String,
-        inputExpression: String = #"$EVENT"#
-    ) -> String {
-        let python =
-            #"import json,sys,urllib.parse,uuid; "#
-            + eventExpression
-            + "; session=str(uuid.uuid5(uuid.NAMESPACE_URL,\"\(agentID):\"+raw_session))"
-            + #"; payload={"schemaVersion":"1.0","agentId":""# + agentID
-            + #"","sessionId":session,"state":""# + state
-            + #"","detail":""# + detail
-            + #"","timestamp":__import__("datetime").datetime.now("#
-            + #"__import__("datetime").timezone.utc).isoformat(timespec="milliseconds")"#
-            + #".replace("+00:00","Z")}; print("notchflow://ai-status?payload=""#
-            + #"+urllib.parse.quote(json.dumps(payload,separators=(",",":")),"#
-            + #"safe=""))"#
-        return #"URL=$(python3 -c '"# + python + #"' "# + inputExpression + #"); [ -n "$URL" ] && open -g "$URL""#
-    }
+    /// The Claude Code hook events NotchFlow subscribes to.
+    ///
+    /// Only names Claude Code actually emits appear here — an event that does
+    /// not exist is a hook that never fires, which reads on screen exactly like
+    /// a broken island. `Stop` is the single end-of-turn event; failures arrive
+    /// through `Notification`, not through a separate failure hook.
+    private static let claudeCodeLifecycle: [LifecycleEvent] = [
+        LifecycleEvent(event: "SessionStart", state: "thinking", detail: "Session started"),
+        LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
+        LifecycleEvent(
+            event: "PreToolUse",
+            state: "usingTool",
+            detail: "Using tool",
+            carriesToolName: true
+        ),
+        LifecycleEvent(event: "PostToolUse", state: "working", detail: "Tool completed"),
+        LifecycleEvent(event: "SubagentStop", state: "working", detail: "Subagent finished"),
+        LifecycleEvent(event: "Notification", state: "waitingForUser", detail: "Needs attention"),
+        LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
+        LifecycleEvent(event: "SessionEnd", state: "idle", detail: "Session ended"),
+    ]
 
-    private static func codexLifecycleHookCommand() -> String {
-        let script =
-            #"import datetime,json,subprocess,sys,urllib.parse,uuid; "#
-            + #"notchflow_codex_hook_v1=True; "#
-            + #"event=json.load(sys.stdin); raw_session=str(event["session_id"]); "#
-            + #"session=str(uuid.uuid5(uuid.NAMESPACE_URL,"codex:"+raw_session)); "#
-            + #"states={"UserPromptSubmit":("thinking","Task started"),"#
-            + #""PreToolUse":("usingTool","Using tool"),"#
-            + #""PostToolUse":("working","Working"),"#
-            + #""PermissionRequest":("waitingForUser","Needs attention"),"#
-            + #""Stop":("completed","Task completed")}; "#
-            + #"state,detail=states[event["hook_event_name"]]; "#
-            + #"payload={"schemaVersion":"1.0","agentId":"codex","sessionId":session,"#
-            + #""state":state,"detail":detail,"timestamp":"#
-            + #"datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")"#
-            + #".replace("+00:00","Z")}; "#
-            + #"tool="".join(c for c in str(event.get("tool_name","Tool")) "#
-            + #"if c.isalnum() or c in " ._-")[:80] or "Tool"; "#
-            + #"event["hook_event_name"]=="PreToolUse" and payload.update({"toolName":tool}); "#
-            + #"url="notchflow://ai-status?payload="+urllib.parse.quote("#
-            + #"json.dumps(payload,separators=(",",":")),safe=""); "#
-            + #"subprocess.Popen(["open","-g",url],start_new_session=True,"#
-            + #"stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)"#
-        return "/usr/bin/python3 -c \(shellSingleQuoted(script))"
-    }
+    static let codexLifecycleEvents: [LifecycleEvent] = [
+        LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
+        LifecycleEvent(
+            event: "PreToolUse",
+            state: "usingTool",
+            detail: "Using tool",
+            carriesToolName: true
+        ),
+        LifecycleEvent(event: "PostToolUse", state: "working", detail: "Working…"),
+        LifecycleEvent(
+            event: "PermissionRequest",
+            state: "waitingForUser",
+            detail: "Needs attention"
+        ),
+        LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
+    ]
 
-    private static func shellSingleQuoted(_ value: String) -> String {
+    /// A Python string literal for `value`, produced by the JSON encoder because
+    /// JSON string syntax is a subset of Python's.
+}
+
+/// Escaping shared by the generator and the scripts it embeds.
+enum HookTextEncoding {
+    /// Wraps `value` as a single-quoted shell word.
+    static func shellSingleQuoted(_ value: String) -> String {
         "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
     }
 
-    private static func jsonLiteral<Value: Encodable>(_ value: Value) -> String {
+    static func pythonStringLiteral(_ value: String) -> String {
+        jsonLiteral(value)
+    }
+
+    static func jsonLiteral<Value: Encodable>(_ value: Value) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         guard let data = try? encoder.encode(value) else {

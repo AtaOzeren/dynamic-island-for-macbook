@@ -2,9 +2,9 @@ import Foundation
 
 /// One agent session's status, as the island's activity model sees it.
 ///
-/// The state itself lives in `AIAgentState` and its legal transitions in
-/// `AIAgentStateMachine`; this type is the activity wrapper around a single
-/// reading of that state, carrying the four things `docs/07-ai-integration.md`
+/// The state itself lives in `AIAgentState` and the ordering of the messages
+/// that carry it in `AIAgentSessionLedger`; this type is the activity wrapper
+/// around a single reading of that state, carrying the four things `docs/07-ai-integration.md`
 /// lets cross the process boundary — the state, the agent, the short detail
 /// line, and the optional tool name and progress — and nothing else.
 ///
@@ -16,9 +16,8 @@ import Foundation
 public struct AIAgentActivity: Activity, Equatable {
     /// How long a `completed` state stays on screen before the manager ends it.
     ///
-    /// The same five seconds `AIAgentStateMachine` uses for its own expiry, so
-    /// the machine's idea of when a finished task is over and the island's
-    /// cannot drift apart.
+    /// Long enough to be read at a glance, short enough that a finished task
+    /// does not hold a slot the next one needs.
     public static let completedAutoDismissAfter: Duration = .seconds(5)
 
     public let agent: IPCAgentID
