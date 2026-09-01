@@ -512,8 +512,13 @@ struct AIAgentIcon: View {
                 Image(nsImage: image)
                     .resizable()
                     .scaledToFit()
+                    .frame(
+                        width: size * aiAgentIconArtworkScale(for: agentID),
+                        height: size * aiAgentIconArtworkScale(for: agentID)
+                    )
             } else {
                 fallback
+                    .frame(width: size, height: size)
             }
         }
         .frame(width: size, height: size)
@@ -543,6 +548,13 @@ struct AIAgentIcon: View {
         case .opencode:
             OpenCodeLogo()
         }
+    }
+}
+
+func aiAgentIconArtworkScale(for agentID: IPCAgentID) -> CGFloat {
+    switch agentID {
+    case .codex: 1.24
+    case .claudeCode, .opencode: 1
     }
 }
 

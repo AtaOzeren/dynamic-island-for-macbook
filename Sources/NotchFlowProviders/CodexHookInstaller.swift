@@ -47,8 +47,10 @@ public struct FoundationCodexHookFileSystem: CodexHookFileSystem {
 
 public struct CodexHookInstaller: Sendable {
     private static let configPath = ".codex/config.toml"
+    private static let hooksPath = ".codex/hooks.json"
     private static let backupSuffix = ".notchflow-backup"
     private static let rootNotifyPattern = #"(?m)^[ \t]*notify[ \t]*="#
+    private static let lifecycleHookMarker = "notchflow_codex_hook_v1=True"
 
     private struct RootNotifyAssignment {
         let range: Range<String.Index>
@@ -58,6 +60,7 @@ public struct CodexHookInstaller: Sendable {
     private let fileSystem: any CodexHookFileSystem
     private let syntaxValidator: CodexTOMLSyntaxValidator
     private let configURL: URL
+    private let hooksURL: URL
     private let backupURL: URL
 
     public init(
@@ -68,6 +71,7 @@ public struct CodexHookInstaller: Sendable {
         self.fileSystem = fileSystem
         self.syntaxValidator = syntaxValidator ?? Self.basicTOMLIsValid
         configURL = homeDirectory.appending(path: Self.configPath)
+        hooksURL = homeDirectory.appending(path: Self.hooksPath)
         backupURL = configURL.appendingPathExtension(
             String(Self.backupSuffix.dropFirst())
         )
@@ -83,8 +87,13 @@ public struct CodexHookInstaller: Sendable {
     public func manualSetupInstructions() throws -> ManualSetupInstructions {
         ManualSetupInstructions(
             agent: .codex,
-            destinationPath: configURL.path,
-            snippet: try proposedConfiguration()
+            destinationPath: hooksURL.path,
+            snippet: String(
+                decoding: try lifecycleHooksByInstalling(
+                    in: fileSystem.readFile(at: hooksURL)
+                ).data,
+                as: UTF8.self
+            )
         )
     }
 
@@ -100,7 +109,13 @@ public struct CodexHookInstaller: Sendable {
             guard let existingData = try fileSystem.readFile(at: configURL) else {
                 return .configurationMissing
             }
-            return try mergedConfiguration(from: existingData).changed ? .hookAbsent : .hookInstalled
+            let notifyIsInstalled = try mergedConfiguration(from: existingData).changed == false
+            let lifecycleHooksAreInstalled = try lifecycleHooksAreInstalled(
+                in: fileSystem.readFile(at: hooksURL)
+            )
+            return notifyIsInstalled && lifecycleHooksAreInstalled
+                ? .hookInstalled
+                : .hookAbsent
         } catch {
             // A throw here means the bytes are not TOML we can parse, or carry
             // duplicate root `notify` keys — either way the hook state is
@@ -112,18 +127,30 @@ public struct CodexHookInstaller: Sendable {
     public func install() throws {
         let existingData = try fileSystem.readFile(at: configURL)
         let merged = try mergedConfiguration(from: existingData)
-        guard merged.changed else {
+        let existingHooksData = try fileSystem.readFile(at: hooksURL)
+        let mergedHooks = try lifecycleHooksByInstalling(in: existingHooksData)
+        guard merged.changed || mergedHooks.changed else {
             return
         }
 
         try fileSystem.createDirectory(at: configURL.deletingLastPathComponent())
-        if let existingData, try fileSystem.readFile(at: backupURL) == nil {
-            try fileSystem.writeFileAtomically(existingData, to: backupURL)
+        if merged.changed {
+            if let existingData, try fileSystem.readFile(at: backupURL) == nil {
+                try fileSystem.writeFileAtomically(existingData, to: backupURL)
+            }
+            try fileSystem.writeFileAtomically(Data(merged.text.utf8), to: configURL)
         }
-        try fileSystem.writeFileAtomically(Data(merged.text.utf8), to: configURL)
+        if mergedHooks.changed {
+            try fileSystem.writeFileAtomically(mergedHooks.data, to: hooksURL)
+        }
     }
 
     public func uninstall() throws {
+        try uninstallNotify()
+        try uninstallLifecycleHooks()
+    }
+
+    private func uninstallNotify() throws {
         if let backup = try fileSystem.readFile(at: backupURL) {
             _ = try validatedText(from: backup, error: .invalidExistingConfiguration)
             let installedData = Data(try mergedConfiguration(from: backup).text.utf8)
@@ -156,6 +183,204 @@ public struct CodexHookInstaller: Sendable {
         try fileSystem.writeFileAtomically(Data(removal.text.utf8), to: configURL)
     }
 
+    private func lifecycleHooksByInstalling(
+        in existingData: Data?
+    ) throws -> (data: Data, changed: Bool) {
+        var document = try lifecycleHooksDocument(from: existingData)
+        var hooks = try lifecycleHookMap(in: document)
+        let generatedHooks = try generatedLifecycleHooks()
+
+        for event in generatedHooks.keys.sorted() {
+            let existingGroups = try lifecycleHookGroups(for: event, in: hooks)
+            let foreignGroups = try removingManagedLifecycleHandlers(from: existingGroups)
+            hooks[event] = foreignGroups + (generatedHooks[event] ?? [])
+        }
+
+        document["hooks"] = hooks
+        let data = try encodedLifecycleHooksDocument(document)
+        return (data, existingData.map { $0 == data } != true)
+    }
+
+    private func lifecycleHooksAreInstalled(in data: Data?) throws -> Bool {
+        guard let data else { return false }
+        let document = try lifecycleHooksDocument(from: data)
+        let hooks = try lifecycleHookMap(in: document)
+        let generatedHooks = try generatedLifecycleHooks()
+
+        for event in generatedHooks.keys {
+            let expectedCommand = try managedLifecycleCommand(
+                in: generatedHooks[event] ?? []
+            )
+            let installedHandlers = try lifecycleHookGroups(for: event, in: hooks)
+                .flatMap { group -> [[String: Any]] in
+                    guard let handlers = group["hooks"] as? [[String: Any]] else {
+                        throw CodexHookInstallerError.invalidExistingConfiguration
+                    }
+                    return handlers.filter(isManagedLifecycleHandler)
+                }
+            guard
+                installedHandlers.count == 1,
+                installedHandlers[0]["command"] as? String == expectedCommand
+            else {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func uninstallLifecycleHooks() throws {
+        guard let existingData = try fileSystem.readFile(at: hooksURL) else {
+            return
+        }
+        var document = try lifecycleHooksDocument(from: existingData)
+        var hooks = try lifecycleHookMap(in: document)
+        var changed = false
+
+        for event in hooks.keys.sorted() {
+            let existingGroups = try lifecycleHookGroups(for: event, in: hooks)
+            let managedHandlerCount = try existingGroups.reduce(into: 0) { count, group in
+                guard let handlers = group["hooks"] as? [[String: Any]] else {
+                    throw CodexHookInstallerError.invalidExistingConfiguration
+                }
+                count += handlers.filter(isManagedLifecycleHandler).count
+            }
+            guard managedHandlerCount > 0 else { continue }
+            let foreignGroups = try removingManagedLifecycleHandlers(from: existingGroups)
+            if foreignGroups.isEmpty {
+                hooks[event] = nil
+            } else {
+                hooks[event] = foreignGroups
+            }
+            changed = true
+        }
+
+        guard changed else { return }
+        document["hooks"] = hooks
+        if hooks.isEmpty, Set(document.keys) == ["hooks"] {
+            try fileSystem.removeFile(at: hooksURL)
+            return
+        }
+        try fileSystem.writeFileAtomically(
+            encodedLifecycleHooksDocument(document),
+            to: hooksURL
+        )
+    }
+
+    private func lifecycleHooksDocument(from data: Data?) throws -> [String: Any] {
+        guard let data else {
+            return ["hooks": [String: Any]()]
+        }
+        do {
+            guard
+                let document = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            else {
+                throw CodexHookInstallerError.invalidExistingConfiguration
+            }
+            _ = try lifecycleHookMap(in: document)
+            return document
+        } catch let error as CodexHookInstallerError {
+            throw error
+        } catch {
+            throw CodexHookInstallerError.invalidExistingConfiguration
+        }
+    }
+
+    private func lifecycleHookMap(in document: [String: Any]) throws -> [String: Any] {
+        guard let value = document["hooks"] else { return [:] }
+        guard let hooks = value as? [String: Any] else {
+            throw CodexHookInstallerError.invalidExistingConfiguration
+        }
+        return hooks
+    }
+
+    private func generatedLifecycleHooks() throws -> [String: [[String: Any]]] {
+        let data = Data(HookSnippetGenerator().codexLifecycleHooksFragment().utf8)
+        do {
+            guard
+                let document = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let rawHooks = document["hooks"] as? [String: Any]
+            else {
+                throw CodexHookInstallerError.invalidGeneratedConfiguration
+            }
+            return try rawHooks.reduce(into: [:]) { hooks, pair in
+                guard let groups = pair.value as? [[String: Any]] else {
+                    throw CodexHookInstallerError.invalidGeneratedConfiguration
+                }
+                hooks[pair.key] = groups
+            }
+        } catch let error as CodexHookInstallerError {
+            throw error
+        } catch {
+            throw CodexHookInstallerError.invalidGeneratedConfiguration
+        }
+    }
+
+    private func lifecycleHookGroups(
+        for event: String,
+        in hooks: [String: Any]
+    ) throws -> [[String: Any]] {
+        guard let value = hooks[event] else { return [] }
+        guard let groups = value as? [[String: Any]] else {
+            throw CodexHookInstallerError.invalidExistingConfiguration
+        }
+        return groups
+    }
+
+    private func removingManagedLifecycleHandlers(
+        from groups: [[String: Any]]
+    ) throws -> [[String: Any]] {
+        try groups.compactMap { originalGroup in
+            var group = originalGroup
+            guard let handlers = group["hooks"] as? [[String: Any]] else {
+                throw CodexHookInstallerError.invalidExistingConfiguration
+            }
+            let foreignHandlers = handlers.filter { !isManagedLifecycleHandler($0) }
+            guard !foreignHandlers.isEmpty else { return nil }
+            group["hooks"] = foreignHandlers
+            return group
+        }
+    }
+
+    private func managedLifecycleCommand(
+        in groups: [[String: Any]]
+    ) throws -> String {
+        let handlers = try groups.flatMap { group -> [[String: Any]] in
+            guard let handlers = group["hooks"] as? [[String: Any]] else {
+                throw CodexHookInstallerError.invalidGeneratedConfiguration
+            }
+            return handlers.filter(isManagedLifecycleHandler)
+        }
+        guard
+            handlers.count == 1,
+            let command = handlers[0]["command"] as? String
+        else {
+            throw CodexHookInstallerError.invalidGeneratedConfiguration
+        }
+        return command
+    }
+
+    private func isManagedLifecycleHandler(_ handler: [String: Any]) -> Bool {
+        (handler["command"] as? String)?.contains(Self.lifecycleHookMarker) == true
+    }
+
+    private func encodedLifecycleHooksDocument(
+        _ document: [String: Any]
+    ) throws -> Data {
+        guard JSONSerialization.isValidJSONObject(document) else {
+            throw CodexHookInstallerError.invalidGeneratedConfiguration
+        }
+        do {
+            var data = try JSONSerialization.data(
+                withJSONObject: document,
+                options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            )
+            data.append(contentsOf: Data("\n".utf8))
+            return data
+        } catch {
+            throw CodexHookInstallerError.invalidGeneratedConfiguration
+        }
+    }
+
     private func mergedConfiguration(from existingData: Data?) throws -> (text: String, changed: Bool) {
         let existing: String
         if let existingData {
@@ -180,7 +405,7 @@ public struct CodexHookInstaller: Sendable {
 
     private func configurationBySettingRootNotify(in existing: String) throws -> String {
         if let assignment = try rootNotifyAssignment(in: existing) {
-            if isCurrentManagedNotify(assignment.arguments) {
+            if containsManagedNotify(assignment.arguments) {
                 return existing
             }
             let forwardedArguments = isLegacyManagedNotify(assignment.arguments)
@@ -209,6 +434,9 @@ public struct CodexHookInstaller: Sendable {
             return (existing, false)
         }
 
+        if containsNestedManagedNotify(assignment.arguments) {
+            return (existing, false)
+        }
         if isCurrentManagedNotify(assignment.arguments) {
             let forwarded = forwardedArguments(from: assignment.arguments) ?? []
             let replacement = forwarded.isEmpty ? "" : plainNotifySetting(forwarded)
@@ -394,6 +622,35 @@ public struct CodexHookInstaller: Sendable {
         let command = arguments.joined(separator: " ")
         return command.contains("notchflow://ai-status")
             && command.contains(#"agentId":"codex"#)
+    }
+
+    private func containsManagedNotify(_ arguments: [String]) -> Bool {
+        isCurrentManagedNotify(arguments)
+            || containsNestedManagedNotify(arguments)
+            || isLegacyManagedNotify(arguments)
+    }
+
+    private func containsNestedManagedNotify(
+        _ arguments: [String],
+        depth: Int = 0
+    ) -> Bool {
+        guard depth < 4 else { return false }
+        for argument in arguments {
+            guard
+                let data = argument.data(using: .utf8),
+                let nested = try? JSONDecoder().decode([String].self, from: data),
+                nested != arguments
+            else {
+                continue
+            }
+            if isCurrentManagedNotify(nested)
+                || isLegacyManagedNotify(nested)
+                || containsNestedManagedNotify(nested, depth: depth + 1)
+            {
+                return true
+            }
+        }
+        return false
     }
 
     private func forwardedArguments(from arguments: [String]) -> [String]? {

@@ -112,6 +112,7 @@ public final class SettingsStore {
             GeneralPreferences(
                 displayTarget: self[.displayTarget],
                 launchAtLogin: self[.launchAtLogin],
+                showMenuBarIcon: self[.showMenuBarIcon],
                 appearance: self[.appearance],
                 reducedMotionOverride: self[.reducedMotionOverride]
             )
@@ -119,6 +120,7 @@ public final class SettingsStore {
         set {
             self[.displayTarget] = newValue.displayTarget
             self[.launchAtLogin] = newValue.launchAtLogin
+            self[.showMenuBarIcon] = newValue.showMenuBarIcon
             self[.appearance] = newValue.appearance
             self[.reducedMotionOverride] = newValue.reducedMotionOverride
         }

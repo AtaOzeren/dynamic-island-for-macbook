@@ -74,17 +74,20 @@ public struct AboutSettingsView: View {
     private let information: AboutInformation
     private let languages: [LanguageOption]
     private let metrics: SettingsPaneMetrics
+    public let restartRequired: Bool
 
     public init(
         information: AboutInformation,
         languageOverride: Binding<String?>,
         languages: [LanguageOption] = [.systemDefault],
-        metrics: SettingsPaneMetrics = .default
+        metrics: SettingsPaneMetrics = .default,
+        restartRequired: Bool = false
     ) {
         self.information = information
         self._languageOverride = languageOverride
         self.languages = languages
         self.metrics = metrics
+        self.restartRequired = restartRequired
     }
 
     /// Always offers "System default" first, even when a caller passes a list
@@ -132,6 +135,10 @@ public struct AboutSettingsView: View {
                 ForEach(languageOptions, id: \.self) { option in
                     Text(option.displayName).tag(option)
                 }
+            }
+            if restartRequired {
+                Label(localized("Restart required"), systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
             }
         }
     }

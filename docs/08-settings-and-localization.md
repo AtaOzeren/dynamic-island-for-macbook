@@ -14,6 +14,7 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 |---|---|---|---|---|
 | Display target | enum: `automatic` \| `builtIn` \| `named(String)` | `automatic` | `display.target` | General |
 | Launch at login | Bool | `false` | `general.launchAtLogin` | General |
+| Menu bar icon visible | Bool | `true` | `general.showMenuBarIcon` | General, Appearance |
 | Appearance | enum: `auto` \| `light` \| `dark` | `auto` | `general.appearance` | General |
 | Reduced motion override | Bool? (nil = follow system) | `nil` | `general.reducedMotionOverride` | General |
 | Music provider enabled | Bool | `true` | `providers.music.enabled` | Activities |
@@ -57,9 +58,13 @@ No setting in the table above defaults to a state that would show the user somet
 
 ## The settings window
 
-Settings is a standard SwiftUI `Settings` scene, giving NotchFlow the platform-native window chrome, keyboard shortcut (⌘,), and menu bar item placement for free, with no custom window-management code. It opens two ways: from the status item's menu (see `todo 23`, the accessory-app configuration), and from the last step of first-run onboarding below. Opening the settings window does not change the app's activation policy — NotchFlow remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open, and closing the window returns to the same no-window, status-item-only state without any special-case handling.
+Settings is a standard SwiftUI `Settings` scene, giving NotchFlow platform-native window chrome and keyboard shortcut (⌘,). It opens from the AppKit status item's menu, first-run onboarding, or by reopening the running app from Finder. Reopening remains available when the user hides the status item. Opening Settings does not change the app's activation policy — NotchFlow remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open.
 
-The window is organized into the sections implied by the "Appears in" column above: **General** (display target, launch at login, appearance, reduced motion), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in `UserDefaults`.
+The window is organized into the sections implied by the "Appears in" column above: **General** (display target, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in `UserDefaults`.
+
+Most settings apply live. The language override is the exception because `Bundle` resolves and caches its localization at launch. Changing it shows a restart-required warning in both About and General. General's restart action launches one replacement NotchFlow instance, reopens Settings, then terminates the old instance only after launch succeeds; a launch failure leaves the current process running and presents the error. Restart requests for external AI tools remain in their hook setup guidance because restarting NotchFlow cannot reload another application's configuration.
+
+The menu bar icon toggle also applies live. With multiple displays, macOS owns status-item placement and may put the icon on a different active or main menu bar than the Settings window. General discloses this while multiple displays are attached instead of describing it as a restart requirement.
 
 ## First-run onboarding
 

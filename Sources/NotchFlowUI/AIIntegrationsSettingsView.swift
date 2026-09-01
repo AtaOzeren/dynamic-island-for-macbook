@@ -33,17 +33,20 @@ public struct AIIntegrationsSettingsView: View {
     @Binding private var preferences: AIIntegrationPreferences
     private let hookStates: [IPCAgentID: HookInstallationState]
     private let metrics: SettingsPaneMetrics
+    private let onPreferencesChange: (AIIntegrationPreferences) -> Void
     private let onHookAction: (IPCAgentID, AIHookAction) -> Void
 
     public init(
         preferences: Binding<AIIntegrationPreferences>,
         hookStates: [IPCAgentID: HookInstallationState] = [:],
         metrics: SettingsPaneMetrics = .default,
+        onPreferencesChange: @escaping (AIIntegrationPreferences) -> Void = { _ in },
         onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in }
     ) {
         self._preferences = preferences
         self.hookStates = hookStates
         self.metrics = metrics
+        self.onPreferencesChange = onPreferencesChange
         self.onHookAction = onHookAction
     }
 
@@ -59,7 +62,10 @@ public struct AIIntegrationsSettingsView: View {
             get: { preferences.isEnabled(agentID) },
             set: { isEnabled in
                 let wasEnabled = preferences.isEnabled(agentID)
-                preferences.setAgent(agentID, enabled: isEnabled)
+                var updatedPreferences = preferences
+                updatedPreferences.setAgent(agentID, enabled: isEnabled)
+                preferences = updatedPreferences
+                onPreferencesChange(updatedPreferences)
 
                 guard isEnabled, !wasEnabled, hookAction(for: agentID) == .install else {
                     return
@@ -72,7 +78,12 @@ public struct AIIntegrationsSettingsView: View {
     public func binding(for eventClass: AIEventClass) -> Binding<Bool> {
         Binding(
             get: { preferences.isEnabled(eventClass) },
-            set: { preferences.setEventClass(eventClass, enabled: $0) }
+            set: { isEnabled in
+                var updatedPreferences = preferences
+                updatedPreferences.setEventClass(eventClass, enabled: isEnabled)
+                preferences = updatedPreferences
+                onPreferencesChange(updatedPreferences)
+            }
         )
     }
 

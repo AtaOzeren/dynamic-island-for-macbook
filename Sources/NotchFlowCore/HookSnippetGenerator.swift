@@ -92,6 +92,36 @@ public struct HookSnippetGenerator: Sendable {
         return "notify = \(Self.jsonLiteral(["python3", "-c", script]))\n"
     }
 
+    public func codexLifecycleHooksFragment() -> String {
+        let events = [
+            "UserPromptSubmit",
+            "PreToolUse",
+            "PostToolUse",
+            "PermissionRequest",
+            "Stop",
+        ]
+        let handler: [String: Any] = [
+            "type": "command",
+            "command": Self.codexLifecycleHookCommand(),
+            "async": true,
+            "timeout": 5,
+        ]
+        let hooks = Dictionary(uniqueKeysWithValues: events.map { event in
+            (event, [["hooks": [handler]]])
+        })
+        let document: [String: Any] = ["hooks": hooks]
+
+        guard
+            let data = try? JSONSerialization.data(
+                withJSONObject: document,
+                options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            )
+        else {
+            preconditionFailure("The fixed Codex lifecycle hooks must encode as JSON")
+        }
+        return String(decoding: data, as: UTF8.self) + "\n"
+    }
+
     public func openCodePluginFile() -> String {
         """
         import type { Plugin } from "@opencode-ai/plugin"
@@ -165,6 +195,36 @@ public struct HookSnippetGenerator: Sendable {
             + #"+urllib.parse.quote(json.dumps(payload,separators=(",",":")),"#
             + #"safe=""))"#
         return #"URL=$(python3 -c '"# + python + #"' "# + inputExpression + #"); [ -n "$URL" ] && open -g "$URL""#
+    }
+
+    private static func codexLifecycleHookCommand() -> String {
+        let script =
+            #"import datetime,json,subprocess,sys,urllib.parse,uuid; "#
+            + #"notchflow_codex_hook_v1=True; "#
+            + #"event=json.load(sys.stdin); raw_session=str(event["session_id"]); "#
+            + #"session=str(uuid.uuid5(uuid.NAMESPACE_URL,"codex:"+raw_session)); "#
+            + #"states={"UserPromptSubmit":("thinking","Task started"),"#
+            + #""PreToolUse":("usingTool","Using tool"),"#
+            + #""PostToolUse":("working","Working"),"#
+            + #""PermissionRequest":("waitingForUser","Needs attention"),"#
+            + #""Stop":("completed","Task completed")}; "#
+            + #"state,detail=states[event["hook_event_name"]]; "#
+            + #"payload={"schemaVersion":"1.0","agentId":"codex","sessionId":session,"#
+            + #""state":state,"detail":detail,"timestamp":"#
+            + #"datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds")"#
+            + #".replace("+00:00","Z")}; "#
+            + #"tool="".join(c for c in str(event.get("tool_name","Tool")) "#
+            + #"if c.isalnum() or c in " ._-")[:80] or "Tool"; "#
+            + #"event["hook_event_name"]=="PreToolUse" and payload.update({"toolName":tool}); "#
+            + #"url="notchflow://ai-status?payload="+urllib.parse.quote("#
+            + #"json.dumps(payload,separators=(",",":")),safe=""); "#
+            + #"subprocess.Popen(["open","-g",url],start_new_session=True,"#
+            + #"stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)"#
+        return "/usr/bin/python3 -c \(shellSingleQuoted(script))"
+    }
+
+    private static func shellSingleQuoted(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\"'\"'") + "'"
     }
 
     private static func jsonLiteral<Value: Encodable>(_ value: Value) -> String {

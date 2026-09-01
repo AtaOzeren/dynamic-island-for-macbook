@@ -9,6 +9,7 @@ import SwiftUI
 @main
 struct NotchFlowApp: App {
     private static let isUITesting = CommandLine.arguments.contains("--ui-testing")
+    private static let reopenSettingsArgument = "--show-settings-after-restart"
 
     /// Delivers `notchflow://` URLs while no window is open. See
     /// `URLSchemeAppDelegate` for why a view modifier cannot.
@@ -44,6 +45,7 @@ struct NotchFlowApp: App {
     /// the button the user presses and the permission the provider is blocked on
     /// are the same fact.
     private let automationGate: MusicAutomationGate
+    private let appliedLanguageOverride: String?
 
     @State private var aiPreferences: AIIntegrationPreferences
     @State private var generalPreferences: GeneralPreferences
@@ -53,6 +55,7 @@ struct NotchFlowApp: App {
     @State private var musicAutomationRequestsInProgress: Set<MusicPlayerTarget>
     @State private var hookStates: [IPCAgentID: HookInstallationState]
     @State private var availableDisplays: [DisplayDescription]
+    @State private var isSettingsActionBridgeInserted = true
 
     init() {
         let automationGate = MusicAutomationGate()
@@ -89,8 +92,10 @@ struct NotchFlowApp: App {
         initialGeneralPreferences.appearance = .dark
         _generalPreferences = State(initialValue: initialGeneralPreferences)
         _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
-        _languageOverride = State(initialValue: settingsStore[.languageOverride])
-        Self.applyLanguageOverride(settingsStore[.languageOverride])
+        let appliedLanguageOverride = settingsStore[.languageOverride]
+        self.appliedLanguageOverride = appliedLanguageOverride
+        _languageOverride = State(initialValue: appliedLanguageOverride)
+        Self.applyLanguageOverride(appliedLanguageOverride)
 
         // Held rather than constructed inline: the menu bar's timer control and
         // the expanded island's pause/resume have to reach the same provider
@@ -200,7 +205,7 @@ struct NotchFlowApp: App {
             // Ordering a window front before AppKit has finished launching is
             // unreliable. `start()` orders the persistent compact panel in, so
             // it waits on the same turn the onboarding window does.
-            statusItemPresenter.start()
+            statusItemPresenter.setVisible(settingsStore.generalPreferences.showMenuBarIcon)
             islandPresenter.start()
             Self.repairEnabledHooks(
                 preferences: settingsStore.aiIntegrationPreferences,
@@ -219,6 +224,10 @@ struct NotchFlowApp: App {
                     listener: loopbackListener,
                     manualSetupPresenter: manualSetupPresenter
                 )
+            }
+
+            if CommandLine.arguments.contains(Self.reopenSettingsArgument) {
+                settingsWindowRouter.open()
             }
 
         }
@@ -324,11 +333,14 @@ struct NotchFlowApp: App {
     var body: some Scene {
         // `openSettings` exists only in SwiftUI's scene environment. This
         // zero-size scene captures that official action for Finder reopen
-        // events; the visible, reliable menu bar item is AppKit-owned.
-        MenuBarExtra(isInserted: .constant(true)) {
+        // events, then removes itself before it can remain as a second status
+        // item. The visible, reliable menu bar item is AppKit-owned.
+        MenuBarExtra(isInserted: $isSettingsActionBridgeInserted) {
             EmptyView()
         } label: {
-            SettingsActionBridge(router: settingsWindowRouter)
+            SettingsActionBridge(router: settingsWindowRouter) {
+                isSettingsActionBridgeInserted = false
+            }
         }
 
         Settings {
@@ -349,7 +361,10 @@ struct NotchFlowApp: App {
             hookStates: hookStates,
             automationRequestsInProgress: musicAutomationRequestsInProgress,
             onRequestAutomation: requestAutomation,
-            onHookAction: handleHookAction
+            onAIPreferencesChange: applyAIPreferences,
+            onHookAction: handleHookAction,
+            restartRequired: languageOverride != appliedLanguageOverride,
+            onRestart: restartApplication
         )
         .onAppear {
             aiPreferences = settingsStore.aiIntegrationPreferences
@@ -378,17 +393,6 @@ struct NotchFlowApp: App {
         ) { _ in
             refreshAvailableDisplays()
         }
-        .onChange(of: aiPreferences, initial: true) { _, preferences in
-            settingsStore.aiIntegrationPreferences = preferences
-            urlSchemeReceiver.preferences = preferences
-            Task {
-                do {
-                    _ = try await loopbackListener.updatePreferences(preferences)
-                } catch {
-                    Self.present(error)
-                }
-            }
-        }
         .onChange(of: generalPreferences, initial: true) { _, preferences in
             do {
                 try Self.applyLaunchAtLogin(preferences.launchAtLogin)
@@ -398,6 +402,7 @@ struct NotchFlowApp: App {
                 return
             }
             settingsStore.generalPreferences = preferences
+            statusItemPresenter.setVisible(preferences.showMenuBarIcon)
             islandPresenter.applyAppearance(preferences.appearance)
             islandPresenter.applyReducedMotion(preferences.reducedMotionOverride)
             islandPresenter.applyDisplayTarget()
@@ -407,6 +412,24 @@ struct NotchFlowApp: App {
         }
         .onChange(of: languageOverride) { _, override in
             settingsStore[.languageOverride] = override
+        }
+    }
+
+    private func restartApplication() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        configuration.arguments = [Self.reopenSettingsArgument]
+        NSWorkspace.shared.openApplication(
+            at: Bundle.main.bundleURL,
+            configuration: configuration
+        ) { _, error in
+            Task { @MainActor in
+                if let error {
+                    Self.present(error)
+                    return
+                }
+                NSApp.terminate(nil)
+            }
         }
     }
 
@@ -440,17 +463,39 @@ struct NotchFlowApp: App {
         musicAutomation = automationGate.reloadAccess()
     }
 
+    private func applyAIPreferences(_ preferences: AIIntegrationPreferences) {
+        settingsStore.aiIntegrationPreferences = preferences
+        urlSchemeReceiver.preferences = preferences
+        Task {
+            do {
+                _ = try await loopbackListener.updatePreferences(preferences)
+            } catch {
+                Self.present(error)
+            }
+        }
+    }
+
     private func handleHookAction(_ agentID: IPCAgentID, _ action: AIHookAction) {
         do {
+            let updatedPreferences: AIIntegrationPreferences?
             switch action {
             case .install:
                 try Self.installHook(for: agentID)
-                aiPreferences.setAgent(agentID, enabled: true)
+                var preferences = aiPreferences
+                preferences.setAgent(agentID, enabled: true)
+                updatedPreferences = preferences
             case .uninstall:
                 try Self.uninstallHook(for: agentID)
-                aiPreferences.setAgent(agentID, enabled: false)
+                var preferences = aiPreferences
+                preferences.setAgent(agentID, enabled: false)
+                updatedPreferences = preferences
             case .manualSetup:
                 Self.presentManualSetup(for: agentID, with: manualSetupPresenter)
+                updatedPreferences = nil
+            }
+            if let updatedPreferences {
+                aiPreferences = updatedPreferences
+                applyAIPreferences(updatedPreferences)
             }
         } catch {
             Self.presentManualSetup(
@@ -578,6 +623,14 @@ private final class StatusItemPresenter: NSObject {
         self.openSettings = openSettings
     }
 
+    func setVisible(_ isVisible: Bool) {
+        if isVisible {
+            start()
+        } else {
+            stop()
+        }
+    }
+
     func start() {
         guard statusItem == nil else { return }
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -689,27 +742,42 @@ private final class SettingsWindowRouter {
         self.action = action
         guard hasPendingRequest else { return }
         hasPendingRequest = false
-        action()
+        open()
     }
 
     func open() {
+        bringSettingsForward()
         guard let action else {
             hasPendingRequest = true
             return
         }
         action()
+        DispatchQueue.main.async { [weak self] in
+            self?.bringSettingsForward()
+        }
+    }
+
+    private func bringSettingsForward() {
+        NSApp.activate(ignoringOtherApps: true)
+        guard let settingsWindow = NSApp.windows.first(where: {
+            $0.level == .normal && $0.canBecomeKey
+        }) else { return }
+        settingsWindow.makeKeyAndOrderFront(nil)
+        settingsWindow.orderFrontRegardless()
     }
 }
 
 private struct SettingsActionBridge: View {
     @Environment(\.openSettings) private var openSettings
     let router: SettingsWindowRouter
+    let onInstalled: () -> Void
 
     var body: some View {
         Color.clear
             .frame(width: 0, height: 0)
             .onAppear {
                 router.install(openSettings)
+                onInstalled()
             }
     }
 }

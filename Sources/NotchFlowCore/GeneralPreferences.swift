@@ -13,6 +13,7 @@ public struct GeneralPreferences: Equatable, Sendable {
 
     public var displayTarget: DisplayPreference
     public var launchAtLogin: Bool
+    public var showMenuBarIcon: Bool
     public var appearance: SettingsAppearance
 
     /// `nil` means follow the system, which is why this is an optional rather
@@ -24,11 +25,13 @@ public struct GeneralPreferences: Equatable, Sendable {
     public init(
         displayTarget: DisplayPreference = .automatic,
         launchAtLogin: Bool = false,
+        showMenuBarIcon: Bool = true,
         appearance: SettingsAppearance = .auto,
         reducedMotionOverride: Bool? = nil
     ) {
         self.displayTarget = displayTarget
         self.launchAtLogin = launchAtLogin
+        self.showMenuBarIcon = showMenuBarIcon
         self.appearance = appearance
         self.reducedMotionOverride = reducedMotionOverride
     }
