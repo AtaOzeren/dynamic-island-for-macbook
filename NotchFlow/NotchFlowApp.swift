@@ -50,6 +50,7 @@ struct NotchFlowApp: App {
     @State private var enabledIdentifiers: Set<ActivityProviderIdentifier>
     @State private var languageOverride: String?
     @State private var musicAutomation: [MusicAutomationAccess]
+    @State private var musicAutomationRequestsInProgress: Set<MusicPlayerTarget>
     @State private var hookStates: [IPCAgentID: HookInstallationState]
     @State private var availableDisplays: [DisplayDescription]
 
@@ -71,6 +72,7 @@ struct NotchFlowApp: App {
         self.automationGate = automationGate
         self.settingsWindowRouter = settingsWindowRouter
         _musicAutomation = State(initialValue: makePendingMusicAutomationAccess())
+        _musicAutomationRequestsInProgress = State(initialValue: [])
         _hookStates = State(initialValue: [:])
         let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
         _availableDisplays = State(initialValue: currentDisplays)
@@ -320,6 +322,7 @@ struct NotchFlowApp: App {
             languages: LanguageOption.shipped,
             musicAutomation: $musicAutomation,
             hookStates: hookStates,
+            automationRequestsInProgress: musicAutomationRequestsInProgress,
             onRequestAutomation: requestAutomation,
             onHookAction: handleHookAction
         )
@@ -390,8 +393,17 @@ struct NotchFlowApp: App {
     /// answer while NotchFlow is running — refreshing one would leave the other
     /// row asserting something the system no longer agrees with.
     private func requestAutomation(_ target: MusicPlayerTarget) {
-        automationGate.requestAccess(for: target)
-        refreshMusicAutomationState()
+        guard musicAutomation.first(where: { $0.target == target })?.isRequestable == true else {
+            return
+        }
+        guard musicAutomationRequestsInProgress.isEmpty else { return }
+        guard musicAutomationRequestsInProgress.insert(target).inserted else { return }
+
+        Task { @MainActor in
+            defer { musicAutomationRequestsInProgress.remove(target) }
+            _ = await automationGate.requestAccess(for: target)
+            refreshMusicAutomationState()
+        }
     }
 
     private func refreshMusicAutomationState() {

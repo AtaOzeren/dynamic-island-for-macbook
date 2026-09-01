@@ -131,4 +131,9 @@ public struct MusicAutomationAccess: Equatable, Sendable {
     public var actionTitle: String? {
         isRequestable ? localized("Allow \(target.displayName)…") : nil
     }
+
+    /// Replaces the permission button after macOS grants access.
+    public var connectionTitle: String? {
+        status == .granted ? localized("Connected") : nil
+    }
 }

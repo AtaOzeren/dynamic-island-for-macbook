@@ -36,6 +36,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     public let isPlayingMusic: Bool
     public let musicSourceIdentity: MusicSourceIdentity?
     public let animationIdentity: String?
+    public let recordingSource: RecordingSource?
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
@@ -46,6 +47,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         isPlayingMusic = false
         musicSourceIdentity = nil
         animationIdentity = nil
+        recordingSource = nil
     }
 
     /// For activities whose per-instance detail outgrows what the kind alone can
@@ -66,6 +68,22 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         isPlayingMusic = musicPresentation?.isPlaying ?? false
         musicSourceIdentity = musicPresentation?.sourceIdentity
         animationIdentity = musicPresentation?.animationIdentity
+        recordingSource = nil
+    }
+
+    init(
+        recording activity: RecordingActivity,
+        presentation: RecordingPresentation
+    ) {
+        id = activity.identity.rawValue
+        symbolName = presentation.symbolName
+        label = nil
+        overflowCount = nil
+        accessibilityLabel = presentation.accessibilityLabel
+        isPlayingMusic = false
+        musicSourceIdentity = nil
+        animationIdentity = nil
+        recordingSource = activity.source
     }
 
     fileprivate init(overflowCount: Int) {
@@ -77,6 +95,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         isPlayingMusic = false
         musicSourceIdentity = nil
         animationIdentity = nil
+        recordingSource = nil
     }
 
     private static let overflowIdentifier = "notchflow.compact.overflow"
@@ -98,6 +117,7 @@ public struct CompactSlotLayout: Equatable, Sendable {
 private func compactSlot(for activity: any Activity) -> CompactSlot {
     switch activity {
     case let music as MusicActivity: musicCompactSlot(for: music)
+    case let recording as RecordingActivity: recordingCompactSlot(for: recording)
     case let charging as ChargingActivity: chargingCompactSlot(for: charging)
     default: CompactSlot(activity: activity)
     }
@@ -229,6 +249,10 @@ public struct CompactActivityView: View {
             if let label = slot.label {
                 Text(label)
                     .font(.system(size: metrics.symbolSize, weight: .semibold, design: .rounded))
+            } else if slot.recordingSource == .screen {
+                AnimatedScreenRecordingIcon(size: metrics.symbolSize * 0.84)
+            } else if slot.recordingSource == .audio {
+                AnimatedMicrophoneRecordingIcon(size: metrics.symbolSize * 0.84)
             } else if let sourceIdentity = slot.musicSourceIdentity {
                 if slot.isPlayingMusic {
                     MusicEqualiserSlotView(

@@ -16,10 +16,12 @@ public struct ExpandedRow: Identifiable, Equatable, Sendable {
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
-        symbolName = compactSymbolName(activity.kind)
-        title = compactAccessibilityLabel(activity.kind)
+        let recording = (activity as? RecordingActivity).map(RecordingPresentation.init)
+        symbolName = recording?.symbolName ?? compactSymbolName(activity.kind)
+        title = recording?.title ?? compactAccessibilityLabel(activity.kind)
         primaryAction = activity.primaryAction
-        accessibilityLabel = compactAccessibilityLabel(activity.kind)
+        accessibilityLabel = recording?.accessibilityLabel
+            ?? compactAccessibilityLabel(activity.kind)
     }
 }
 
@@ -65,6 +67,7 @@ public enum ExpandedItemRenderer: Equatable, Sendable {
     case timer
     case aiAgent
     case charging
+    case recording
     case genericRow
 }
 
@@ -74,6 +77,7 @@ public func expandedItemRenderer(for activity: any Activity) -> ExpandedItemRend
     case is TimerActivity: .timer
     case is AIAgentActivity: .aiAgent
     case is ChargingActivity: .charging
+    case is RecordingActivity: .recording
     default: .genericRow
     }
 }
@@ -122,7 +126,7 @@ public func expandedItemHeight(
             metrics: metrics.aiAgent,
             panelMetrics: panelMetrics
         ).height
-    case .charging, .genericRow:
+    case .charging, .recording, .genericRow:
         return metrics.panel.rowHeight
     }
 }
@@ -182,7 +186,7 @@ func expandedItemWidth(
         timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).width
     case .aiAgent:
         aiAgentExpandedSize(hasProgress: false, metrics: metrics.aiAgent, panelMetrics: panelMetrics).width
-    case .charging, .genericRow:
+    case .charging, .recording, .genericRow:
         metrics.panel.width
     }
 }
@@ -361,6 +365,12 @@ public struct ExpandedActivityView: View {
         case .charging:
             if let charging = activity as? ChargingActivity {
                 ChargingActivityView(activity: charging, metrics: metrics.panel)
+            } else {
+                genericRow(for: activity)
+            }
+        case .recording:
+            if let recording = activity as? RecordingActivity {
+                RecordingActivityView(activity: recording, metrics: metrics.panel)
             } else {
                 genericRow(for: activity)
             }

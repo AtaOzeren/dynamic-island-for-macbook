@@ -25,6 +25,12 @@ public protocol MusicAutomationAuthorizing: AnyObject {
     /// answered from the record without a prompt.
     func request(for target: MusicPlayerTarget) -> AutomationPermissionStatus
 
+    /// Runs an explicit user request without occupying the main actor while
+    /// macOS displays or resolves its consent prompt.
+    func requestWithoutBlocking(
+        for target: MusicPlayerTarget
+    ) async -> AutomationPermissionStatus
+
     /// Drops recorded status answers so a later read can observe a permission
     /// changed in System Settings while NotchFlow was inactive.
     func invalidateCachedStatuses()
@@ -52,27 +58,59 @@ public final class AppleEventsAutomationAuthority: MusicAutomationAuthorizing {
         MusicPlayerTarget,
         Bool
     ) -> AutomationPermissionStatus
+    typealias TargetRunningChecker = (MusicPlayerTarget) -> Bool
+    typealias TargetPreparer = (MusicPlayerTarget) async -> Bool
+    struct TargetEnvironment {
+        let isRunning: TargetRunningChecker
+        let prepare: TargetPreparer
+    }
 
     private let permissionDeterminer: PermissionDeterminer
+    private let targetEnvironment: TargetEnvironment
     private let cache = AutomationPermissionCache()
+    private let permissionQueue = DispatchQueue(
+        label: "com.notchflow.music-automation-permission",
+        qos: .userInitiated
+    )
 
     public convenience init() {
-        self.init { target, askUserIfNeeded in
-            Self.determinePermission(for: target, askUserIfNeeded: askUserIfNeeded)
-        }
+        self.init(
+            determinePermission: { target, askUserIfNeeded in
+                Self.determinePermission(for: target, askUserIfNeeded: askUserIfNeeded)
+            },
+            targetEnvironment: TargetEnvironment(
+                isRunning: { Self.targetIsRunning($0) },
+                prepare: { await Self.prepare($0) }
+            )
+        )
     }
 
     init(determinePermission: @escaping PermissionDeterminer) {
+        self.permissionDeterminer = determinePermission
+        targetEnvironment = TargetEnvironment(
+            isRunning: { _ in true },
+            prepare: { _ in true }
+        )
+    }
+
+    init(
+        determinePermission: @escaping PermissionDeterminer,
+        targetEnvironment: TargetEnvironment
+    ) {
         permissionDeterminer = determinePermission
+        self.targetEnvironment = targetEnvironment
     }
 
     public func status(for target: MusicPlayerTarget) -> AutomationPermissionStatus {
+        guard targetEnvironment.isRunning(target) else {
+            return cache.completedStatus(for: target) ?? .notDetermined
+        }
         let lookup = cache.lookup(for: target)
         guard let loading = lookup.loading else { return lookup.status }
 
         let cache = cache
         let permissionDeterminer = permissionDeterminer
-        DispatchQueue.global(qos: .utility).async {
+        permissionQueue.async {
             let status = permissionDeterminer(target, false)
             guard cache.complete(status, for: loading) else { return }
             DistributedNotificationCenter.default().post(
@@ -86,17 +124,64 @@ public final class AppleEventsAutomationAuthority: MusicAutomationAuthorizing {
 
     public func request(for target: MusicPlayerTarget) -> AutomationPermissionStatus {
         let status = permissionDeterminer(target, true)
+        storeExplicit(status, for: target)
+        return status
+    }
+
+    public func requestWithoutBlocking(
+        for target: MusicPlayerTarget
+    ) async -> AutomationPermissionStatus {
+        guard await targetEnvironment.prepare(target) else { return .notDetermined }
+        let permissionDeterminer = permissionDeterminer
+        let permissionQueue = permissionQueue
+        let status = await withCheckedContinuation { continuation in
+            permissionQueue.async {
+                continuation.resume(returning: permissionDeterminer(target, true))
+            }
+        }
+        storeExplicit(status, for: target)
+        return status
+    }
+
+    public func invalidateCachedStatuses() {
+        cache.invalidateCompletedStatuses()
+    }
+
+    private func storeExplicit(
+        _ status: AutomationPermissionStatus,
+        for target: MusicPlayerTarget
+    ) {
         cache.storeExplicit(status, for: target)
         DistributedNotificationCenter.default().post(
             name: .musicAutomationPermissionDidChange,
             object: nil,
             userInfo: nil
         )
-        return status
     }
 
-    public func invalidateCachedStatuses() {
-        cache.invalidateCompletedStatuses()
+    private static func targetIsRunning(_ target: MusicPlayerTarget) -> Bool {
+        NSRunningApplication.runningApplications(
+            withBundleIdentifier: target.bundleIdentifier
+        ).isEmpty == false
+    }
+
+    private static func prepare(_ target: MusicPlayerTarget) async -> Bool {
+        guard targetIsRunning(target) == false else { return true }
+        guard let applicationURL = NSWorkspace.shared.urlForApplication(
+            withBundleIdentifier: target.bundleIdentifier
+        ) else { return false }
+
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        configuration.addsToRecentItems = false
+        return await withCheckedContinuation { continuation in
+            NSWorkspace.shared.openApplication(
+                at: applicationURL,
+                configuration: configuration
+            ) { application, error in
+                continuation.resume(returning: application != nil && error == nil)
+            }
+        }
     }
 
     /// Anything other than the three documented replies — most often
@@ -110,7 +195,12 @@ public final class AppleEventsAutomationAuthority: MusicAutomationAuthorizing {
         for target: MusicPlayerTarget,
         askUserIfNeeded: Bool
     ) -> AutomationPermissionStatus {
-        let descriptor = NSAppleEventDescriptor(bundleIdentifier: target.bundleIdentifier)
+        guard let processIdentifier = NSRunningApplication.runningApplications(
+            withBundleIdentifier: target.bundleIdentifier
+        ).first?.processIdentifier else { return .notDetermined }
+        // Bundle-ID descriptors can wait forever while resolving Chromium apps
+        // such as Spotify; the running process identifier addresses it exactly.
+        let descriptor = targetDescriptor(processIdentifier: processIdentifier)
         guard let addressDescriptor = descriptor.aeDesc else { return .notDetermined }
 
         let result = AEDeterminePermissionToAutomateTarget(
@@ -126,6 +216,12 @@ public final class AppleEventsAutomationAuthority: MusicAutomationAuthorizing {
         case OSStatus(errAEEventWouldRequireUserConsent): return .notDetermined
         default: return .notDetermined
         }
+    }
+
+    nonisolated static func targetDescriptor(
+        processIdentifier: pid_t
+    ) -> NSAppleEventDescriptor {
+        NSAppleEventDescriptor(processIdentifier: processIdentifier)
     }
 }
 
@@ -143,6 +239,14 @@ private final class AutomationPermissionCache: @unchecked Sendable {
     private let lock = NSLock()
     private var statuses: [MusicPlayerTarget: AutomationPermissionStatus] = [:]
     private var loadingTokens: [MusicPlayerTarget: UUID] = [:]
+
+    func completedStatus(
+        for target: MusicPlayerTarget
+    ) -> AutomationPermissionStatus? {
+        lock.lock()
+        defer { lock.unlock() }
+        return statuses[target]
+    }
 
     func lookup(for target: MusicPlayerTarget) -> Lookup {
         lock.lock()
@@ -220,6 +324,7 @@ public final class MusicAutomationGate {
     private let authority: any MusicAutomationAuthorizing
     private let explainer: Explainer
     private var explainedTargets: Set<MusicPlayerTarget> = []
+    private var requestingTargets: Set<MusicPlayerTarget> = []
 
     /// The default explainer refuses. A gate built without one is used by tests
     /// and by the Direct build, and in both cases silently opening a system
@@ -261,10 +366,22 @@ public final class MusicAutomationGate {
     /// It skips the explainer because the row already shows the explanation in
     /// place, and skips the ask-once record because the user pressed a button —
     /// a prompt the user asked for is the opposite of a nag.
+    public func isRequestInProgress(for target: MusicPlayerTarget) -> Bool {
+        requestingTargets.contains(target)
+    }
+
     @discardableResult
-    public func requestAccess(for target: MusicPlayerTarget) -> MusicAutomationAccess {
+    public func requestAccess(
+        for target: MusicPlayerTarget
+    ) async -> MusicAutomationAccess {
+        let access = access(for: target)
+        guard access.isRequestable else { return access }
+        guard requestingTargets.insert(target).inserted else { return access }
+        defer { requestingTargets.remove(target) }
+
         explainedTargets.insert(target)
-        return MusicAutomationAccess(target: target, status: authority.request(for: target))
+        let status = await authority.requestWithoutBlocking(for: target)
+        return MusicAutomationAccess(target: target, status: status)
     }
 }
 
