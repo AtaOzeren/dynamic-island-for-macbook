@@ -158,6 +158,13 @@ struct AIAgentActivityViewTests {
 
     // MARK: - The compact slot
 
+    @Test("normalizes Codex artwork to the OpenCode icon footprint")
+    func normalizesCodexArtworkSize() {
+        #expect(aiAgentIconArtworkScale(for: .claudeCode) == 1)
+        #expect(aiAgentIconArtworkScale(for: .opencode) == 1)
+        #expect(aiAgentIconArtworkScale(for: .codex) == 1.24)
+    }
+
     @Test("compact slots carry the originating agent logo identity")
     func compactSlotUsesAgentIdentity() {
         for agent in IPCAgentID.allCases {

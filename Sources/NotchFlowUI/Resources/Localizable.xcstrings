@@ -1,6 +1,114 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Application": {
+      "comment": "General pane, application lifecycle section title.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Application"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uygulama"
+          }
+        }
+      }
+    },
+    "Restart NotchFlow": {
+      "comment": "General pane button that relaunches NotchFlow.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart NotchFlow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow'u yeniden başlat"
+          }
+        }
+      }
+    },
+    "Restart required": {
+      "comment": "Settings warning shown while a change needs an app relaunch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restart required"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yeniden başlatma gerekiyor"
+          }
+        }
+      }
+    },
+    "Restarts NotchFlow without changing your settings.": {
+      "comment": "General pane caption for the app restart action when no restart is pending.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restarts NotchFlow without changing your settings."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlarınızı değiştirmeden NotchFlow'u yeniden başlatır."
+          }
+        }
+      }
+    },
+    "Some changes need a restart. Finish your selections, then restart NotchFlow.": {
+      "comment": "General pane caption shown while a restart-requiring setting is pending.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some changes need a restart. Finish your selections, then restart NotchFlow."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bazı değişiklikler yeniden başlatma gerektiriyor. Seçimlerinizi tamamlayıp NotchFlow'u yeniden başlatın."
+          }
+        }
+      }
+    },
+    "macOS shows this icon on the main menu bar. With multiple displays, it may appear on another screen.": {
+      "comment": "General pane hint explaining menu bar icon placement with multiple displays.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS shows this icon on the main menu bar. With multiple displays, it may appear on another screen."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS bu simgeyi ana menü çubuğunda gösterir. Birden fazla ekran varsa başka bir ekranda görünebilir."
+          }
+        }
+      }
+    },
     "%lld more activities": {
       "comment": "VoiceOver label for the compact pill's overflow slot, when more activities are running than the pill can show.",
       "extractionState": "manual",
@@ -817,20 +925,20 @@
         }
       }
     },
-    "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login.": {
+    "NotchFlow has no Dock icon. Open the app again to show Settings when its menu bar icon is hidden.": {
       "comment": "General pane, Startup section caption.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login."
+            "value": "NotchFlow has no Dock icon. Open the app again to show Settings when its menu bar icon is hidden."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "NotchFlow'un Dock simgesi yoktur — oturum açılışında başlasa da başlamasa da menü çubuğunda yaşar."
+            "value": "NotchFlow'un Dock simgesi yoktur. Menü çubuğu simgesi gizliyken Ayarlar'ı göstermek için uygulamayı yeniden açın."
           }
         }
       }
@@ -1137,6 +1245,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "Azaltılmış hareket de, siz geçersiz kılmadıkça sistemin erişilebilirlik ayarını izler."
+          }
+        }
+      }
+    },
+    "Show menu bar icon": {
+      "comment": "General pane, Appearance section toggle for the AppKit status item.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show menu bar icon"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menü çubuğu simgesini göster"
           }
         }
       }

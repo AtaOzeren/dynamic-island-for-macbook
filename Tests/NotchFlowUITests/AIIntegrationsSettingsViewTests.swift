@@ -33,6 +33,21 @@ struct AIIntegrationsSettingsViewTests {
         #expect(!store.preferences.isEnabled(.claudeCode))
     }
 
+    @Test("an agent switch publishes the persisted preference value immediately")
+    func agentTogglePublishesPreferenceChange() {
+        let store = Store()
+        var published: [AIIntegrationPreferences] = []
+        let view = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            onPreferencesChange: { published.append($0) }
+        )
+
+        view.binding(for: .codex).wrappedValue = true
+
+        #expect(published.count == 1)
+        #expect(published.first?.isEnabled(.codex) == true)
+    }
+
     @Test("an event switch writes through to the preferences")
     func eventToggleWritesThrough() {
         let store = Store()
@@ -45,6 +60,21 @@ struct AIIntegrationsSettingsViewTests {
         view.binding(for: .taskStarted).wrappedValue = false
 
         #expect(!store.preferences.isEnabled(.taskStarted))
+    }
+
+    @Test("an event switch publishes the persisted preference value immediately")
+    func eventTogglePublishesPreferenceChange() {
+        let store = Store()
+        var published: [AIIntegrationPreferences] = []
+        let view = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            onPreferencesChange: { published.append($0) }
+        )
+
+        view.binding(for: .toolActivity).wrappedValue = true
+
+        #expect(published.count == 1)
+        #expect(published.first?.isEnabled(.toolActivity) == true)
     }
 
     @Test("a switched-off event stops its message reaching an activity")

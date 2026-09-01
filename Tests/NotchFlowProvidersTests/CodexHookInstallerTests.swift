@@ -8,6 +8,7 @@ import Testing
 struct CodexHookInstallerTests {
     private static let homeDirectory = URL(fileURLWithPath: "/Users/tester", isDirectory: true)
     private static let configURL = homeDirectory.appending(path: ".codex/config.toml")
+    private static let hooksURL = homeDirectory.appending(path: ".codex/hooks.json")
     private static let backupURL = homeDirectory.appending(
         path: ".codex/config.toml.notchflow-backup"
     )
@@ -24,6 +25,43 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.text(at: Self.configURL) == proposal)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(proposal.contains(Self.expectedNotifySetting))
+        #expect(fileSystem.text(at: Self.hooksURL)?.contains("notchflow_codex_hook_v1=True") == true)
+    }
+
+    @Test("install preserves existing lifecycle hooks and adds one managed handler per event")
+    func installMergesLifecycleHooks() throws {
+        let existingHooks = Data(
+            """
+            {
+              "description": "Keep user hooks",
+              "hooks": {
+                "SessionStart": [
+                  {
+                    "hooks": [
+                      {
+                        "type": "command",
+                        "command": "python3 existing.py"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.hooksURL: existingHooks]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let document = try #require(fileSystem.jsonObject(at: Self.hooksURL))
+        #expect(document["description"] as? String == "Keep user hooks")
+        let hooks = try #require(document["hooks"] as? [String: Any])
+        #expect(hooks["SessionStart"] != nil)
+        for event in Self.managedLifecycleEvents {
+            #expect(Self.managedHandlerCount(for: event, in: hooks) == 1)
+        }
     }
 
     @Test("install preserves unrelated TOML and backs up the original bytes")
@@ -106,6 +144,45 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.data(at: Self.configURL) == original)
     }
 
+    @Test("install recognizes NotchFlow nested by another notifier")
+    func installPreservesNotifierWrappingNotchFlow() throws {
+        let managedArguments = try #require(
+            JSONSerialization.jsonObject(
+                with: Data(
+                    HookSnippetGenerator()
+                        .codexNotifyFragment()
+                        .dropFirst("notify = ".count)
+                        .utf8
+                )
+            ) as? [String]
+        )
+        let nestedData = try JSONSerialization.data(
+            withJSONObject: managedArguments,
+            options: [.withoutEscapingSlashes]
+        )
+        let outerArguments = [
+            "/Applications/ComputerUse.app/Contents/MacOS/Notifier",
+            "turn-ended",
+            "--previous-notify",
+            String(decoding: nestedData, as: UTF8.self),
+        ]
+        let outerData = try JSONSerialization.data(
+            withJSONObject: outerArguments,
+            options: [.withoutEscapingSlashes]
+        )
+        let original = Data("notify = \(String(decoding: outerData, as: UTF8.self))\n".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: original]
+        )
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+
+        #expect(fileSystem.data(at: Self.configURL) == original)
+        #expect(fileSystem.data(at: Self.backupURL) == nil)
+        #expect(installer.installationState() == .hookInstalled)
+    }
+
     @Test("install inserts notify before the first TOML table")
     func installInsertsNotifyBeforeFirstTable() throws {
         let original = Data(
@@ -154,6 +231,43 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.data(at: Self.configURL) == original)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(fileSystem.writeCount == writesAfterFirstUninstall)
+    }
+
+    @Test("uninstall removes only managed lifecycle handlers")
+    func uninstallPreservesForeignLifecycleHooks() throws {
+        let existingHooks = Data(
+            """
+            {
+              "hooks": {
+                "UserPromptSubmit": [
+                  {
+                    "hooks": [
+                      {
+                        "type": "command",
+                        "command": "python3 existing.py"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """.utf8
+        )
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.hooksURL: existingHooks]
+        )
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        try installer.install()
+        try installer.uninstall()
+
+        let document = try #require(fileSystem.jsonObject(at: Self.hooksURL))
+        let hooks = try #require(document["hooks"] as? [String: Any])
+        #expect(Self.managedHandlerCount(for: "UserPromptSubmit", in: hooks) == 0)
+        let promptGroups = try #require(hooks["UserPromptSubmit"] as? [[String: Any]])
+        let promptGroup = try #require(promptGroups.first)
+        let promptHandlers = try #require(promptGroup["hooks"] as? [[String: Any]])
+        #expect(promptHandlers.first?["command"] as? String == "python3 existing.py")
     }
 
     @Test("uninstall never overwrites configuration changed after installation")
@@ -267,6 +381,29 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.writeCount == 0)
     }
 
+    @Test("legacy notify without lifecycle hooks is reported absent")
+    func installationStateRequiresLifecycleHooks() {
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data((Self.expectedNotifySetting + "\n").utf8)]
+        )
+
+        #expect(Self.makeInstaller(fileSystem: fileSystem).installationState() == .hookAbsent)
+    }
+
+    @Test("invalid hooks JSON aborts without writing")
+    func invalidHooksDocumentDoesNotWrite() {
+        let invalidHooks = Data("{\"hooks\": [".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.hooksURL: invalidHooks]
+        )
+
+        #expect(throws: CodexHookInstallerError.invalidExistingConfiguration) {
+            try Self.makeInstaller(fileSystem: fileSystem).install()
+        }
+        #expect(fileSystem.data(at: Self.hooksURL) == invalidHooks)
+        #expect(fileSystem.writeCount == 0)
+    }
+
     @Test("installation state is installed after install writes the notify setting")
     func installationStateAfterInstall() throws {
         let fileSystem = InMemoryCodexHookFileSystem()
@@ -295,6 +432,27 @@ struct CodexHookInstallerTests {
 
     private static var expectedNotifySetting: String {
         HookSnippetGenerator().codexNotifyFragment().trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static let managedLifecycleEvents = [
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PermissionRequest",
+        "Stop",
+    ]
+
+    private static func managedHandlerCount(
+        for event: String,
+        in hooks: [String: Any]
+    ) -> Int {
+        guard let groups = hooks[event] as? [[String: Any]] else { return 0 }
+        return groups.reduce(into: 0) { count, group in
+            guard let handlers = group["hooks"] as? [[String: Any]] else { return }
+            count += handlers.filter { handler in
+                (handler["command"] as? String)?.contains("notchflow_codex_hook_v1=True") == true
+            }.count
+        }
     }
 
     private static func makeInstaller(
@@ -353,5 +511,10 @@ private final class InMemoryCodexHookFileSystem: CodexHookFileSystem, @unchecked
 
     func setText(_ text: String, at url: URL) {
         files[url] = Data(text.utf8)
+    }
+
+    func jsonObject(at url: URL) -> [String: Any]? {
+        guard let data = files[url] else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
 }

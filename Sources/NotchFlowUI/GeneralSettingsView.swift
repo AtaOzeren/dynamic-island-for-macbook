@@ -1,8 +1,8 @@
 import NotchFlowCore
 import SwiftUI
 
-/// The General pane: display target, launch at login, appearance, reduced
-/// motion.
+/// The General pane: display target, menu bar visibility, launch at login,
+/// appearance, and reduced motion.
 ///
 /// Like the AI Integrations pane, it owns no state — it edits the binding the
 /// composition root hands it, so the window and the store never hold two
@@ -11,15 +11,21 @@ public struct GeneralSettingsView: View {
     @Binding private var preferences: GeneralPreferences
     private let availableDisplays: [DisplayDescription]
     private let metrics: SettingsPaneMetrics
+    private let onRestart: () -> Void
+    public let restartRequired: Bool
 
     public init(
         preferences: Binding<GeneralPreferences>,
         availableDisplays: [DisplayDescription],
-        metrics: SettingsPaneMetrics = .default
+        metrics: SettingsPaneMetrics = .default,
+        restartRequired: Bool = false,
+        onRestart: @escaping () -> Void = {}
     ) {
         self._preferences = preferences
         self.availableDisplays = availableDisplays
         self.metrics = metrics
+        self.restartRequired = restartRequired
+        self.onRestart = onRestart
     }
 
     /// The picker's rows: the two rules, then one row per attached display.
@@ -71,6 +77,21 @@ public struct GeneralSettingsView: View {
         )
     }
 
+    public var menuBarIconVisibility: Binding<Bool> {
+        Binding(
+            get: { preferences.showMenuBarIcon },
+            set: { preferences.showMenuBarIcon = $0 }
+        )
+    }
+
+    public var shouldShowMenuBarPlacementHint: Bool {
+        preferences.showMenuBarIcon && availableDisplays.count > 1
+    }
+
+    func requestRestart() {
+        onRestart()
+    }
+
     public var reducedMotion: Binding<ReducedMotionSetting> {
         Binding(
             get: { ReducedMotionSetting(override: preferences.reducedMotionOverride) },
@@ -85,6 +106,8 @@ public struct GeneralSettingsView: View {
             appearanceSection
             Divider()
             startupSection
+            Divider()
+            applicationSection
         }
         .settingsPaneFrame(metrics)
     }
@@ -109,6 +132,14 @@ public struct GeneralSettingsView: View {
             caption: localized("Reduced motion also follows the system accessibility setting unless you override it."),
             metrics: metrics
         ) {
+            Toggle(localized("Show menu bar icon"), isOn: menuBarIconVisibility)
+            if shouldShowMenuBarPlacementHint {
+                Text(localized(
+                    "macOS shows this icon on the main menu bar. With multiple displays, it may appear on another screen."
+                ))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
             Picker(localized("Motion"), selection: reducedMotion) {
                 ForEach(ReducedMotionSetting.allCases, id: \.self) { option in
                     Text(option.displayName).tag(option)
@@ -121,10 +152,28 @@ public struct GeneralSettingsView: View {
         SettingsSection(
             title: localized("Startup"),
             caption: localized(
-                "NotchFlow has no Dock icon — it lives in the menu bar whether or not it starts at login."),
+                "NotchFlow has no Dock icon. Open the app again to show Settings when its menu bar icon is hidden."),
             metrics: metrics
         ) {
             Toggle(localized("Launch at login"), isOn: launchAtLogin)
+        }
+    }
+
+    private var applicationSection: some View {
+        SettingsSection(
+            title: localized("Application"),
+            caption: restartRequired
+                ? localized("Some changes need a restart. Finish your selections, then restart NotchFlow.")
+                : localized("Restarts NotchFlow without changing your settings."),
+            metrics: metrics
+        ) {
+            if restartRequired {
+                Label(localized("Restart required"), systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+            }
+            Button(action: requestRestart) {
+                Label(localized("Restart NotchFlow"), systemImage: "arrow.clockwise")
+            }
         }
     }
 }

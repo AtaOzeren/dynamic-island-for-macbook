@@ -38,6 +38,17 @@ struct CompositionRootWiringTests {
         #expect(source.components(separatedBy: "activity.endsPresentation").count - 1 == 1)
     }
 
+    @Test("AI preference switches persist through one synchronous write path")
+    func aiPreferencesHaveOneWritePath() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(source.contains("onAIPreferencesChange: applyAIPreferences"))
+        #expect(source.contains("private func applyAIPreferences("))
+        #expect(source.contains("settingsStore.aiIntegrationPreferences = preferences"))
+        #expect(source.contains("urlSchemeReceiver.preferences = preferences"))
+        #expect(!source.contains(".onChange(of: aiPreferences"))
+    }
+
     @Test("the loopback listener is started and stopped from the app")
     func loopbackListenerHasALifecycle() throws {
         let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
@@ -47,8 +58,8 @@ struct CompositionRootWiringTests {
         #expect(source.contains("stopSynchronously(loopbackListener)"))
     }
 
-    @Test("the app owns one visible AppKit status item")
-    func appOwnsVisibleStatusItem() throws {
+    @Test("the app owns one user-controlled AppKit status item")
+    func appOwnsUserControlledStatusItem() throws {
         let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
 
         #expect(source.contains("StatusItemPresenter("))
@@ -60,8 +71,23 @@ struct CompositionRootWiringTests {
         #expect(source.contains("NSImage(named: \"MenuBarIcon\")"))
         #expect(source.contains("systemSymbolName: \"capsule.fill\""))
         #expect(source.contains("setAccessibilityLabel(\"NotchFlow\")"))
-        #expect(source.contains("isInserted: .constant(true)"))
+        #expect(source.contains("statusItemPresenter.setVisible(preferences.showMenuBarIcon)"))
+        #expect(source.contains("$isSettingsActionBridgeInserted"))
+        #expect(source.contains("isSettingsActionBridgeInserted = false"))
+        #expect(!source.contains("isInserted: .constant(true)"))
         #expect(source.contains("SettingsActionBridge("))
+    }
+
+    @Test("a language change can relaunch the app from Settings")
+    func languageChangeCanRelaunchTheApp() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(source.contains("appliedLanguageOverride"))
+        #expect(source.contains("languageOverride != appliedLanguageOverride"))
+        #expect(source.contains("onRestart: restartApplication"))
+        #expect(source.contains("NSWorkspace.OpenConfiguration()"))
+        #expect(source.contains("createsNewApplicationInstance = true"))
+        #expect(source.contains("NSApp.terminate(nil)"))
     }
 
     @Test("reopening the running accessory app opens Settings")
@@ -74,6 +100,10 @@ struct CompositionRootWiringTests {
         #expect(appSource.contains("URLSchemeAppDelegate.onReopen ="))
         #expect(appSource.contains("settingsWindowRouter.open()"))
         #expect(appSource.contains("@Environment(\\.openSettings)"))
+        #expect(appSource.contains("NSApp.activate(ignoringOtherApps: true)"))
+        #expect(appSource.contains("$0.level == .normal && $0.canBecomeKey"))
+        #expect(appSource.contains("settingsWindow.makeKeyAndOrderFront(nil)"))
+        #expect(appSource.contains("settingsWindow.orderFrontRegardless()"))
     }
 
     @Test("the delegate forwards termination to the composition root")

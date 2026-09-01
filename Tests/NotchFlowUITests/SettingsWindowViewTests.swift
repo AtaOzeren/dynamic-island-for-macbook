@@ -64,6 +64,24 @@ struct SettingsWindowViewTests {
         #expect(!view.displayOptions.contains(.allDisplays))
     }
 
+    @Test("the menu bar placement hint appears only for an enabled icon with multiple displays")
+    func menuBarPlacementHintUsesLiveDisplayState() {
+        let box = Box(GeneralPreferences.default)
+        let multipleDisplays = [
+            DisplayDescription(name: "Built-in Retina Display", isBuiltIn: true),
+            DisplayDescription(name: "Studio Display", isBuiltIn: false),
+        ]
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: multipleDisplays
+        )
+
+        #expect(view.shouldShowMenuBarPlacementHint)
+
+        view.menuBarIconVisibility.wrappedValue = false
+        #expect(!view.shouldShowMenuBarPlacementHint)
+    }
+
     @Test("every General control writes through to the preferences")
     func generalControlsWriteThrough() {
         let box = Box(GeneralPreferences.default)
@@ -71,11 +89,30 @@ struct SettingsWindowViewTests {
 
         view.displayTarget.wrappedValue = .named("Studio Display")
         view.launchAtLogin.wrappedValue = true
+        view.menuBarIconVisibility.wrappedValue = false
         view.appearance.wrappedValue = .dark
 
         #expect(box.value.displayTarget == .named("Studio Display"))
         #expect(box.value.launchAtLogin)
+        #expect(box.value.showMenuBarIcon == false)
         #expect(box.value.appearance == .dark)
+    }
+
+    @Test("the General restart control delegates one restart request")
+    func generalRestartControlDelegates() {
+        let box = Box(GeneralPreferences.default)
+        var requestCount = 0
+        let view = GeneralSettingsView(
+            preferences: box.binding,
+            availableDisplays: [],
+            restartRequired: true,
+            onRestart: { requestCount += 1 }
+        )
+
+        #expect(view.restartRequired)
+        view.requestRestart()
+
+        #expect(requestCount == 1)
     }
 
     @Test("duplicate display names receive distinct picker labels")
@@ -175,5 +212,17 @@ struct SettingsWindowViewTests {
         )
 
         #expect(view.selectedLanguage.wrappedValue == .systemDefault)
+    }
+
+    @Test("the language pane exposes a pending restart")
+    func languagePaneExposesPendingRestart() {
+        let box = Box(String?.some("tr"))
+        let view = AboutSettingsView(
+            information: AboutInformation(version: "1.0", build: "1", musicBackendName: "test"),
+            languageOverride: box.binding,
+            restartRequired: true
+        )
+
+        #expect(view.restartRequired)
     }
 }

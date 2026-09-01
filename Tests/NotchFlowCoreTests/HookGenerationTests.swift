@@ -98,6 +98,46 @@ struct HookGenerationTests {
         #expect(arguments[2].contains("subprocess.Popen(forward+event_args"))
     }
 
+    @Test("generates Codex lifecycle hooks for visible task states")
+    func codexLifecycleHooksFragment() throws {
+        let fragment = HookSnippetGenerator().codexLifecycleHooksFragment()
+        let document = try #require(
+            JSONSerialization.jsonObject(with: Data(fragment.utf8)) as? [String: Any]
+        )
+        let hooks = try #require(document["hooks"] as? [String: Any])
+
+        #expect(
+            Set(hooks.keys) == [
+                "UserPromptSubmit",
+                "PreToolUse",
+                "PostToolUse",
+                "PermissionRequest",
+                "Stop",
+            ]
+        )
+
+        for event in hooks.keys {
+            let groups = try #require(hooks[event] as? [[String: Any]])
+            let group = try #require(groups.first)
+            let handlers = try #require(group["hooks"] as? [[String: Any]])
+            let handler = try #require(handlers.first)
+            let command = try #require(handler["command"] as? String)
+
+            #expect(handler["type"] as? String == "command")
+            #expect(handler["async"] as? Bool == true)
+            #expect(command.contains("notchflow_codex_hook_v1=True"))
+            #expect(command.contains("hook_event_name"))
+            #expect(command.contains("session_id"))
+            #expect(command.contains("uuid.uuid5"))
+            #expect(command.contains("notchflow://ai-status"))
+        }
+
+        let promptCommand = try hookCommand(for: "UserPromptSubmit", in: hooks)
+        #expect(promptCommand.contains(#""UserPromptSubmit":("thinking","Task started")"#))
+        #expect(promptCommand.contains(#""PermissionRequest":("waitingForUser","Needs attention")"#))
+        #expect(promptCommand.contains(#""Stop":("completed","Task completed")"#))
+    }
+
     @Test("generates an OpenCode plugin that invokes open directly")
     func openCodePluginFile() {
         let plugin = HookSnippetGenerator().openCodePluginFile()
@@ -120,10 +160,12 @@ struct HookGenerationTests {
 
         let firstClaudeFragment = generator.claudeCodeSettingsFragment()
         let firstCodexFragment = generator.codexNotifyFragment()
+        let firstCodexLifecycleFragment = generator.codexLifecycleHooksFragment()
         let firstOpenCodePlugin = generator.openCodePluginFile()
 
         #expect(generator.claudeCodeSettingsFragment() == firstClaudeFragment)
         #expect(generator.codexNotifyFragment() == firstCodexFragment)
+        #expect(generator.codexLifecycleHooksFragment() == firstCodexLifecycleFragment)
         #expect(generator.openCodePluginFile() == firstOpenCodePlugin)
     }
 
@@ -133,7 +175,7 @@ struct HookGenerationTests {
     ) throws -> String {
         let groups = try #require(hooks[event] as? [[String: Any]])
         let group = try #require(groups.first)
-        let commands = try #require(group["hooks"] as? [[String: String]])
-        return try #require(commands.first?["command"])
+        let commands = try #require(group["hooks"] as? [[String: Any]])
+        return try #require(commands.first?["command"] as? String)
     }
 }

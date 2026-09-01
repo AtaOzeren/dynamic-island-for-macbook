@@ -47,7 +47,10 @@ struct TurkishLocalizationTests {
     @Test("the General multi-display control is fully Turkish")
     func generalMultiDisplaySettingIsTurkish() throws {
         let expectedTranslations = [
-            "All displays": "Tüm ekranlar"
+            "All displays": "Tüm ekranlar",
+            "Show menu bar icon": "Menü çubuğu simgesini göster",
+            "Restart NotchFlow": "NotchFlow'u yeniden başlat",
+            "Restart required": "Yeniden başlatma gerekiyor",
         ]
 
         try withTurkishBundle(

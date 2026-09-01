@@ -16,6 +16,7 @@ struct SettingsStoreTests {
         #expect(storage.lastRegisteredDefaults.count == SettingsKeys.registeredDefaults.count)
         #expect(store[.displayTarget] == .automatic)
         #expect(store[.launchAtLogin] == false)
+        #expect(store[.showMenuBarIcon])
         #expect(store[.appearance] == SettingsAppearance.auto)
         #expect(store[.reducedMotionOverride] == nil)
         #expect(store[.showMusic])
@@ -41,6 +42,7 @@ struct SettingsStoreTests {
 
         store[.displayTarget] = .named("Studio Display")
         store[.launchAtLogin] = true
+        store[.showMenuBarIcon] = false
         store[.appearance] = SettingsAppearance.dark
         store[.reducedMotionOverride] = true
         store[.showMusic] = false
@@ -61,6 +63,7 @@ struct SettingsStoreTests {
 
         #expect(store[.displayTarget] == .named("Studio Display"))
         #expect(store[.launchAtLogin])
+        #expect(store[.showMenuBarIcon] == false)
         #expect(store[.appearance] == SettingsAppearance.dark)
         #expect(store[.reducedMotionOverride] == true)
         #expect(store[.showMusic] == false)
@@ -144,6 +147,7 @@ struct SettingsStoreTests {
         let preferences = GeneralPreferences(
             displayTarget: .named("Studio Display"),
             launchAtLogin: true,
+            showMenuBarIcon: false,
             appearance: .dark,
             reducedMotionOverride: false
         )
@@ -152,6 +156,7 @@ struct SettingsStoreTests {
 
         #expect(store.generalPreferences == preferences)
         #expect(store[.displayTarget] == .named("Studio Display"))
+        #expect(store[.showMenuBarIcon] == false)
         #expect(store[.appearance] == .dark)
     }
 
