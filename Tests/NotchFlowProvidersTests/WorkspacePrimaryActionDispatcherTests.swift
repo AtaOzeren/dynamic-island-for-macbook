@@ -199,4 +199,74 @@ struct WorkspacePrimaryActionDispatcherTests {
 
         #expect(resolver.preferredRunningBundleIdentifier(for: .claudeCode) == cursor)
     }
+
+    // MARK: - Telling one editor window from another
+
+    /// An editor with several projects open is one application. Raising it lands
+    /// on whichever window was last in front, so the agent's own folder has to
+    /// travel with the host or the click goes to the wrong project.
+    @Test("a host carries the folder its agent is running in")
+    func hostCarriesTheAgentsFolder() {
+        let resolver = AgentHostApplicationResolver(processes: [
+            Self.process(pid: 100, ppid: 1, path: "/Applications/Visual Studio Code.app/Contents/MacOS/Code", bundle: "com.microsoft.VSCode"),
+            Self.process(pid: 200, ppid: 100, path: "/bin/zsh"),
+            Self.process(pid: 300, ppid: 200, path: "/usr/local/bin/opencode", cwd: "/Users/x/projects/alpha"),
+        ])
+
+        let hosts = resolver.hosts(for: .opencode)
+
+        #expect(hosts.count == 1)
+        #expect(hosts.first?.bundleIdentifier == "com.microsoft.VSCode")
+        #expect(hosts.first?.workingDirectory == "/Users/x/projects/alpha")
+    }
+
+    /// Two windows of the same editor are one bundle identifier and two folders.
+    /// The set of identifiers cannot separate them; the hosts can.
+    @Test("two windows of one editor are two hosts sharing an identifier")
+    func twoWindowsOfOneEditor() {
+        let resolver = AgentHostApplicationResolver(processes: [
+            Self.process(pid: 100, ppid: 1, path: "/Applications/Visual Studio Code.app/Contents/MacOS/Code", bundle: "com.microsoft.VSCode"),
+            Self.process(pid: 200, ppid: 100, path: "/bin/zsh"),
+            Self.process(pid: 300, ppid: 200, path: "/usr/local/bin/opencode", cwd: "/Users/x/projects/alpha"),
+            Self.process(pid: 400, ppid: 100, path: "/bin/zsh"),
+            Self.process(pid: 500, ppid: 400, path: "/usr/local/bin/opencode", cwd: "/Users/x/projects/beta"),
+        ])
+
+        let hosts = resolver.hosts(for: .opencode)
+        let folders = Set(hosts.compactMap(\.workingDirectory))
+
+        #expect(resolver.hostBundleIdentifiers(for: .opencode).count == 1)
+        #expect(folders == ["/Users/x/projects/alpha", "/Users/x/projects/beta"])
+    }
+
+    /// A terminal has no folder-focusing URL, so nothing is lost by it being
+    /// absent — the dispatcher falls back to activating the application.
+    @Test("a host with no readable folder still resolves")
+    func hostWithoutAFolderStillResolves() {
+        let resolver = AgentHostApplicationResolver(processes: [
+            Self.process(pid: 100, ppid: 1, path: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal", bundle: "com.apple.Terminal"),
+            Self.process(pid: 200, ppid: 100, path: "/usr/local/bin/opencode"),
+        ])
+
+        let hosts = resolver.hosts(for: .opencode)
+
+        #expect(hosts.first?.bundleIdentifier == "com.apple.Terminal")
+        #expect(hosts.first?.workingDirectory == nil)
+    }
+
+    private static func process(
+        pid: pid_t,
+        ppid: pid_t,
+        path: String,
+        bundle: String? = nil,
+        cwd: String? = nil
+    ) -> WorkspaceProcessDescription {
+        WorkspaceProcessDescription(
+            processIdentifier: pid,
+            parentProcessIdentifier: ppid,
+            executableURL: URL(fileURLWithPath: path),
+            applicationBundleIdentifier: bundle,
+            workingDirectory: cwd
+        )
+    }
 }

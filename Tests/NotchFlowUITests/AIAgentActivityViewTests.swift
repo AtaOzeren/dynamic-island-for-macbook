@@ -275,12 +275,14 @@ struct AIAgentActivityViewTests {
         )
     }
 
-    @Test("completed compact status keeps the five-second activity lifetime")
+    /// The green tick is the one thing the user looks up *after* the work is
+    /// done, so it has to survive a glance away from the screen.
+    @Test("the completed tick stays long enough to be caught")
     func compactCompletedLifetime() {
         let slot = aiAgentCompactSlot(for: Self.activity(state: .completed))
 
         #expect(slot.aiAgentPresentation?.indicator == .completed)
-        #expect(AIAgentActivity.completedAutoDismissAfter == .seconds(5))
+        #expect(AIAgentActivity.completedAutoDismissAfter == .seconds(15))
     }
 
     @Test("announces the state and detail rather than the generic kind label")

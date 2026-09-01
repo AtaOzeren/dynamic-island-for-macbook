@@ -8,24 +8,50 @@ struct WorkspaceProcessDescription: Equatable, Sendable {
     let parentProcessIdentifier: pid_t
     let executableURL: URL
     let applicationBundleIdentifier: String?
+    /// The directory the process is running in, when it could be read.
+    ///
+    /// This is what tells one editor *window* from another. An editor with three
+    /// projects open is one application with one bundle identifier, so raising
+    /// the application alone lands on whichever window happens to be in front —
+    /// which is exactly the window the user was not looking for.
+    var workingDirectory: String?
+}
+
+/// One live agent process and the application hosting it.
+struct AgentHost: Equatable, Sendable {
+    let bundleIdentifier: String
+    let workingDirectory: String?
 }
 
 struct AgentHostApplicationResolver {
     let processes: [WorkspaceProcessDescription]
 
-    func hostBundleIdentifiers(for agent: IPCAgentID) -> Set<String> {
+    func hosts(for agent: IPCAgentID) -> [AgentHost] {
         let processesByID = Dictionary(uniqueKeysWithValues: processes.map { ($0.processIdentifier, $0) })
         let executableNames = Self.executableNames(for: agent)
 
-        return Set(
-            processes.compactMap { process in
-                guard process.applicationBundleIdentifier == nil else { return nil }
-                guard executableNames.contains(process.executableURL.lastPathComponent.lowercased()) else {
-                    return nil
-                }
-                return hostBundleIdentifier(for: process, processesByID: processesByID)
+        return processes.compactMap { process in
+            guard process.applicationBundleIdentifier == nil else { return nil }
+            guard executableNames.contains(process.executableURL.lastPathComponent.lowercased()) else {
+                return nil
             }
-        )
+            guard
+                let bundleIdentifier = hostBundleIdentifier(
+                    for: process,
+                    processesByID: processesByID
+                )
+            else {
+                return nil
+            }
+            return AgentHost(
+                bundleIdentifier: bundleIdentifier,
+                workingDirectory: process.workingDirectory
+            )
+        }
+    }
+
+    func hostBundleIdentifiers(for agent: IPCAgentID) -> Set<String> {
+        Set(hosts(for: agent).map(\.bundleIdentifier))
     }
 
     private func hostBundleIdentifier(
@@ -233,8 +259,30 @@ private struct SystemWorkspaceProcessScanner {
             processIdentifier: processIdentifier,
             parentProcessIdentifier: pid_t(processInfo.pbi_ppid),
             executableURL: executableURL,
-            applicationBundleIdentifier: applicationBundleIdentifier
+            applicationBundleIdentifier: applicationBundleIdentifier,
+            workingDirectory: Self.workingDirectory(of: processIdentifier)
         )
+    }
+
+    /// The process's current directory.
+    ///
+    /// Read from the kernel rather than from the message the agent sent: the IPC
+    /// envelope carries no path, and `docs/07-ai-integration.md` is emphatic that
+    /// it must not start. This asks the same question of the operating system
+    /// instead, needs no permission, and returns nothing for a process the user
+    /// does not own.
+    private static func workingDirectory(of processIdentifier: pid_t) -> String? {
+        var info = proc_vnodepathinfo()
+        let size = Int32(MemoryLayout<proc_vnodepathinfo>.size)
+        guard proc_pidinfo(processIdentifier, PROC_PIDVNODEPATHINFO, 0, &info, size) == size else {
+            return nil
+        }
+        let path = withUnsafePointer(to: &info.pvi_cdir.vip_path) {
+            $0.withMemoryRebound(to: CChar.self, capacity: Int(MAXPATHLEN)) {
+                String(cString: $0)
+            }
+        }
+        return path.isEmpty ? nil : path
     }
 }
 
@@ -286,12 +334,73 @@ public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
         }
     }
 
+    /// Editors that can be asked to bring forward the window already holding a
+    /// folder, by opening a URL that names it.
+    ///
+    /// This is the only way to tell one window of an editor from another without
+    /// the Accessibility or Screen Recording permission: an editor is one
+    /// application whatever it has open, so activating it raises whichever
+    /// window was last in front. Terminals have no equivalent and fall back to
+    /// being activated.
+    private static let folderURLSchemesByBundleIdentifier = [
+        "com.microsoft.VSCode": "vscode",
+        "com.microsoft.VSCodeInsiders": "vscode-insiders",
+        "com.vscodium": "vscodium",
+        "com.exafunction.windsurf": "windsurf",
+        "com.google.antigravity-ide": "antigravity",
+        "com.trae.app": "trae",
+        "dev.zed.Zed": "zed",
+    ]
+
+    /// Cursor ships a build-specific identifier, so it is matched by prefix.
+    private static let folderURLSchemesByBundlePrefix = [
+        "com.todesktop.": "cursor"
+    ]
+
+    private static func folderURLScheme(for bundleIdentifier: String) -> String? {
+        if let scheme = folderURLSchemesByBundleIdentifier[bundleIdentifier] {
+            return scheme
+        }
+        return folderURLSchemesByBundlePrefix
+            .first { bundleIdentifier.hasPrefix($0.key) }?
+            .value
+    }
+
+    /// Raises the window already holding `directory`, when the host can do that.
+    ///
+    /// The scheme's registered handler is checked against the host we resolved
+    /// before the URL is opened: an unrelated application that claimed the
+    /// scheme would otherwise be launched instead of the editor the agent is
+    /// actually running in.
+    private func activateWindow(
+        holding directory: String,
+        in bundleIdentifier: String,
+        workspace: NSWorkspace
+    ) -> Bool {
+        guard
+            let scheme = Self.folderURLScheme(for: bundleIdentifier),
+            var components = URLComponents(string: "\(scheme)://file")
+        else {
+            return false
+        }
+        components.path = directory
+        guard
+            let url = components.url,
+            let handler = workspace.urlForApplication(toOpen: url),
+            Bundle(url: handler)?.bundleIdentifier == bundleIdentifier
+        else {
+            return false
+        }
+        return workspace.open(url)
+    }
+
     private func activateAgentApplication(_ agent: IPCAgentID) -> Bool {
         let workspace = NSWorkspace.shared
         let runningApplications = workspace.runningApplications
-        let processHosts = AgentHostApplicationResolver(
+        let hosts = AgentHostApplicationResolver(
             processes: SystemWorkspaceProcessScanner().processes()
-        ).hostBundleIdentifiers(for: agent)
+        ).hosts(for: agent)
+        let processHosts = Set(hosts.map(\.bundleIdentifier))
         let resolver = AgentApplicationTargetResolver(
             processHostBundleIdentifiers: processHosts,
             workspace: WorkspaceApplicationSnapshot(
@@ -305,6 +414,15 @@ public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
                 $0.bundleIdentifier == bundleIdentifier && $0.activationPolicy == .regular
             })
         {
+            // The agent's own folder first, so a click lands on the window it is
+            // running in rather than on whichever window of that editor happened
+            // to be in front.
+            if let directory = hosts.first(where: { $0.bundleIdentifier == bundleIdentifier })?
+                .workingDirectory,
+                activateWindow(holding: directory, in: bundleIdentifier, workspace: workspace)
+            {
+                return true
+            }
             return activate(running, in: workspace)
         }
 

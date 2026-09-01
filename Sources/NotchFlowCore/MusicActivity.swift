@@ -107,6 +107,10 @@ public struct MusicActivity: Activity, Equatable {
 
     /// `low`, per the V1 priority table in `docs/05-activity-model.md`: music
     /// never forces the panel visible on its own account.
+    /// What is playing stays at the top of the island: it is the one card the
+    /// user glances at without having asked for anything.
+    public var orderBand: ActivityOrderBand { .pinned }
+
     public var priority: ActivityPriority { .low }
 
     /// Music ends when the player stops, never on a clock.

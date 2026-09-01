@@ -16,9 +16,12 @@ import Foundation
 public struct AIAgentActivity: Activity, Equatable {
     /// How long a `completed` state stays on screen before the manager ends it.
     ///
-    /// Long enough to be read at a glance, short enough that a finished task
-    /// does not hold a slot the next one needs.
-    public static let completedAutoDismissAfter: Duration = .seconds(5)
+    /// Long enough to actually catch the green tick after looking away, which
+    /// is the whole point of showing it. Cut short the moment the next turn
+    /// starts: `ActivityManager` cancels this timer on every update, so a new
+    /// prompt inside the window replaces the tick with the work immediately
+    /// rather than waiting it out.
+    public static let completedAutoDismissAfter: Duration = .seconds(15)
 
     public let agent: IPCAgentID
     /// One running instance of an agent, per the `Session` definition in

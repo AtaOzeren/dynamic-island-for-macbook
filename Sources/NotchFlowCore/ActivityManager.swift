@@ -109,15 +109,16 @@ public final class ActivityManager {
 
     private var orderedEntries: [Entry] {
         entries.values.sorted { left, right in
-            ActivityOrderingKey(
-                priority: left.activity.priority,
-                startTime: left.registrationTime
-            )
-                < ActivityOrderingKey(
-                    priority: right.activity.priority,
-                    startTime: right.registrationTime
-                )
+            Self.orderingKey(for: left) < Self.orderingKey(for: right)
         }
+    }
+
+    private static func orderingKey(for entry: Entry) -> ActivityOrderingKey {
+        ActivityOrderingKey(
+            band: entry.activity.orderBand,
+            priority: entry.activity.priority,
+            startTime: entry.registrationTime
+        )
     }
 
     private var compactGroups: [CompactGroup] {

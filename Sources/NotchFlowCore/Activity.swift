@@ -7,6 +7,7 @@ public protocol Activity: Sendable {
     var compactRegion: CompactActivityRegion { get }
     var kind: ActivityKind { get }
     var priority: ActivityPriority { get }
+    var orderBand: ActivityOrderBand { get }
     var autoDismiss: AutoDismissDescriptor? { get }
     var primaryAction: PrimaryAction? { get }
 }
@@ -15,6 +16,9 @@ extension Activity {
     public var compactGroupIdentity: ActivityIdentity { identity }
     public var compactRepresentationPriority: CompactRepresentationPriority { .active }
     public var compactRegion: CompactActivityRegion { .standard }
+    /// Most activities queue by urgency alone. Only media and capture pin
+    /// themselves above that.
+    public var orderBand: ActivityOrderBand { .standard }
     public var autoDismiss: AutoDismissDescriptor? { nil }
 
     /// An activity with no primary action is inert to clicks beyond the panel's

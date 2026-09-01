@@ -336,6 +336,88 @@ struct ActivityManagerTests {
         #expect(firstCount == 1)
         #expect(secondCount == 2)
     }
+
+
+    // MARK: - Media and capture stay on top
+
+    /// The reported wish, end to end: the track the user is listening to sits
+    /// above the agents, whatever the agents are doing and however long they
+    /// have been at it.
+    @Test("music sorts above every agent state")
+    @MainActor
+    func musicOutranksAgents() {
+        for state in AIAgentState.allCases where state != .idle {
+            let manager = ActivityManager()
+            // The agent registers first, so start time cannot be what saves the
+            // track's place.
+            manager.register(
+                AIAgentActivity(agent: .claudeCode, sessionID: UUID(), state: state, detail: "x"),
+                at: Date(timeIntervalSinceReferenceDate: 0)
+            )
+            manager.register(
+                MusicActivity(
+                    nowPlaying: NowPlaying(
+                        title: "Windowlicker",
+                        artist: "Aphex Twin",
+                        playbackState: .playing,
+                        sourceApplicationName: "Spotify"
+                    )
+                ),
+                at: Date(timeIntervalSinceReferenceDate: 100)
+            )
+
+            #expect(
+                manager.activeActivities.first?.kind == .music,
+                "an agent in \(state) displaced the music"
+            )
+        }
+    }
+
+    /// A live camera or microphone belongs at the top too.
+    @Test("a recording sorts above every agent state")
+    @MainActor
+    func recordingOutranksAgents() {
+        let manager = ActivityManager()
+        manager.register(
+            AIAgentActivity(
+                agent: .claudeCode,
+                sessionID: UUID(),
+                state: .waitingForUser,
+                detail: "x"
+            ),
+            at: Date(timeIntervalSinceReferenceDate: 0)
+        )
+        manager.register(
+            RecordingActivity.started(.screen, at: Date(timeIntervalSinceReferenceDate: 100)),
+            at: Date(timeIntervalSinceReferenceDate: 100)
+        )
+
+        #expect(manager.activeActivities.first?.kind == .recording)
+    }
+
+    /// A finished turn's green tick is worth catching, so it lingers — but a new
+    /// prompt inside that window must replace it at once rather than wait it out.
+    @Test("a new turn cancels the completed tick immediately")
+    @MainActor
+    func aNewTurnCancelsTheCompletedTick() {
+        // A sleep that never returns: if the tick's dismissal were what removed
+        // the card, nothing here could remove it, and the assertion below would
+        // be measuring the timer rather than the replacement.
+        let manager = ActivityManager(sleep: { _ in try? await Task.sleep(for: .seconds(3_600)) })
+        let session = UUID()
+
+        manager.register(
+            AIAgentActivity(agent: .claudeCode, sessionID: session, state: .completed, detail: "done")
+        )
+        // The next turn arrives while the tick is still on screen.
+        manager.register(
+            AIAgentActivity(agent: .claudeCode, sessionID: session, state: .thinking, detail: "next")
+        )
+
+        let shown = manager.activeActivities.compactMap { $0 as? AIAgentActivity }
+        #expect(shown.count == 1, "the turn was added beside the tick instead of replacing it")
+        #expect(shown.first?.state == .thinking, "the tick outlived the turn that replaced it")
+    }
 }
 
 private func aiAgent(
