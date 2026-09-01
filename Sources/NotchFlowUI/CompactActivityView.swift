@@ -37,7 +37,8 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     public let musicSourceIdentity: MusicSourceIdentity?
     public let animationIdentity: String?
     public let recordingSource: RecordingSource?
-    public let aiAgentID: IPCAgentID?
+    let aiAgentPresentation: CompactAIAgentSlotPresentation?
+    public var aiAgentID: IPCAgentID? { aiAgentPresentation?.agentID }
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
@@ -49,7 +50,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = nil
         animationIdentity = nil
         recordingSource = nil
-        aiAgentID = nil
+        aiAgentPresentation = nil
     }
 
     /// For activities whose per-instance detail outgrows what the kind alone can
@@ -61,7 +62,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         symbolName: String? = nil,
         accessibilityLabel: String,
         musicPresentation: CompactMusicSlotPresentation? = nil,
-        aiAgentID: IPCAgentID? = nil
+        aiAgentPresentation: CompactAIAgentSlotPresentation? = nil
     ) {
         id = activity.identity.rawValue
         self.symbolName = symbolName ?? compactSymbolName(activity.kind)
@@ -72,7 +73,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = musicPresentation?.sourceIdentity
         animationIdentity = musicPresentation?.animationIdentity
         recordingSource = nil
-        self.aiAgentID = aiAgentID
+        self.aiAgentPresentation = aiAgentPresentation
     }
 
     init(
@@ -88,7 +89,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = nil
         animationIdentity = nil
         recordingSource = activity.source
-        aiAgentID = nil
+        aiAgentPresentation = nil
     }
 
     fileprivate init(overflowCount: Int) {
@@ -101,7 +102,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         musicSourceIdentity = nil
         animationIdentity = nil
         recordingSource = nil
-        aiAgentID = nil
+        aiAgentPresentation = nil
     }
 
     private static let overflowIdentifier = "notchflow.compact.overflow"
@@ -303,8 +304,11 @@ public struct CompactActivityView: View {
                 AnimatedScreenRecordingIcon(size: metrics.symbolSize * 0.84)
             } else if slot.recordingSource == .audio {
                 AnimatedMicrophoneRecordingIcon(size: metrics.symbolSize * 0.84)
-            } else if let aiAgentID = slot.aiAgentID {
-                AIAgentIcon(agentID: aiAgentID, size: metrics.symbolSize)
+            } else if let aiAgentPresentation = slot.aiAgentPresentation {
+                CompactAIAgentIcon(
+                    presentation: aiAgentPresentation,
+                    iconSize: metrics.symbolSize
+                )
             } else if let sourceIdentity = slot.musicSourceIdentity {
                 if slot.isPlayingMusic {
                     MusicEqualiserSlotView(

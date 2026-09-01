@@ -1,5 +1,6 @@
 import AppKit
 import CoreGraphics
+import Foundation
 import NotchFlowCore
 import SwiftUI
 
@@ -60,6 +61,94 @@ public struct AIAgentPresentation: Equatable, Sendable {
     }
 }
 
+enum AIAgentCompactBadgeTone: Equatable, Sendable {
+    case yellow
+    case red
+    case green
+}
+
+enum AIAgentCompactIndicator: Equatable, Sendable {
+    case none
+    case working
+    case question
+    case error
+    case completed
+
+    init(state: AIAgentState) {
+        switch state {
+        case .idle:
+            self = .none
+        case .thinking, .working, .usingTool:
+            self = .working
+        case .waitingForUser:
+            self = .question
+        case .error:
+            self = .error
+        case .completed:
+            self = .completed
+        }
+    }
+
+    var symbolName: String? {
+        switch self {
+        case .question: "questionmark"
+        case .error: "exclamationmark"
+        case .completed: "checkmark"
+        case .none, .working: nil
+        }
+    }
+
+    var badgeTone: AIAgentCompactBadgeTone? {
+        switch self {
+        case .question: .yellow
+        case .error: .red
+        case .completed: .green
+        case .none, .working: nil
+        }
+    }
+}
+
+struct CompactAIAgentSlotPresentation: Equatable, Sendable {
+    let agentID: IPCAgentID
+    let indicator: AIAgentCompactIndicator
+
+    init(activity: AIAgentActivity) {
+        agentID = activity.agent
+        indicator = AIAgentCompactIndicator(state: activity.state)
+    }
+}
+
+struct CompactAIAgentMetrics: Equatable, Sendable {
+    static let `default` = CompactAIAgentMetrics()
+
+    let dotDiameter: CGFloat = 3
+    let travelDistance: CGFloat = 8
+    let oneWayDuration: TimeInterval = 0.65
+    let badgeDiameter: CGFloat = 7
+    let badgeSymbolSize: CGFloat = 5
+
+    private init() {}
+}
+
+func compactAIAgentWorkingDotOffset(
+    at elapsedTime: TimeInterval,
+    reduceMotion: Bool
+) -> CGFloat {
+    guard reduceMotion == false else { return 0 }
+
+    let metrics = CompactAIAgentMetrics.default
+    let cycleDuration = metrics.oneWayDuration * 2
+    var cycleTime = elapsedTime.truncatingRemainder(dividingBy: cycleDuration)
+    if cycleTime < 0 {
+        cycleTime += cycleDuration
+    }
+
+    let outwardProgress = cycleTime / metrics.oneWayDuration
+    let linearProgress = outwardProgress <= 1 ? outwardProgress : 2 - outwardProgress
+    let easedProgress = (1 - cos(.pi * linearProgress)) / 2
+    return -metrics.travelDistance / 2 + metrics.travelDistance * CGFloat(easedProgress)
+}
+
 /// The AI activity's compact slot carries the originating agent identity so the
 /// pill can render Claude, Codex, or OpenCode instead of generic AI sparkles.
 public func aiAgentCompactSlot(for activity: AIAgentActivity) -> CompactSlot {
@@ -67,7 +156,7 @@ public func aiAgentCompactSlot(for activity: AIAgentActivity) -> CompactSlot {
     return CompactSlot(
         activity: activity,
         accessibilityLabel: presentation.accessibilityLabel,
-        aiAgentID: presentation.agentID
+        aiAgentPresentation: CompactAIAgentSlotPresentation(activity: activity)
     )
 }
 
@@ -272,6 +361,94 @@ struct AIAgentIcon: View {
         case .opencode:
             OpenCodeLogo()
         }
+    }
+}
+
+struct CompactAIAgentIcon: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    let presentation: CompactAIAgentSlotPresentation
+    let iconSize: CGFloat
+
+    private let metrics = CompactAIAgentMetrics.default
+
+    var body: some View {
+        HStack(spacing: 1) {
+            iconAndWorkingIndicator
+            if let symbolName = presentation.indicator.symbolName,
+                let badgeTone = presentation.indicator.badgeTone
+            {
+                badge(symbolName: symbolName, tone: badgeTone)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private var iconAndWorkingIndicator: some View {
+        if presentation.indicator == .working {
+            ZStack(alignment: .top) {
+                AIAgentIcon(agentID: presentation.agentID, size: iconSize)
+                workingDot
+                    .offset(y: iconSize + 1)
+            }
+            .frame(
+                width: max(iconSize, metrics.travelDistance + metrics.dotDiameter),
+                height: iconSize + metrics.dotDiameter + 1,
+                alignment: .top
+            )
+        } else {
+            AIAgentIcon(agentID: presentation.agentID, size: iconSize)
+        }
+    }
+
+    @ViewBuilder
+    private var workingDot: some View {
+        if reduceMotion {
+            dot(offset: 0)
+        } else {
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
+                dot(
+                    offset: compactAIAgentWorkingDotOffset(
+                        at: context.date.timeIntervalSinceReferenceDate,
+                        reduceMotion: false
+                    )
+                )
+            }
+        }
+    }
+
+    private func dot(offset: CGFloat) -> some View {
+        Circle()
+            .fill(.white)
+            .frame(width: metrics.dotDiameter, height: metrics.dotDiameter)
+            .offset(x: offset)
+    }
+
+    private func badge(
+        symbolName: String,
+        tone: AIAgentCompactBadgeTone
+    ) -> some View {
+        Circle()
+            .fill(badgeColor(tone))
+            .frame(width: metrics.badgeDiameter, height: metrics.badgeDiameter)
+            .overlay {
+                Image(systemName: symbolName)
+                    .font(.system(size: metrics.badgeSymbolSize, weight: .black))
+                    .foregroundStyle(badgeForegroundColor(tone))
+            }
+    }
+
+    private func badgeColor(_ tone: AIAgentCompactBadgeTone) -> Color {
+        switch tone {
+        case .yellow: .yellow
+        case .red: .red
+        case .green: .green
+        }
+    }
+
+    private func badgeForegroundColor(_ tone: AIAgentCompactBadgeTone) -> Color {
+        tone == .yellow ? .black : .white
     }
 }
 

@@ -162,7 +162,49 @@ struct AIAgentActivityViewTests {
         for agent in IPCAgentID.allCases {
             let slot = aiAgentCompactSlot(for: Self.activity(agent: agent, state: .error))
 
-            #expect(slot.aiAgentID == agent)
+            #expect(slot.aiAgentPresentation?.agentID == agent)
+        }
+    }
+
+    @Test("maps every agent state to its compact indicator")
+    func compactIndicatorPerState() {
+        let expectations: [(AIAgentState, AIAgentCompactIndicator)] = [
+            (.idle, .none),
+            (.thinking, .working),
+            (.working, .working),
+            (.usingTool, .working),
+            (.waitingForUser, .question),
+            (.error, .error),
+            (.completed, .completed),
+        ]
+
+        for (state, indicator) in expectations {
+            let slot = aiAgentCompactSlot(for: Self.activity(state: state))
+
+            #expect(slot.aiAgentPresentation?.indicator == indicator)
+        }
+    }
+
+    @Test("uses compact status symbols with the chosen meanings")
+    func compactStatusSymbols() {
+        #expect(AIAgentCompactIndicator.question.symbolName == "questionmark")
+        #expect(AIAgentCompactIndicator.error.symbolName == "exclamationmark")
+        #expect(AIAgentCompactIndicator.completed.symbolName == "checkmark")
+        #expect(AIAgentCompactIndicator.question.badgeTone == .yellow)
+        #expect(AIAgentCompactIndicator.error.badgeTone == .red)
+        #expect(AIAgentCompactIndicator.completed.badgeTone == .green)
+        #expect(AIAgentCompactIndicator.none.symbolName == nil)
+        #expect(AIAgentCompactIndicator.working.symbolName == nil)
+    }
+
+    @Test("keeps every supported agent on the same state mapping")
+    func compactIndicatorsAreAgentIndependent() {
+        for agent in IPCAgentID.allCases {
+            let slot = aiAgentCompactSlot(
+                for: Self.activity(agent: agent, state: .waitingForUser)
+            )
+
+            #expect(slot.aiAgentPresentation?.indicator == .question)
         }
     }
 
@@ -173,7 +215,64 @@ struct AIAgentActivityViewTests {
 
         let slot = try #require(compactSlots(for: manager.compactPresentation).first)
 
-        #expect(slot.aiAgentID == .codex)
+        #expect(slot.aiAgentPresentation?.agentID == .codex)
+        #expect(slot.aiAgentPresentation?.indicator == .working)
+    }
+
+    @Test("uses a three-point working dot with short horizontal travel")
+    func compactWorkingIndicatorMetrics() {
+        let metrics = CompactAIAgentMetrics.default
+
+        #expect(metrics.dotDiameter == 3)
+        #expect(metrics.travelDistance == 8)
+        #expect(metrics.oneWayDuration == 0.65)
+    }
+
+    @Test("moves the working dot between both endpoints and back")
+    func compactWorkingDotMotion() {
+        let metrics = CompactAIAgentMetrics.default
+        let halfTravel = metrics.travelDistance / 2
+
+        #expect(
+            compactAIAgentWorkingDotOffset(
+                at: 0,
+                reduceMotion: false
+            ) == -halfTravel
+        )
+        #expect(
+            abs(
+                compactAIAgentWorkingDotOffset(
+                    at: metrics.oneWayDuration,
+                    reduceMotion: false
+                ) - halfTravel
+            ) < 0.001
+        )
+        #expect(
+            abs(
+                compactAIAgentWorkingDotOffset(
+                    at: metrics.oneWayDuration * 2,
+                    reduceMotion: false
+                ) + halfTravel
+            ) < 0.001
+        )
+    }
+
+    @Test("centres the working dot when reduced motion is enabled")
+    func compactWorkingDotReducedMotion() {
+        #expect(
+            compactAIAgentWorkingDotOffset(
+                at: 10,
+                reduceMotion: true
+            ) == 0
+        )
+    }
+
+    @Test("completed compact status keeps the five-second activity lifetime")
+    func compactCompletedLifetime() {
+        let slot = aiAgentCompactSlot(for: Self.activity(state: .completed))
+
+        #expect(slot.aiAgentPresentation?.indicator == .completed)
+        #expect(AIAgentActivity.completedAutoDismissAfter == .seconds(5))
     }
 
     @Test("announces the state and detail rather than the generic kind label")
