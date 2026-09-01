@@ -47,11 +47,33 @@ struct CompositionRootWiringTests {
         #expect(source.contains("stopSynchronously(loopbackListener)"))
     }
 
-    @Test("the menu bar scene cannot be removed by stale Control Center state")
-    func menuBarSceneStaysInserted() throws {
+    @Test("the app owns one visible AppKit status item")
+    func appOwnsVisibleStatusItem() throws {
         let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
 
+        #expect(source.contains("StatusItemPresenter("))
+        #expect(source.contains("NSStatusBar.system.statusItem"))
+        #expect(source.contains("statusItem.autosaveName = \"NotchFlowStatusItem\""))
+        #expect(source.contains("statusItem.isVisible = true"))
+        #expect(source.contains("visibilityRestorationTask"))
+        #expect(source.contains("statusItem.isVisible = false"))
+        #expect(source.contains("NSImage(named: \"MenuBarIcon\")"))
+        #expect(source.contains("systemSymbolName: \"capsule.fill\""))
+        #expect(source.contains("setAccessibilityLabel(\"NotchFlow\")"))
         #expect(source.contains("isInserted: .constant(true)"))
+        #expect(source.contains("SettingsActionBridge("))
+    }
+
+    @Test("reopening the running accessory app opens Settings")
+    func appReopenOpensSettings() throws {
+        let delegateSource = try Self.appSource("NotchFlow/URLSchemeReceiver.swift")
+        let appSource = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(delegateSource.contains("applicationShouldHandleReopen"))
+        #expect(delegateSource.contains("Self.onReopen?()"))
+        #expect(appSource.contains("URLSchemeAppDelegate.onReopen ="))
+        #expect(appSource.contains("settingsWindowRouter.open()"))
+        #expect(appSource.contains("@Environment(\\.openSettings)"))
     }
 
     @Test("the delegate forwards termination to the composition root")
@@ -110,6 +132,21 @@ struct CompositionRootWiringTests {
         #expect(source.contains("refreshCurrentState()"))
         #expect(source.contains("NSApplication.didBecomeActiveNotification"))
         #expect(source.contains("refreshMusicAutomationState()"))
+    }
+
+    @Test("launch never waits for an Apple Events permission query")
+    func launchDoesNotQueryMusicAutomationSynchronously() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+        let initializer = try #require(
+            source.split(separator: "var body: some Scene", maxSplits: 1).first
+        )
+
+        #expect(
+            initializer.contains(
+                "_musicAutomation = State(initialValue: makePendingMusicAutomationAccess())"
+            )
+        )
+        #expect(!initializer.contains("makeMusicAutomationAccess(gate:"))
     }
 
     @Test("timer commands reach the provider, and the menu can start one")

@@ -50,3 +50,25 @@ func makeMusicAutomationAccess(gate: MusicAutomationGate) -> [MusicAutomationAcc
         gate.access()
     #endif
 }
+
+/// Rows shown before the asynchronous TCC status lookup completes.
+///
+/// Constructing these values performs no Apple Events call, so application
+/// launch can always reach its menu bar scene even when the consent service is
+/// slow or waiting on a stale prompt.
+@MainActor
+func makePendingMusicAutomationAccess() -> [MusicAutomationAccess] {
+    #if DIRECT_BUILD
+        if #available(macOS 15.4, *) {
+            MusicPlayerTarget.allCases.map {
+                MusicAutomationAccess(target: $0, status: .notDetermined)
+            }
+        } else {
+            []
+        }
+    #else
+        MusicPlayerTarget.allCases.map {
+            MusicAutomationAccess(target: $0, status: .notDetermined)
+        }
+    #endif
+}

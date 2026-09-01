@@ -5,17 +5,21 @@ import NotchFlowCore
 /// Receives `notchflow://` URLs for an app that usually has no window open.
 ///
 /// SwiftUI's `onOpenURL` is a view modifier, so it only listens once the scene
-/// it is attached to has instantiated its content. NotchFlow's only scenes are
-/// `Settings` and the status item's menu, and neither exists until the user
-/// opens it — which would make every hook message dropped on the floor except
-/// in the rare moment the settings window happens to be on screen. The
-/// application delegate receives the same URLs with no window at all.
+/// it is attached to has instantiated its content. NotchFlow has no persistent
+/// ordinary window, so using that modifier would make hook delivery depend on
+/// scene presentation. The application delegate receives the same URLs with no
+/// window at all.
 @MainActor
 final class URLSchemeAppDelegate: NSObject, NSApplicationDelegate {
     /// Set by the composition root. Static because `NSApplicationDelegateAdaptor`
     /// constructs the delegate itself and hands back no seam to inject through;
     /// the app is a single instance, so there is exactly one writer.
     nonisolated(unsafe) static var onOpenURL: (@MainActor (URL) -> Void)?
+
+    /// Reopens Settings when Finder or Launch Services opens the already-running
+    /// accessory app. With no Dock icon or ordinary window, the default reopen
+    /// response has nothing it can bring forward.
+    nonisolated(unsafe) static var onReopen: (@MainActor () -> Void)?
 
     /// Runs before the process exits, for the resources that must be released
     /// rather than merely abandoned — currently the loopback listener's socket.
@@ -28,6 +32,16 @@ final class URLSchemeAppDelegate: NSObject, NSApplicationDelegate {
                 Self.onOpenURL?(url)
             }
         }
+    }
+
+    nonisolated func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows flag: Bool
+    ) -> Bool {
+        MainActor.assumeIsolated {
+            Self.onReopen?()
+        }
+        return true
     }
 
     nonisolated func applicationWillTerminate(_ notification: Notification) {

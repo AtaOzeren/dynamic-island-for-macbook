@@ -206,6 +206,15 @@ public final class AppleScriptMusicProvider: MusicProvider {
             subscriptions.add(token, to: notifications)
         }
 
+        let permissionToken = notifications.addObserver(
+            forName: .musicAutomationPermissionDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh(wokenBy: nil) }
+        }
+        subscriptions.add(permissionToken, to: notifications)
+
         // A notification only ever reports a *change*, so a track already
         // playing when observation starts posts nothing. Without this first
         // read the island stays empty until the user changes track.

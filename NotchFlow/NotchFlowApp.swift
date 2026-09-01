@@ -24,6 +24,7 @@ struct NotchFlowApp: App {
     private let urlSchemeReceiver = URLSchemeReceiver()
     private let onboardingPresenter = OnboardingPresenter()
     private let manualSetupPresenter = ManualSetupPresenter()
+    private let settingsWindowRouter: SettingsWindowRouter
 
     /// The loopback transport, held for the app's lifetime so termination can
     /// close its socket.
@@ -33,6 +34,7 @@ struct NotchFlowApp: App {
     /// shared with the registry that draws it.
     private let timerProvider: TimerProvider
     private let appleClockMirror: AppleClockMirror?
+    private let statusItemPresenter: StatusItemPresenter
 
     /// Draws the manager's activities in the overlay window. Held for the app's
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
@@ -54,20 +56,21 @@ struct NotchFlowApp: App {
     init() {
         let automationGate = MusicAutomationGate()
         let musicProvider = makeMusicProvider(gate: automationGate)
+        let settingsWindowRouter = SettingsWindowRouter()
 
         // The build's backend, reportable without a window, so CI can assert the
         // two configurations differ and a support conversation can ask for one
-        // line of output rather than a screenshot. This must happen before the
-        // automation-access rows query macOS, which can block a headless build.
+        // line of output rather than a screenshot. This must happen before
+        // provider observation starts, so the diagnostic path starts no Apple
+        // Events work.
         if CommandLine.arguments.contains("--print-music-backend") {
             print(musicProvider.backendName)
             exit(EXIT_SUCCESS)
         }
 
         self.automationGate = automationGate
-        _musicAutomation = State(
-            initialValue: makeMusicAutomationAccess(gate: automationGate)
-        )
+        self.settingsWindowRouter = settingsWindowRouter
+        _musicAutomation = State(initialValue: makePendingMusicAutomationAccess())
         _hookStates = State(initialValue: [:])
         let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
         _availableDisplays = State(initialValue: currentDisplays)
@@ -94,6 +97,11 @@ struct NotchFlowApp: App {
         let timerProvider = TimerProvider()
         self.timerProvider = timerProvider
         appleClockMirror = makeAppleClockMirror(timerProvider: timerProvider)
+        let statusItemPresenter = StatusItemPresenter(
+            timerProvider: timerProvider,
+            openSettings: settingsWindowRouter.open
+        )
+        self.statusItemPresenter = statusItemPresenter
 
         let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
@@ -126,6 +134,9 @@ struct NotchFlowApp: App {
         let receiver = urlSchemeReceiver
         URLSchemeAppDelegate.onOpenURL = { url in
             receiver.handle(url)
+        }
+        URLSchemeAppDelegate.onReopen = {
+            settingsWindowRouter.open()
         }
 
         // Seeded from the store, not left at `.default`, because the default has
@@ -170,6 +181,7 @@ struct NotchFlowApp: App {
         // and an accessory app is quit from a menu item rather than by closing
         // a window — so termination is the only hook that always runs.
         URLSchemeAppDelegate.onTerminate = {
+            statusItemPresenter.stop()
             Self.stopSynchronously(loopbackListener)
         }
 
@@ -186,6 +198,7 @@ struct NotchFlowApp: App {
             // Ordering a window front before AppKit has finished launching is
             // unreliable. `start()` orders the persistent compact panel in, so
             // it waits on the same turn the onboarding window does.
+            statusItemPresenter.start()
             islandPresenter.start()
 
             presenter.presentIfNeeded(
@@ -240,17 +253,6 @@ struct NotchFlowApp: App {
         UserDefaults.standard.set([code], forKey: "AppleLanguages")
     }
 
-    /// The countdown lengths the menu offers.
-    ///
-    /// Fixed presets rather than a duration field: the menu bar cannot host
-    /// text entry, and three durations cover the timer's stated V1 use without
-    /// inventing a window the app otherwise does not have.
-    private static let timerPresets: [(minutes: Int, title: String)] = [
-        (5, String(localized: "Start 5-Minute Timer")),
-        (10, String(localized: "Start 10-Minute Timer")),
-        (25, String(localized: "Start 25-Minute Timer")),
-    ]
-
     /// The agents whose configuration files exist, in the fixed order the
     /// onboarding screen lists them.
     private static func detectedAgents() -> [IPCAgentID] {
@@ -293,44 +295,13 @@ struct NotchFlowApp: App {
     }
 
     var body: some Scene {
-        // An accessory app has no Dock icon and no window of its own once
-        // onboarding closes, so this is the only standing way back into
-        // settings — `docs/08-settings-and-localization.md` names the status
-        // item and onboarding's last step as the two entry points.
-        MenuBarExtra(
-            "NotchFlow",
-            image: "MenuBarIcon",
-            isInserted: .constant(true)
-        ) {
-            // The timer's only entry point. `TimerProvider.handle(_:)` shipped
-            // with nothing able to construct a `TimerCommand`, so the feature
-            // was unreachable end to end; the menu is the lowest-risk surface
-            // because it is the app's one standing window-less affordance.
-            ForEach(Self.timerPresets, id: \.minutes) { preset in
-                Button(preset.title) {
-                    timerProvider.handle(
-                        .start(.countdown(duration: .seconds(preset.minutes * 60)))
-                    )
-                }
-            }
-
-            Button(String(localized: "Stop Timer")) {
-                timerProvider.handle(.stop)
-            }
-
-            Divider()
-
-            SettingsLink {
-                Text(String(localized: "Settings…"))
-            }
-            .keyboardShortcut(",", modifiers: .command)
-
-            Divider()
-
-            Button(String(localized: "Quit NotchFlow")) {
-                NSApplication.shared.terminate(nil)
-            }
-            .keyboardShortcut("q", modifiers: .command)
+        // `openSettings` exists only in SwiftUI's scene environment. This
+        // zero-size scene captures that official action for Finder reopen
+        // events; the visible, reliable menu bar item is AppKit-owned.
+        MenuBarExtra(isInserted: .constant(true)) {
+            EmptyView()
+        } label: {
+            SettingsActionBridge(router: settingsWindowRouter)
         }
 
         Settings {
@@ -356,11 +327,18 @@ struct NotchFlowApp: App {
             aiPreferences = settingsStore.aiIntegrationPreferences
             hookStates = Self.currentHookStates()
             refreshAvailableDisplays()
-            refreshMusicAutomationState()
+            reloadMusicAutomationState()
         }
         .onReceive(
             NotificationCenter.default.publisher(
                 for: NSApplication.didBecomeActiveNotification
+            )
+        ) { _ in
+            reloadMusicAutomationState()
+        }
+        .onReceive(
+            DistributedNotificationCenter.default().publisher(
+                for: .musicAutomationPermissionDidChange
             )
         ) { _ in
             refreshMusicAutomationState()
@@ -419,6 +397,10 @@ struct NotchFlowApp: App {
     private func refreshMusicAutomationState() {
         musicAutomation = makeMusicAutomationAccess(gate: automationGate)
         (musicProvider as? AppleScriptMusicProvider)?.refreshCurrentState()
+    }
+
+    private func reloadMusicAutomationState() {
+        musicAutomation = automationGate.reloadAccess()
     }
 
     private func handleHookAction(_ agentID: IPCAgentID, _ action: AIHookAction) {
@@ -537,5 +519,160 @@ private extension NotchFlowApp {
             build: info?["CFBundleVersion"] as? String ?? "—",
             musicBackendName: musicProvider.backendName
         )
+    }
+}
+
+@MainActor
+private final class StatusItemPresenter: NSObject {
+    private static let visibilityRestorationDelay = Duration.milliseconds(500)
+    private static let timerPresets: [(minutes: Int, title: String)] = [
+        (5, String(localized: "Start 5-Minute Timer")),
+        (10, String(localized: "Start 10-Minute Timer")),
+        (25, String(localized: "Start 25-Minute Timer")),
+    ]
+
+    private let timerProvider: TimerProvider
+    private let openSettings: () -> Void
+    private var statusItem: NSStatusItem?
+    private var visibilityRestorationTask: Task<Void, Never>?
+
+    init(timerProvider: TimerProvider, openSettings: @escaping () -> Void) {
+        self.timerProvider = timerProvider
+        self.openSettings = openSettings
+    }
+
+    func start() {
+        guard statusItem == nil else { return }
+        let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem.autosaveName = "NotchFlowStatusItem"
+        let image = NSImage(named: "MenuBarIcon") ?? NSImage(
+            systemSymbolName: "capsule.fill",
+            accessibilityDescription: "NotchFlow"
+        )
+        image?.isTemplate = true
+        statusItem.button?.image = image
+        statusItem.button?.imagePosition = .imageOnly
+        statusItem.button?.setAccessibilityLabel("NotchFlow")
+        statusItem.button?.toolTip = "NotchFlow"
+        statusItem.menu = makeMenu()
+        statusItem.isVisible = true
+        self.statusItem = statusItem
+        visibilityRestorationTask = Task { @MainActor [weak self, weak statusItem] in
+            try? await Task.sleep(for: Self.visibilityRestorationDelay)
+            guard
+                Task.isCancelled == false,
+                let self,
+                self.statusItem === statusItem,
+                let statusItem
+            else { return }
+
+            statusItem.isVisible = false
+            await Task.yield()
+            statusItem.isVisible = true
+        }
+    }
+
+    func stop() {
+        visibilityRestorationTask?.cancel()
+        visibilityRestorationTask = nil
+        guard let statusItem else { return }
+        NSStatusBar.system.removeStatusItem(statusItem)
+        self.statusItem = nil
+    }
+
+    private func makeMenu() -> NSMenu {
+        let menu = NSMenu()
+        for preset in Self.timerPresets {
+            let item = NSMenuItem(
+                title: preset.title,
+                action: #selector(startTimer(_:)),
+                keyEquivalent: ""
+            )
+            item.tag = preset.minutes
+            item.target = self
+            menu.addItem(item)
+        }
+
+        menu.addItem(menuItem(
+            title: String(localized: "Stop Timer"),
+            action: #selector(stopTimer)
+        ))
+        menu.addItem(.separator())
+
+        let settingsItem = menuItem(
+            title: String(localized: "Settings…"),
+            action: #selector(showSettings)
+        )
+        settingsItem.keyEquivalent = ","
+        settingsItem.keyEquivalentModifierMask = .command
+        menu.addItem(settingsItem)
+        menu.addItem(.separator())
+
+        let quitItem = menuItem(
+            title: String(localized: "Quit NotchFlow"),
+            action: #selector(quit)
+        )
+        quitItem.keyEquivalent = "q"
+        quitItem.keyEquivalentModifierMask = .command
+        menu.addItem(quitItem)
+        return menu
+    }
+
+    private func menuItem(title: String, action: Selector) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+        item.target = self
+        return item
+    }
+
+    @objc private func startTimer(_ sender: NSMenuItem) {
+        timerProvider.handle(
+            .start(.countdown(duration: .seconds(sender.tag * 60)))
+        )
+    }
+
+    @objc private func stopTimer() {
+        timerProvider.handle(.stop)
+    }
+
+    @objc private func showSettings() {
+        openSettings()
+    }
+
+    @objc private func quit() {
+        NSApplication.shared.terminate(nil)
+    }
+}
+
+@MainActor
+private final class SettingsWindowRouter {
+    private var action: OpenSettingsAction?
+    private var hasPendingRequest = false
+
+    func install(_ action: OpenSettingsAction) {
+        self.action = action
+        guard hasPendingRequest else { return }
+        hasPendingRequest = false
+        action()
+    }
+
+    func open() {
+        guard let action else {
+            hasPendingRequest = true
+            return
+        }
+        action()
+    }
+}
+
+private struct SettingsActionBridge: View {
+    @Environment(\.openSettings) private var openSettings
+    let router: SettingsWindowRouter
+
+    var body: some View {
+        Color.clear
+            .frame(width: 0, height: 0)
+            .onAppear {
+                router.install(openSettings)
+            }
     }
 }

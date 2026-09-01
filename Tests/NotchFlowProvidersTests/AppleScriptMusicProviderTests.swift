@@ -97,6 +97,20 @@ struct AppleScriptMusicProviderTests {
         #expect(received.last??.sourceApplicationName == "Music")
     }
 
+    @Test("re-reads players when an asynchronous permission lookup completes")
+    func refreshesAfterPermissionStatusChanges() {
+        let (provider, players, center) = Self.make()
+        provider.startObserving { _ in }
+        let queryCountBeforePermissionChange = players.queriedTargets.count
+
+        center.post(name: .musicAutomationPermissionDidChange, object: nil)
+
+        #expect(
+            players.queriedTargets.count
+                == queryCountBeforePermissionChange + MusicPlayerTarget.allCases.count
+        )
+    }
+
     /// The one read on start is the *only* unprompted read: each player is
     /// asked exactly once, and nothing re-reads on a timer.
     @Test("queries each player exactly once when observation starts")
