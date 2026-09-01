@@ -49,7 +49,8 @@ final class SecondaryIslandPresentation {
             metrics: metrics,
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
-            screen: screen
+            screen: screen,
+            disclosedAgentIDs: { [model] in model.disclosedAgentIDs }
         )
         self.controller = controller
         controller.automaticallyExpandsOnHover = false

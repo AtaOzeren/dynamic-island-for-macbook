@@ -201,7 +201,15 @@ struct ExpandedActivityDispatchTests {
     func notchInsetReducesViewport() {
         let panelMetrics = PanelMetrics.default
         let notchHeight: CGFloat = 37
-        let activities: [any Activity] = (0..<6).map {
+        // Derived rather than hard-coded: the point is that the inset shrinks
+        // the viewport, and a fixed count silently stops overflowing the day
+        // the panel's maximum height changes.
+        let metrics = ExpandedItemMetrics.default
+        let rowsToOverflow = Int(
+            ((panelMetrics.maximumExpandedSize.height - notchHeight)
+                / (metrics.panel.rowHeight + metrics.panel.rowSpacing)).rounded(.up)
+        ) + 1
+        let activities: [any Activity] = (0..<rowsToOverflow).map {
             SizedStubActivity(identity: ActivityIdentity("generic.\($0)"))
         }
 

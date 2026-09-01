@@ -356,10 +356,17 @@ public struct ExpandedActivityView: View {
     private let onMusicTransport: (MusicTransportCommand) -> Void
     private let onTimerCommand: (TimerControlCommand) -> Void
 
-    @State private var disclosedAgentIDs: Set<IPCAgentID> = []
+    /// Which agent groups are showing their sessions.
+    ///
+    /// Bound from outside rather than held here as `@State`: the island's black
+    /// surface is sized by an ancestor, and while this view owned the set
+    /// privately that ancestor sized the surface for collapsed groups. Opening a
+    /// group then drew its rows past the bottom of the island onto the desktop.
+    @Binding private var disclosedAgentIDs: Set<IPCAgentID>
 
     public init(
         activities: [any Activity],
+        disclosedAgentIDs: Binding<Set<IPCAgentID>> = .constant([]),
         metrics: ExpandedItemMetrics = .default,
         panelMetrics: PanelMetrics = .default,
         topInset: CGFloat = 0,
@@ -368,6 +375,7 @@ public struct ExpandedActivityView: View {
         onTimerCommand: @escaping (TimerControlCommand) -> Void = { _ in }
     ) {
         self.activities = activities
+        _disclosedAgentIDs = disclosedAgentIDs
         self.metrics = metrics
         self.panelMetrics = panelMetrics
         self.topInset = topInset
@@ -396,10 +404,14 @@ public struct ExpandedActivityView: View {
             topInset: topInset
         )
 
+        // Height goes on the scroll container, never on the content: forcing the
+        // content to the clamped height left the scroll view with nothing longer
+        // than itself to scroll, so a list that overflowed was simply cut off at
+        // both ends instead of scrolling.
         itemStack
             .padding(metrics.panel.contentInset)
-            .frame(width: size.width, height: size.height, alignment: .top)
-            .modifier(ScrollWhenTaller(isEnabled: scrolls))
+            .frame(width: size.width, alignment: .top)
+            .modifier(ScrollWhenTaller(isEnabled: scrolls, height: size.height))
             .foregroundStyle(surface.foreground.style)
             .background {
                 if drawsOwnSurface {
@@ -586,12 +598,21 @@ private struct GenericActivityRowView: View {
 /// clipping and bounce behaviour even when everything already fits.
 private struct ScrollWhenTaller: ViewModifier {
     let isEnabled: Bool
+    /// The visible height. Applied to the scroll container, never to the content
+    /// inside it — content clamped to the viewport is content with nothing left
+    /// to scroll.
+    let height: CGFloat
 
     func body(content: Content) -> some View {
         if isEnabled {
             ScrollView(.vertical) { content }
+                .frame(height: height)
+                // Visible because the island gives no other sign that there is
+                // more below: it has no window chrome and no resize handle.
+                .scrollIndicators(.visible)
+                .scrollBounceBehavior(.basedOnSize)
         } else {
-            content
+            content.frame(height: height, alignment: .top)
         }
     }
 }

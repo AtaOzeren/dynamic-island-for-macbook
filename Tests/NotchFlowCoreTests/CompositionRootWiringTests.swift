@@ -24,6 +24,27 @@ struct CompositionRootWiringTests {
         )
     }
 
+    /// The island's black surface and the rows drawn on it must be sized from
+    /// the same disclosure set.
+    ///
+    /// While `ExpandedActivityView` owned that set privately, the surface was
+    /// sized for collapsed groups: opening one drew its sessions past the bottom
+    /// of the island and onto the desktop. The size function always accepted the
+    /// set — nothing was passing it — so only the wiring can catch this.
+    @Test("the island surface is sized from the same disclosure the rows use")
+    func islandSurfaceFollowsDisclosure() throws {
+        let source = try Self.appSource("NotchFlow/IslandPresenter.swift")
+
+        // One owner for the set, read by the surface and bound into the rows.
+        #expect(source.contains("@Published var disclosedAgentIDs"))
+        #expect(source.contains("disclosedAgentIDs: model.disclosedAgentIDs"))
+        #expect(source.contains("disclosedAgentIDs: $model.disclosedAgentIDs"))
+
+        // Hit testing has to agree, or the pointer leaves the island the moment
+        // it moves onto a disclosed row.
+        #expect(source.contains("disclosedAgentIDs: { [model] in model.disclosedAgentIDs }"))
+    }
+
     @Test("both IPC transports are handed the same message sink")
     func transportsShareOneSink() throws {
         let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")

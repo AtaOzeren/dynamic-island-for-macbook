@@ -117,15 +117,42 @@ public struct AIAgentActivity: Activity, Equatable {
         }
     }
 
-    /// Only `completed` dismisses itself.
+    /// How long a session may say nothing at all before the island gives up on
+    /// it.
     ///
-    /// `error` deliberately does not, per `docs/07-ai-integration.md`: a failed
-    /// task waits for dismissal, because an error that vanished on a timer is
-    /// an error the user can miss entirely. `idle` needs no timer either — it
-    /// is the state where the activity ends outright rather than lingering for
-    /// a few seconds first, which is what `endsPresentation` says.
+    /// Not a display timeout — every message for a session restarts it. It exists
+    /// because a hook only fires while its agent is alive: force-quit a terminal
+    /// mid-task, or lose the process to a crash, and no `Stop` and no
+    /// `SessionEnd` ever arrive. Without a bound the card that was on screen at
+    /// that moment stays there for the rest of the session, and the only way to
+    /// clear it is to quit NotchFlow.
+    ///
+    /// Long enough that a genuinely slow tool call is never mistaken for a dead
+    /// agent — the states this governs are the ones that legitimately sit still,
+    /// `waitingForUser` most of all.
+    public static let silenceTimeout: Duration = .seconds(30 * 60)
+
+    /// When this activity ends on its own.
+    ///
+    /// `completed` is a display timeout: the task is over and the card is a
+    /// receipt. Everything else is the silence bound above, which the manager
+    /// restarts on every message — so it only ever fires for a session that has
+    /// stopped talking altogether.
+    ///
+    /// `error` still does not vanish on a short timer, per
+    /// `docs/07-ai-integration.md`: a failure the user could miss is worse than
+    /// one that lingers. It is simply no longer unbounded. `idle` needs no timer
+    /// — it is the state where the activity ends outright, which is what
+    /// `endsPresentation` says.
     public var autoDismiss: AutoDismissDescriptor? {
-        state == .completed ? AutoDismissDescriptor(after: Self.completedAutoDismissAfter) : nil
+        switch state {
+        case .completed:
+            AutoDismissDescriptor(after: Self.completedAutoDismissAfter)
+        case .idle:
+            nil
+        case .thinking, .working, .usingTool, .waitingForUser, .error:
+            AutoDismissDescriptor(after: Self.silenceTimeout)
+        }
     }
 
     /// Whether the session still has anything to show.

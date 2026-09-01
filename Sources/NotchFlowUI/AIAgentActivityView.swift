@@ -159,12 +159,29 @@ enum AIAgentCompactIndicator: Equatable, Sendable {
 
 struct CompactAIAgentSlotPresentation: Equatable, Sendable {
     let agentID: IPCAgentID
+    let state: AIAgentState
     let indicator: AIAgentCompactIndicator
 
     init(activity: AIAgentActivity) {
         agentID = activity.agent
+        state = activity.state
         indicator = AIAgentCompactIndicator(state: activity.state)
     }
+}
+
+/// The drawn box for one agent's compact slot: the logo, plus room beneath it
+/// for the status indicator.
+///
+/// The same for every state on purpose. The indicator always sits under the
+/// icon, so the slot never changes width with what the agent happens to be
+/// doing — a pill that reflowed each time an agent asked a question was a pill
+/// whose icons appeared to jump sideways.
+func compactAIAgentIconSize(iconSize: CGFloat, state _: AIAgentState) -> CGSize {
+    let metrics = CompactAIAgentMetrics.default
+    return CGSize(
+        width: max(iconSize, metrics.travelDistance + metrics.dotDiameter),
+        height: iconSize + metrics.badgeDiameter + 1
+    )
 }
 
 struct CompactAIAgentMetrics: Equatable, Sendable {
@@ -566,33 +583,37 @@ struct CompactAIAgentIcon: View {
 
     private let metrics = CompactAIAgentMetrics.default
 
+    /// The agent's logo with its status directly beneath it.
+    ///
+    /// Every state reports in the same place. Needing input and failing used to
+    /// hang a badge off the icon's side while working put a dot underneath, so
+    /// the slot changed width with the state and the eye had two places to
+    /// check. One position below the icon reads as a single status light.
     var body: some View {
-        HStack(spacing: 1) {
-            iconAndWorkingIndicator
-            if let symbolName = presentation.indicator.symbolName,
-                let badgeTone = presentation.indicator.badgeTone
-            {
-                badge(symbolName: symbolName, tone: badgeTone)
-            }
+        let size = compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)
+
+        return ZStack(alignment: .top) {
+            AIAgentIcon(agentID: presentation.agentID, size: iconSize)
+            statusIndicator
+                .offset(y: iconSize + 1)
         }
+        .frame(width: size.width, height: size.height, alignment: .top)
         .accessibilityHidden(true)
     }
 
     @ViewBuilder
-    private var iconAndWorkingIndicator: some View {
-        if presentation.indicator == .working {
-            ZStack(alignment: .top) {
-                AIAgentIcon(agentID: presentation.agentID, size: iconSize)
-                workingDot
-                    .offset(y: iconSize + 1)
+    private var statusIndicator: some View {
+        switch presentation.indicator {
+        case .none:
+            EmptyView()
+        case .working:
+            workingDot
+        case .question, .error, .completed:
+            if let symbolName = presentation.indicator.symbolName,
+                let tone = presentation.indicator.badgeTone
+            {
+                badge(symbolName: symbolName, tone: tone)
             }
-            .frame(
-                width: max(iconSize, metrics.travelDistance + metrics.dotDiameter),
-                height: iconSize + metrics.dotDiameter + 1,
-                alignment: .top
-            )
-        } else {
-            AIAgentIcon(agentID: presentation.agentID, size: iconSize)
         }
     }
 

@@ -57,20 +57,46 @@ struct AIAgentActivityTests {
         }
     }
 
-    /// `docs/05-activity-model.md` marks AI completed auto-dismissing and AI
-    /// needs-input not; `docs/07-ai-integration.md` adds that `error` waits for
-    /// dismissal. An error on a timer is an error the user can miss.
-    @Test("auto-dismisses only from the completed state")
-    func autoDismissesOnlyWhenCompleted() {
-        for state in AIAgentState.allCases {
+    /// `docs/05-activity-model.md` marks AI completed auto-dismissing: the task
+    /// is over and the card is a receipt.
+    @Test("completed dismisses itself on the short display timer")
+    func completedUsesTheDisplayTimer() {
+        let descriptor = Self.activity(state: .completed).autoDismiss
+
+        #expect(
+            descriptor == AutoDismissDescriptor(after: AIAgentActivity.completedAutoDismissAfter)
+        )
+    }
+
+    /// A hook only fires while its agent is alive. Force-quit a terminal
+    /// mid-task and no `Stop` and no `SessionEnd` ever arrive, so without a
+    /// bound the card on screen at that moment stays for the rest of the
+    /// session. Every state that can be left behind carries one.
+    @Test("every live state is bounded by the silence timeout")
+    func liveStatesAreBoundedBySilence() {
+        for state in AIAgentState.allCases where state != .completed && state != .idle {
             let descriptor = Self.activity(state: state).autoDismiss
 
-            if state == .completed {
-                #expect(descriptor == AutoDismissDescriptor(after: AIAgentActivity.completedAutoDismissAfter))
-            } else {
-                #expect(descriptor == nil)
-            }
+            #expect(
+                descriptor == AutoDismissDescriptor(after: AIAgentActivity.silenceTimeout),
+                "\(state) is unbounded"
+            )
         }
+    }
+
+    /// `idle` ends the activity outright rather than lingering, which is what
+    /// `endsPresentation` says.
+    @Test("idle carries no timer")
+    func idleHasNoTimer() {
+        #expect(Self.activity(state: .idle).autoDismiss == nil)
+    }
+
+    /// `docs/07-ai-integration.md`: an error must not vanish on a timer the user
+    /// could blink through. Bounded is not the same as brief — the silence
+    /// timeout is orders of magnitude longer than the completed one.
+    @Test("a failure outlives a completion by a wide margin")
+    func failuresLingerFarLongerThanCompletions() {
+        #expect(AIAgentActivity.silenceTimeout > AIAgentActivity.completedAutoDismissAfter * 100)
     }
 
     /// One identity for the whole state machine of one session, so `thinking`

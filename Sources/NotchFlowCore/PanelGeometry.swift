@@ -5,8 +5,13 @@ import CoreGraphics
 /// recomputed on a display change, so the window server is never asked to resize
 /// during an expand or collapse.
 public struct PanelMetrics: Equatable, Sendable {
+    /// The window is allocated once at this size and mostly transparent while
+    /// collapsed, so height here costs nothing until something fills it. 260 was
+    /// low enough that a single agent with a handful of sessions already hit the
+    /// ceiling and had to scroll; growing first and scrolling only past this is
+    /// the behaviour the island is meant to have.
     public static let `default` = PanelMetrics(
-        maximumExpandedSize: CGSize(width: 640, height: 260),
+        maximumExpandedSize: CGSize(width: 640, height: 460),
         minimumBottomInset: 120
     )
 

@@ -107,6 +107,14 @@ public final class PresentationController {
     /// here to keep its content in step.
     public var onSynchronize: (() -> Void)?
 
+    /// Which agent groups are open, read at hit-test time.
+    ///
+    /// A closure rather than a stored value because the disclosure lives in the
+    /// view model this controller does not own — and an expanded group makes the
+    /// island taller, so a hit test that missed it would treat the pointer as
+    /// having left the island the moment it moved onto a disclosed row.
+    private let disclosedAgentIDs: @MainActor () -> Set<IPCAgentID>
+
     public init(
         panel: NotchPanel,
         manager: ActivityManager,
@@ -114,7 +122,8 @@ public final class PresentationController {
         mouse: any MouseLocationObserving,
         motion: IslandMotion = .default,
         reduceMotion: any ReduceMotionQuerying = SystemReduceMotion(),
-        screen: @escaping ScreenProvider
+        screen: @escaping ScreenProvider,
+        disclosedAgentIDs: @escaping @MainActor () -> Set<IPCAgentID> = { [] }
     ) {
         self.panel = panel
         self.manager = manager
@@ -123,6 +132,7 @@ public final class PresentationController {
         self.motion = motion
         self.reduceMotion = reduceMotion
         self.screen = screen
+        self.disclosedAgentIDs = disclosedAgentIDs
     }
 
     public func start() {
@@ -283,6 +293,7 @@ public final class PresentationController {
         )
         let expandedContentSize = expandedPanelSize(
             for: manager.expandedActivities,
+            disclosedAgentIDs: disclosedAgentIDs(),
             panelMetrics: metrics,
             topInset: notchSize.height
         )

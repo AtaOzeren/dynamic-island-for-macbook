@@ -412,4 +412,53 @@ struct AIAgentActivityViewTests {
     func dedicatedViewCarriesAction() {
         #expect(Self.presentation(agent: .codex).primaryAction?.title == "Open Codex")
     }
+
+    // MARK: - One status position
+
+    /// The slot leaves room *under* the icon for the indicator.
+    @Test("the slot reserves space beneath the icon")
+    func slotReservesSpaceBeneathTheIcon() {
+        let iconSize: CGFloat = 13
+        let metrics = CompactAIAgentMetrics.default
+        let size = compactAIAgentIconSize(iconSize: iconSize, state: .waitingForUser)
+
+        #expect(size.height >= iconSize + metrics.badgeDiameter)
+    }
+
+    /// And no room *beside* it.
+    ///
+    /// Needing input and failing used to hang the badge off the icon's side,
+    /// which needed `iconSize + badgeDiameter` of width. Staying under that is
+    /// what makes "the indicator is below, not beside" a measurable property
+    /// rather than a description of the code.
+    @Test("the slot is too narrow to hold a badge beside the icon")
+    func slotHasNoRoomForASideBadge() {
+        let iconSize: CGFloat = 13
+        let metrics = CompactAIAgentMetrics.default
+        let sideBySide = iconSize + metrics.badgeDiameter
+
+        for state in AIAgentState.allCases {
+            let size = compactAIAgentIconSize(iconSize: iconSize, state: state)
+
+            #expect(size.width < sideBySide, "\(state) leaves room for a side badge")
+        }
+    }
+
+    /// The view has to actually use that box, or the numbers above describe
+    /// nothing. Asserted on the source because a SwiftUI body cannot be
+    /// measured without a window server.
+    @Test("the compact agent icon is laid out from the shared box")
+    func compactIconUsesTheSharedBox() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Sources/NotchFlowUI/AIAgentActivityView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)"))
+        #expect(source.contains("statusIndicator\n                .offset(y: iconSize + 1)"))
+    }
 }

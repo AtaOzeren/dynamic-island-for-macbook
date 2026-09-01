@@ -16,6 +16,12 @@ final class IslandViewModel: ObservableObject {
     @Published var state: PresentationState = .hidden
     @Published var compact: CompactActivityPresentation
     @Published var expanded: [any Activity] = []
+    /// Which agent groups are showing their sessions.
+    ///
+    /// Held here rather than inside `ExpandedActivityView` because the island's
+    /// surface is sized from this model: a disclosure the surface cannot see is
+    /// a disclosure drawn outside it.
+    @Published var disclosedAgentIDs: Set<IPCAgentID> = []
     @Published var notchSize: CGSize
     @Published var hoverScale: CGFloat = 1
     @Published var hoverOpacity: Double = 1
@@ -91,6 +97,7 @@ struct IslandRootView: View {
         )
         let expandedContentSize = expandedPanelSize(
             for: model.expanded,
+            disclosedAgentIDs: model.disclosedAgentIDs,
             topInset: model.notchSize.height
         )
         return ConnectedIslandGeometry(
@@ -135,6 +142,7 @@ struct IslandRootView: View {
                 // occluded by hardware and never reaches the user.
                 ExpandedActivityView(
                     activities: model.expanded,
+                    disclosedAgentIDs: $model.disclosedAgentIDs,
                     topInset: model.notchSize.height,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,
@@ -246,7 +254,8 @@ final class IslandPresenter {
             metrics: metrics,
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
-            screen: { Self.targetScreen(preference: displayTarget()) }
+            screen: { Self.targetScreen(preference: displayTarget()) },
+            disclosedAgentIDs: { [model] in model.disclosedAgentIDs }
         )
         controller.automaticallyExpandsOnHover = false
     }
