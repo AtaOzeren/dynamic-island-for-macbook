@@ -59,6 +59,34 @@ struct TurkishLocalizationTests {
         }
     }
 
+    @Test("recording status copy is fully Turkish")
+    func recordingStatusIsTurkish() throws {
+        let expectedTranslations = [
+            "Screen recording in progress": "Ekran kaydı yapılıyor",
+            "Microphone in use": "Mikrofon kullanılıyor",
+        ]
+
+        try withTurkishBundle(
+            for: "Sources/NotchFlowUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            for (key, translation) in expectedTranslations {
+                #expect(bundle.localizedString(forKey: key, value: nil, table: nil) == translation)
+            }
+        }
+    }
+
+    @Test("music connection status is Turkish")
+    func musicConnectionStatusIsTurkish() throws {
+        try withTurkishBundle(
+            for: "Sources/NotchFlowCore/Resources/Localizable.xcstrings"
+        ) { bundle in
+            #expect(
+                bundle.localizedString(forKey: "Connected", value: nil, table: nil)
+                    == "Bağlandı"
+            )
+        }
+    }
+
     /// The picker names each language in that language, so a user who cannot
     /// read the current one can still find their own.
     @Test("the language picker names Turkish in Turkish")

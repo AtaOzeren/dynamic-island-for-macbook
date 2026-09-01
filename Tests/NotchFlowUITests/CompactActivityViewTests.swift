@@ -92,6 +92,51 @@ struct CompactActivityViewTests {
         #expect(labels.allSatisfy { $0.isEmpty == false })
     }
 
+    @Test("screen recording uses a source-specific animated display indicator")
+    func screenRecordingUsesDisplayIndicator() throws {
+        let manager = ActivityManager()
+        manager.register(
+            RecordingActivity.started(.screen, at: Date(timeIntervalSince1970: 1))
+        )
+
+        let slot = try #require(compactSlots(for: manager.compactPresentation).first)
+
+        #expect(slot.recordingSource == .screen)
+        #expect(slot.symbolName == "display")
+    }
+
+    @Test("microphone recording stays distinct from screen recording")
+    func microphoneRecordingUsesAudioIndicator() throws {
+        let manager = ActivityManager()
+        manager.register(
+            RecordingActivity.started(.audio, at: Date(timeIntervalSince1970: 1))
+        )
+
+        let slot = try #require(compactSlots(for: manager.compactPresentation).first)
+
+        #expect(slot.recordingSource == .audio)
+        #expect(slot.symbolName == "mic.fill")
+        #expect(AnimatedMicrophoneRecordingIcon.pulseCount == 3)
+    }
+
+    @Test("keeps microphone and screen recording visible at the same time")
+    func concurrentRecordingSourcesUseSeparateSlots() {
+        let manager = ActivityManager()
+        manager.register(
+            RecordingActivity.started(.audio, at: Date(timeIntervalSince1970: 1)),
+            at: Date(timeIntervalSince1970: 1)
+        )
+        manager.register(
+            RecordingActivity.started(.screen, at: Date(timeIntervalSince1970: 2)),
+            at: Date(timeIntervalSince1970: 2)
+        )
+
+        let slots = compactSlots(for: manager.compactPresentation)
+
+        #expect(slots.compactMap(\.recordingSource) == [.audio, .screen])
+        #expect(Set(slots.map(\.id)).count == 2)
+    }
+
     @Test("sizes the pill to the notch height and flanks its width")
     func pillHugsTheNotch() {
         let notch = CGSize(width: 200, height: 37)

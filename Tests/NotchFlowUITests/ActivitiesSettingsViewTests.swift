@@ -73,6 +73,38 @@ struct ActivitiesSettingsViewTests {
         #expect(requested.value == [.appleMusic])
     }
 
+    @Test("an in-flight permission request ignores repeated presses")
+    func inFlightRequestCannotBeRepeated() {
+        let requested = Box<[MusicPlayerTarget]>([])
+        let view = ActivitiesSettingsView(
+            enabledIdentifiers: Box(Set([ActivityProviderIdentifier.music])).binding,
+            musicAutomation: Box([Self.access(.notDetermined, .spotify)]).binding,
+            automationRequestsInProgress: [.spotify],
+            onRequestAutomation: { requested.value.append($0) }
+        )
+
+        view.requestAutomation(for: .spotify)
+
+        #expect(view.isAutomationRequestInProgress(for: .spotify))
+        #expect(requested.value.isEmpty)
+    }
+
+    @Test("one player request blocks another player until TCC finishes")
+    func inFlightRequestBlocksOtherTargets() {
+        let requested = Box<[MusicPlayerTarget]>([])
+        let view = ActivitiesSettingsView(
+            enabledIdentifiers: Box(Set([ActivityProviderIdentifier.music])).binding,
+            musicAutomation: Box([Self.access(.notDetermined, .appleMusic)]).binding,
+            automationRequestsInProgress: [.spotify],
+            onRequestAutomation: { requested.value.append($0) }
+        )
+
+        view.requestAutomation(for: .appleMusic)
+
+        #expect(view.canRequestAutomation == false)
+        #expect(requested.value.isEmpty)
+    }
+
     @Test("the pane renders whatever status it is given, for both targets")
     func paneRendersBothTargets() {
         let view = Self.view(automation: [

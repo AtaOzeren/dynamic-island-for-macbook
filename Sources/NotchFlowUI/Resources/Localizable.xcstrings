@@ -331,6 +331,24 @@
         }
       }
     },
+    "Connecting…": {
+      "comment": "Activities pane, Apple Events row: shown while macOS resolves an explicit permission request.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlanıyor…"
+          }
+        }
+      }
+    },
     "Continue": {
       "comment": "Onboarding: advances to the next step.",
       "extractionState": "manual",
@@ -1047,6 +1065,42 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kayıt ve şarj göstergeleri hiçbir izin gerektirmez."
+          }
+        }
+      }
+    },
+    "Screen recording in progress": {
+      "comment": "Recording activity: concise expanded status and VoiceOver label.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen recording in progress"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran kaydı yapılıyor"
+          }
+        }
+      }
+    },
+    "Microphone in use": {
+      "comment": "Recording activity: concise expanded microphone status and VoiceOver label.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone in use"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon kullanılıyor"
           }
         }
       }

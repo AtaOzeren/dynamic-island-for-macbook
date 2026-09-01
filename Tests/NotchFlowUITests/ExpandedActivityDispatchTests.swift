@@ -52,6 +52,10 @@ struct ExpandedActivityDispatchTests {
         ChargingActivity(state: .charging)
     }
 
+    private static func recording(_ source: RecordingSource = .screen) -> RecordingActivity {
+        RecordingActivity.started(source, at: epoch)
+    }
+
     private struct UnknownKindActivity: Activity {
         let identity = ActivityIdentity("notchflow.unknown")
         let kind = ActivityKind.fileTransfer
@@ -64,6 +68,24 @@ struct ExpandedActivityDispatchTests {
         #expect(expandedItemRenderer(for: Self.timer()) == .timer)
         #expect(expandedItemRenderer(for: Self.aiAgent()) == .aiAgent)
         #expect(expandedItemRenderer(for: Self.charging()) == .charging)
+        #expect(expandedItemRenderer(for: Self.recording()) == .recording)
+    }
+
+    @Test("recording copy names each live capture without naming an unknown app")
+    func recordingCopyNamesTheCaptureSource() {
+        #expect(recordingActivityTitleKey(for: .screen) == "Screen recording in progress")
+        #expect(recordingActivityTitleKey(for: .audio) == "Microphone in use")
+    }
+
+    @Test("expanded view keeps screen and microphone capture as separate rows")
+    func concurrentRecordingsRemainSeparateRows() {
+        let rows = expandedRows(for: [Self.recording(.audio), Self.recording(.screen)])
+
+        #expect(rows.map(\.id) == [
+            RecordingActivity.identity(for: .audio).rawValue,
+            RecordingActivity.identity(for: .screen).rawValue,
+        ])
+        #expect(rows.map(\.title) == ["Microphone in use", "Screen recording in progress"])
     }
 
     @Test("an activity without a dedicated view keeps the generic row")
@@ -104,6 +126,10 @@ struct ExpandedActivityDispatchTests {
 
         #expect(
             expandedItemHeight(for: Self.charging(), metrics: metrics, panelMetrics: panelMetrics)
+                == metrics.panel.rowHeight
+        )
+        #expect(
+            expandedItemHeight(for: Self.recording(), metrics: metrics, panelMetrics: panelMetrics)
                 == metrics.panel.rowHeight
         )
     }

@@ -56,6 +56,13 @@ struct MusicAutomationTests {
         #expect(Self.access(.notDetermined, target: .appleMusic).actionTitle?.contains("Music") == true)
     }
 
+    @Test("a granted target replaces its button with a connected status")
+    func grantedTargetShowsConnectedStatus() {
+        #expect(Self.access(.granted).connectionTitle == "Connected")
+        #expect(Self.access(.notDetermined).connectionTitle == nil)
+        #expect(Self.access(.denied).connectionTitle == nil)
+    }
+
     // MARK: - Explanation
 
     /// Step 2 of the flow requires NotchFlow's own explanation before the system

@@ -45,6 +45,7 @@ public struct SettingsWindowView: View {
     private let information: AboutInformation
     private let languages: [LanguageOption]
     private let metrics: SettingsPaneMetrics
+    private let automationRequestsInProgress: Set<MusicPlayerTarget>
     private let onRequestAutomation: (MusicPlayerTarget) -> Void
     private let hookStates: [IPCAgentID: HookInstallationState]
     private let onHookAction: (IPCAgentID, AIHookAction) -> Void
@@ -62,6 +63,7 @@ public struct SettingsWindowView: View {
         musicAutomation: Binding<[MusicAutomationAccess]> = .constant([]),
         hookStates: [IPCAgentID: HookInstallationState] = [:],
         metrics: SettingsPaneMetrics = .default,
+        automationRequestsInProgress: Set<MusicPlayerTarget> = [],
         onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in },
         onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in }
     ) {
@@ -75,6 +77,7 @@ public struct SettingsWindowView: View {
         self.information = information
         self.languages = languages
         self.metrics = metrics
+        self.automationRequestsInProgress = automationRequestsInProgress
         self.onRequestAutomation = onRequestAutomation
         self.onHookAction = onHookAction
     }
@@ -108,6 +111,7 @@ public struct SettingsWindowView: View {
                 enabledIdentifiers: $enabledIdentifiers,
                 musicAutomation: $musicAutomation,
                 metrics: metrics,
+                automationRequestsInProgress: automationRequestsInProgress,
                 onRequestAutomation: onRequestAutomation
             )
         case .aiIntegrations:
