@@ -36,6 +36,136 @@ struct LoopbackHTTPListenerTests {
         await fixture.listener.stop()
     }
 
+    @Test("Codex PreToolUse carries Claude Code tool metadata through loopback")
+    func codexPreToolUseToolNameMatchesClaudeCode() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        let port = try #require(
+            await fixture.listener.updatePreferences(
+                .init(
+                    enabledAgentIDs: [.claudeCode, .codex],
+                    enabledEventClasses: [.toolActivity]
+                )
+            )
+        )
+
+        for agentID in [IPCAgentID.claudeCode, .codex] {
+            let response = try await Self.post(
+                Request(
+                    body: try Self.preToolUsePayload(for: agentID),
+                    path: "/ai-status",
+                    port: port
+                )
+            )
+            #expect(response.statusCode == 204)
+        }
+
+        let activities = fixture.recorder.messages.map(AIAgentActivity.init(message:))
+        #expect(activities.map(\.agent) == [.claudeCode, .codex])
+        #expect(activities.map(\.state) == [.usingTool, .usingTool])
+        #expect(activities.map(\.toolName) == ["Bash", "Bash"])
+
+        await fixture.listener.stop()
+    }
+
+    @Test("Claude Code subagent lifecycle projects a named child session")
+    func claudeCodeSubagentLifecycleProjectsChild() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        let port = try #require(
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        )
+        let rootSessionID = UUID(uuidString: "2EB063BD-B9AC-5E7A-AAAE-E7C220A61388")!
+        let childSessionID = UUID(uuidString: "90E7A3AD-2EB1-58C6-A687-ED845E8A8CFB")!
+
+        for state in [AIAgentState.working, .completed] {
+            let response = try await Self.post(
+                Request(
+                    body: try JSONSerialization.data(
+                        withJSONObject: [
+                            "schemaVersion": IPCMessageValidator.supportedSchemaVersion,
+                            "agentId": IPCAgentID.claudeCode.rawValue,
+                            "sessionId": childSessionID.uuidString,
+                            "rootSessionId": rootSessionID.uuidString,
+                            "sessionName": "Explore",
+                            "state": state.rawValue,
+                            "detail": state == .working ? "Sub-agent started" : "Sub-agent completed",
+                            "timestamp": ISO8601DateFormatter().string(from: Date()),
+                        ]
+                    ),
+                    path: "/ai-status",
+                    port: port
+                )
+            )
+            #expect(response.statusCode == 204)
+        }
+
+        let activities = fixture.recorder.messages.map(AIAgentActivity.init(message:))
+        #expect(activities.count == 2)
+        #expect(activities.allSatisfy { $0.sessionID == childSessionID })
+        #expect(activities.allSatisfy { $0.rootSessionID == rootSessionID })
+        #expect(activities.allSatisfy { $0.sessionName == "Explore" })
+        #expect(activities.map(\.state) == [.working, .completed])
+
+        await fixture.listener.stop()
+    }
+
+    @Test("workspace metadata projects end-to-end and handles optional absence")
+    func workspaceMetadataProjectsEndToEnd() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        let port = try #require(
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        )
+
+        let sessionID = UUID()
+        let workspacePath = "/Users/test/projects/notchflow"
+
+        let responseWithWorkspace = try await Self.post(
+            Request(
+                body: try JSONSerialization.data(
+                    withJSONObject: [
+                        "schemaVersion": IPCMessageValidator.supportedSchemaVersion,
+                        "agentId": IPCAgentID.claudeCode.rawValue,
+                        "sessionId": sessionID.uuidString,
+                        "workspace": workspacePath,
+                        "state": AIAgentState.working.rawValue,
+                        "detail": "Working on feature",
+                        "timestamp": ISO8601DateFormatter().string(from: Date()),
+                    ]
+                ),
+                path: "/ai-status",
+                port: port
+            )
+        )
+        #expect(responseWithWorkspace.statusCode == 204)
+
+        let responseWithoutWorkspace = try await Self.post(
+            Request(
+                body: try JSONSerialization.data(
+                    withJSONObject: [
+                        "schemaVersion": IPCMessageValidator.supportedSchemaVersion,
+                        "agentId": IPCAgentID.claudeCode.rawValue,
+                        "sessionId": UUID().uuidString,
+                        "state": AIAgentState.working.rawValue,
+                        "detail": "Working on another task",
+                        "timestamp": ISO8601DateFormatter().string(from: Date()),
+                    ]
+                ),
+                path: "/ai-status",
+                port: port
+            )
+        )
+        #expect(responseWithoutWorkspace.statusCode == 204)
+
+        let activities = fixture.recorder.messages.map(AIAgentActivity.init(message:))
+        #expect(activities.count == 2)
+        #expect(activities[0].workspace == workspacePath)
+        #expect(activities[1].workspace == nil)
+
+        await fixture.listener.stop()
+    }
+
     @Test("rejects garbage and the wrong route without calling the sink")
     func rejectsInvalidRequests() async throws {
         let fixture = Self.makeFixture()
@@ -237,7 +367,8 @@ struct LoopbackHTTPListenerTests {
                 ) == 0
             else { continue }
 
-            let address = String(cString: buffer)
+            let addressBytes = buffer.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }
+            let address = String(decoding: addressBytes, as: UTF8.self)
             if !address.hasPrefix("127.") {
                 addresses.append(address)
             }
@@ -259,6 +390,21 @@ struct LoopbackHTTPListenerTests {
 
         let (_, response) = try await URLSession.shared.data(for: request)
         return try #require(response as? HTTPURLResponse)
+    }
+
+    private static func preToolUsePayload(for agentID: IPCAgentID) throws -> Data {
+        let object: [String: Any] = [
+            "schemaVersion": "1.0",
+            "agentId": agentID.rawValue,
+            "sessionId": agentID == .claudeCode
+                ? "9E1C8518-9DA0-4E93-8313-2637D4E5769F"
+                : "6F9619FF-8B86-D011-B42D-00C04FC964FF",
+            "state": "usingTool",
+            "detail": "Using tool",
+            "toolName": "Bash",
+            "timestamp": "2026-09-02T00:00:00Z",
+        ]
+        return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
     }
 
     private static func payload() -> Data {

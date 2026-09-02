@@ -58,6 +58,11 @@ struct AnimatedScreenRecordingIcon: View {
                     withAnimation(.easeInOut(duration: 0.42)) {
                         dotScale = 0.55
                     }
+                    // The only error Task.sleep throws here is cancellation —
+                    // the slot leaving the hierarchy mid-pulse — and the
+                    // isCancelled guards turn that into a clean exit, so the
+                    // thrown error is deliberately dropped. Applies to both
+                    // pulse sleeps in this loop.
                     try? await Task.sleep(for: Self.pulseDuration)
                     guard Task.isCancelled == false else { return }
 
@@ -95,6 +100,10 @@ struct AnimatedMicrophoneRecordingIcon: View {
                     withAnimation(.easeOut(duration: 0.3)) {
                         symbolScale = 1.12
                     }
+                    // Cancellation — the slot leaving the hierarchy mid-breath —
+                    // is the only error Task.sleep throws, and the isCancelled
+                    // guards convert it to a clean exit, so it is dropped
+                    // rather than propagated. Applies to both sleeps below.
                     try? await Task.sleep(for: Self.pulseDuration)
                     guard Task.isCancelled == false else { return }
 

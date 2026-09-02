@@ -86,6 +86,21 @@ struct AIAgentActivityViewTests {
         #expect(Self.presentation(state: .error).compactTitle == "Claude · Task error")
     }
 
+    @Test("surfaces workspace last path component in compact title")
+    func rendersWorkspaceName() {
+        let activity = AIAgentActivity(
+            agent: .claudeCode,
+            sessionID: UUID(),
+            workspace: "/Users/test/Projects/my-awesome-app",
+            state: .working,
+            detail: "Working..."
+        )
+        let presentation = AIAgentPresentation(activity: activity)
+        #expect(presentation.workspace == "/Users/test/Projects/my-awesome-app")
+        #expect(presentation.workspaceName == "my-awesome-app")
+        #expect(presentation.compactTitle == "Claude · my-awesome-app · Working…")
+    }
+
     @Test("names each supported agent")
     func agentLabel() {
         #expect(Self.presentation(agent: .claudeCode).agentName == "Claude")
@@ -146,10 +161,12 @@ struct AIAgentActivityViewTests {
         #expect(withProgress.height > withoutProgress.height)
     }
 
-    /// The `NSPanel` frame is allocated once and never resized, so a view that
-    /// measured past it would be silently clipped.
-    @Test("clamps the expanded size to the window's allocation")
-    func expandedSizeIsClamped() {
+    /// The `NSPanel` frame is allocated once and never resized, so width stays
+    /// inside the allocation. Height does not clamp: the panel scrolls content
+    /// past the ceiling, and a height clamped here is a sub-agent list the user
+    /// can never scroll to.
+    @Test("clamps the expanded width to the window's allocation")
+    func expandedWidthIsClamped() {
         let panelMetrics = PanelMetrics(
             maximumExpandedSize: CGSize(width: 100, height: 20),
             minimumBottomInset: 120
@@ -157,7 +174,30 @@ struct AIAgentActivityViewTests {
         let size = aiAgentExpandedSize(hasProgress: true, panelMetrics: panelMetrics)
 
         #expect(size.width <= 100)
-        #expect(size.height <= 20)
+    }
+
+    /// A disclosed tree taller than the window must be reported at its full
+    /// drawn height: the scroll view's content is sized from this number, so a
+    /// clamped report is a list whose tail no amount of scrolling reaches.
+    @Test("reports a disclosed tree taller than the window at its full height")
+    func oversizedDisclosureIsNotClamped() {
+        let metrics = AIAgentViewMetrics.default
+        let subagentCount = 25
+
+        let size = aiAgentExpandedSize(
+            hasProgress: false,
+            subagentCount: subagentCount,
+            isDisclosed: true,
+            metrics: metrics
+        )
+        let natural =
+            metrics.glyphSize
+            + metrics.subagentSeparatorHeight
+            + CGFloat(subagentCount) * metrics.subagentRowHeight
+            + metrics.contentInset * 2
+
+        #expect(size.height == natural)
+        #expect(size.height > PanelMetrics.default.maximumExpandedSize.height)
     }
 
     // MARK: - The detail line
@@ -173,6 +213,17 @@ struct AIAgentActivityViewTests {
         #expect(Self.presentation(detail: "").detail == nil)
     }
 
+    private static func agentActivityViewSource() throws -> String {
+        try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Sources/NotchFlowUI/AIAgentActivityView.swift"),
+            encoding: .utf8
+        )
+    }
+
     // MARK: - The compact slot
 
     @Test("normalizes Codex artwork to the OpenCode icon footprint")
@@ -180,6 +231,64 @@ struct AIAgentActivityViewTests {
         #expect(aiAgentIconArtworkScale(for: .claudeCode) == 1)
         #expect(aiAgentIconArtworkScale(for: .opencode) == 1)
         #expect(aiAgentIconArtworkScale(for: .codex) == 1.24)
+    }
+
+    // MARK: - The fallback tile
+
+    /// The bug this covers: OpenCode's fallback painted a hardcoded
+    /// `Color.black`, which in light appearance read as an unblended box rather
+    /// than as a tile. Its background must move with the scheme.
+    @Test("the OpenCode fallback tile is never a raw black rectangle")
+    func openCodeFallbackAdaptsToTheScheme() {
+        let light = agentFallbackIconPalette(for: .opencode, scheme: .light)
+        let dark = agentFallbackIconPalette(for: .opencode, scheme: .dark)
+
+        #expect(light.background != .black)
+        #expect(dark.background != .black)
+        #expect(light.background != dark.background)
+    }
+
+    /// A tile whose glyph matches its background is an empty square. Asserted
+    /// per scheme because the light tile inverts both tones together.
+    @Test("every fallback tile keeps its glyph off its own background")
+    func fallbackGlyphsStayVisible() {
+        for agent in IPCAgentID.allCases {
+            for scheme in [IslandColorScheme.light, .dark] {
+                let palette = agentFallbackIconPalette(for: agent, scheme: scheme)
+
+                #expect(
+                    palette.glyph != palette.background,
+                    "\(agent) in \(scheme) draws its glyph on a contrasting tile"
+                )
+                #expect(
+                    palette.glyphCounter != palette.background,
+                    "\(agent) in \(scheme) keeps its counter off the tile"
+                )
+            }
+        }
+    }
+
+    /// Terracotta and blue are brand marks, not surfaces: an agent that changed
+    /// hue with the system appearance would read as two different products.
+    @Test("branded fallback tiles hold their hue across schemes")
+    func brandedFallbackTilesDoNotShiftWithTheScheme() {
+        for agent in [IPCAgentID.claudeCode, .codex] {
+            #expect(
+                agentFallbackIconPalette(for: agent, scheme: .light)
+                    == agentFallbackIconPalette(for: agent, scheme: .dark)
+            )
+        }
+    }
+
+    /// All three agents have to reach the screen through the one component, or
+    /// the divergence this replaced grows back. Asserted on the source because a
+    /// SwiftUI body cannot be measured without a window server.
+    @Test("all three fallback tiles render through the shared component")
+    func fallbacksShareOneComponent() throws {
+        let source = try Self.agentActivityViewSource()
+
+        #expect(source.contains("AgentFallbackIcon(agentID: agentID, size: size)"))
+        #expect(!source.contains("OpenCodeLogo"))
     }
 
     @Test("compact slots carry the originating agent logo identity")
@@ -743,14 +852,7 @@ struct AIAgentActivityViewTests {
     /// measured without a window server.
     @Test("the compact agent icon is laid out from the shared box")
     func compactIconUsesTheSharedBox() throws {
-        let source = try String(
-            contentsOf: URL(fileURLWithPath: #filePath)
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .deletingLastPathComponent()
-                .appendingPathComponent("Sources/NotchFlowUI/AIAgentActivityView.swift"),
-            encoding: .utf8
-        )
+        let source = try Self.agentActivityViewSource()
 
         #expect(source.contains("compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)"))
         #expect(source.contains("statusIndicator\n                .offset(y: iconSize + 1)"))
