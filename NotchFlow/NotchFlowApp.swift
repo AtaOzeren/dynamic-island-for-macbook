@@ -171,12 +171,23 @@ struct NotchFlowApp: App {
         let messageSink: @MainActor @Sendable (IPCMessage) -> Void = { message in
             guard sessionLedger.admit(message) else { return }
             let activity = AIAgentActivity(message: message)
-            if activity.endsPresentation {
-                sessionLedger.forget(message.sessionId)
-                activityManager.end(activity.identity)
-            } else {
+            guard activity.endsPresentation else {
                 activityManager.register(activity)
+                return
             }
+
+            // An instance ending takes its sub-agents with it. They are sessions
+            // the agent spawned, so the process that would have reported their
+            // end is the one that just went away.
+            for dependent in AIAgentActivity.dependents(
+                endingWith: activity,
+                in: activityManager.activeActivities
+            ) {
+                sessionLedger.forget(dependent.sessionID)
+                activityManager.end(dependent.identity)
+            }
+            sessionLedger.forget(message.sessionId)
+            activityManager.end(activity.identity)
         }
         urlSchemeReceiver.onMessage = messageSink
 
@@ -535,9 +546,10 @@ struct NotchFlowApp: App {
     }
 
     private static func currentHookStates() -> [IPCAgentID: HookInstallationState] {
-        Dictionary(uniqueKeysWithValues: IPCAgentID.allCases.map { agentID in
-            (agentID, hookState(for: agentID))
-        })
+        Dictionary(
+            uniqueKeysWithValues: IPCAgentID.allCases.map { agentID in
+                (agentID, hookState(for: agentID))
+            })
     }
 
     private static func hookState(for agentID: IPCAgentID) -> HookInstallationState {
@@ -592,8 +604,8 @@ struct NotchFlowApp: App {
 
 }
 
-private extension NotchFlowApp {
-    func refreshAvailableDisplays() {
+extension NotchFlowApp {
+    fileprivate func refreshAvailableDisplays() {
         let displays = NSScreen.screens.map(DisplayDescription.init)
         availableDisplays = displays
         generalPreferences.displayTarget = normalizeDisplayPreference(
@@ -602,7 +614,7 @@ private extension NotchFlowApp {
         )
     }
 
-    var aboutInformation: AboutInformation {
+    fileprivate var aboutInformation: AboutInformation {
         let info = Bundle.main.infoDictionary
         return AboutInformation(
             version: info?["CFBundleShortVersionString"] as? String ?? "—",
@@ -708,10 +720,12 @@ private final class StatusItemPresenter: NSObject {
             return
         }
 
-        let image = NSImage(named: "MenuBarIcon") ?? NSImage(
-            systemSymbolName: "capsule.fill",
-            accessibilityDescription: "NotchFlow"
-        )
+        let image =
+            NSImage(named: "MenuBarIcon")
+            ?? NSImage(
+                systemSymbolName: "capsule.fill",
+                accessibilityDescription: "NotchFlow"
+            )
         image?.isTemplate = true
         image?.size = Self.iconSize
         button.image = image
@@ -743,10 +757,11 @@ private final class StatusItemPresenter: NSObject {
             menu.addItem(item)
         }
 
-        menu.addItem(menuItem(
-            title: String(localized: "Stop Timer"),
-            action: #selector(stopTimer)
-        ))
+        menu.addItem(
+            menuItem(
+                title: String(localized: "Stop Timer"),
+                action: #selector(stopTimer)
+            ))
         menu.addItem(.separator())
 
         let settingsItem = menuItem(
@@ -819,9 +834,11 @@ private final class SettingsWindowRouter {
 
     private func bringSettingsForward() {
         NSApp.activate(ignoringOtherApps: true)
-        guard let settingsWindow = NSApp.windows.first(where: {
-            $0.level == .normal && $0.canBecomeKey
-        }) else { return }
+        guard
+            let settingsWindow = NSApp.windows.first(where: {
+                $0.level == .normal && $0.canBecomeKey
+            })
+        else { return }
         settingsWindow.makeKeyAndOrderFront(nil)
         settingsWindow.orderFrontRegardless()
     }

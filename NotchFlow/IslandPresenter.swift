@@ -16,18 +16,21 @@ final class IslandViewModel: ObservableObject {
     @Published var state: PresentationState = .hidden
     @Published var compact: CompactActivityPresentation
     @Published var expanded: [any Activity] = []
-    /// Which agent groups are showing their sessions.
+    /// When each active activity registered, so the expanded panel can number
+    /// the concurrent sessions of one agent in the order they appeared.
+    @Published var registrationTimes: [ActivityIdentity: Date] = [:]
+    /// Which agent instances are showing their sub-agents.
     ///
     /// Held here rather than inside `ExpandedActivityView` because the island's
-    /// surface is sized from this model: a disclosure the surface cannot see is
-    /// a disclosure drawn outside it.
-    @Published var disclosedAgentIDs: Set<IPCAgentID> = []
+    /// surface is sized from this model: an open list the surface cannot see is
+    /// a list drawn outside it.
+    @Published var disclosedInstances: Set<ActivityIdentity> = []
     /// Music icons that have finished their few seconds on screen.
     ///
-    /// Held here for the same reason the disclosure set is: it decides how wide
-    /// the pill is, and the pill's black surface and its hover target are sized
-    /// from this model. While the view owned it privately, the icon vanished
-    /// and the bar behind it stayed at full width.
+    /// Held here rather than inside the view because it decides how wide the
+    /// pill is, and the pill's black surface and its hover target are sized from
+    /// this model. While the view owned it privately, the icon vanished and the
+    /// bar behind it stayed at full width.
     @Published var hiddenMusicSlotIDs: Set<String> = []
     @Published var notchSize: CGSize
     @Published var hoverScale: CGFloat = 1
@@ -68,11 +71,11 @@ struct IslandRootView: View {
             }
             content
         }
-            .offset(x: compactDrawingOffset)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
-            .opacity(model.state == .compact ? model.hoverOpacity : 1)
-            .environment(\.colorScheme, .dark)
+        .offset(x: compactDrawingOffset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
+        .opacity(model.state == .compact ? model.hoverOpacity : 1)
+        .environment(\.colorScheme, .dark)
     }
 
     /// The compact pill's own geometry, whose flanks are only as wide as the
@@ -107,7 +110,8 @@ struct IslandRootView: View {
         )
         let expandedContentSize = expandedPanelSize(
             for: model.expanded,
-            disclosedAgentIDs: model.disclosedAgentIDs,
+            disclosedInstances: model.disclosedInstances,
+            registrationTimes: model.registrationTimes,
             topInset: model.notchSize.height
         )
         return ConnectedIslandGeometry(
@@ -134,10 +138,10 @@ struct IslandRootView: View {
                 notchSize: model.notchSize,
                 hiddenMusicSlotIDs: $model.hiddenMusicSlotIDs
             )
-                .sharingIslandSurface()
-                .contentShape(Rectangle())
-                .onTapGesture(perform: model.onExpand)
-                .transition(contentTransition)
+            .sharingIslandSurface()
+            .contentShape(Rectangle())
+            .onTapGesture(perform: model.onExpand)
+            .transition(contentTransition)
         case .expanded:
             // The collapse target is the empty space around the detail, per
             // `docs/04-overlay-window.md`: while expanded the panel accepts the
@@ -153,7 +157,8 @@ struct IslandRootView: View {
                 // occluded by hardware and never reaches the user.
                 ExpandedActivityView(
                     activities: model.expanded,
-                    disclosedAgentIDs: $model.disclosedAgentIDs,
+                    registrationTimes: model.registrationTimes,
+                    disclosedInstances: $model.disclosedInstances,
                     topInset: model.notchSize.height,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,
@@ -266,7 +271,8 @@ final class IslandPresenter {
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
             screen: { Self.targetScreen(preference: displayTarget()) },
-            disclosedAgentIDs: { [model] in model.disclosedAgentIDs },
+            disclosedInstances: { [model] in model.disclosedInstances },
+            registrationTimes: { [model] in model.registrationTimes },
             hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }
         )
         controller.automaticallyExpandsOnHover = false
@@ -414,6 +420,7 @@ final class IslandPresenter {
     private func refreshContent() {
         model.compact = manager.compactPresentation
         model.expanded = manager.expandedActivities
+        model.registrationTimes = manager.registrationTimes
         model.notchSize = Self.notchSize(
             metrics: metrics,
             preference: settingsStore.generalPreferences.displayTarget
@@ -430,7 +437,8 @@ final class IslandPresenter {
         let preference = settingsStore.generalPreferences.displayTarget
         let displays = NSScreen.screens.map(DisplayDescription.init)
         let primaryDisplay = selectDisplay(from: displays, preference: preference)
-        let secondaryDisplays = preference == .allDisplays
+        let secondaryDisplays =
+            preference == .allDisplays
             ? selectDisplays(from: displays, preference: preference).filter {
                 $0.identifier != primaryDisplay?.identifier
             }

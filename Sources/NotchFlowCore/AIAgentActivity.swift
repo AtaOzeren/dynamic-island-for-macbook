@@ -27,6 +27,16 @@ public struct AIAgentActivity: Activity, Equatable {
     /// One running instance of an agent, per the `Session` definition in
     /// `docs/14-glossary-and-conventions.md`.
     public let sessionID: UUID
+    /// The top-level session this one belongs to.
+    ///
+    /// Equal to `sessionID` for a session the user started themselves, and the
+    /// parent's identifier for a sub-agent the agent spawned to delegate work.
+    /// This is what the island counts as "one running agent": a terminal that
+    /// fans out to four sub-agents is one agent working, not five.
+    public let rootSessionID: UUID
+    /// The sub-agent's own name, for the list under its instance. `nil` for a
+    /// top-level session, which is named after its agent instead.
+    public let sessionName: String?
     public let state: AIAgentState
     /// The short, human-readable line the expanded view shows, straight from
     /// the envelope's `detail` field.
@@ -43,6 +53,8 @@ public struct AIAgentActivity: Activity, Equatable {
     public init(
         agent: IPCAgentID,
         sessionID: UUID,
+        rootSessionID: UUID? = nil,
+        sessionName: String? = nil,
         state: AIAgentState,
         detail: String,
         toolName: String? = nil,
@@ -50,6 +62,8 @@ public struct AIAgentActivity: Activity, Equatable {
     ) {
         self.agent = agent
         self.sessionID = sessionID
+        self.rootSessionID = rootSessionID ?? sessionID
+        self.sessionName = sessionName
         self.state = state
         self.detail = detail
         self.toolName = state == .usingTool ? toolName : nil
@@ -63,6 +77,8 @@ public struct AIAgentActivity: Activity, Equatable {
         self.init(
             agent: message.agentId,
             sessionID: message.sessionId,
+            rootSessionID: message.rootSessionId,
+            sessionName: message.sessionName,
             state: message.state,
             detail: message.detail,
             toolName: message.toolName,
@@ -90,6 +106,26 @@ public struct AIAgentActivity: Activity, Equatable {
     public var compactGroupIdentity: ActivityIdentity {
         ActivityIdentity("notchflow.ai.group.\(agent.rawValue)")
     }
+
+    /// The instance this session belongs to: one terminal, one editor window,
+    /// one conversation the user started.
+    ///
+    /// What the compact badge tallies and what the expanded panel draws a card
+    /// for. Sub-agents share their parent's, so delegating work never changes
+    /// how many agents the island says are running.
+    public static func instanceIdentity(
+        agent: IPCAgentID,
+        rootSessionID: UUID
+    ) -> ActivityIdentity {
+        ActivityIdentity("notchflow.ai.instance.\(agent.rawValue).\(rootSessionID.uuidString)")
+    }
+
+    public var compactInstanceIdentity: ActivityIdentity {
+        Self.instanceIdentity(agent: agent, rootSessionID: rootSessionID)
+    }
+
+    /// Whether this session was spawned by another rather than by the user.
+    public var isSubagent: Bool { rootSessionID != sessionID }
 
     public var compactRepresentationPriority: CompactRepresentationPriority {
         switch state {
@@ -135,6 +171,25 @@ public struct AIAgentActivity: Activity, Equatable {
     /// `waitingForUser` most of all.
     public static let silenceTimeout: Duration = .seconds(30 * 60)
 
+    /// The same bound for the states that claim to be *doing* something.
+    ///
+    /// Sitting still is what `waitingForUser` and `error` mean, so silence tells
+    /// nothing new about them. `thinking`, `working` and `usingTool` assert the
+    /// opposite — work in flight, more events coming — and prolonged silence
+    /// contradicts the state rather than confirming it.
+    ///
+    /// Observed as a card left behind by an OpenCode window that was simply
+    /// closed: quitting the TUI is neither the end of a turn nor the deletion of
+    /// a session, so no event is sent and the last `working` sat on screen for
+    /// the full half hour while the process behind it no longer existed.
+    ///
+    /// Still generous, because a single long tool call is silent from start to
+    /// finish: a test suite or a build that runs for minutes emits nothing
+    /// between `usingTool` and the `working` that follows it, and dropping the
+    /// card mid-run would make the island flicker exactly when it is most
+    /// useful.
+    public static let workingSilenceTimeout: Duration = .seconds(10 * 60)
+
     /// When this activity ends on its own.
     ///
     /// `completed` is a display timeout: the task is over and the card is a
@@ -153,8 +208,38 @@ public struct AIAgentActivity: Activity, Equatable {
             AutoDismissDescriptor(after: Self.completedAutoDismissAfter)
         case .idle:
             nil
-        case .thinking, .working, .usingTool, .waitingForUser, .error:
+        case .thinking, .working, .usingTool:
+            AutoDismissDescriptor(after: Self.workingSilenceTimeout)
+        case .waitingForUser, .error:
             AutoDismissDescriptor(after: Self.silenceTimeout)
+        }
+    }
+
+    /// The activities that must end alongside this one.
+    ///
+    /// A sub-agent is a session its instance spawned, and nothing will ever
+    /// report its end once the process behind it is gone: the agent that would
+    /// have sent the message is the thing that exited. Ending a root therefore
+    /// ends the sub-agents under it, or the panel keeps a list of orphans whose
+    /// parent card has already disappeared.
+    ///
+    /// A sub-agent ending takes nothing with it — its siblings and its instance
+    /// are still running, and one delegated task finishing says nothing about
+    /// the rest.
+    public static func dependents(
+        endingWith session: AIAgentActivity,
+        in activities: [any Activity]
+    ) -> [AIAgentActivity] {
+        guard session.isSubagent == false else { return [] }
+        return activities.compactMap { candidate in
+            guard let other = candidate as? AIAgentActivity,
+                other.isSubagent,
+                other.agent == session.agent,
+                other.rootSessionID == session.rootSessionID
+            else {
+                return nil
+            }
+            return other
         }
     }
 

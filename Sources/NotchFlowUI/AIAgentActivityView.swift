@@ -22,14 +22,26 @@ public struct AIAgentPresentation: Equatable, Sendable {
     public let progress: Double?
     public let primaryAction: PrimaryAction?
 
-    public init(activity: AIAgentActivity) {
+    /// `instanceOrdinal` numbers this instance among the concurrent instances of
+    /// the same agent, and is `nil` when the agent has only one — two cards both
+    /// reading "OpenCode · Working…" are two cards the user cannot tell apart,
+    /// while a lone agent has nothing to be distinguished from.
+    public init(activity: AIAgentActivity, instanceOrdinal: Int? = nil) {
         state = activity.state
         agentID = activity.agent
-        agentName = activity.agent.displayName
+        agentName = Self.name(of: activity.agent, instanceOrdinal: instanceOrdinal)
         detail = activity.detail.isEmpty ? nil : activity.detail
         toolName = activity.toolName
         progress = activity.progress
         primaryAction = activity.primaryAction
+    }
+
+    private static func name(of agentID: IPCAgentID, instanceOrdinal: Int?) -> String {
+        guard let instanceOrdinal else { return agentID.displayName }
+        return localized(
+            "activity.ai.sessionName",
+            default: "\(agentID.displayName) \(instanceOrdinal)"
+        )
     }
 
     /// The state in words, as the island says it.
@@ -61,23 +73,68 @@ public struct AIAgentPresentation: Equatable, Sendable {
     }
 }
 
-struct AIAgentActivityGroup: Identifiable, Equatable, Sendable {
+/// One thing the user started — a terminal, an editor window, a conversation —
+/// together with every sub-agent it spawned.
+///
+/// The expanded panel draws one card per instance rather than one per session,
+/// because a session an agent created to delegate work is not something the user
+/// started and does not deserve a card of its own. Those sessions live in the
+/// list this card can disclose.
+struct AIAgentInstance: Identifiable, Equatable, Sendable {
     let agentID: IPCAgentID
+    let rootSessionID: UUID
+    /// Every session belonging to this instance, guaranteed non-empty.
+    ///
+    /// The instance exists because a session reported it, so there is always at
+    /// least one; taking that as an initialiser precondition is what lets
+    /// `representative` be a value rather than an optional every call site has
+    /// to unwrap into a fallback it cannot supply.
     let sessions: [AIAgentActivity]
+    /// This instance's number among the concurrent instances of the same agent,
+    /// absent when the agent is running only one.
+    let ordinal: Int?
 
-    init(session: AIAgentActivity) {
-        agentID = session.agent
-        sessions = [session]
-    }
-
-    private init(agentID: IPCAgentID, sessions: [AIAgentActivity]) {
+    init(
+        agentID: IPCAgentID,
+        rootSessionID: UUID,
+        sessions: [AIAgentActivity],
+        ordinal: Int? = nil
+    ) {
+        precondition(sessions.isEmpty == false, "an instance is created by a session reporting")
         self.agentID = agentID
+        self.rootSessionID = rootSessionID
         self.sessions = sessions
+        self.ordinal = ordinal
     }
 
-    var id: String { "notchflow.ai.expanded.\(agentID.rawValue)" }
-    var showsDisclosure: Bool { sessions.count > 1 }
+    var id: String { identity.rawValue }
 
+    var identity: ActivityIdentity {
+        AIAgentActivity.instanceIdentity(agent: agentID, rootSessionID: rootSessionID)
+    }
+
+    /// The session the user started, when the island has actually seen it.
+    ///
+    /// `nil` is a real case, not a defensive one: a sub-agent's messages can
+    /// arrive before its parent's — a fresh turn that delegates immediately
+    /// sends `usingTool` for the child before the parent says anything — and a
+    /// card that refused to draw until the parent reported would leave the
+    /// island blank while work was plainly running.
+    var root: AIAgentActivity? { sessions.first { $0.isSubagent == false } }
+
+    /// The sessions the agent spawned, in the order they first appeared.
+    var subagents: [AIAgentActivity] { sessions.filter(\.isSubagent) }
+
+    /// Whether the card offers a list to open. A card with nothing behind it
+    /// draws no control, so the user never clicks one open onto nothing.
+    var showsDisclosure: Bool { subagents.isEmpty == false }
+
+    /// The session the card speaks for: the most urgent of them, sub-agents
+    /// included.
+    ///
+    /// A sub-agent waiting on a permission prompt blocks the whole instance, so
+    /// the card has to say so without being opened first — surfacing that is the
+    /// entire reason the island watches agents at all.
     var representative: AIAgentActivity {
         sessions.dropFirst().reduce(sessions[0]) { current, candidate in
             candidate.compactRepresentationPriority > current.compactRepresentationPriority
@@ -85,29 +142,36 @@ struct AIAgentActivityGroup: Identifiable, Equatable, Sendable {
                 : current
         }
     }
+}
 
-    func appending(_ session: AIAgentActivity) -> Self {
-        precondition(session.agent == agentID)
-        return Self(agentID: agentID, sessions: sessions + [session])
+/// One row of an instance's sub-agent list.
+struct AIAgentSubagentPresentation: Equatable, Sendable {
+    let name: String
+    let statusText: String
+    let detail: String?
+    let indicator: AIAgentCompactIndicator
+
+    /// `fallbackOrdinal` names a sub-agent whose agent did not send one — the
+    /// row still has to say *which* sub-agent it is.
+    init(activity: AIAgentActivity, fallbackOrdinal: Int) {
+        let presentation = AIAgentPresentation(activity: activity)
+        name =
+            activity.sessionName?.isEmpty == false
+            ? activity.sessionName ?? ""
+            : localized("activity.ai.subagentFallbackName", default: "Agent \(fallbackOrdinal)")
+        statusText = presentation.statusText
+        detail = presentation.detail
+        indicator = AIAgentCompactIndicator(state: activity.state)
     }
-}
 
-struct AIAgentGroupViewMetrics: Equatable, Sendable {
-    static let `default` = AIAgentGroupViewMetrics()
+    var title: String {
+        localized("activity.ai.compactTitle", default: "\(name) · \(statusText)")
+    }
 
-    let detailRowHeight: CGFloat = 26
-    let separatorHeight: CGFloat = 1
-    let titleSize: CGFloat = 11
-    let detailSize: CGFloat = 9
-    let countControlHeight: CGFloat = 18
-
-    private init() {}
-}
-
-func aiAgentGroupDisclosureHeight(sessionCount: Int, isDisclosed: Bool) -> CGFloat {
-    guard isDisclosed, sessionCount > 1 else { return 0 }
-    let metrics = AIAgentGroupViewMetrics.default
-    return metrics.separatorHeight + CGFloat(sessionCount) * metrics.detailRowHeight
+    var accessibilityLabel: String {
+        guard let detail else { return title }
+        return localized("activity.accessibility.headlineAndDetail", default: "\(title), \(detail)")
+    }
 }
 
 enum AIAgentCompactBadgeTone: Equatable, Sendable {
@@ -161,26 +225,45 @@ struct CompactAIAgentSlotPresentation: Equatable, Sendable {
     let agentID: IPCAgentID
     let state: AIAgentState
     let indicator: AIAgentCompactIndicator
+    /// How many concurrent sessions of this agent the slot stands for.
+    ///
+    /// One compact icon covers every session of one agent, so without this the
+    /// pill cannot tell a single terminal apart from three — and the state it
+    /// draws is only the most urgent session's, which says nothing about the
+    /// others still running behind it.
+    let sessionCount: Int
 
-    init(activity: AIAgentActivity) {
+    init(activity: AIAgentActivity, sessionCount: Int = 1) {
         agentID = activity.agent
         state = activity.state
         indicator = AIAgentCompactIndicator(state: activity.state)
+        self.sessionCount = max(1, sessionCount)
     }
+
+    /// Whether the slot draws the count badge at all.
+    ///
+    /// A badge reading "1" on the overwhelmingly common single-session case
+    /// would be a number the user has to read to learn nothing.
+    var showsSessionCount: Bool { sessionCount > 1 }
 }
 
-/// The drawn box for one agent's compact slot: the logo, plus room beneath it
-/// for the status indicator.
+/// The drawn box for one agent's compact slot: the logo, room beneath it for the
+/// status indicator, and the corner the session-count badge hangs in.
 ///
-/// The same for every state on purpose. The indicator always sits under the
-/// icon, so the slot never changes width with what the agent happens to be
-/// doing — a pill that reflowed each time an agent asked a question was a pill
+/// The same for every state and every session count on purpose. The status
+/// indicator always sits under the icon and the count badge's corner is always
+/// reserved, so the slot never changes size with what the agent happens to be
+/// doing or with how many of it are running — a pill that reflowed each time an
+/// agent asked a question, or each time a second terminal opened, was a pill
 /// whose icons appeared to jump sideways.
 func compactAIAgentIconSize(iconSize: CGFloat, state _: AIAgentState) -> CGSize {
     let metrics = CompactAIAgentMetrics.default
     return CGSize(
-        width: max(iconSize, metrics.travelDistance + metrics.dotDiameter),
-        height: iconSize + metrics.badgeDiameter + 1
+        width: max(
+            iconSize + metrics.countBadgeOverhang * 2,
+            metrics.travelDistance + metrics.dotDiameter
+        ),
+        height: metrics.countBadgeOverhang + iconSize + metrics.badgeDiameter + 1
     )
 }
 
@@ -192,8 +275,40 @@ struct CompactAIAgentMetrics: Equatable, Sendable {
     let oneWayDuration: TimeInterval = 0.65
     let badgeDiameter: CGFloat = 7
     let badgeSymbolSize: CGFloat = 5
+    /// The session-count badge that rides the icon's top-right corner.
+    ///
+    /// Bigger than the status badge below the icon because it carries a numeral
+    /// rather than a glyph, and a numeral drawn at the status badge's size is
+    /// unreadable at the notch's distance.
+    let countBadgeDiameter: CGFloat = 10
+    let countBadgeTextSize: CGFloat = 7
+    /// The ring that separates the badge from the logo underneath it.
+    ///
+    /// Drawn in the pill's own black rather than left off: OpenCode's logo is a
+    /// white square, and a white badge sitting on it merged into one shape with
+    /// no edge at all. A dark ring reads against every agent's artwork because
+    /// it is the surface the pill is already made of.
+    let countBadgeRingWidth: CGFloat = 1
+    /// How far the count badge hangs past the icon on the top and trailing
+    /// edges. Reserved in the slot's box whether or not a badge is drawn, so a
+    /// second session appearing never shifts the icons already on screen.
+    let countBadgeOverhang: CGFloat = 3
+    /// The highest count the badge spells out before falling back to "9+".
+    let countBadgeCeiling = 9
 
     private init() {}
+}
+
+/// What the count badge reads.
+///
+/// Capped rather than allowed to grow, because the badge is a fixed circle: a
+/// three-digit count would either overflow the pill or shrink to illegibility,
+/// and past a handful of sessions the exact number stops being actionable —
+/// "more than nine" is the same instruction as "twelve".
+func compactAIAgentCountBadgeText(_ sessionCount: Int) -> String {
+    sessionCount > CompactAIAgentMetrics.default.countBadgeCeiling
+        ? localized("activity.ai.sessionCountOverflow", default: "9+")
+        : "\(sessionCount)"
 }
 
 func compactAIAgentWorkingDotOffset(
@@ -217,13 +332,43 @@ func compactAIAgentWorkingDotOffset(
 
 /// The AI activity's compact slot carries the originating agent identity so the
 /// pill can render Claude, Codex, or OpenCode instead of generic AI sparkles.
-public func aiAgentCompactSlot(for activity: AIAgentActivity) -> CompactSlot {
+///
+/// `sessionCount` is how many concurrent sessions of this agent the slot stands
+/// in for; the drawn `activity` is only the most urgent of them.
+public func aiAgentCompactSlot(
+    for activity: AIAgentActivity,
+    sessionCount: Int = 1
+) -> CompactSlot {
     let presentation = AIAgentPresentation(activity: activity)
+    let slotPresentation = CompactAIAgentSlotPresentation(
+        activity: activity,
+        sessionCount: sessionCount
+    )
     return CompactSlot(
         activity: activity,
         id: activity.compactGroupIdentity,
-        accessibilityLabel: presentation.accessibilityLabel,
-        aiAgentPresentation: CompactAIAgentSlotPresentation(activity: activity)
+        accessibilityLabel: aiAgentCompactAccessibilityLabel(
+            presentation: presentation,
+            slotPresentation: slotPresentation
+        ),
+        aiAgentPresentation: slotPresentation
+    )
+}
+
+/// What VoiceOver reads for one agent slot.
+///
+/// The count is spoken rather than left to the badge, because the badge is the
+/// only place the other sessions exist on the compact pill and a hidden numeral
+/// is a session the screen reader never mentions.
+private func aiAgentCompactAccessibilityLabel(
+    presentation: AIAgentPresentation,
+    slotPresentation: CompactAIAgentSlotPresentation
+) -> String {
+    guard slotPresentation.showsSessionCount else { return presentation.accessibilityLabel }
+    let sessionCount = localized("\(slotPresentation.sessionCount) sessions")
+    return localized(
+        "activity.accessibility.headlineAndDetail",
+        default: "\(presentation.accessibilityLabel), \(sessionCount)"
     )
 }
 
@@ -241,6 +386,12 @@ public struct AIAgentViewMetrics: Equatable, Sendable {
     public let progressBarHeight: CGFloat
     public let cornerRadius: CGFloat
     public let width: CGFloat
+    /// One sub-agent row in the disclosed list.
+    public let subagentRowHeight: CGFloat
+    public let subagentSeparatorHeight: CGFloat
+    public let subagentNameSize: CGFloat
+    public let subagentDetailSize: CGFloat
+    public let disclosureControlHeight: CGFloat
 
     public init(
         glyphSize: CGFloat = 36,
@@ -251,7 +402,12 @@ public struct AIAgentViewMetrics: Equatable, Sendable {
         detailSize: CGFloat = 10,
         progressBarHeight: CGFloat = 3,
         cornerRadius: CGFloat = 16,
-        width: CGFloat = 276
+        width: CGFloat = 276,
+        subagentRowHeight: CGFloat = 26,
+        subagentSeparatorHeight: CGFloat = 1,
+        subagentNameSize: CGFloat = 10,
+        subagentDetailSize: CGFloat = 9,
+        disclosureControlHeight: CGFloat = 18
     ) {
         self.glyphSize = glyphSize
         self.contentInset = contentInset
@@ -262,7 +418,25 @@ public struct AIAgentViewMetrics: Equatable, Sendable {
         self.progressBarHeight = progressBarHeight
         self.cornerRadius = cornerRadius
         self.width = width
+        self.subagentRowHeight = subagentRowHeight
+        self.subagentSeparatorHeight = subagentSeparatorHeight
+        self.subagentNameSize = subagentNameSize
+        self.subagentDetailSize = subagentDetailSize
+        self.disclosureControlHeight = disclosureControlHeight
     }
+}
+
+/// How much taller a card gets when its sub-agent list is open.
+///
+/// Zero for a closed card and for one with nothing to disclose, so the panel's
+/// height model needs no special case for the ordinary single-session instance.
+public func aiAgentDisclosureHeight(
+    subagentCount: Int,
+    isDisclosed: Bool,
+    metrics: AIAgentViewMetrics = .default
+) -> CGFloat {
+    guard isDisclosed, subagentCount > 0 else { return 0 }
+    return metrics.subagentSeparatorHeight + CGFloat(subagentCount) * metrics.subagentRowHeight
 }
 
 /// The expanded AI view's drawn size, clamped to the window's allocated maximum
@@ -270,11 +444,18 @@ public struct AIAgentViewMetrics: Equatable, Sendable {
 /// allocated once and never resized, so anything past it is silently clipped.
 public func aiAgentExpandedSize(
     hasProgress: Bool,
+    subagentCount: Int = 0,
+    isDisclosed: Bool = false,
     metrics: AIAgentViewMetrics = .default,
     panelMetrics: PanelMetrics = .default
 ) -> CGSize {
     let progressHeight = hasProgress ? metrics.progressBarHeight + metrics.textSpacing : 0
-    let contentHeight = metrics.glyphSize + progressHeight
+    let disclosureHeight = aiAgentDisclosureHeight(
+        subagentCount: subagentCount,
+        isDisclosed: isDisclosed,
+        metrics: metrics
+    )
+    let contentHeight = metrics.glyphSize + progressHeight + disclosureHeight
     return CGSize(
         width: min(metrics.width, panelMetrics.maximumExpandedSize.width),
         height: min(
@@ -295,19 +476,55 @@ public struct AIAgentActivityView: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     private let presentation: AIAgentPresentation
+    private let subagents: [AIAgentSubagentPresentation]
     private let metrics: AIAgentViewMetrics
     private let panelMetrics: PanelMetrics
+    private let isDisclosed: Bool
+    private let onToggleDisclosure: () -> Void
     private let onPrimaryAction: () -> Void
 
+    /// One session with nothing under it — the shape every agent but a
+    /// delegating one ever takes.
     public init(
         activity: AIAgentActivity,
+        instanceOrdinal: Int? = nil,
         metrics: AIAgentViewMetrics = .default,
         panelMetrics: PanelMetrics = .default,
         onPrimaryAction: @escaping () -> Void = {}
     ) {
-        presentation = AIAgentPresentation(activity: activity)
+        presentation = AIAgentPresentation(activity: activity, instanceOrdinal: instanceOrdinal)
+        subagents = []
         self.metrics = metrics
         self.panelMetrics = panelMetrics
+        isDisclosed = false
+        onToggleDisclosure = {}
+        self.onPrimaryAction = onPrimaryAction
+    }
+
+    /// One instance and the sub-agents it spawned.
+    ///
+    /// The card speaks for the instance's most urgent session, so a sub-agent
+    /// waiting on the user turns the whole card yellow without the list having
+    /// to be open.
+    init(
+        instance: AIAgentInstance,
+        metrics: AIAgentViewMetrics = .default,
+        panelMetrics: PanelMetrics = .default,
+        isDisclosed: Bool = false,
+        onToggleDisclosure: @escaping () -> Void = {},
+        onPrimaryAction: @escaping () -> Void = {}
+    ) {
+        presentation = AIAgentPresentation(
+            activity: instance.representative,
+            instanceOrdinal: instance.ordinal
+        )
+        subagents = instance.subagents.enumerated().map { index, session in
+            AIAgentSubagentPresentation(activity: session, fallbackOrdinal: index + 1)
+        }
+        self.metrics = metrics
+        self.panelMetrics = panelMetrics
+        self.isDisclosed = isDisclosed
+        self.onToggleDisclosure = onToggleDisclosure
         self.onPrimaryAction = onPrimaryAction
     }
 
@@ -320,6 +537,8 @@ public struct AIAgentActivityView: View {
     public var body: some View {
         let size = aiAgentExpandedSize(
             hasProgress: presentation.progress != nil,
+            subagentCount: subagents.count,
+            isDisclosed: isDisclosed,
             metrics: metrics,
             panelMetrics: panelMetrics
         )
@@ -333,6 +552,7 @@ public struct AIAgentActivityView: View {
                 glyph
                 text
                 Spacer(minLength: 0)
+                disclosureControl
                 if let action = presentation.primaryAction {
                     Button(action: performPrimaryAction) {
                         Image(systemName: action.symbolName)
@@ -347,18 +567,83 @@ public struct AIAgentActivityView: View {
             if let progress = presentation.progress {
                 progressBar(progress)
             }
+
+            if isDisclosed, subagents.isEmpty == false {
+                subagentList
+            }
         }
         .padding(metrics.contentInset)
         .foregroundStyle(surface.foreground.style)
         .islandCard(
             width: size.width,
             height: size.height,
+            alignment: .top,
             cornerRadius: metrics.cornerRadius,
             surface: surface
         )
         .environment(\.colorScheme, surface.preferredColorScheme)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(presentation.accessibilityLabel)
+    }
+
+    /// The control that opens the sub-agent list, labelled with how many there
+    /// are — the count the user asked the card for in the first place.
+    @ViewBuilder
+    private var disclosureControl: some View {
+        if subagents.isEmpty == false {
+            Button(action: onToggleDisclosure) {
+                HStack(spacing: 3) {
+                    Text(localized("\(subagents.count) agents"))
+                    Image(systemName: isDisclosed ? "chevron.up" : "chevron.down")
+                }
+                .font(.system(size: metrics.subagentDetailSize, weight: .semibold))
+                .padding(.horizontal, 5)
+                .frame(height: metrics.disclosureControlHeight)
+                .background(.white.opacity(0.12), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(
+                localized(isDisclosed ? "Hide sub-agents" : "Show sub-agents")
+            )
+        }
+    }
+
+    private var subagentList: some View {
+        VStack(spacing: 0) {
+            Divider()
+                .frame(height: metrics.subagentSeparatorHeight)
+                .opacity(0.18)
+
+            ForEach(Array(subagents.enumerated()), id: \.offset) { _, subagent in
+                subagentRow(subagent)
+            }
+        }
+    }
+
+    private func subagentRow(_ subagent: AIAgentSubagentPresentation) -> some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(aiAgentIndicatorColor(subagent.indicator))
+                .frame(width: 5, height: 5)
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text(subagent.title)
+                    .font(.system(size: metrics.subagentNameSize, weight: .medium))
+                    .lineLimit(1)
+
+                if let detail = subagent.detail {
+                    Text(detail)
+                        .font(.system(size: metrics.subagentDetailSize))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer(minLength: 0)
+        }
+        .frame(height: metrics.subagentRowHeight)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(subagent.accessibilityLabel)
     }
 
     private var glyph: some View {
@@ -386,136 +671,6 @@ public struct AIAgentActivityView: View {
             .progressViewStyle(.linear)
             .frame(height: metrics.progressBarHeight)
             .accessibilityHidden(true)
-    }
-}
-
-struct AIAgentActivityGroupView: View {
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    let group: AIAgentActivityGroup
-    let metrics: ExpandedPanelMetrics
-    let isDisclosed: Bool
-    let onToggleDisclosure: () -> Void
-    let onPrimaryAction: () -> Void
-
-    private let groupMetrics = AIAgentGroupViewMetrics.default
-
-    var body: some View {
-        let surface = islandExpandedSurface(
-            scheme: colorScheme.islandColorScheme,
-            reduceTransparency: reduceTransparency
-        )
-
-        VStack(spacing: 0) {
-            header
-            if group.showsDisclosure, isDisclosed {
-                Divider()
-                    .frame(height: groupMetrics.separatorHeight)
-                    .opacity(0.18)
-                ForEach(Array(group.sessions.enumerated()), id: \.element.sessionID) { index, session in
-                    sessionRow(index: index, session: session)
-                }
-            }
-        }
-        .foregroundStyle(surface.foreground.style)
-        .islandCard(
-            width: metrics.width,
-            height: metrics.rowHeight
-                + aiAgentGroupDisclosureHeight(
-                    sessionCount: group.sessions.count,
-                    isDisclosed: isDisclosed
-                ),
-            alignment: .top,
-            cornerRadius: metrics.cornerRadius,
-            surface: surface
-        )
-        .environment(\.colorScheme, surface.preferredColorScheme)
-    }
-
-    private var header: some View {
-        let presentation = AIAgentPresentation(activity: group.representative)
-
-        return HStack(spacing: metrics.columnSpacing) {
-            AIAgentIcon(agentID: group.agentID, size: metrics.symbolSize)
-                .frame(width: metrics.symbolColumnWidth)
-
-            Text(presentation.compactTitle)
-                .font(.system(size: groupMetrics.titleSize, weight: .medium))
-                .lineLimit(1)
-
-            Spacer(minLength: 4)
-
-            if group.showsDisclosure {
-                Button(action: onToggleDisclosure) {
-                    HStack(spacing: 3) {
-                        Text("\(group.sessions.count)")
-                        Image(systemName: isDisclosed ? "chevron.up" : "chevron.down")
-                    }
-                    .font(.system(size: groupMetrics.detailSize, weight: .semibold))
-                    .padding(.horizontal, 5)
-                    .frame(height: groupMetrics.countControlHeight)
-                    .background(.white.opacity(0.12), in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(
-                    localized(isDisclosed ? "Hide agent sessions" : "Show agent sessions")
-                )
-            }
-
-            if let action = presentation.primaryAction {
-                Button(action: onPrimaryAction) {
-                    Image(systemName: action.symbolName)
-                        .font(.system(size: metrics.symbolSize - 2, weight: .semibold))
-                        .frame(width: metrics.symbolColumnWidth, height: metrics.rowHeight)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(action.title)
-            }
-        }
-        .padding(.horizontal, metrics.contentInset)
-        .frame(height: metrics.rowHeight)
-    }
-
-    private func sessionRow(index: Int, session: AIAgentActivity) -> some View {
-        let presentation = AIAgentPresentation(activity: session)
-        let indicator = AIAgentCompactIndicator(state: session.state)
-
-        return HStack(spacing: 6) {
-            Circle()
-                .fill(statusColor(indicator))
-                .frame(width: 5, height: 5)
-
-            VStack(alignment: .leading, spacing: 0) {
-                Text("\(index + 1) · \(presentation.statusText)")
-                    .font(.system(size: groupMetrics.detailSize, weight: .medium))
-                    .lineLimit(1)
-
-                if let detail = presentation.detail {
-                    Text(detail)
-                        .font(.system(size: groupMetrics.detailSize))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-            }
-
-            Spacer(minLength: 0)
-        }
-        .padding(.horizontal, metrics.contentInset)
-        .frame(height: groupMetrics.detailRowHeight)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(presentation.accessibilityLabel)
-    }
-
-    private func statusColor(_ indicator: AIAgentCompactIndicator) -> Color {
-        switch indicator {
-        case .none: .gray
-        case .working: .white
-        case .question: .yellow
-        case .error: .red
-        case .completed: .green
-        }
     }
 }
 
@@ -583,22 +738,65 @@ struct CompactAIAgentIcon: View {
 
     private let metrics = CompactAIAgentMetrics.default
 
-    /// The agent's logo with its status directly beneath it.
+    /// The agent's logo, its status directly beneath it, and — when more than
+    /// one session of that agent is running — how many, in the top-right corner.
     ///
-    /// Every state reports in the same place. Needing input and failing used to
-    /// hang a badge off the icon's side while working put a dot underneath, so
-    /// the slot changed width with the state and the eye had two places to
+    /// Every *state* reports in the same place. Needing input and failing used
+    /// to hang a badge off the icon's side while working put a dot underneath,
+    /// so the slot changed width with the state and the eye had two places to
     /// check. One position below the icon reads as a single status light.
+    ///
+    /// The count is deliberately the one thing that does *not* share that
+    /// position: it answers a different question ("how many of this agent") from
+    /// the status light ("what is it doing"), and stacking the two would make
+    /// each state change look like a change in the number of sessions.
     var body: some View {
         let size = compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)
 
         return ZStack(alignment: .top) {
             AIAgentIcon(agentID: presentation.agentID, size: iconSize)
+                .overlay(alignment: .topTrailing) { sessionCountBadge }
             statusIndicator
                 .offset(y: iconSize + 1)
         }
+        .padding(.top, metrics.countBadgeOverhang)
         .frame(width: size.width, height: size.height, alignment: .top)
         .accessibilityHidden(true)
+    }
+
+    /// The count, white on the island's black so it reads as a quantity rather
+    /// than as another status.
+    ///
+    /// Deliberately not one of the status tones: yellow, red, and green already
+    /// mean "asking", "failed", and "done" in this pill, and colouring a count
+    /// with any of them would claim a state the number does not describe.
+    @ViewBuilder
+    private var sessionCountBadge: some View {
+        if presentation.showsSessionCount {
+            Circle()
+                .fill(.white)
+                .overlay {
+                    Text(compactAIAgentCountBadgeText(presentation.sessionCount))
+                        .font(
+                            .system(
+                                size: metrics.countBadgeTextSize,
+                                weight: .bold,
+                                design: .rounded
+                            )
+                        )
+                        .foregroundStyle(.black)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.6)
+                }
+                .overlay {
+                    Circle().strokeBorder(.black, lineWidth: metrics.countBadgeRingWidth)
+                }
+                .frame(width: metrics.countBadgeDiameter, height: metrics.countBadgeDiameter)
+                .offset(
+                    x: metrics.countBadgeOverhang,
+                    y: -metrics.countBadgeOverhang
+                )
+        }
     }
 
     @ViewBuilder
@@ -753,5 +951,17 @@ private enum AIAgentIconResolver {
             return NSWorkspace.shared.icon(forFile: applicationURL.path)
         }
         return nil
+    }
+}
+
+/// The dot colour for one sub-agent's state, the same language the compact
+/// pill's status light speaks so a row and an icon never disagree.
+func aiAgentIndicatorColor(_ indicator: AIAgentCompactIndicator) -> Color {
+    switch indicator {
+    case .none: .gray
+    case .working: .white
+    case .question: .yellow
+    case .error: .red
+    case .completed: .green
     }
 }

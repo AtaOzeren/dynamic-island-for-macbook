@@ -56,25 +56,26 @@ public struct HookSnippetGenerator: Sendable {
     }
 
     public func claudeCodeSettingsFragment() -> String {
-        let hooks = Dictionary(uniqueKeysWithValues: Self.claudeCodeLifecycle.map { event in
-            (
-                event.event,
-                [
+        let hooks = Dictionary(
+            uniqueKeysWithValues: Self.claudeCodeLifecycle.map { event in
+                (
+                    event.event,
                     [
-                        "hooks": [
-                            [
-                                "type": "command",
-                                "command": HookScript.claudeCodeHookCommand(
-                                    state: event.state,
-                                    detail: event.detail,
-                                    carriesToolName: event.carriesToolName
-                                ),
+                        [
+                            "hooks": [
+                                [
+                                    "type": "command",
+                                    "command": HookScript.claudeCodeHookCommand(
+                                        state: event.state,
+                                        detail: event.detail,
+                                        carriesToolName: event.carriesToolName
+                                    ),
+                                ]
                             ]
                         ]
                     ]
-                ]
-            )
-        })
+                )
+            })
         let fragment: [String: Any] = [
             "hooks": hooks
         ]
@@ -94,28 +95,28 @@ public struct HookSnippetGenerator: Sendable {
         let forwardedJSON = HookTextEncoding.jsonLiteral(existingArguments)
         let script =
             HookScript.pythonPreamble(agentID: "codex")
-            + """
-            \(Self.codexNotifyMarker) = True
-            forward = json.loads(\(HookTextEncoding.pythonStringLiteral(forwardedJSON)))
-            event_args = sys.argv[1:]
-            forward and subprocess.Popen(
-                forward + event_args,
-                start_new_session=True,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            if not event_args:
-                sys.exit(0)
-            event = notchflow_load(event_args[0])
-            notchflow_send(
-                notchflow_payload(
-                    notchflow_session(event.get("thread-id") or event.get("thread_id")),
-                    "completed",
-                    "Turn completed",
+                + """
+                \(Self.codexNotifyMarker) = True
+                forward = json.loads(\(HookTextEncoding.pythonStringLiteral(forwardedJSON)))
+                event_args = sys.argv[1:]
+                forward and subprocess.Popen(
+                    forward + event_args,
+                    start_new_session=True,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
-            )
-            """
+                if not event_args:
+                    sys.exit(0)
+                event = notchflow_load(event_args[0])
+                notchflow_send(
+                    notchflow_payload(
+                        notchflow_session(event.get("thread-id") or event.get("thread_id")),
+                        "completed",
+                        "Turn completed",
+                    )
+                )
+                """
         return "notify = \(HookTextEncoding.jsonLiteral(["/usr/bin/python3", "-c", script]))\n"
     }
 
@@ -126,9 +127,10 @@ public struct HookSnippetGenerator: Sendable {
             "async": true,
             "timeout": 5,
         ]
-        let hooks = Dictionary(uniqueKeysWithValues: Self.codexLifecycleEvents.map { event in
-            (event.event, [["hooks": [handler]]])
-        })
+        let hooks = Dictionary(
+            uniqueKeysWithValues: Self.codexLifecycleEvents.map { event in
+                (event.event, [["hooks": [handler]]])
+            })
         let document: [String: Any] = ["hooks": hooks]
 
         guard
@@ -150,7 +152,7 @@ public struct HookSnippetGenerator: Sendable {
     /// a constant rather than a hundred-line function body.
     private static let openCodePluginSource = """
         import type { Plugin } from "@opencode-ai/plugin"
-        import { spawn } from "node:child_process"
+        import { spawn, spawnSync } from "node:child_process"
         import { createHash } from "node:crypto"
         import { readFileSync } from "node:fs"
         import { homedir } from "node:os"
@@ -194,56 +196,175 @@ public struct HookSnippetGenerator: Sendable {
           openURL(body)
         }
 
+        const statusURL = (body: string) =>
+          `notchflow://ai-status?payload=${encodeURIComponent(body)}`
+
         const openURL = (body: string) => {
-          const url = `notchflow://ai-status?payload=${encodeURIComponent(body)}`
-          const child = spawn("open", ["-g", url], { detached: true, stdio: "ignore" })
+          const child = spawn("open", ["-g", statusURL(body)], { detached: true, stdio: "ignore" })
           child.unref()
         }
 
-        const notify = (state: string, sessionId: string, detail: string, toolName?: string) => {
-          if (!sessionId) return
-          const payload: Record<string, unknown> = {
-            schemaVersion: "1.0",
-            agentId: "opencode",
-            sessionId: sessionUUID("opencode", sessionId),
-            state,
-            detail,
-            timestamp: new Date().toISOString(),
-          }
-          if (state === "usingTool" && toolName) payload.toolName = toolName
-          deliver(JSON.stringify(payload))
-        }
+        export const NotchFlowPlugin: Plugin = async ({ client }) => {
+          // The task tool gives every sub-agent a real child session with its own
+          // id. Reported as-is, four sub-agents read as four more agents running;
+          // the island needs the session the user actually started, so parentage
+          // is tracked here and the root is sent alongside each message.
+          const parents = new Map<string, string>()
+          const names = new Map<string, string>()
+          // The top-level sessions this process has reported, so it can end them
+          // on the way out.
+          const liveRoots = new Set<string>()
 
-        export const NotchFlowPlugin: Plugin = async () => ({
-          // No "session.created": opening a session is not work, and a
-          // "thinking" state with no expiry would hold the island for as long
-          // as the window stayed open. "chat.message" is the real start.
-          event: async ({ event }) => {
-            switch (event.type) {
-              case "session.idle":
-                notify("completed", event.properties.sessionID, "Task completed")
-                break
-              case "session.error":
-                notify("error", event.properties.sessionID, "Session error")
-                break
-              case "session.deleted":
-                notify("idle", event.properties.info.id, "Session ended")
-                break
-              case "permission.asked":
-                notify("waitingForUser", event.properties.sessionID, "Needs attention")
-                break
+          const remember = (info: any) => {
+            if (!info?.id) return
+            parents.set(info.id, info.parentID ?? "")
+            if (info.parentID && typeof info.title === "string" && info.title) {
+              if (!names.has(info.id)) names.set(info.id, info.title)
             }
-          },
-          "chat.message": async (_input, output) => {
-            notify("thinking", output.message.sessionID, "Task started")
-          },
-          "tool.execute.before": async (input) => {
-            notify("usingTool", input.sessionID, "Using tool", input.tool)
-          },
-          "tool.execute.after": async (input) => {
-            notify("working", input.sessionID, "Working…")
-          },
-        })
+          }
+
+          // Only for a session that started before this plugin loaded; the
+          // events above cover every session created while it is running.
+          const fetchParent = async (sessionId: string): Promise<string> => {
+            try {
+              const response = await client.session.get({ path: { id: sessionId } })
+              const info = (response as any)?.data ?? response
+              return info?.parentID ?? ""
+            } catch {
+              return ""
+            }
+          }
+
+          const rootOf = async (sessionId: string): Promise<string> => {
+            let current = sessionId
+            const seen = new Set<string>()
+            while (!seen.has(current)) {
+              seen.add(current)
+              let parent = parents.get(current)
+              if (parent === undefined) {
+                parent = await fetchParent(current)
+                parents.set(current, parent)
+              }
+              if (!parent) return current
+              current = parent
+            }
+            // A parent cycle is not a shape opencode produces, but treating the
+            // session as its own root keeps one bad edge from hanging the hook.
+            return current
+          }
+
+          const envelope = (state: string, sessionId: string, detail: string) =>
+            JSON.stringify({
+              schemaVersion: "1.0",
+              agentId: "opencode",
+              sessionId: sessionUUID("opencode", sessionId),
+              state,
+              detail,
+              timestamp: new Date().toISOString(),
+            })
+
+          const notify = async (
+            state: string,
+            sessionId: string,
+            detail: string,
+            toolName?: string,
+            agentName?: string,
+          ) => {
+            if (!sessionId) return
+            if (agentName) names.set(sessionId, agentName)
+            const root = await rootOf(sessionId)
+            const payload: Record<string, unknown> = {
+              schemaVersion: "1.0",
+              agentId: "opencode",
+              sessionId: sessionUUID("opencode", sessionId),
+              state,
+              detail,
+              timestamp: new Date().toISOString(),
+            }
+            if (root && root !== sessionId) {
+              payload.rootSessionId = sessionUUID("opencode", root)
+              const name = names.get(sessionId)
+              if (name) payload.sessionName = name
+            }
+            if (state === "usingTool" && toolName) payload.toolName = toolName
+            if (root === sessionId) liveRoots.add(sessionId)
+            deliver(JSON.stringify(payload))
+          }
+
+          // Quitting opencode is neither the end of a turn nor the deletion of a
+          // session, so nothing else reports it: the last state sits on the
+          // island until its silence timeout while the process behind it is
+          // gone. Saying so on the way out is the only message that can.
+          //
+          // Sending the roots alone is enough — the island ends an instance's
+          // sub-agents with it, and a handful of synchronous `open` calls on
+          // exit is a cost the user feels.
+          const MAX_FAREWELLS = 8
+          let saidGoodbye = false
+          const sayGoodbye = () => {
+            if (saidGoodbye) return
+            saidGoodbye = true
+            for (const sessionId of Array.from(liveRoots).slice(0, MAX_FAREWELLS)) {
+              // Synchronous on purpose: an exit handler is the last code this
+              // process runs, and `fetch` would never get its turn.
+              spawnSync("open", ["-g", statusURL(envelope("idle", sessionId, "Session ended"))])
+            }
+            liveRoots.clear()
+          }
+
+          // Only `exit`. Registering a SIGINT or SIGTERM listener would suppress
+          // Node's default termination, and an agent that no longer quits on
+          // Ctrl-C is a far worse defect than a card that lingers — a signal
+          // that skips this handler is what the island's silence timeout is for.
+          process.on("exit", sayGoodbye)
+
+          return {
+            // No "session.created" state message: opening a session is not work,
+            // and a "thinking" state with no expiry would hold the island for as
+            // long as the window stayed open. "chat.message" is the real start —
+            // the event is watched only to learn the session's parent.
+            event: async ({ event }) => {
+              switch (event.type) {
+                case "session.created":
+                  remember(event.properties.info)
+                  break
+                case "session.updated":
+                  remember(event.properties.info)
+                  break
+                case "session.idle":
+                  await notify("completed", event.properties.sessionID, "Task completed")
+                  break
+                case "session.error":
+                  await notify("error", event.properties.sessionID, "Session error")
+                  break
+                case "session.deleted":
+                  await notify("idle", event.properties.info.id, "Session ended")
+                  parents.delete(event.properties.info.id)
+                  names.delete(event.properties.info.id)
+                  liveRoots.delete(event.properties.info.id)
+                  break
+                case "permission.asked":
+                  await notify("waitingForUser", event.properties.sessionID, "Needs attention")
+                  break
+              }
+            },
+            "chat.message": async (input, output) => {
+              await notify(
+                "thinking",
+                output.message.sessionID,
+                "Task started",
+                undefined,
+                (input as any)?.agent,
+              )
+            },
+            "tool.execute.before": async (input) => {
+              await notify("usingTool", input.sessionID, "Using tool", input.tool, (input as any)?.agent)
+            },
+            "tool.execute.after": async (input) => {
+              await notify("working", input.sessionID, "Working…", undefined, (input as any)?.agent)
+            },
+          }
+        }
 
         """
 

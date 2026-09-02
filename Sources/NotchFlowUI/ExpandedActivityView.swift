@@ -26,21 +26,32 @@ public struct ExpandedRow: Identifiable, Equatable, Sendable {
     }
 }
 
+/// One drawn item of the expanded panel: an ordinary activity, or one AI agent
+/// instance standing for its root session and every sub-agent under it.
 struct ExpandedActivityItem: Identifiable {
     let id: String
     let activity: (any Activity)?
-    let aiAgentGroup: AIAgentActivityGroup?
+    let aiAgentInstance: AIAgentInstance?
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
         self.activity = activity
-        aiAgentGroup = nil
+        aiAgentInstance = nil
     }
 
-    fileprivate init(aiAgentGroup: AIAgentActivityGroup) {
-        id = aiAgentGroup.id
+    fileprivate init(aiAgentInstance: AIAgentInstance) {
+        id = aiAgentInstance.id
         activity = nil
-        self.aiAgentGroup = aiAgentGroup
+        self.aiAgentInstance = aiAgentInstance
+    }
+
+    /// Holds an instance's place in the list while its sessions are still being
+    /// collected, so the panel's order follows first appearance rather than
+    /// dictionary order.
+    fileprivate init(placeholderInstanceIdentity: ActivityIdentity) {
+        id = placeholderInstanceIdentity.rawValue
+        activity = nil
+        aiAgentInstance = nil
     }
 }
 
@@ -149,10 +160,109 @@ public func expandedItemHeight(
     case .timer:
         return timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).height
     case .aiAgent:
-        return metrics.panel.rowHeight
+        // The agent card is a glyph-height card, not a text row, and drawing it
+        // at `rowHeight` under-reports it by the difference. The panel is sized
+        // from these numbers, so the shortfall lands as clipping at the bottom
+        // of the island rather than as a smaller card.
+        return aiAgentExpandedSize(
+            hasProgress: (activity as? AIAgentActivity)?.progress != nil,
+            metrics: metrics.aiAgent,
+            panelMetrics: panelMetrics
+        ).height
     case .charging, .recording, .genericRow:
         return metrics.panel.rowHeight
     }
+}
+
+/// The panel's items: every non-AI activity as itself, and every AI session
+/// folded into the instance that owns it.
+///
+/// Instances appear in the order their most urgent session does, so an instance
+/// whose sub-agent is waiting on the user rises to the top of the panel without
+/// the sub-agent getting a card of its own.
+func expandedActivityItems(
+    for activities: [any Activity],
+    registrationTimes: [ActivityIdentity: Date] = [:]
+) -> [ExpandedActivityItem] {
+    var instanceIndexes: [ActivityIdentity: Int] = [:]
+    var items: [ExpandedActivityItem] = []
+    var sessionsByInstance: [ActivityIdentity: [AIAgentActivity]] = [:]
+
+    for activity in activities {
+        guard let session = activity as? AIAgentActivity else {
+            items.append(ExpandedActivityItem(activity: activity))
+            continue
+        }
+
+        let instanceIdentity = session.compactInstanceIdentity
+        sessionsByInstance[instanceIdentity, default: []].append(session)
+        if instanceIndexes[instanceIdentity] == nil {
+            instanceIndexes[instanceIdentity] = items.count
+            items.append(ExpandedActivityItem(placeholderInstanceIdentity: instanceIdentity))
+        }
+    }
+
+    let ordinals = aiAgentInstanceOrdinals(
+        for: sessionsByInstance,
+        registrationTimes: registrationTimes
+    )
+
+    for (instanceIdentity, sessions) in sessionsByInstance {
+        guard let index = instanceIndexes[instanceIdentity], let first = sessions.first else {
+            continue
+        }
+        items[index] = ExpandedActivityItem(
+            aiAgentInstance: AIAgentInstance(
+                agentID: first.agent,
+                rootSessionID: first.rootSessionID,
+                sessions: sessions,
+                ordinal: ordinals[instanceIdentity]
+            )
+        )
+    }
+
+    return items
+}
+
+/// A stable number for each concurrent instance of the same agent, absent for
+/// any agent running only one.
+///
+/// Ordered by the instance's earliest registration rather than by the list
+/// order, which sorts by urgency: numbering from the list would renumber the
+/// cards whenever one instance changed state, so "OpenCode 1" would become
+/// "OpenCode 2" without any instance having started or ended. An instance that
+/// ends does still close its number and shift the ones after it — unavoidable
+/// for an ordinal, and rare beside a state change.
+func aiAgentInstanceOrdinals(
+    for sessionsByInstance: [ActivityIdentity: [AIAgentActivity]],
+    registrationTimes: [ActivityIdentity: Date]
+) -> [ActivityIdentity: Int] {
+    func startTime(of sessions: [AIAgentActivity]) -> Date {
+        sessions.compactMap { registrationTimes[$0.identity] }.min() ?? .distantPast
+    }
+
+    var instancesByAgent: [IPCAgentID: [(identity: ActivityIdentity, sessions: [AIAgentActivity])]] =
+        [:]
+    for (identity, sessions) in sessionsByInstance {
+        guard let agent = sessions.first?.agent else { continue }
+        instancesByAgent[agent, default: []].append((identity, sessions))
+    }
+
+    var ordinals: [ActivityIdentity: Int] = [:]
+    for instances in instancesByAgent.values where instances.count > 1 {
+        let ordered = instances.sorted { left, right in
+            let leftTime = startTime(of: left.sessions)
+            let rightTime = startTime(of: right.sessions)
+            guard leftTime == rightTime else { return leftTime < rightTime }
+            // Two instances registered in the same instant still need a stable
+            // order, or their numbers swap between renders of identical state.
+            return left.identity.rawValue < right.identity.rawValue
+        }
+        for (index, instance) in ordered.enumerated() {
+            ordinals[instance.identity] = index + 1
+        }
+    }
+    return ordinals
 }
 
 /// One row per active activity, in the manager's priority-then-registration
@@ -160,27 +270,6 @@ public func expandedItemHeight(
 /// exists precisely so nothing is truncated.
 public func expandedRows(for activities: [any Activity]) -> [ExpandedRow] {
     activities.map(ExpandedRow.init(activity:))
-}
-
-func expandedActivityItems(for activities: [any Activity]) -> [ExpandedActivityItem] {
-    var agentIndexes: [IPCAgentID: Int] = [:]
-    var items: [ExpandedActivityItem] = []
-
-    for activity in activities {
-        guard let agent = activity as? AIAgentActivity else {
-            items.append(ExpandedActivityItem(activity: activity))
-            continue
-        }
-
-        if let index = agentIndexes[agent.agent], let group = items[index].aiAgentGroup {
-            items[index] = ExpandedActivityItem(aiAgentGroup: group.appending(agent))
-        } else {
-            agentIndexes[agent.agent] = items.count
-            items.append(ExpandedActivityItem(aiAgentGroup: AIAgentActivityGroup(session: agent)))
-        }
-    }
-
-    return items
 }
 
 /// The expanded panel's drawn size for a mixed set, clamped to the window's
@@ -193,18 +282,19 @@ func expandedActivityItems(for activities: [any Activity]) -> [ExpandedActivityI
 /// geometry rather than by policy.
 public func expandedPanelSize(
     for activities: [any Activity],
-    disclosedAgentIDs: Set<IPCAgentID> = [],
+    disclosedInstances: Set<ActivityIdentity> = [],
+    registrationTimes: [ActivityIdentity: Date] = [:],
     metrics: ExpandedItemMetrics = .default,
     panelMetrics: PanelMetrics = .default,
     topInset: CGFloat = 0
 ) -> CGSize {
-    let items = expandedActivityItems(for: activities)
+    let items = expandedActivityItems(for: activities, registrationTimes: registrationTimes)
     guard !items.isEmpty else { return .zero }
 
     let heights = items.map {
         expandedItemHeight(
             for: $0,
-            disclosedAgentIDs: disclosedAgentIDs,
+            disclosedInstances: disclosedInstances,
             metrics: metrics,
             panelMetrics: panelMetrics
         )
@@ -230,16 +320,18 @@ public func expandedPanelSize(
 
 private func expandedItemHeight(
     for item: ExpandedActivityItem,
-    disclosedAgentIDs: Set<IPCAgentID>,
+    disclosedInstances: Set<ActivityIdentity>,
     metrics: ExpandedItemMetrics,
     panelMetrics: PanelMetrics
 ) -> CGFloat {
-    if let group = item.aiAgentGroup {
-        return metrics.panel.rowHeight
-            + aiAgentGroupDisclosureHeight(
-                sessionCount: group.sessions.count,
-                isDisclosed: disclosedAgentIDs.contains(group.agentID)
-            )
+    if let instance = item.aiAgentInstance {
+        return aiAgentExpandedSize(
+            hasProgress: instance.representative.progress != nil,
+            subagentCount: instance.subagents.count,
+            isDisclosed: disclosedInstances.contains(instance.identity),
+            metrics: metrics.aiAgent,
+            panelMetrics: panelMetrics
+        ).height
     }
     guard let activity = item.activity else { return 0 }
     return expandedItemHeight(for: activity, metrics: metrics, panelMetrics: panelMetrics)
@@ -250,8 +342,12 @@ private func expandedItemWidth(
     metrics: ExpandedItemMetrics,
     panelMetrics: PanelMetrics
 ) -> CGFloat {
-    if item.aiAgentGroup != nil {
-        return metrics.panel.width
+    if item.aiAgentInstance != nil {
+        return aiAgentExpandedSize(
+            hasProgress: false,
+            metrics: metrics.aiAgent,
+            panelMetrics: panelMetrics
+        ).width
     }
     guard let activity = item.activity else { return 0 }
     return expandedItemWidth(for: activity, metrics: metrics, panelMetrics: panelMetrics)
@@ -298,18 +394,19 @@ public func expandedPanelSize(
 /// Once this goes false the list scrolls rather than being cut off.
 public func expandedPanelOverflowsWindow(
     for activities: [any Activity],
-    disclosedAgentIDs: Set<IPCAgentID> = [],
+    disclosedInstances: Set<ActivityIdentity> = [],
+    registrationTimes: [ActivityIdentity: Date] = [:],
     metrics: ExpandedItemMetrics = .default,
     panelMetrics: PanelMetrics = .default,
     topInset: CGFloat = 0
 ) -> Bool {
-    let items = expandedActivityItems(for: activities)
+    let items = expandedActivityItems(for: activities, registrationTimes: registrationTimes)
     guard !items.isEmpty else { return false }
 
     let heights = items.map {
         expandedItemHeight(
             for: $0,
-            disclosedAgentIDs: disclosedAgentIDs,
+            disclosedInstances: disclosedInstances,
             metrics: metrics,
             panelMetrics: panelMetrics
         )
@@ -356,17 +453,26 @@ public struct ExpandedActivityView: View {
     private let onMusicTransport: (MusicTransportCommand) -> Void
     private let onTimerCommand: (TimerControlCommand) -> Void
 
-    /// Which agent groups are showing their sessions.
+    /// When each activity registered, used only to number the concurrent
+    /// instances of one agent in the order they appeared.
+    ///
+    /// Supplied from outside rather than derived here because the view is handed
+    /// activities, not the manager that has been keeping their start times.
+    private let registrationTimes: [ActivityIdentity: Date]
+
+    /// Which instances are showing their sub-agents.
     ///
     /// Bound from outside rather than held here as `@State`: the island's black
     /// surface is sized by an ancestor, and while this view owned the set
-    /// privately that ancestor sized the surface for collapsed groups. Opening a
-    /// group then drew its rows past the bottom of the island onto the desktop.
-    @Binding private var disclosedAgentIDs: Set<IPCAgentID>
+    /// privately that ancestor sized the surface for closed cards. Opening one
+    /// then drew its sub-agent rows past the bottom of the island onto the
+    /// desktop.
+    @Binding private var disclosedInstances: Set<ActivityIdentity>
 
     public init(
         activities: [any Activity],
-        disclosedAgentIDs: Binding<Set<IPCAgentID>> = .constant([]),
+        registrationTimes: [ActivityIdentity: Date] = [:],
+        disclosedInstances: Binding<Set<ActivityIdentity>> = .constant([]),
         metrics: ExpandedItemMetrics = .default,
         panelMetrics: PanelMetrics = .default,
         topInset: CGFloat = 0,
@@ -375,7 +481,8 @@ public struct ExpandedActivityView: View {
         onTimerCommand: @escaping (TimerControlCommand) -> Void = { _ in }
     ) {
         self.activities = activities
-        _disclosedAgentIDs = disclosedAgentIDs
+        self.registrationTimes = registrationTimes
+        _disclosedInstances = disclosedInstances
         self.metrics = metrics
         self.panelMetrics = panelMetrics
         self.topInset = topInset
@@ -391,14 +498,16 @@ public struct ExpandedActivityView: View {
         )
         let size = expandedPanelSize(
             for: activities,
-            disclosedAgentIDs: disclosedAgentIDs,
+            disclosedInstances: disclosedInstances,
+            registrationTimes: registrationTimes,
             metrics: metrics,
             panelMetrics: panelMetrics,
             topInset: topInset
         )
         let scrolls = expandedPanelOverflowsWindow(
             for: activities,
-            disclosedAgentIDs: disclosedAgentIDs,
+            disclosedInstances: disclosedInstances,
+            registrationTimes: registrationTimes,
             metrics: metrics,
             panelMetrics: panelMetrics,
             topInset: topInset
@@ -424,7 +533,7 @@ public struct ExpandedActivityView: View {
                 }
             }
             .environment(\.colorScheme, surface.preferredColorScheme)
-            .animation(disclosureAnimation, value: disclosedAgentIDs)
+            .animation(disclosureAnimation, value: disclosedInstances)
     }
 
     /// The items, separated the way the surface they sit on calls for.
@@ -434,8 +543,15 @@ public struct ExpandedActivityView: View {
     /// surfaces they are cards, and a gap is what separates cards. The gap is
     /// `rowSpacing` either way, so the panel's height model does not change with
     /// the treatment.
+    ///
+    /// One item per instance, not per session: the sub-agents an instance
+    /// spawned live in the list its card can open, because a session the agent
+    /// created to delegate work is not a second agent the user is running.
     private var itemStack: some View {
-        let items = expandedActivityItems(for: activities)
+        let items = expandedActivityItems(
+            for: activities,
+            registrationTimes: registrationTimes
+        )
 
         return VStack(alignment: .leading, spacing: drawsOwnSurface ? metrics.panel.rowSpacing : 0) {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
@@ -449,17 +565,29 @@ public struct ExpandedActivityView: View {
 
     @ViewBuilder
     private func itemView(for item: ExpandedActivityItem) -> some View {
-        if let group = item.aiAgentGroup {
-            AIAgentActivityGroupView(
-                group: group,
-                metrics: metrics.panel,
-                isDisclosed: group.showsDisclosure
-                    && disclosedAgentIDs.contains(group.agentID),
-                onToggleDisclosure: { toggleDisclosure(for: group.agentID) },
-                onPrimaryAction: { onPrimaryAction(group.representative.identity) }
+        if let instance = item.aiAgentInstance {
+            AIAgentActivityView(
+                instance: instance,
+                metrics: metrics.aiAgent,
+                panelMetrics: panelMetrics,
+                isDisclosed: disclosedInstances.contains(instance.identity),
+                onToggleDisclosure: { toggleDisclosure(for: instance.identity) },
+                onPrimaryAction: { onPrimaryAction(instance.representative.identity) }
             )
         } else if let activity = item.activity {
             itemView(for: activity)
+        }
+    }
+
+    private var disclosureAnimation: Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.18)
+    }
+
+    private func toggleDisclosure(for instance: ActivityIdentity) {
+        if disclosedInstances.contains(instance) {
+            disclosedInstances.remove(instance)
+        } else {
+            disclosedInstances.insert(instance)
         }
     }
 
@@ -514,18 +642,6 @@ public struct ExpandedActivityView: View {
             }
         case .genericRow:
             genericRow(for: activity)
-        }
-    }
-
-    private var disclosureAnimation: Animation? {
-        reduceMotion ? nil : .easeInOut(duration: 0.18)
-    }
-
-    private func toggleDisclosure(for agentID: IPCAgentID) {
-        if disclosedAgentIDs.contains(agentID) {
-            disclosedAgentIDs.remove(agentID)
-        } else {
-            disclosedAgentIDs.insert(agentID)
         }
     }
 

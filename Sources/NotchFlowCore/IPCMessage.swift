@@ -24,12 +24,55 @@ public struct IPCMessage: Codable, Equatable, Sendable {
     public let schemaVersion: String
     public let agentId: IPCAgentID
     public let sessionId: UUID
+    /// The top-level session this one belongs to, when it is a sub-agent.
+    ///
+    /// An agent that delegates work spawns a real child session with its own
+    /// identifier — OpenCode's `task` tool does this for every sub-agent — and
+    /// without this field the island counts each of them as another running
+    /// agent. One terminal delegating to four sub-agents then reads as five
+    /// concurrent agents, which is both wrong and useless.
+    ///
+    /// Omitted when the session is itself a top level one, so an agent that has
+    /// no notion of sub-sessions sends exactly what it sent before.
+    public let rootSessionId: UUID?
+    /// What to call this session in the sub-agent list, when it is one.
+    ///
+    /// The delegated agent's own name — "explore", "general" — because a list of
+    /// four rows reading "1", "2", "3", "4" tells the user nothing about which
+    /// one stopped to ask a question.
+    public let sessionName: String?
     public let state: AIAgentState
     public let detail: String
     public let toolName: String?
     public let progress: Double?
     public let timestamp: Date
 
+    public init(
+        schemaVersion: String,
+        agentId: IPCAgentID,
+        sessionId: UUID,
+        rootSessionId: UUID? = nil,
+        sessionName: String? = nil,
+        state: AIAgentState,
+        detail: String,
+        toolName: String? = nil,
+        progress: Double? = nil,
+        timestamp: Date
+    ) {
+        self.schemaVersion = schemaVersion
+        self.agentId = agentId
+        self.sessionId = sessionId
+        // A session naming itself as its own parent is a root session written
+        // the long way; normalising here means nothing downstream has to treat
+        // "child of itself" as a case.
+        self.rootSessionId = rootSessionId == sessionId ? nil : rootSessionId
+        self.sessionName = sessionName
+        self.state = state
+        self.detail = detail
+        self.toolName = toolName
+        self.progress = progress
+        self.timestamp = timestamp
+    }
 }
 
 public enum IPCMessageValidationError: Error, Equatable, Sendable {
@@ -60,7 +103,17 @@ public struct IPCMessageValidator: Sendable {
         "detail",
         "timestamp",
     ]
-    private static let allowedFields = Set(requiredFields + ["toolName", "progress"])
+    /// Optional fields a 1.0 envelope may carry.
+    ///
+    /// `rootSessionId` and `sessionName` were added after 1.0 shipped and are
+    /// deliberately not a version bump: the version is checked exactly, so
+    /// raising it would reject every hook already installed on a user's machine
+    /// until they reinstalled it. An optional field an older island ignores and
+    /// an older hook never sends is compatible in both directions, which a
+    /// version bump is not.
+    private static let allowedFields = Set(
+        requiredFields + ["toolName", "progress", "rootSessionId", "sessionName"]
+    )
     private static let shellMetacharacters = CharacterSet(
         charactersIn: "`$&;|<>\\\"'()*?[]{}!~#"
     )
@@ -128,6 +181,13 @@ public struct IPCMessageValidator: Sendable {
         guard let sessionId = UUID(uuidString: rawMessage.sessionId) else {
             throw IPCMessageValidationError.invalidSessionId(rawMessage.sessionId)
         }
+        var rootSessionId: UUID?
+        if let rawRootSessionId = rawMessage.rootSessionId {
+            guard let parsed = UUID(uuidString: rawRootSessionId) else {
+                throw IPCMessageValidationError.invalidSessionId(rawRootSessionId)
+            }
+            rootSessionId = parsed
+        }
         guard let state = AIAgentState(rawValue: rawMessage.state) else {
             throw IPCMessageValidationError.unsupportedState(rawMessage.state)
         }
@@ -135,6 +195,9 @@ public struct IPCMessageValidator: Sendable {
         try validateDisplayText(rawMessage.detail, field: "detail")
         if let toolName = rawMessage.toolName {
             try validateDisplayText(toolName, field: "toolName")
+        }
+        if let sessionName = rawMessage.sessionName {
+            try validateDisplayText(sessionName, field: "sessionName")
         }
         if let progress = rawMessage.progress, !(0...1).contains(progress) {
             throw IPCMessageValidationError.invalidProgress(progress)
@@ -147,6 +210,8 @@ public struct IPCMessageValidator: Sendable {
             schemaVersion: rawMessage.schemaVersion,
             agentId: agentId,
             sessionId: sessionId,
+            rootSessionId: rootSessionId,
+            sessionName: rawMessage.sessionName,
             state: state,
             detail: rawMessage.detail,
             toolName: rawMessage.toolName,
@@ -187,6 +252,8 @@ private struct RawIPCMessage: Decodable {
     let schemaVersion: String
     let agentId: String
     let sessionId: String
+    let rootSessionId: String?
+    let sessionName: String?
     let state: String
     let detail: String
     let toolName: String?
