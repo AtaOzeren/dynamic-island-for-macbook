@@ -99,6 +99,41 @@ public struct CompactPillGeometry: Equatable, Sendable {
     public var drawingOffset: CGFloat { -notchCentreOffset }
 }
 
+/// The compact arrangement the expanded panel takes its width from: two icons
+/// on each flank, which is where the pill settles in ordinary use.
+public let expandedPanelReferenceSlotCount = 2
+
+/// How much wider the expanded panel is than that pill.
+///
+/// Enough to read as the pill having grown rather than as a second, unrelated
+/// surface, and enough to give the cards room to breathe — but not so much that
+/// opening the island throws a wall across the screen.
+public let expandedPanelWidthGrowth: CGFloat = 1.12
+
+/// The expanded panel's width.
+///
+/// Fixed rather than fitted to the widest card. The panel is the compact pill
+/// grown, and a width that tracked its contents would make the island a
+/// different shape depending on whether music happened to be playing — the same
+/// twitch the compact flanks are sized to avoid, one state up.
+///
+/// Derived from the pill rather than written down as a number because the notch
+/// it grows out of is not the same width on every Mac, and a constant tuned on
+/// one would be visibly wrong on another.
+public func expandedPanelWidth(
+    notchSize: CGSize,
+    compactMetrics: CompactPillMetrics = .default,
+    panelMetrics: PanelMetrics = .default
+) -> CGFloat {
+    let reference = compactPillSize(
+        leadingSlotCount: expandedPanelReferenceSlotCount,
+        trailingSlotCount: expandedPanelReferenceSlotCount,
+        notchSize: notchSize,
+        metrics: compactMetrics
+    ).width
+    return min(reference * expandedPanelWidthGrowth, panelMetrics.maximumExpandedSize.width)
+}
+
 /// The pill's geometry for `leadingSlotCount` slots before the notch and
 /// `trailingSlotCount` after it.
 public func compactPillGeometry(

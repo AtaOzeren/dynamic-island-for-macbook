@@ -394,19 +394,19 @@ public struct AIAgentViewMetrics: Equatable, Sendable {
     public let disclosureControlHeight: CGFloat
 
     public init(
-        glyphSize: CGFloat = 36,
-        contentInset: CGFloat = 10,
+        glyphSize: CGFloat = 24,
+        contentInset: CGFloat = 8,
         textSpacing: CGFloat = 2,
         columnSpacing: CGFloat = 8,
-        titleSize: CGFloat = 12,
-        detailSize: CGFloat = 10,
+        titleSize: CGFloat = IslandTypeScale.default.title,
+        detailSize: CGFloat = IslandTypeScale.default.detail,
         progressBarHeight: CGFloat = 3,
         cornerRadius: CGFloat = 16,
         width: CGFloat = 276,
-        subagentRowHeight: CGFloat = 26,
+        subagentRowHeight: CGFloat = 24,
         subagentSeparatorHeight: CGFloat = 1,
-        subagentNameSize: CGFloat = 10,
-        subagentDetailSize: CGFloat = 9,
+        subagentNameSize: CGFloat = IslandTypeScale.default.nestedTitle,
+        subagentDetailSize: CGFloat = IslandTypeScale.default.nestedDetail,
         disclosureControlHeight: CGFloat = 18
     ) {
         self.glyphSize = glyphSize

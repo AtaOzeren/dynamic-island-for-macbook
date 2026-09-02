@@ -29,6 +29,7 @@ The panel has exactly three visual states. Normal runtime uses compact and expan
 |---|---|---|
 | Hidden | Ordered out (`orderOut(_:)`) during suspension, teardown, or while no target screen exists | No content rendered; SwiftUI view tree is suspended, not merely invisible |
 | Compact | Window frame is the same maximum expanded bounds as always (see sizing strategy below); visible content is a pill that hugs the left and right edges of the notch rectangle from `docs/03-display-and-notch.md`, sitting flush against its bottom edge | A narrow horizontal capsule, tall enough to match the notch height, wide enough for the current activity's compact icon(s) plus the notch width itself |
+| Expanded | Same window frame; visible content is a panel of one fixed width, growing downward from the notch | The compact pill carrying two icons on each flank, widened by `expandedPanelWidthGrowth`. Fixed rather than fitted to the widest card: cards share the island's surface and stretch to whatever the panel gives them, so a width that tracked its contents would only make the island a different shape depending on what happened to be running |
 | Expanded | Same window frame as compact; visible content grows downward from the notch | A larger rounded rectangle anchored at the top-centre under the notch, tall and wide enough to show full activity detail — track art and transport controls, a running timer face, recording controls, or AI agent detail — sized per-activity but capped at a maximum that keeps it clear of the Dock and any secondary display's menu bar |
 
 ## Sizing strategy: fixed window, animated content
@@ -46,7 +47,8 @@ The reason: resizing an `NSWindow`'s frame is a compositor-level operation — i
 | Click anywhere outside the expanded panel's bounds | Collapse: content animates back to compact; `ignoresMouseEvents` reverts to `true` outside the compact pill's hit area |
 | Escape key, while expanded | Collapse, identical to click-outside |
 | Mouse leaves the peeked (but not clicked) pill | Revert to plain compact, no click required |
-| Final activity ends while expanded | Collapse to the empty compact island; never order the panel out |
+| Mouse leaves the expanded panel | Hold the panel open for a short grace period, then collapse. Returning inside it cancels the pending collapse — the island never closed, so nothing reopens and nothing flickers |
+| Final activity ends while expanded | Collapse to the empty compact island immediately, without the grace period: there is nothing left to come back to |
 | Click or hover while no activity is running | Keep the island compact; no empty expanded surface is shown |
 
 `ignoresMouseEvents` is `true` for the entire panel whenever the visual state is collapsed (hidden or plain compact), so that the invisible portion of the fixed window frame described above never steals a menu-bar click. It only becomes `false` for the region under the pointer during peek, and for the whole expanded area once expanded.
@@ -58,6 +60,8 @@ The reason: resizing an `NSWindow`'s frame is a compositor-level operation — i
 | Curve | Spring, `response ≈ 0.35s`, `dampingFraction ≈ 0.8` | Tuned to feel snappy without overshoot that would visually collide with the notch's hard edges |
 | Peek transition duration | ~0.15s ease-out | Fast enough to feel like hover feedback, not a committed state change |
 | Expand/collapse transition duration | ~0.35s spring (see curve above) | Matches the primary spring so expand and collapse feel symmetric |
+| Hover expansion delay | ~0.25s | Crossing the pill on the way somewhere else must not open the island |
+| Collapse grace period | ~0.5s | The panel is a target the pointer travels to, and the path from the notch to a row crosses the island's own edge. Collapsing the instant the pointer slipped off made a hand that overshot start the hover again from scratch |
 | Idle-state animation budget | Zero | No animation, timer-driven or otherwise, runs while the empty compact island is idle; this is part of the idle-cost contract from `docs/02-performance-contract.md` |
 
 No animation is ever started while the window is ordered out. Returning from suspension orders the window in at resting compact geometry first; only a later user-triggered transition animates.

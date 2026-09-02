@@ -112,6 +112,7 @@ struct IslandRootView: View {
             for: model.expanded,
             disclosedInstances: model.disclosedInstances,
             registrationTimes: model.registrationTimes,
+            notchSize: model.notchSize,
             topInset: model.notchSize.height
         )
         return ConnectedIslandGeometry(
@@ -159,6 +160,7 @@ struct IslandRootView: View {
                     activities: model.expanded,
                     registrationTimes: model.registrationTimes,
                     disclosedInstances: $model.disclosedInstances,
+                    notchSize: model.notchSize,
                     topInset: model.notchSize.height,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,

@@ -73,6 +73,14 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
     public let contentInset: CGFloat
     public let symbolSize: CGFloat
     public let symbolColumnWidth: CGFloat
+    /// A row's headline, from the panel's shared scale.
+    ///
+    /// Separate from `symbolSize` because they answer to different things: one
+    /// is how big the glyph is drawn, the other how big its label reads. The row
+    /// used to take both from `symbolSize`, which is why a mic label came out
+    /// three points larger than every card beside it.
+    public let titleSize: CGFloat
+    public let detailSize: CGFloat
     public let cornerRadius: CGFloat
     public let width: CGFloat
 
@@ -83,6 +91,8 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
         contentInset: CGFloat = 12,
         symbolSize: CGFloat = 15,
         symbolColumnWidth: CGFloat = 24,
+        titleSize: CGFloat = IslandTypeScale.default.title,
+        detailSize: CGFloat = IslandTypeScale.default.detail,
         cornerRadius: CGFloat = 18,
         width: CGFloat = 320
     ) {
@@ -92,6 +102,8 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
         self.contentInset = contentInset
         self.symbolSize = symbolSize
         self.symbolColumnWidth = symbolColumnWidth
+        self.titleSize = titleSize
+        self.detailSize = detailSize
         self.cornerRadius = cornerRadius
         self.width = width
     }
@@ -284,6 +296,7 @@ public func expandedPanelSize(
     for activities: [any Activity],
     disclosedInstances: Set<ActivityIdentity> = [],
     registrationTimes: [ActivityIdentity: Date] = [:],
+    notchSize: CGSize? = nil,
     metrics: ExpandedItemMetrics = .default,
     panelMetrics: PanelMetrics = .default,
     topInset: CGFloat = 0
@@ -302,18 +315,18 @@ public func expandedPanelSize(
     let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
     let height = heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2
 
-    // The inset is applied on both axes by the view's `.padding`, so the width
-    // has to carry it too. Sizing the frame to the bare card width squeezes
-    // every card by twice the inset — enough to push a trailing control button
-    // outside the frame and make it unclickable.
-    let widest =
-        items.map { expandedItemWidth(for: $0, metrics: metrics, panelMetrics: panelMetrics) }
-        .max() ?? metrics.panel.width
-    let width = widest + metrics.panel.contentInset * 2
+    // One width for every arrangement, taken from the pill rather than from the
+    // widest card: cards share the island's surface and stretch to whatever the
+    // panel gives them, so fitting the panel to its contents only made the
+    // island a different shape depending on what happened to be running.
+    let width = expandedPanelWidth(
+        notchSize: notchSize ?? panelMetrics.compactFallbackSize,
+        panelMetrics: panelMetrics
+    )
 
     let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
     return CGSize(
-        width: min(width, panelMetrics.maximumExpandedSize.width),
+        width: width,
         height: min(height, availableHeight)
     )
 }
@@ -469,10 +482,14 @@ public struct ExpandedActivityView: View {
     /// desktop.
     @Binding private var disclosedInstances: Set<ActivityIdentity>
 
+    /// The notch the panel grows out of, which fixes its width.
+    private let notchSize: CGSize?
+
     public init(
         activities: [any Activity],
         registrationTimes: [ActivityIdentity: Date] = [:],
         disclosedInstances: Binding<Set<ActivityIdentity>> = .constant([]),
+        notchSize: CGSize? = nil,
         metrics: ExpandedItemMetrics = .default,
         panelMetrics: PanelMetrics = .default,
         topInset: CGFloat = 0,
@@ -483,6 +500,7 @@ public struct ExpandedActivityView: View {
         self.activities = activities
         self.registrationTimes = registrationTimes
         _disclosedInstances = disclosedInstances
+        self.notchSize = notchSize
         self.metrics = metrics
         self.panelMetrics = panelMetrics
         self.topInset = topInset
@@ -500,6 +518,7 @@ public struct ExpandedActivityView: View {
             for: activities,
             disclosedInstances: disclosedInstances,
             registrationTimes: registrationTimes,
+            notchSize: notchSize,
             metrics: metrics,
             panelMetrics: panelMetrics,
             topInset: topInset
@@ -678,7 +697,7 @@ private struct GenericActivityRowView: View {
                 .frame(width: metrics.symbolColumnWidth)
 
             Text(row.title)
-                .font(.system(size: metrics.symbolSize, weight: .medium))
+                .font(.system(size: metrics.titleSize, weight: .medium))
                 .lineLimit(1)
 
             Spacer(minLength: 0)

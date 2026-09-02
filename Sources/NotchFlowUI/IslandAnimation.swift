@@ -27,19 +27,31 @@ public struct IslandMotion: Equatable, Sendable {
     /// the only gesture that opens the island, so this is what separates a
     /// deliberate rest from a pointer crossing the notch on its way elsewhere.
     public let hoverExpansionDelay: Double
+    /// How long the expanded island waits after the pointer leaves before it
+    /// collapses.
+    ///
+    /// The panel is a target the pointer has to travel to, and the path from the
+    /// notch to a row crosses the island's own edge. Collapsing the instant the
+    /// pointer slipped off meant a hand that overshot had to start the hover
+    /// again from scratch. Coming back inside the grace period simply cancels
+    /// the collapse — the island never closes, so there is nothing to reopen and
+    /// nothing to flicker.
+    public let hoverCollapseGrace: Double
 
     public init(
         springResponse: Double = 0.35,
         springDamping: Double = 0.8,
         peekDuration: Double = 0.15,
         reducedMotionCrossFadeDuration: Double = 0.1,
-        hoverExpansionDelay: Double = 0.25
+        hoverExpansionDelay: Double = 0.25,
+        hoverCollapseGrace: Double = 0.5
     ) {
         self.springResponse = springResponse
         self.springDamping = springDamping
         self.peekDuration = peekDuration
         self.reducedMotionCrossFadeDuration = reducedMotionCrossFadeDuration
         self.hoverExpansionDelay = hoverExpansionDelay
+        self.hoverCollapseGrace = hoverCollapseGrace
     }
 }
 
