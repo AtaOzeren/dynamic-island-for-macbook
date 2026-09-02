@@ -66,10 +66,22 @@ struct IslandRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            if model.state != .hidden {
-                connectedSurface
+            // Outside the mask on purpose: this is the click-anywhere-outside
+            // collapse target from `docs/04-overlay-window.md`, and it has to
+            // stay live over the whole window rather than only over the island.
+            if model.state == .expanded {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: model.onCollapse)
             }
-            content
+
+            ZStack(alignment: .top) {
+                if model.state != .hidden {
+                    connectedSurface
+                }
+                content
+            }
+            .mask(alignment: .top) { surfaceMask }
         }
         .offset(x: compactDrawingOffset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -121,11 +133,31 @@ struct IslandRootView: View {
         )
     }
 
+    /// What the island currently is, surface and silhouette alike.
+    private var surfaceSize: CGSize {
+        model.state == .expanded ? geometry.expandedSize : compactPill.size
+    }
+
     private var connectedSurface: some View {
-        let size = model.state == .expanded ? geometry.expandedSize : compactPill.size
-        return ConnectedIslandShape(geometry: geometry)
+        ConnectedIslandShape(geometry: geometry)
             .fill(.black)
-            .frame(width: size.width, height: size.height)
+            .frame(width: surfaceSize.width, height: surfaceSize.height)
+    }
+
+    /// The island's silhouette, clipping everything drawn inside it.
+    ///
+    /// A view leaving through a transition keeps its full layout size while it
+    /// fades, so collapsing drew the expanded cards at their old size for a few
+    /// frames after the black surface had already shrunk past them — the panel
+    /// appeared to close and leave its contents hanging outside it.
+    ///
+    /// Reads the same geometry the surface does and sits in the same stack, so
+    /// the two animate as one shape: content is trimmed to whatever the island
+    /// is at that instant, and nothing can be drawn beyond its edge.
+    private var surfaceMask: some View {
+        ConnectedIslandShape(geometry: geometry)
+            .fill(.black)
+            .frame(width: surfaceSize.width, height: surfaceSize.height)
     }
 
     @ViewBuilder
@@ -144,14 +176,7 @@ struct IslandRootView: View {
             .onTapGesture(perform: model.onExpand)
             .transition(contentTransition)
         case .expanded:
-            // The collapse target is the empty space around the detail, per
-            // `docs/04-overlay-window.md`: while expanded the panel accepts the
-            // mouse across its whole frame, and a click that misses the content
-            // is the gesture that closes it.
             ZStack(alignment: .top) {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture(perform: model.onCollapse)
                 // Inset by the notch's own height so the panel hangs below the
                 // physical cutout instead of behind it: the top of the window is
                 // flush with the top of the screen, so content drawn there is

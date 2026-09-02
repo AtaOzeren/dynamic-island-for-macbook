@@ -51,6 +51,8 @@ The reason: resizing an `NSWindow`'s frame is a compositor-level operation — i
 | Final activity ends while expanded | Collapse to the empty compact island immediately, without the grace period: there is nothing left to come back to |
 | Click or hover while no activity is running | Keep the island compact; no empty expanded surface is shown |
 
+Everything the island draws is clipped to the island's own silhouette. A view leaving through a transition keeps its full layout size while it fades, so without the clip a collapse drew the expanded cards at their old size for a few frames after the black surface had already shrunk past them — the panel appeared to close and leave its contents hanging outside it. The click-anywhere-outside collapse target is deliberately *not* clipped: it covers the whole window, which is the only way a click past the island's edge can close it.
+
 `ignoresMouseEvents` is `true` for the entire panel whenever the visual state is collapsed (hidden or plain compact), so that the invisible portion of the fixed window frame described above never steals a menu-bar click. It only becomes `false` for the region under the pointer during peek, and for the whole expanded area once expanded.
 
 ## Animation specification

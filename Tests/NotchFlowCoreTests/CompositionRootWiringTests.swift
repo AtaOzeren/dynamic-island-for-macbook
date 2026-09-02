@@ -301,4 +301,31 @@ struct CompositionRootWiringTests {
             "a reaped sub-agent left in the ledger is judged against a dead timeline"
         )
     }
+
+    /// Nothing may be drawn outside the island's own silhouette.
+    ///
+    /// A view leaving through a transition keeps its full layout size while it
+    /// fades, so collapsing drew the expanded cards at their old size for a few
+    /// frames after the black surface had shrunk past them. The mask is what
+    /// stops that, and it only works while the surface and the content sit in
+    /// the same masked stack — nothing about the types enforces it.
+    @Test("the island clips its content to the surface it draws")
+    func islandContentIsClippedToItsSurface() throws {
+        let source = try Self.appSource("NotchFlow/IslandPresenter.swift")
+
+        #expect(source.contains(".mask(alignment: .top) { surfaceMask }"))
+        #expect(
+            source.contains("private var surfaceSize: CGSize"),
+            "the surface and its mask must be sized from one place or they can drift apart"
+        )
+
+        // The click-anywhere-outside collapse target has to stay outside the
+        // mask, or a click past the island's edge stops closing it.
+        let maskCall = try #require(source.range(of: ".mask(alignment: .top)"))
+        let collapseTarget = try #require(source.range(of: "onTapGesture(perform: model.onCollapse)"))
+        #expect(
+            collapseTarget.upperBound < maskCall.lowerBound,
+            "the collapse target was moved inside the mask and no longer covers the window"
+        )
+    }
 }
