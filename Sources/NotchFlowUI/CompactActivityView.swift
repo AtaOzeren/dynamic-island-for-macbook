@@ -537,6 +537,10 @@ struct MusicEqualiserSlotView: View {
             .task {
                 guard reduceMotion == false else { return }
                 isAnimating = true
+                // Cancellation — the slot leaving the hierarchy before the
+                // announcement finishes — is the only error thrown, and
+                // settling straight to the static glyph is the correct
+                // response to it, so it is dropped rather than propagated.
                 try? await Task.sleep(for: Self.animationDuration)
                 isAnimating = false
                 hasSettled = true

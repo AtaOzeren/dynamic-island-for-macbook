@@ -13,7 +13,7 @@ enum LoopbackHTTPRequestParseResult {
     case rejected(LoopbackListenerRejection)
 }
 
-struct LoopbackHTTPRequestParser {
+struct LoopbackHTTPRequestParser: Sendable {
     private static let headerTerminator = Data("\r\n\r\n".utf8)
     private static let maximumHeaderByteCount = 16_384
 

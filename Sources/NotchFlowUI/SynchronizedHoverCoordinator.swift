@@ -139,6 +139,10 @@ public final class SynchronizedHoverCoordinator {
         pendingCollapse?.cancel()
         pendingCollapse = Task { @MainActor [weak self] in
             guard let self else { return }
+            // Cancellation is the intended signal, not a failure: a fresh
+            // hover cancels this task mid-sleep and Task.sleep reports that
+            // by throwing. Dropping the error is safe because the guard
+            // below abandons the collapse rather than acting on it.
             try? await Task.sleep(for: .seconds(self.collapseGrace))
             guard Task.isCancelled == false else { return }
             self.resolvePendingCollapse()

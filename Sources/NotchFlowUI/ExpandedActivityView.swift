@@ -220,17 +220,19 @@ func expandedActivityItems(
     )
 
     for (instanceIdentity, sessions) in sessionsByInstance {
-        guard let index = instanceIndexes[instanceIdentity], let first = sessions.first else {
-            continue
-        }
-        items[index] = ExpandedActivityItem(
-            aiAgentInstance: AIAgentInstance(
+        guard
+            let index = instanceIndexes[instanceIdentity],
+            let first = sessions.first,
+            let instance = AIAgentInstance(
                 agentID: first.agent,
                 rootSessionID: first.rootSessionID,
                 sessions: sessions,
                 ordinal: ordinals[instanceIdentity]
             )
-        )
+        else {
+            continue
+        }
+        items[index] = ExpandedActivityItem(aiAgentInstance: instance)
     }
 
     return items

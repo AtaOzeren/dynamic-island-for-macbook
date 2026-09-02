@@ -1,6 +1,7 @@
 import Foundation
 import Network
 import NotchFlowCore
+import os
 
 public typealias LoopbackMessageSink = @MainActor @Sendable (IPCMessage) -> Void
 
@@ -31,6 +32,10 @@ public enum LoopbackHTTPListenerError: Error, Equatable, Sendable {
 public actor LoopbackHTTPListener {
     private static let ownerOnlyFilePermissions = 0o600
     private static let ownerOnlyDirectoryPermissions = 0o700
+    private static let logger = Logger(
+        subsystem: "com.notchflow.NotchFlow",
+        category: "loopback-listener"
+    )
 
     private let configuration: LoopbackHTTPListenerConfiguration
     private let sink: LoopbackMessageSink
@@ -82,7 +87,20 @@ public actor LoopbackHTTPListener {
             connection.cancel()
         }
 
-        try? FileManager.default.removeItem(at: configuration.discoveryFileURL)
+        let discoveryFileURL = configuration.discoveryFileURL
+        guard FileManager.default.fileExists(atPath: discoveryFileURL.path) else {
+            return
+        }
+        do {
+            try FileManager.default.removeItem(at: discoveryFileURL)
+        } catch let removalError {
+            // Best-effort cleanup that must not derail shutdown — but a file
+            // left behind keeps hooks posting to a port nothing answers, so
+            // the failure is logged rather than swallowed without a trace.
+            Self.logger.error(
+                "Removing IPC discovery file at \(discoveryFileURL.path, privacy: .public) failed: \(String(describing: removalError), privacy: .public)"
+            )
+        }
     }
 
     private func start() async throws -> UInt16 {
@@ -269,12 +287,11 @@ public actor LoopbackHTTPListener {
     }
 }
 
-private final class ListenerStartup: @unchecked Sendable {
-    private let lock = NSLock()
-    private var continuation: CheckedContinuation<UInt16, Error>?
+private final class ListenerStartup: Sendable {
+    private let continuation: OSAllocatedUnfairLock<CheckedContinuation<UInt16, Error>?>
 
     init(_ continuation: CheckedContinuation<UInt16, Error>) {
-        self.continuation = continuation
+        self.continuation = OSAllocatedUnfairLock(initialState: continuation)
     }
 
     func succeed(_ port: UInt16) {
@@ -286,15 +303,15 @@ private final class ListenerStartup: @unchecked Sendable {
     }
 
     private func resume(with result: Result<UInt16, Error>) {
-        lock.lock()
-        let continuation = continuation
-        self.continuation = nil
-        lock.unlock()
+        let continuation = continuation.withLock { continuation in
+            defer { continuation = nil }
+            return continuation
+        }
         continuation?.resume(with: result)
     }
 }
 
-private struct ConnectionRead: @unchecked Sendable {
+private struct ConnectionRead: Sendable {
     let connection: NWConnection
     let parser: LoopbackHTTPRequestParser
     let data: Data?

@@ -82,7 +82,8 @@ public final class SystemScreenChangeObserver: ScreenChangeObserving {
 /// Shared by every notification-backed observer in this module: unsubscribing is
 /// the one piece of their lifecycle that is easy to get subtly wrong, so it has
 /// exactly one implementation.
-final class NotificationSubscriptionBag: @unchecked Sendable {
+@MainActor
+final class NotificationSubscriptionBag {
     private var tokens: [(center: NotificationCenter, token: any NSObjectProtocol)] = []
 
     func add(_ token: any NSObjectProtocol, to center: NotificationCenter) {
@@ -97,7 +98,7 @@ final class NotificationSubscriptionBag: @unchecked Sendable {
         tokens.removeAll()
     }
 
-    deinit {
+    isolated deinit {
         removeAll()
     }
 }

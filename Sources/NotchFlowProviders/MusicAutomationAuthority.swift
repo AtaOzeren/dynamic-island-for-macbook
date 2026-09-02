@@ -1,6 +1,7 @@
 import AppKit
 import Foundation
 import NotchFlowCore
+import os
 
 /// The seam between "what does the system say about automating this app" and
 /// everything NotchFlow decides on top of that answer.
@@ -225,7 +226,7 @@ public final class AppleEventsAutomationAuthority: MusicAutomationAuthorizing {
     }
 }
 
-private final class AutomationPermissionCache: @unchecked Sendable {
+private final class AutomationPermissionCache: Sendable {
     struct Loading: Sendable {
         let target: MusicPlayerTarget
         let token: UUID
@@ -236,63 +237,61 @@ private final class AutomationPermissionCache: @unchecked Sendable {
         let loading: Loading?
     }
 
-    private let lock = NSLock()
-    private var statuses: [MusicPlayerTarget: AutomationPermissionStatus] = [:]
-    private var loadingTokens: [MusicPlayerTarget: UUID] = [:]
+    private struct State: Sendable {
+        var statuses: [MusicPlayerTarget: AutomationPermissionStatus] = [:]
+        var loadingTokens: [MusicPlayerTarget: UUID] = [:]
+    }
+
+    private let state = OSAllocatedUnfairLock(initialState: State())
 
     func completedStatus(
         for target: MusicPlayerTarget
     ) -> AutomationPermissionStatus? {
-        lock.lock()
-        defer { lock.unlock() }
-        return statuses[target]
+        state.withLock { $0.statuses[target] }
     }
 
     func lookup(for target: MusicPlayerTarget) -> Lookup {
-        lock.lock()
-        defer { lock.unlock() }
+        state.withLock { state in
+            if let status = state.statuses[target] {
+                return Lookup(status: status, loading: nil)
+            }
+            if state.loadingTokens[target] != nil {
+                return Lookup(status: .notDetermined, loading: nil)
+            }
 
-        if let status = statuses[target] {
-            return Lookup(status: status, loading: nil)
+            let token = UUID()
+            state.loadingTokens[target] = token
+            return Lookup(
+                status: .notDetermined,
+                loading: Loading(target: target, token: token)
+            )
         }
-        if loadingTokens[target] != nil {
-            return Lookup(status: .notDetermined, loading: nil)
-        }
-
-        let token = UUID()
-        loadingTokens[target] = token
-        return Lookup(
-            status: .notDetermined,
-            loading: Loading(target: target, token: token)
-        )
     }
 
     func complete(
         _ status: AutomationPermissionStatus,
         for loading: Loading
     ) -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        guard loadingTokens[loading.target] == loading.token else { return false }
-        loadingTokens[loading.target] = nil
-        statuses[loading.target] = status
-        return true
+        state.withLock { state in
+            guard state.loadingTokens[loading.target] == loading.token else { return false }
+            state.loadingTokens[loading.target] = nil
+            state.statuses[loading.target] = status
+            return true
+        }
     }
 
     func storeExplicit(
         _ status: AutomationPermissionStatus,
         for target: MusicPlayerTarget
     ) {
-        lock.lock()
-        defer { lock.unlock() }
-        loadingTokens[target] = nil
-        statuses[target] = status
+        state.withLock { state in
+            state.loadingTokens[target] = nil
+            state.statuses[target] = status
+        }
     }
 
     func invalidateCompletedStatuses() {
-        lock.lock()
-        defer { lock.unlock() }
-        statuses.removeAll()
+        state.withLock { $0.statuses.removeAll() }
     }
 }
 

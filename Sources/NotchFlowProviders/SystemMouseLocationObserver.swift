@@ -77,7 +77,8 @@ public final class SystemMouseLocationObserver: MouseLocationObserving {
 /// the observer itself is deallocated, without a main-actor-isolated `deinit`. A
 /// stranded mouse monitor would wake the process on every pointer move, which is
 /// exactly the idle cost `docs/02-performance-contract.md` budgets against.
-private final class MonitorBag: @unchecked Sendable {
+@MainActor
+private final class MonitorBag {
     private let uninstall: (Any) -> Void
     private var monitors: [Any] = []
 
@@ -94,7 +95,7 @@ private final class MonitorBag: @unchecked Sendable {
         monitors.removeAll()
     }
 
-    deinit {
+    isolated deinit {
         removeAll()
     }
 }
