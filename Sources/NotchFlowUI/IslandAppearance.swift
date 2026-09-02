@@ -148,3 +148,43 @@ extension IslandSurface {
         }
     }
 }
+
+/// The one type scale the expanded panel draws every card from.
+///
+/// Each card used to carry its own sizes: the generic row set its label from
+/// `symbolSize` — the *glyph* budget — and came out at 15pt, music picked 13,
+/// the agent card 12 and the timer 11. Four cards stacked on one surface then
+/// read as four designs, and the eye had to re-anchor on every row.
+///
+/// Two steps carry everything a card says. `title` is what the card *is*
+/// ("Mikrofon kullanılıyor", "OpenCode 1 · Working…"), `detail` is what it is
+/// currently doing ("Tool completed", the artist, the elapsed time) — the same
+/// relationship in every card, so the same pair of sizes says it everywhere.
+///
+/// `nestedTitle` and `nestedDetail` repeat that pair one step down for rows
+/// drawn *inside* a card, which today means an instance's sub-agents. Nesting
+/// steps the scale down rather than introducing a third relationship.
+public struct IslandTypeScale: Equatable, Sendable {
+    public static let `default` = IslandTypeScale()
+
+    /// A card's headline.
+    public let title: CGFloat
+    /// A card's secondary line.
+    public let detail: CGFloat
+    /// The headline of a row nested inside a card.
+    public let nestedTitle: CGFloat
+    /// The secondary line of a row nested inside a card.
+    public let nestedDetail: CGFloat
+
+    public init(
+        title: CGFloat = 12,
+        detail: CGFloat = 10,
+        nestedTitle: CGFloat = 10,
+        nestedDetail: CGFloat = 9
+    ) {
+        self.title = title
+        self.detail = detail
+        self.nestedTitle = nestedTitle
+        self.nestedDetail = nestedDetail
+    }
+}

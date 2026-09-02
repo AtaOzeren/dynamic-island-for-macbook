@@ -210,12 +210,17 @@ public func balancedCompactPillSize(
 ///
 /// Music and charging both announce per-instance detail the shared kind label
 /// cannot carry — the actual track, and a full battery once charging completes.
-private func compactSlot(for activity: any Activity) -> CompactSlot {
+///
+/// `groupSize` is how many active activities the slot stands for. Only the AI
+/// agent slot has anything to say about it: every other kind draws one icon per
+/// activity, so its group is always itself.
+private func compactSlot(for activity: any Activity, groupSize: Int) -> CompactSlot {
     switch activity {
     case let music as MusicActivity: musicCompactSlot(for: music)
     case let recording as RecordingActivity: recordingCompactSlot(for: recording)
     case let charging as ChargingActivity: chargingCompactSlot(for: charging)
-    case let aiAgent as AIAgentActivity: aiAgentCompactSlot(for: aiAgent)
+    case let aiAgent as AIAgentActivity:
+        aiAgentCompactSlot(for: aiAgent, sessionCount: groupSize)
     default: CompactSlot(activity: activity)
     }
 }
@@ -223,7 +228,12 @@ private func compactSlot(for activity: any Activity) -> CompactSlot {
 /// The ordered slots for `presentation`, which has already applied the priority
 /// ordering and the capacity limit in `ActivityManager`.
 public func compactSlots(for presentation: CompactActivityPresentation) -> [CompactSlot] {
-    var slots = presentation.activities.map(compactSlot(for:))
+    var slots = presentation.activities.map { activity in
+        compactSlot(
+            for: activity,
+            groupSize: presentation.groupSizes[activity.compactGroupIdentity] ?? 1
+        )
+    }
     guard presentation.overflowCount > 0 else { return slots }
     let insertionIndex = slots.firstIndex { $0.aiAgentID != nil } ?? slots.endIndex
     slots.insert(CompactSlot(overflowCount: presentation.overflowCount), at: insertionIndex)

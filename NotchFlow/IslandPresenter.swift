@@ -16,18 +16,21 @@ final class IslandViewModel: ObservableObject {
     @Published var state: PresentationState = .hidden
     @Published var compact: CompactActivityPresentation
     @Published var expanded: [any Activity] = []
-    /// Which agent groups are showing their sessions.
+    /// When each active activity registered, so the expanded panel can number
+    /// the concurrent sessions of one agent in the order they appeared.
+    @Published var registrationTimes: [ActivityIdentity: Date] = [:]
+    /// Which agent instances are showing their sub-agents.
     ///
     /// Held here rather than inside `ExpandedActivityView` because the island's
-    /// surface is sized from this model: a disclosure the surface cannot see is
-    /// a disclosure drawn outside it.
-    @Published var disclosedAgentIDs: Set<IPCAgentID> = []
+    /// surface is sized from this model: an open list the surface cannot see is
+    /// a list drawn outside it.
+    @Published var disclosedInstances: Set<ActivityIdentity> = []
     /// Music icons that have finished their few seconds on screen.
     ///
-    /// Held here for the same reason the disclosure set is: it decides how wide
-    /// the pill is, and the pill's black surface and its hover target are sized
-    /// from this model. While the view owned it privately, the icon vanished
-    /// and the bar behind it stayed at full width.
+    /// Held here rather than inside the view because it decides how wide the
+    /// pill is, and the pill's black surface and its hover target are sized from
+    /// this model. While the view owned it privately, the icon vanished and the
+    /// bar behind it stayed at full width.
     @Published var hiddenMusicSlotIDs: Set<String> = []
     @Published var notchSize: CGSize
     @Published var hoverScale: CGFloat = 1
@@ -63,16 +66,28 @@ struct IslandRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            if model.state != .hidden {
-                connectedSurface
+            // Outside the mask on purpose: this is the click-anywhere-outside
+            // collapse target from `docs/04-overlay-window.md`, and it has to
+            // stay live over the whole window rather than only over the island.
+            if model.state == .expanded {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture(perform: model.onCollapse)
             }
-            content
+
+            ZStack(alignment: .top) {
+                if model.state != .hidden {
+                    connectedSurface
+                }
+                content
+            }
+            .mask(alignment: .top) { surfaceMask }
         }
-            .offset(x: compactDrawingOffset)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
-            .opacity(model.state == .compact ? model.hoverOpacity : 1)
-            .environment(\.colorScheme, .dark)
+        .offset(x: compactDrawingOffset)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
+        .opacity(model.state == .compact ? model.hoverOpacity : 1)
+        .environment(\.colorScheme, .dark)
     }
 
     /// The compact pill's own geometry, whose flanks are only as wide as the
@@ -107,7 +122,9 @@ struct IslandRootView: View {
         )
         let expandedContentSize = expandedPanelSize(
             for: model.expanded,
-            disclosedAgentIDs: model.disclosedAgentIDs,
+            disclosedInstances: model.disclosedInstances,
+            registrationTimes: model.registrationTimes,
+            notchSize: model.notchSize,
             topInset: model.notchSize.height
         )
         return ConnectedIslandGeometry(
@@ -116,11 +133,31 @@ struct IslandRootView: View {
         )
     }
 
+    /// What the island currently is, surface and silhouette alike.
+    private var surfaceSize: CGSize {
+        model.state == .expanded ? geometry.expandedSize : compactPill.size
+    }
+
     private var connectedSurface: some View {
-        let size = model.state == .expanded ? geometry.expandedSize : compactPill.size
-        return ConnectedIslandShape(geometry: geometry)
+        ConnectedIslandShape(geometry: geometry)
             .fill(.black)
-            .frame(width: size.width, height: size.height)
+            .frame(width: surfaceSize.width, height: surfaceSize.height)
+    }
+
+    /// The island's silhouette, clipping everything drawn inside it.
+    ///
+    /// A view leaving through a transition keeps its full layout size while it
+    /// fades, so collapsing drew the expanded cards at their old size for a few
+    /// frames after the black surface had already shrunk past them — the panel
+    /// appeared to close and leave its contents hanging outside it.
+    ///
+    /// Reads the same geometry the surface does and sits in the same stack, so
+    /// the two animate as one shape: content is trimmed to whatever the island
+    /// is at that instant, and nothing can be drawn beyond its edge.
+    private var surfaceMask: some View {
+        ConnectedIslandShape(geometry: geometry)
+            .fill(.black)
+            .frame(width: surfaceSize.width, height: surfaceSize.height)
     }
 
     @ViewBuilder
@@ -134,26 +171,21 @@ struct IslandRootView: View {
                 notchSize: model.notchSize,
                 hiddenMusicSlotIDs: $model.hiddenMusicSlotIDs
             )
-                .sharingIslandSurface()
-                .contentShape(Rectangle())
-                .onTapGesture(perform: model.onExpand)
-                .transition(contentTransition)
+            .sharingIslandSurface()
+            .contentShape(Rectangle())
+            .onTapGesture(perform: model.onExpand)
+            .transition(contentTransition)
         case .expanded:
-            // The collapse target is the empty space around the detail, per
-            // `docs/04-overlay-window.md`: while expanded the panel accepts the
-            // mouse across its whole frame, and a click that misses the content
-            // is the gesture that closes it.
             ZStack(alignment: .top) {
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture(perform: model.onCollapse)
                 // Inset by the notch's own height so the panel hangs below the
                 // physical cutout instead of behind it: the top of the window is
                 // flush with the top of the screen, so content drawn there is
                 // occluded by hardware and never reaches the user.
                 ExpandedActivityView(
                     activities: model.expanded,
-                    disclosedAgentIDs: $model.disclosedAgentIDs,
+                    registrationTimes: model.registrationTimes,
+                    disclosedInstances: $model.disclosedInstances,
+                    notchSize: model.notchSize,
                     topInset: model.notchSize.height,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,
@@ -266,7 +298,8 @@ final class IslandPresenter {
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
             screen: { Self.targetScreen(preference: displayTarget()) },
-            disclosedAgentIDs: { [model] in model.disclosedAgentIDs },
+            disclosedInstances: { [model] in model.disclosedInstances },
+            registrationTimes: { [model] in model.registrationTimes },
             hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }
         )
         controller.automaticallyExpandsOnHover = false
@@ -414,6 +447,7 @@ final class IslandPresenter {
     private func refreshContent() {
         model.compact = manager.compactPresentation
         model.expanded = manager.expandedActivities
+        model.registrationTimes = manager.registrationTimes
         model.notchSize = Self.notchSize(
             metrics: metrics,
             preference: settingsStore.generalPreferences.displayTarget
@@ -430,7 +464,8 @@ final class IslandPresenter {
         let preference = settingsStore.generalPreferences.displayTarget
         let displays = NSScreen.screens.map(DisplayDescription.init)
         let primaryDisplay = selectDisplay(from: displays, preference: preference)
-        let secondaryDisplays = preference == .allDisplays
+        let secondaryDisplays =
+            preference == .allDisplays
             ? selectDisplays(from: displays, preference: preference).filter {
                 $0.identifier != primaryDisplay?.identifier
             }

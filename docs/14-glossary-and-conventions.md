@@ -13,7 +13,9 @@ This document fixes the vocabulary the codebase and the rest of `docs/` share, t
 | Activity | A single unit of live information a provider publishes: now-playing, a timer, a recording indicator, charging state, or an AI agent's status. Modeled by the `Activity` protocol in `NotchFlowCore`. |
 | Provider | A `NotchFlowProviders` type that watches one system or IPC source and translates its events into `Activity` updates. One provider per activity source. |
 | Agent | An AI coding agent (Claude Code, Codex, OpenCode) whose state NotchFlow surfaces via the IPC protocol. Not to be confused with the app itself. |
-| Session | One running instance of an agent, identified by the session id in the IPC message envelope. |
+| Session | One conversation an agent is running, identified by the session id in the IPC message envelope. Either an instance or a sub-agent. |
+| Instance | One thing the *user* started — a terminal, an editor window, a conversation. What the compact badge counts and what the expanded panel draws a card for. |
+| Sub-agent | A session the *agent* started to delegate work, naming its instance through `rootSessionId`. Listed under its instance's card, never counted as another agent running. |
 | Slot | A fixed position in the compact or expanded layout that an activity occupies. |
 | Overflow | The state where more activities are active than the current layout has slots for, requiring priority-based selection or a secondary indicator. |
 

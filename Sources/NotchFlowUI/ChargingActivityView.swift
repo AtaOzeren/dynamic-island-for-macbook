@@ -87,7 +87,7 @@ public struct ChargingActivityView: View {
                 .frame(width: metrics.symbolColumnWidth)
 
             Text(presentation.title)
-                .font(.system(size: metrics.symbolSize))
+                .font(.system(size: metrics.titleSize, weight: .medium))
                 .lineLimit(1)
 
             Spacer(minLength: 0)

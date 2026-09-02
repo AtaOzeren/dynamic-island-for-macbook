@@ -50,7 +50,8 @@ final class SecondaryIslandPresentation {
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
             screen: screen,
-            disclosedAgentIDs: { [model] in model.disclosedAgentIDs }
+            disclosedInstances: { [model] in model.disclosedInstances },
+            registrationTimes: { [model] in model.registrationTimes }
         )
         self.controller = controller
         controller.automaticallyExpandsOnHover = false
@@ -124,6 +125,7 @@ final class SecondaryIslandPresentation {
     func refreshContent() {
         model.compact = manager.compactPresentation
         model.expanded = manager.expandedActivities
+        model.registrationTimes = manager.registrationTimes
         model.notchSize = resolvedNotchSize(screen: screen(), metrics: metrics)
     }
 

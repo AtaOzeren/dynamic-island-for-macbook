@@ -34,6 +34,7 @@ public final class TimerHoverExpansionDelayScheduler: HoverExpansionDelaySchedul
 @MainActor
 public final class SynchronizedHoverCoordinator {
     private let delay: TimeInterval
+    private let collapseGrace: TimeInterval
     private let scheduler: any HoverExpansionDelayScheduling
     private var hoverBySource: [String: Bool] = [:]
     private var canExpand = false
@@ -48,6 +49,7 @@ public final class SynchronizedHoverCoordinator {
         scheduler: any HoverExpansionDelayScheduling = TimerHoverExpansionDelayScheduler()
     ) {
         delay = motion.hoverExpansionDelay
+        collapseGrace = motion.hoverCollapseGrace
         self.scheduler = scheduler
     }
 
@@ -94,8 +96,9 @@ public final class SynchronizedHoverCoordinator {
         setExpanded(false)
     }
 
-    /// Internal seam for deterministic tests; production calls it after one
-    /// main-actor yield so display observers can finish the same mouse event.
+    /// Internal seam for deterministic tests; production calls it once the grace
+    /// period has elapsed, which also gives every display's observer time to
+    /// finish reporting the same mouse event.
     func resolvePendingCollapse() {
         pendingCollapse = nil
         guard hoverBySource.values.contains(true) == false else { return }
@@ -126,12 +129,19 @@ public final class SynchronizedHoverCoordinator {
         isExpansionScheduled = false
     }
 
+    /// Holds the island open for a moment after the pointer leaves.
+    ///
+    /// Cancelled outright by `setHovered(true, …)`, and the island is still
+    /// expanded at that point, so coming back inside the grace period is a
+    /// no-op rather than a collapse followed by a fresh expansion — the flicker
+    /// the delay exists to prevent, not one it introduces.
     private func scheduleCollapseReconciliation() {
         pendingCollapse?.cancel()
         pendingCollapse = Task { @MainActor [weak self] in
-            await Task.yield()
+            guard let self else { return }
+            try? await Task.sleep(for: .seconds(self.collapseGrace))
             guard Task.isCancelled == false else { return }
-            self?.resolvePendingCollapse()
+            self.resolvePendingCollapse()
         }
     }
 

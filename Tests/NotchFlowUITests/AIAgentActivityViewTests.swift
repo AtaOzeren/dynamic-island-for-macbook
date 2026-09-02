@@ -10,6 +10,23 @@ import Testing
 @Suite("AIAgentActivityView")
 @MainActor
 struct AIAgentActivityViewTests {
+    /// A session an agent spawned to delegate work, as `AIAgentActivity` sees it.
+    private static func subagent(
+        root: UUID,
+        name: String?,
+        state: AIAgentState = .usingTool,
+        sessionID: UUID = UUID()
+    ) -> AIAgentActivity {
+        AIAgentActivity(
+            agent: .opencode,
+            sessionID: sessionID,
+            rootSessionID: root,
+            sessionName: name,
+            state: state,
+            detail: "Delegated work"
+        )
+    }
+
     private static func activity(
         agent: IPCAgentID = .claudeCode,
         sessionID: UUID = UUID(
@@ -310,76 +327,351 @@ struct AIAgentActivityViewTests {
         #expect(size.height <= 64)
     }
 
-    @Test("groups concurrent sessions from one agent into one expanded item")
-    func expandedItemsGroupAgentSessions() throws {
-        let first = Self.activity(
-            agent: .opencode,
-            sessionID: UUID(),
-            detail: "Editing first project"
-        )
-        let second = Self.activity(
-            agent: .opencode,
-            sessionID: UUID(),
-            detail: "Running second project"
-        )
+    // MARK: - One card per instance, sub-agents behind it
 
-        let items = expandedActivityItems(for: [first, second])
-        let group = try #require(items.first?.aiAgentGroup)
+    /// The reported defect: one OpenCode terminal delegating to four sub-agents
+    /// read as five agents running.
+    ///
+    /// A sub-agent is a session the *agent* started, not one the user did. It
+    /// belongs under the instance that spawned it, not beside it.
+    @Test("folds sub-agents into the instance that spawned them")
+    func foldsSubagentsIntoTheirInstance() throws {
+        let root = UUID()
+        let sessions: [any Activity] = [
+            Self.activity(agent: .opencode, sessionID: root, state: .usingTool),
+            Self.subagent(root: root, name: "explore"),
+            Self.subagent(root: root, name: "general"),
+        ]
 
-        #expect(items.count == 1)
-        #expect(group.agentID == .opencode)
-        #expect(group.sessions.map(\.sessionID) == [first.sessionID, second.sessionID])
-        #expect(group.showsDisclosure)
+        let items = expandedActivityItems(for: sessions)
+        let instance = try #require(items.first?.aiAgentInstance)
+
+        #expect(items.count == 1, "sub-agents were drawn as instances of their own")
+        #expect(instance.subagents.count == 2)
+        #expect(instance.root?.sessionID == root)
+        #expect(instance.showsDisclosure)
     }
 
-    @Test("does not combine different agents in the expanded panel")
-    func expandedItemsKeepAgentsSeparate() {
+    /// Two terminals are two instances, however many sub-agents each fans out to.
+    @Test("keeps separate instances of one agent apart")
+    func keepsSeparateInstancesApart() {
+        let first = UUID()
+        let second = UUID()
         let items = expandedActivityItems(
             for: [
-                Self.activity(agent: .opencode, sessionID: UUID()),
-                Self.activity(agent: .opencode, sessionID: UUID()),
-                Self.activity(agent: .codex, sessionID: UUID()),
+                Self.activity(agent: .opencode, sessionID: first),
+                Self.subagent(root: first, name: "explore"),
+                Self.activity(agent: .opencode, sessionID: second),
             ]
         )
 
         #expect(items.count == 2)
-        #expect(items.compactMap { $0.aiAgentGroup?.agentID } == [.opencode, .codex])
+        #expect(items.compactMap { $0.aiAgentInstance?.subagents.count } == [1, 0])
     }
 
-    @Test("uses recording-row height until a multi-session group is disclosed")
-    func expandedAgentGroupDisclosureHeight() {
+    /// A lone session has nothing to open, so it draws no control the user can
+    /// click onto an empty list.
+    @Test("an instance with no sub-agents offers no disclosure")
+    func loneInstanceOffersNoDisclosure() throws {
+        let items = expandedActivityItems(for: [Self.activity(agent: .codex)])
+        let instance = try #require(items.first?.aiAgentInstance)
+
+        #expect(instance.subagents.isEmpty)
+        #expect(instance.showsDisclosure == false)
+    }
+
+    /// The whole point of the roll-up: a sub-agent blocked on a permission
+    /// prompt has to reach the card without the list being opened.
+    @Test("an instance speaks for its most urgent sub-agent")
+    func instanceSpeaksForItsMostUrgentSubagent() throws {
+        let root = UUID()
+        let items = expandedActivityItems(
+            for: [
+                Self.activity(agent: .opencode, sessionID: root, state: .usingTool),
+                Self.subagent(root: root, name: "explore", state: .working),
+                Self.subagent(root: root, name: "general", state: .waitingForUser),
+            ]
+        )
+        let instance = try #require(items.first?.aiAgentInstance)
+
+        #expect(instance.representative.state == .waitingForUser)
+        #expect(instance.representative.sessionName == "general")
+    }
+
+    /// A sub-agent's messages can land before its parent has said anything. The
+    /// card still has to draw, or the island stays blank while work runs.
+    @Test("an instance draws from its sub-agents alone")
+    func instanceDrawsBeforeItsRootReports() throws {
+        let root = UUID()
+        let items = expandedActivityItems(for: [Self.subagent(root: root, name: "explore")])
+        let instance = try #require(items.first?.aiAgentInstance)
+
+        #expect(instance.root == nil)
+        #expect(instance.representative.sessionName == "explore")
+        #expect(instance.rootSessionID == root)
+    }
+
+    /// The panel's height has to include the rows an open card draws, or they
+    /// land past the bottom of the island and onto the desktop.
+    @Test("opening a card makes the panel taller by its rows")
+    func openingACardGrowsThePanel() {
+        let root = UUID()
         let sessions: [any Activity] = [
-            Self.activity(agent: .opencode, sessionID: UUID()),
-            Self.activity(agent: .opencode, sessionID: UUID()),
+            Self.activity(agent: .opencode, sessionID: root, state: .usingTool),
+            Self.subagent(root: root, name: "explore"),
+            Self.subagent(root: root, name: "general"),
         ]
+        let instance = AIAgentActivity.instanceIdentity(agent: .opencode, rootSessionID: root)
         let metrics = ExpandedItemMetrics.default
-        let collapsed = expandedPanelSize(for: sessions, metrics: metrics)
-        let disclosed = expandedPanelSize(
+
+        let closed = expandedPanelSize(for: sessions, metrics: metrics)
+        let open = expandedPanelSize(
             for: sessions,
-            disclosedAgentIDs: [.opencode],
+            disclosedInstances: [instance],
             metrics: metrics
         )
 
         #expect(
-            collapsed.height
-                == metrics.panel.rowHeight + metrics.panel.contentInset * 2
+            open.height - closed.height
+                == aiAgentDisclosureHeight(
+                    subagentCount: 2,
+                    isDisclosed: true,
+                    metrics: metrics.aiAgent
+                )
         )
-        #expect(disclosed.height > collapsed.height)
-        #expect(
-            disclosed.height - collapsed.height
-                == AIAgentGroupViewMetrics.default.separatorHeight
-                + AIAgentGroupViewMetrics.default.detailRowHeight * 2
-        )
-        #expect(disclosed.height <= PanelMetrics.default.maximumExpandedSize.height)
     }
 
-    @Test("single-session groups show no disclosure control")
-    func singleAgentSessionHasNoDisclosure() throws {
-        let item = try #require(
-            expandedActivityItems(for: [Self.activity(agent: .codex)]).first
+    /// Opening one instance must not resize another's card.
+    @Test("disclosure only grows the instance that was opened")
+    func disclosureIsPerInstance() {
+        let first = UUID()
+        let second = UUID()
+        let sessions: [any Activity] = [
+            Self.activity(agent: .opencode, sessionID: first),
+            Self.subagent(root: first, name: "explore"),
+            Self.activity(agent: .opencode, sessionID: second),
+            Self.subagent(root: second, name: "general"),
+        ]
+        let firstInstance = AIAgentActivity.instanceIdentity(agent: .opencode, rootSessionID: first)
+        let secondInstance = AIAgentActivity.instanceIdentity(
+            agent: .opencode,
+            rootSessionID: second
         )
 
-        #expect(item.aiAgentGroup?.showsDisclosure == false)
+        let none = expandedPanelSize(for: sessions)
+        let one = expandedPanelSize(for: sessions, disclosedInstances: [firstInstance])
+        let both = expandedPanelSize(
+            for: sessions,
+            disclosedInstances: [firstInstance, secondInstance]
+        )
+
+        #expect(one.height > none.height)
+        #expect(both.height - one.height == one.height - none.height)
+    }
+
+    /// Concurrent instances of one agent are numbered so two identical status
+    /// lines are still tellable apart.
+    @Test("numbers concurrent instances of the same agent")
+    func numbersConcurrentInstances() {
+        let first = Self.activity(agent: .opencode, sessionID: UUID())
+        let second = Self.activity(agent: .opencode, sessionID: UUID())
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let items = expandedActivityItems(
+            for: [second, first],
+            registrationTimes: [
+                first.identity: start,
+                second.identity: start.addingTimeInterval(60),
+            ]
+        )
+        let ordinals = Dictionary(
+            uniqueKeysWithValues: items.compactMap { item -> (UUID, Int?)? in
+                guard let instance = item.aiAgentInstance else { return nil }
+                return (instance.rootSessionID, instance.ordinal)
+            }
+        )
+
+        #expect(ordinals[first.sessionID] == 1)
+        #expect(ordinals[second.sessionID] == 2)
+    }
+
+    /// The number follows registration, not the urgency order the list is sorted
+    /// by — otherwise an instance merely changing state renumbers the cards.
+    @Test("instance numbers survive a state change reordering the list")
+    func instanceNumbersSurviveReordering() {
+        let first = Self.activity(agent: .opencode, sessionID: UUID(), state: .usingTool)
+        let second = Self.activity(agent: .opencode, sessionID: UUID(), state: .usingTool)
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        let times = [
+            first.identity: start,
+            second.identity: start.addingTimeInterval(60),
+        ]
+
+        func ordinals(_ activities: [any Activity]) -> [UUID: Int?] {
+            Dictionary(
+                uniqueKeysWithValues: expandedActivityItems(
+                    for: activities,
+                    registrationTimes: times
+                )
+                .compactMap { item -> (UUID, Int?)? in
+                    guard let instance = item.aiAgentInstance else { return nil }
+                    return (instance.rootSessionID, instance.ordinal)
+                }
+            )
+        }
+
+        #expect(ordinals([first, second]) == ordinals([second, first]))
+    }
+
+    /// A lone instance of an agent is not numbered: there is nothing to tell it
+    /// apart from.
+    @Test("a single instance of an agent carries no number")
+    func singleInstanceHasNoOrdinal() throws {
+        let items = expandedActivityItems(
+            for: [
+                Self.activity(agent: .codex, sessionID: UUID()),
+                Self.activity(agent: .opencode, sessionID: UUID()),
+            ]
+        )
+
+        #expect(items.allSatisfy { $0.aiAgentInstance?.ordinal == nil })
+        #expect(items.count == 2)
+    }
+
+    /// The number reaches the drawn title rather than stopping at the model.
+    @Test("the numbered instance names itself in its title")
+    func numberedInstanceNamesItself() {
+        let session = Self.activity(agent: .opencode, state: .working)
+
+        #expect(AIAgentPresentation(activity: session).compactTitle == "OpenCode · Working…")
+        #expect(
+            AIAgentPresentation(activity: session, instanceOrdinal: 2).compactTitle
+                == "OpenCode 2 · Working…"
+        )
+    }
+
+    /// The row names the delegated agent, because "1" and "2" say nothing about
+    /// which sub-agent stopped to ask something.
+    @Test("a sub-agent row is named after its agent")
+    func subagentRowIsNamedAfterItsAgent() {
+        let named = AIAgentSubagentPresentation(
+            activity: Self.subagent(root: UUID(), name: "explore", state: .waitingForUser),
+            fallbackOrdinal: 1
+        )
+
+        #expect(named.title == "explore · Needs your input")
+    }
+
+    /// An agent that sends no name still has to be identifiable in the list.
+    @Test("an unnamed sub-agent falls back to its position")
+    func unnamedSubagentFallsBackToItsPosition() {
+        let unnamed = AIAgentSubagentPresentation(
+            activity: Self.subagent(root: UUID(), name: nil, state: .working),
+            fallbackOrdinal: 2
+        )
+
+        #expect(unnamed.title == "Agent 2 · Working…")
+    }
+
+    // MARK: - The session-count badge
+
+    /// A lone session draws no badge: a "1" the user has to read to learn
+    /// nothing is worse than an empty corner.
+    @Test("a single session draws no count badge")
+    func singleSessionDrawsNoCountBadge() {
+        let presentation = CompactAIAgentSlotPresentation(activity: Self.activity())
+
+        #expect(presentation.sessionCount == 1)
+        #expect(presentation.showsSessionCount == false)
+    }
+
+    /// Two sessions behind one icon is exactly the case the badge exists for.
+    @Test("a second session brings out the count badge")
+    func secondSessionShowsTheCountBadge() {
+        let presentation = CompactAIAgentSlotPresentation(
+            activity: Self.activity(),
+            sessionCount: 2
+        )
+
+        #expect(presentation.showsSessionCount)
+        #expect(compactAIAgentCountBadgeText(presentation.sessionCount) == "2")
+    }
+
+    /// The badge is a fixed circle, so the count is capped rather than allowed
+    /// to overflow it.
+    @Test("the count badge caps at nine")
+    func countBadgeCapsAtNine() {
+        #expect(compactAIAgentCountBadgeText(9) == "9")
+        #expect(compactAIAgentCountBadgeText(10) == "9+")
+        #expect(compactAIAgentCountBadgeText(147) == "9+")
+    }
+
+    /// A count below one is not a state the pill can draw; it clamps rather than
+    /// rendering "0 sessions" or a negative badge.
+    @Test("a nonsensical count clamps to one")
+    func nonsensicalCountClampsToOne() {
+        #expect(CompactAIAgentSlotPresentation(activity: Self.activity(), sessionCount: 0).sessionCount == 1)
+        #expect(CompactAIAgentSlotPresentation(activity: Self.activity(), sessionCount: -3).sessionCount == 1)
+    }
+
+    /// The slot's box must not change with the count, or every icon in the pill
+    /// shifts sideways the moment a second terminal opens.
+    @Test("the slot box is the same size whatever the count")
+    func slotBoxIsIndependentOfTheCount() {
+        let sizes = AIAgentState.allCases.map {
+            compactAIAgentIconSize(iconSize: 13, state: $0)
+        }
+
+        #expect(Set(sizes.map(\.width)).count == 1)
+        #expect(Set(sizes.map(\.height)).count == 1)
+    }
+
+    /// The badge hangs off the icon's corner, so the box has to be wider and
+    /// taller than the icon or the badge is drawn outside the slot it belongs to.
+    @Test("the slot box reserves room for the badge overhang")
+    func slotBoxReservesTheBadgeOverhang() {
+        let iconSize: CGFloat = 13
+        let metrics = CompactAIAgentMetrics.default
+        let size = compactAIAgentIconSize(iconSize: iconSize, state: .working)
+
+        #expect(size.width >= iconSize + metrics.countBadgeOverhang * 2)
+        #expect(size.height >= metrics.countBadgeOverhang + iconSize + metrics.badgeDiameter)
+        // And still inside the pill's slot, or the icons overlap each other.
+        #expect(size.width <= CompactPillMetrics.default.slotWidth)
+    }
+
+    /// The count has to reach the pill through the manager's grouping rather
+    /// than being assumed by the view.
+    @Test("the compact pill counts the sessions the manager grouped")
+    @MainActor
+    func compactPillCarriesTheGroupedSessionCount() throws {
+        let manager = ActivityManager()
+        manager.register(Self.activity(agent: .opencode, sessionID: UUID(), state: .usingTool))
+        manager.register(
+            Self.activity(agent: .opencode, sessionID: UUID(), state: .waitingForUser)
+        )
+
+        let slots = compactSlots(for: manager.compactPresentation)
+        let agentSlot = try #require(slots.first { $0.aiAgentID == .opencode })
+
+        #expect(agentSlot.accessibilityLabel.contains("2 sessions"))
+    }
+
+    /// VoiceOver has to hear the count, because the badge is the only place the
+    /// other sessions exist on the compact pill.
+    @Test("speaks the session count beside the state")
+    func speaksTheSessionCount() {
+        let slot = aiAgentCompactSlot(for: Self.activity(state: .waitingForUser), sessionCount: 3)
+
+        #expect(slot.accessibilityLabel.contains("Needs your input"))
+        #expect(slot.accessibilityLabel.contains("3 sessions"))
+    }
+
+    /// A lone session says nothing about counts.
+    @Test("says nothing about counts for a lone session")
+    func saysNothingAboutCountsForALoneSession() {
+        let slot = aiAgentCompactSlot(for: Self.activity(state: .completed))
+
+        #expect(slot.accessibilityLabel == "Claude · Task completed, Editing src/App.swift")
     }
 
     // MARK: - Accessibility

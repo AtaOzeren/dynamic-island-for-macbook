@@ -9,7 +9,8 @@ public enum MusicSourceIdentity: Equatable, Sendable {
     case other
 
     public init(applicationName: String?) {
-        let normalized = applicationName?
+        let normalized =
+            applicationName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased() ?? ""
 
@@ -157,8 +158,8 @@ public struct MusicViewMetrics: Equatable, Sendable {
         contentInset: CGFloat = 10,
         textSpacing: CGFloat = 2,
         columnSpacing: CGFloat = 8,
-        titleSize: CGFloat = 13,
-        subtitleSize: CGFloat = 10,
+        titleSize: CGFloat = IslandTypeScale.default.title,
+        subtitleSize: CGFloat = IslandTypeScale.default.detail,
         transportSymbolSize: CGFloat = 11,
         transportButtonSize: CGFloat = 24,
         transportSpacing: CGFloat = 2,

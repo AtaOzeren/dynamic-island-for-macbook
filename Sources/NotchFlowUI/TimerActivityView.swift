@@ -140,7 +140,7 @@ public struct TimerViewMetrics: Equatable, Sendable {
         textSpacing: CGFloat = 2,
         columnSpacing: CGFloat = 12,
         timeSize: CGFloat = 20,
-        titleSize: CGFloat = 11,
+        titleSize: CGFloat = IslandTypeScale.default.title,
         controlSymbolSize: CGFloat = 13,
         controlButtonSize: CGFloat = 28,
         controlSpacing: CGFloat = 4,
