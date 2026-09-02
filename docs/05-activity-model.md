@@ -10,6 +10,7 @@ Every feature in NotchFlow — music, timers, recording indicators, charging sta
 |---|---|---|
 | `identity` | property | A stable, unique identifier used for deduplication — the same identity replaces an existing activity instead of creating a second one |
 | `compactGroupIdentity` | property | Presentation-only grouping key; concurrent sessions from one AI agent share one compact icon while retaining separate activity identities |
+| `compactInstanceIdentity` | property | What the compact group's count badge tallies; sessions sharing one count once, so an agent's sub-agents never inflate the number of agents shown as running |
 | `compactRepresentationPriority` | property | Chooses the most important representative when multiple activities share a compact group |
 | `compactRegion` | property | Selects the standard compact capacity or the dedicated trailing AI-agent region |
 | `kind` | property | Which activity type this is (music, timer, recording, charging, AI, …), used for routing to the right view and for the priority table below |
@@ -86,7 +87,13 @@ This follows `draft.md:189-220`. Assume music, a running timer, and a file trans
 
 If a fourth `normal`-or-higher activity registers while these three are active and the compact capacity is 3, the pill instead shows two of the highest-priority icons plus an overflow indicator (e.g. `🎵 ⏱ +2`); the expanded view still lists all four, because the expanded view never truncates.
 
-Concurrent sessions from the same AI agent share one compact slot. The manager keeps every session independently active, but capacity and overflow count the agent group once. AI slots stay together at the far-right edge; if more than two agents are active, only the two most recently started agent groups appear compactly. In the expanded view every agent group remains available as a summary row, and a count disclosure reveals concurrent sessions below it.
+Concurrent sessions from the same AI agent share one compact slot. The manager keeps every session independently active, but capacity and overflow count the agent group once. The compact presentation reports each group's size alongside it, and a slot standing in for more than one session draws that count as a badge on the top-right corner of the agent's logo — the icon otherwise says nothing about the sessions behind the one it is drawing, so a second session could ask a question and never appear. The badge is capped at `9+`, and the slot reserves its corner whether or not a badge is drawn, so a session opening never shifts the icons already on screen.
+
+AI slots stay together at the far-right edge. If more than two agents are active, the two that appear are chosen by `compactRepresentationPriority` first and by recency only to break ties: an agent waiting on the user or reporting a failure is never dropped in favour of a newer one that is merely working. A group is judged on its most urgent session, the same one it draws.
+
+The expanded view draws one card per *instance* — one terminal, one editor window, one conversation the user started. Where an agent has more than one instance, each card's title carries a number (`OpenCode 2`) assigned in registration order, so two identical status lines remain tellable apart and an instance changing state does not renumber the others.
+
+An instance ending ends the sub-agents under it, since the process that would have reported their end is the one that went away. A session an agent spawned to delegate work is not an instance. It appears in the list its parent's card discloses, labelled with the delegated agent's own name, and the card's control says how many there are (`4 agents`). The card itself speaks for the most urgent session in the instance, sub-agents included, so a sub-agent blocked on a permission prompt turns the card — and the compact icon — yellow without the list having to be opened.
 
 ## Extension guide: adding a new activity type
 

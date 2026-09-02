@@ -58,6 +58,8 @@ The IPC protocol is a versioned contract between an agent (or its hook script) a
 | `schemaVersion` | string | yes | The envelope schema version this message conforms to (e.g. `"1.0"`). NotchFlow rejects messages whose major version it does not understand. |
 | `agentId` | string enum: `"claude-code"` \| `"codex"` \| `"opencode"` | yes | Which agent sent the message. Unknown values are handled per the security rules below. |
 | `sessionId` | string (UUID) | yes | Identifies one running instance of an agent (see `Session` in `14-glossary-and-conventions.md`). Distinguishes multiple concurrent agent sessions so each gets its own `AIActivity`. |
+| `rootSessionId` | string (UUID) | no | The top-level session this one belongs to, when it is a sub-agent the agent spawned. Omitted for a session the user started; a value equal to `sessionId` is treated as omitted. Added after 1.0 and deliberately not a version bump — an optional field an older island ignores and an older hook never sends is compatible in both directions, while raising the version would reject every hook already installed. |
+| `sessionName` | string | no | What to call a sub-agent in its parent card's list (e.g. `"explore"`). Same length and character rules as `detail`. |
 | `state` | string enum: `"idle"` \| `"thinking"` \| `"working"` \| `"usingTool"` \| `"waitingForUser"` \| `"completed"` \| `"error"` | yes | The state described above. |
 | `detail` | string | yes | A short, human-readable description shown in the expanded view (e.g. `"Editing src/App.swift"`, `"Running test suite"`). Never prompt content, code, or a transcript excerpt — see Privacy below. |
 | `toolName` | string | no | The name of the tool in flight, only meaningful when `state` is `"usingTool"` (e.g. `"Bash"`, `"Edit"`). |
@@ -76,6 +78,8 @@ The IPC protocol is a versioned contract between an agent (or its hook script) a
     "schemaVersion": { "type": "string", "const": "1.0" },
     "agentId": { "type": "string", "enum": ["claude-code", "codex", "opencode"] },
     "sessionId": { "type": "string", "format": "uuid" },
+    "rootSessionId": { "type": "string", "format": "uuid" },
+    "sessionName": { "type": "string", "maxLength": 280 },
     "state": {
       "type": "string",
       "enum": ["idle", "thinking", "working", "usingTool", "waitingForUser", "completed", "error"]
@@ -100,7 +104,32 @@ NotchFlow accepts the envelope over two transports. Both carry the identical JSO
 
 The **URL scheme is preferred** for hook scripts: it needs no entitlement, works identically in every build configuration, and is invoked with `open -g` so it never steals focus from the terminal or editor the agent is running in. The **HTTP listener is the fallback**, used when a caller wants a lower-latency, higher-throughput channel (for example, an editor plugin sending frequent `usingTool` progress updates) or when the calling environment cannot shell out to `open`.
 
-Multiple sessions remain separate activities in the manager, but presentation groups sessions by `agentId`: one compact icon per agent and one minimalist expanded summary row. A count disclosure lists concurrent sessions. The summary uses the most important state in the group (`error`, then needs-input, then active work, then completed). Its navigation action traces a live CLI process to its parent app when possible, then uses deterministic running-app fallbacks; it never chooses randomly between multiple hosts.
+Multiple sessions remain separate activities in the manager, grouped for presentation at two levels.
+
+An **instance** is one thing the user started: a terminal, an editor window, a conversation. A **sub-agent** is a session the agent itself spawned to delegate work, identified by `rootSessionId` naming its parent. The distinction matters because only instances are counted: one OpenCode terminal fanning out to four sub-agents is one agent running, and badging it `5` would report how busy the agent is rather than how many of it there are.
+
+The compact pill groups by `agentId` — one icon per agent, drawn in the most important state across every session of that agent (`error`, then needs-input, then active work, then completed), with the number of *instances* behind it badged on the icon's top-right corner once there is more than one. The expanded panel draws one card per instance, numbered per agent in registration order where an agent has more than one. A card with sub-agents carries a control saying how many (`4 agents`) that discloses them, each row named after the delegated agent. Each card's navigation action traces a live CLI process to its parent app when possible, then uses deterministic running-app fallbacks; it never chooses randomly between multiple hosts.
+
+Only OpenCode reports sub-agents today: its `task` tool creates real child sessions with their own identifiers, so the plugin tracks parentage from `session.created` and `session.updated` and sends the root alongside each message. Claude Code and Codex run their sub-agents inside the session that spawned them and report one `session_id` throughout, so nothing to resolve and nothing changes for them.
+
+An instance ending ends the sub-agents under it. Nothing else can report them: the agent that would have sent the message is the process that exited. A sub-agent ending takes nothing with it — one delegated task finishing says nothing about its siblings or about the instance that spawned it.
+
+## When a card outlives its agent
+
+Every state carries a silence bound, restarted by each message for that session, because a hook only fires while its agent is alive. The bound differs by what the state claims:
+
+| States | Bound | Why |
+|---|---|---|
+| `thinking`, `working`, `usingTool` | 10 minutes | They assert work in flight and more events coming, so prolonged silence contradicts the state. Still long enough that a single silent tool call — a test suite, a build — is never cut off mid-run. |
+| `waitingForUser`, `error` | 30 minutes | Sitting still is what they mean, so silence tells nothing new. A failure the user could miss is worse than one that lingers. |
+| `completed` | 15 seconds | A display timeout, not a silence one: the task is over and the card is a receipt. |
+
+The bound is a safety net, not the mechanism. Closing an OpenCode window is neither the end of a turn nor the deletion of a session, so OpenCode emits nothing and the last `working` used to sit on screen for the full half hour after the process was gone. The plugin now says so on the way out: a `process.on("exit")` handler sends `idle` synchronously for each top-level session it reported, bounded to a handful so quitting stays fast. It deliberately registers no signal handler — doing so suppresses Node's default termination, and an agent that no longer quits on Ctrl-C is a far worse defect than a card that lingers. A session lost to `SIGKILL` is what the silence bound is for.
+
+Concurrency is not confined to terminals. Both the Claude Code desktop app and the Codex app run several sessions in parallel, and each session carries its own `session_id`, so the island tracks them exactly as it tracks two terminal windows. Two limits are worth stating because neither is fixable here:
+
+- **Codex desktop app.** Its sessions run in app-server mode, where `notify` and lifecycle hooks are not delivered ([openai/codex#13019](https://github.com/openai/codex/issues/13019), [openai/codex#21639](https://github.com/openai/codex/issues/21639)). NotchFlow shows nothing for those sessions until Codex delivers the events; Codex CLI sessions are unaffected.
+- **Claude Desktop (the chat app)** is not a coding agent and has no hook mechanism at all. Per the design principle above there is nothing to infer from, so it is out of scope rather than unimplemented. Claude Code *inside* the desktop app is a different thing and does fire the hooks from `~/.claude/settings.json`.
 
 NotchFlow binds the HTTP listener to an OS-assigned ephemeral port at launch and writes the chosen port to a discoverable location (`~/Library/Application Support/NotchFlow/ipc-port`) so a caller that prefers HTTP can read the current port without guessing or scanning.
 
@@ -214,14 +243,14 @@ notify = ["/usr/bin/python3","-c","import datetime, json, os, subprocess, sys, u
 
 ### OpenCode
 
-OpenCode uses a plugin file convention: a plugin file placed in OpenCode's plugin directory observes session lifecycle events and can act on them directly. NotchFlow's installer writes a small TypeScript plugin that maps those events onto the same IPC envelope and sends it via the URL scheme, the same way the Claude Code and Codex snippets do: `session.created` becomes `thinking`, `session.idle` becomes `completed`, `session.error` becomes `error`, `tool.execute.before` becomes `usingTool`, and `tool.execute.after` becomes `working`. The plugin derives a stable session UUID from the session id and dispatches each message as a detached `open -g` call, so it never blocks OpenCode's own execution.
+OpenCode uses a plugin file convention: a plugin file placed in OpenCode's plugin directory observes session lifecycle events and can act on them directly. NotchFlow's installer writes a small TypeScript plugin that maps those events onto the same IPC envelope: `chat.message` becomes `thinking`, `session.idle` becomes `completed`, `session.error` becomes `error`, `permission.asked` becomes `waitingForUser`, `tool.execute.before` becomes `usingTool`, and `tool.execute.after` becomes `working`. The plugin derives a stable session UUID from the session id, prefers the loopback socket and falls back to a detached `open -g` call, so it never blocks OpenCode's own execution.\n\nIt also watches `session.created` and `session.updated` — sending nothing for either — purely to record which session is a child of which. OpenCode's `task` tool gives every sub-agent a real child session carrying `parentID`, so the plugin walks that chain to the root and sends it as `rootSessionId`, with the delegated agent's name as `sessionName`. A session created before the plugin loaded is backfilled once through `client.session.get`; if that lookup fails the session is treated as a root, which is exactly how the plugin behaved before sub-agents were resolved at all.
 
 The literal plugin file the installer writes, exactly as `HookSnippetGenerator` emits it:
 
 <!-- notchflow-snippet: opencode -->
 ```ts
 import type { Plugin } from "@opencode-ai/plugin"
-import { spawn } from "node:child_process"
+import { spawn, spawnSync } from "node:child_process"
 import { createHash } from "node:crypto"
 import { readFileSync } from "node:fs"
 import { homedir } from "node:os"
@@ -265,56 +294,175 @@ const deliver = (body: string) => {
   openURL(body)
 }
 
+const statusURL = (body: string) =>
+  `notchflow://ai-status?payload=${encodeURIComponent(body)}`
+
 const openURL = (body: string) => {
-  const url = `notchflow://ai-status?payload=${encodeURIComponent(body)}`
-  const child = spawn("open", ["-g", url], { detached: true, stdio: "ignore" })
+  const child = spawn("open", ["-g", statusURL(body)], { detached: true, stdio: "ignore" })
   child.unref()
 }
 
-const notify = (state: string, sessionId: string, detail: string, toolName?: string) => {
-  if (!sessionId) return
-  const payload: Record<string, unknown> = {
-    schemaVersion: "1.0",
-    agentId: "opencode",
-    sessionId: sessionUUID("opencode", sessionId),
-    state,
-    detail,
-    timestamp: new Date().toISOString(),
-  }
-  if (state === "usingTool" && toolName) payload.toolName = toolName
-  deliver(JSON.stringify(payload))
-}
+export const NotchFlowPlugin: Plugin = async ({ client }) => {
+  // The task tool gives every sub-agent a real child session with its own
+  // id. Reported as-is, four sub-agents read as four more agents running;
+  // the island needs the session the user actually started, so parentage
+  // is tracked here and the root is sent alongside each message.
+  const parents = new Map<string, string>()
+  const names = new Map<string, string>()
+  // The top-level sessions this process has reported, so it can end them
+  // on the way out.
+  const liveRoots = new Set<string>()
 
-export const NotchFlowPlugin: Plugin = async () => ({
-  // No "session.created": opening a session is not work, and a
-  // "thinking" state with no expiry would hold the island for as long
-  // as the window stayed open. "chat.message" is the real start.
-  event: async ({ event }) => {
-    switch (event.type) {
-      case "session.idle":
-        notify("completed", event.properties.sessionID, "Task completed")
-        break
-      case "session.error":
-        notify("error", event.properties.sessionID, "Session error")
-        break
-      case "session.deleted":
-        notify("idle", event.properties.info.id, "Session ended")
-        break
-      case "permission.asked":
-        notify("waitingForUser", event.properties.sessionID, "Needs attention")
-        break
+  const remember = (info: any) => {
+    if (!info?.id) return
+    parents.set(info.id, info.parentID ?? "")
+    if (info.parentID && typeof info.title === "string" && info.title) {
+      if (!names.has(info.id)) names.set(info.id, info.title)
     }
-  },
-  "chat.message": async (_input, output) => {
-    notify("thinking", output.message.sessionID, "Task started")
-  },
-  "tool.execute.before": async (input) => {
-    notify("usingTool", input.sessionID, "Using tool", input.tool)
-  },
-  "tool.execute.after": async (input) => {
-    notify("working", input.sessionID, "Working…")
-  },
-})
+  }
+
+  // Only for a session that started before this plugin loaded; the
+  // events above cover every session created while it is running.
+  const fetchParent = async (sessionId: string): Promise<string> => {
+    try {
+      const response = await client.session.get({ path: { id: sessionId } })
+      const info = (response as any)?.data ?? response
+      return info?.parentID ?? ""
+    } catch {
+      return ""
+    }
+  }
+
+  const rootOf = async (sessionId: string): Promise<string> => {
+    let current = sessionId
+    const seen = new Set<string>()
+    while (!seen.has(current)) {
+      seen.add(current)
+      let parent = parents.get(current)
+      if (parent === undefined) {
+        parent = await fetchParent(current)
+        parents.set(current, parent)
+      }
+      if (!parent) return current
+      current = parent
+    }
+    // A parent cycle is not a shape opencode produces, but treating the
+    // session as its own root keeps one bad edge from hanging the hook.
+    return current
+  }
+
+  const envelope = (state: string, sessionId: string, detail: string) =>
+    JSON.stringify({
+      schemaVersion: "1.0",
+      agentId: "opencode",
+      sessionId: sessionUUID("opencode", sessionId),
+      state,
+      detail,
+      timestamp: new Date().toISOString(),
+    })
+
+  const notify = async (
+    state: string,
+    sessionId: string,
+    detail: string,
+    toolName?: string,
+    agentName?: string,
+  ) => {
+    if (!sessionId) return
+    if (agentName) names.set(sessionId, agentName)
+    const root = await rootOf(sessionId)
+    const payload: Record<string, unknown> = {
+      schemaVersion: "1.0",
+      agentId: "opencode",
+      sessionId: sessionUUID("opencode", sessionId),
+      state,
+      detail,
+      timestamp: new Date().toISOString(),
+    }
+    if (root && root !== sessionId) {
+      payload.rootSessionId = sessionUUID("opencode", root)
+      const name = names.get(sessionId)
+      if (name) payload.sessionName = name
+    }
+    if (state === "usingTool" && toolName) payload.toolName = toolName
+    if (root === sessionId) liveRoots.add(sessionId)
+    deliver(JSON.stringify(payload))
+  }
+
+  // Quitting opencode is neither the end of a turn nor the deletion of a
+  // session, so nothing else reports it: the last state sits on the
+  // island until its silence timeout while the process behind it is
+  // gone. Saying so on the way out is the only message that can.
+  //
+  // Sending the roots alone is enough — the island ends an instance's
+  // sub-agents with it, and a handful of synchronous `open` calls on
+  // exit is a cost the user feels.
+  const MAX_FAREWELLS = 8
+  let saidGoodbye = false
+  const sayGoodbye = () => {
+    if (saidGoodbye) return
+    saidGoodbye = true
+    for (const sessionId of Array.from(liveRoots).slice(0, MAX_FAREWELLS)) {
+      // Synchronous on purpose: an exit handler is the last code this
+      // process runs, and `fetch` would never get its turn.
+      spawnSync("open", ["-g", statusURL(envelope("idle", sessionId, "Session ended"))])
+    }
+    liveRoots.clear()
+  }
+
+  // Only `exit`. Registering a SIGINT or SIGTERM listener would suppress
+  // Node's default termination, and an agent that no longer quits on
+  // Ctrl-C is a far worse defect than a card that lingers — a signal
+  // that skips this handler is what the island's silence timeout is for.
+  process.on("exit", sayGoodbye)
+
+  return {
+    // No "session.created" state message: opening a session is not work,
+    // and a "thinking" state with no expiry would hold the island for as
+    // long as the window stayed open. "chat.message" is the real start —
+    // the event is watched only to learn the session's parent.
+    event: async ({ event }) => {
+      switch (event.type) {
+        case "session.created":
+          remember(event.properties.info)
+          break
+        case "session.updated":
+          remember(event.properties.info)
+          break
+        case "session.idle":
+          await notify("completed", event.properties.sessionID, "Task completed")
+          break
+        case "session.error":
+          await notify("error", event.properties.sessionID, "Session error")
+          break
+        case "session.deleted":
+          await notify("idle", event.properties.info.id, "Session ended")
+          parents.delete(event.properties.info.id)
+          names.delete(event.properties.info.id)
+          liveRoots.delete(event.properties.info.id)
+          break
+        case "permission.asked":
+          await notify("waitingForUser", event.properties.sessionID, "Needs attention")
+          break
+      }
+    },
+    "chat.message": async (input, output) => {
+      await notify(
+        "thinking",
+        output.message.sessionID,
+        "Task started",
+        undefined,
+        (input as any)?.agent,
+      )
+    },
+    "tool.execute.before": async (input) => {
+      await notify("usingTool", input.sessionID, "Using tool", input.tool, (input as any)?.agent)
+    },
+    "tool.execute.after": async (input) => {
+      await notify("working", input.sessionID, "Working…", undefined, (input as any)?.agent)
+    },
+  }
+}
 ```
 
 ## The hook installer

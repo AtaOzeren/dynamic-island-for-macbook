@@ -21,7 +21,7 @@ The whole AI agent status pipeline, once the hooks are installed:
 | Loopback HTTP listener binds a socket | **Measured:** works in both. The sandboxed build declares `com.apple.security.network.server`; without it the socket would not bind at all |
 | `notchflow://` URL scheme delivery | **Reasoned:** needs no entitlement in either build |
 | Every agent state — `thinking`, `working`, `usingTool`, `waitingForUser`, `completed`, `error`, `idle` | Identical. This is `NotchFlowCore` logic with no system API underneath it |
-| Session grouping, disclosure, ordering, the completed tick and its timer | Identical |
+| Compact session grouping and its count badge, per-session expanded cards, ordering, the completed tick and its timer | Identical |
 | `NSWorkspace` running-application list, bundle identifiers, frontmost application | **Measured:** identical — 91 applications and 74 bundle identifiers in both, same frontmost |
 | Resolving which application handles a URL scheme | **Measured:** identical — `vscode://` resolved to `com.microsoft.VSCode` in both |
 | Opening a URL to focus an editor window | **Measured:** the sandboxed build opened `vscode://file/<folder>` and the editor's window for that folder came forward |
