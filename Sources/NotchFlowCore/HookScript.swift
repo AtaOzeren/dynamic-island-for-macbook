@@ -62,7 +62,15 @@ enum HookScript {
             )
 
 
-        def notchflow_payload(session, state, detail, tool_name=None):
+        def notchflow_payload(
+            session,
+            state,
+            detail,
+            tool_name=None,
+            root_session=None,
+            session_name=None,
+            workspace=None,
+        ):
             payload = {
                 "schemaVersion": "1.0",
                 "agentId": NOTCHFLOW_AGENT,
@@ -75,6 +83,12 @@ enum HookScript {
             }
             if state == "usingTool" and tool_name:
                 payload["toolName"] = tool_name
+            if root_session:
+                payload["rootSessionId"] = root_session
+            if session_name:
+                payload["sessionName"] = session_name
+            if workspace:
+                payload["workspace"] = workspace
             return json.dumps(payload, separators=(",", ":"))
 
 
@@ -127,19 +141,32 @@ enum HookScript {
     static func claudeCodeHookCommand(
         state: String,
         detail: String,
-        carriesToolName: Bool
+        carriesToolName: Bool,
+        carriesSubagentIdentity: Bool
     ) -> String {
         let toolExpression = carriesToolName ? "notchflow_tool_name(event)" : "None"
+        let sessionExpression = carriesSubagentIdentity
+            ? "notchflow_session(event.get(\"agent_id\"))"
+            : "notchflow_session(event.get(\"session_id\"))"
+        let rootSessionExpression = carriesSubagentIdentity
+            ? "notchflow_session(event.get(\"session_id\"))"
+            : "None"
+        let sessionNameExpression = carriesSubagentIdentity
+            ? "event.get(\"agent_type\")"
+            : "None"
         let script =
             pythonPreamble(agentID: "claude-code")
             + """
             event = notchflow_load("")
             notchflow_send(
                 notchflow_payload(
-                    notchflow_session(event.get("session_id")),
+                    \(sessionExpression),
                     \(HookTextEncoding.pythonStringLiteral(state)),
                     \(HookTextEncoding.pythonStringLiteral(detail)),
                     \(toolExpression),
+                    \(rootSessionExpression),
+                    \(sessionNameExpression),
+                    event.get("cwd"),
                 )
             )
             """
@@ -201,6 +228,7 @@ enum HookScript {
                     state,
                     detail,
                     notchflow_tool_name(event) if carries_tool_name else None,
+                    workspace=event.get("cwd"),
                 )
             )
             """

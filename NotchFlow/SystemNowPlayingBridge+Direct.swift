@@ -3,14 +3,15 @@
     import NotchFlowCore
     import NotchFlowProviders
 
-    private final class HandleWrapper: @unchecked Sendable {
+    @MainActor
+    private final class HandleWrapper {
         let pointer: UnsafeMutableRawPointer?
 
         init(pointer: UnsafeMutableRawPointer?) {
             self.pointer = pointer
         }
 
-        deinit {
+        isolated deinit {
             if let pointer = pointer {
                 dlclose(pointer)
             }

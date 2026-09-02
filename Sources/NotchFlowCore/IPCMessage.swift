@@ -41,6 +41,7 @@ public struct IPCMessage: Codable, Equatable, Sendable {
     /// four rows reading "1", "2", "3", "4" tells the user nothing about which
     /// one stopped to ask a question.
     public let sessionName: String?
+    public let workspace: String?
     public let state: AIAgentState
     public let detail: String
     public let toolName: String?
@@ -53,6 +54,7 @@ public struct IPCMessage: Codable, Equatable, Sendable {
         sessionId: UUID,
         rootSessionId: UUID? = nil,
         sessionName: String? = nil,
+        workspace: String? = nil,
         state: AIAgentState,
         detail: String,
         toolName: String? = nil,
@@ -67,6 +69,7 @@ public struct IPCMessage: Codable, Equatable, Sendable {
         // "child of itself" as a case.
         self.rootSessionId = rootSessionId == sessionId ? nil : rootSessionId
         self.sessionName = sessionName
+        self.workspace = workspace
         self.state = state
         self.detail = detail
         self.toolName = toolName
@@ -112,7 +115,7 @@ public struct IPCMessageValidator: Sendable {
     /// an older hook never sends is compatible in both directions, which a
     /// version bump is not.
     private static let allowedFields = Set(
-        requiredFields + ["toolName", "progress", "rootSessionId", "sessionName"]
+        requiredFields + ["toolName", "progress", "rootSessionId", "sessionName", "workspace"]
     )
     private static let shellMetacharacters = CharacterSet(
         charactersIn: "`$&;|<>\\\"'()*?[]{}!~#"
@@ -199,6 +202,9 @@ public struct IPCMessageValidator: Sendable {
         if let sessionName = rawMessage.sessionName {
             try validateDisplayText(sessionName, field: "sessionName")
         }
+        if let workspace = rawMessage.workspace {
+            try validateDisplayText(workspace, field: "workspace")
+        }
         if let progress = rawMessage.progress, !(0...1).contains(progress) {
             throw IPCMessageValidationError.invalidProgress(progress)
         }
@@ -212,6 +218,7 @@ public struct IPCMessageValidator: Sendable {
             sessionId: sessionId,
             rootSessionId: rootSessionId,
             sessionName: rawMessage.sessionName,
+            workspace: rawMessage.workspace,
             state: state,
             detail: rawMessage.detail,
             toolName: rawMessage.toolName,
@@ -254,6 +261,7 @@ private struct RawIPCMessage: Decodable {
     let sessionId: String
     let rootSessionId: String?
     let sessionName: String?
+    let workspace: String?
     let state: String
     let detail: String
     let toolName: String?

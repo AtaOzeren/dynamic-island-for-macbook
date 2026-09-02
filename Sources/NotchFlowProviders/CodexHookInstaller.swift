@@ -1,5 +1,6 @@
 import Foundation
 import NotchFlowCore
+import os
 
 public enum CodexHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingConfiguration
@@ -49,6 +50,10 @@ public struct CodexHookInstaller: Sendable {
     private static let configPath = ".codex/config.toml"
     private static let hooksPath = ".codex/hooks.json"
     private static let backupSuffix = ".notchflow-backup"
+    private static let logger = Logger(
+        subsystem: "com.notchflow.NotchFlow",
+        category: "codex-installer"
+    )
     private static let rootNotifyPattern = #"(?m)^[ \t]*notify[ \t]*="#
     /// Matched from the generator's own constant rather than restated here: a
     /// second copy of the token is how the installer stopped recognising the
@@ -459,7 +464,7 @@ public struct CodexHookInstaller: Sendable {
         }
         if isCurrentManagedNotify(assignment.arguments) {
             let forwarded = forwardedArguments(from: assignment.arguments) ?? []
-            let replacement = forwarded.isEmpty ? "" : plainNotifySetting(forwarded)
+            let replacement = forwarded.isEmpty ? "" : try plainNotifySetting(forwarded)
             return (
                 existing.replacingCharacters(in: assignment.range, with: replacement),
                 true
@@ -597,7 +602,16 @@ public struct CodexHookInstaller: Sendable {
             if quote == "'" {
                 arguments.append(String(token.dropFirst().dropLast()))
             } else {
-                guard let argument = try? JSONDecoder().decode(String.self, from: Data(token.utf8)) else {
+                let argument: String
+                do {
+                    argument = try JSONDecoder().decode(String.self, from: Data(token.utf8))
+                } catch let decodeError {
+                    // The typed error aborts the install; the decode error says
+                    // which token is malformed and why, which a bare `try?`
+                    // discarded.
+                    Self.logger.error(
+                        "Notify token \(token, privacy: .public) in \(self.configURL.path, privacy: .public) is not a valid JSON string: \(String(describing: decodeError), privacy: .public)"
+                    )
                     throw CodexHookInstallerError.invalidExistingConfiguration
                 }
                 arguments.append(argument)
@@ -653,18 +667,16 @@ public struct CodexHookInstaller: Sendable {
             || command.contains("notchflow_codex_notify_")
     }
 
-    private func containsManagedNotify(_ arguments: [String]) -> Bool {
-        isCurrentManagedNotify(arguments)
-            || containsNestedManagedNotify(arguments)
-            || isLegacyManagedNotify(arguments)
-    }
-
     private func containsNestedManagedNotify(
         _ arguments: [String],
         depth: Int = 0
     ) -> Bool {
         guard depth < 4 else { return false }
         for argument in arguments {
+            // The decode is a probe, not an expectation: every plain argument
+            // (a notifier path, "turn-ended") fails it by design, so nil here
+            // is the answer "not a nested command chain", not a failure to
+            // surface.
             guard
                 let data = argument.data(using: .utf8),
                 let nested = try? JSONDecoder().decode([String].self, from: data),
@@ -694,14 +706,34 @@ public struct CodexHookInstaller: Sendable {
         }
         let encoded = String(script[markerRange.upperBound..<end])
         guard let data = Data(base64Encoded: encoded) else { return nil }
-        return try? JSONDecoder().decode([String].self, from: data)
+        do {
+            return try JSONDecoder().decode([String].self, from: data)
+        } catch let decodeError {
+            // The payload under our own marker is corrupt — a hand-edited
+            // config or a truncated write. Dropping the chain is the only
+            // recovery, but the loss is logged so the notify replacement
+            // that follows stays traceable to it.
+            Self.logger.error(
+                "Forwarded notify payload in \(self.configURL.path, privacy: .public) is not decodable as a JSON string array: \(String(describing: decodeError), privacy: .public)"
+            )
+            return nil
+        }
     }
 
-    private func plainNotifySetting(_ arguments: [String]) -> String {
+    private func plainNotifySetting(_ arguments: [String]) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
-        guard let data = try? encoder.encode(arguments) else {
-            preconditionFailure("Codex notify arguments must encode")
+        let data: Data
+        do {
+            data = try encoder.encode(arguments)
+        } catch let encodeError {
+            // A plain string array always encodes; reaching here means the
+            // forwarded chain holds something JSON cannot represent, and the
+            // replacement we were about to write would be garbage.
+            Self.logger.error(
+                "Codex notify arguments failed to encode: \(String(describing: encodeError), privacy: .public)"
+            )
+            throw CodexHookInstallerError.invalidGeneratedConfiguration
         }
         return "notify = \(String(decoding: data, as: UTF8.self))\n"
     }

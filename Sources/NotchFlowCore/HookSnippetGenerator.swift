@@ -20,7 +20,10 @@ public struct HookSnippetGenerator: Sendable {
     /// earlier version and replace it. Without that, upgrading only appended
     /// the new command and left the old one beside it: the previous, broken
     /// hook kept firing, and every event was delivered twice.
-    public static let managedHookMarker = "notchflow_hook_v2"
+    public static let managedHookMarker = "notchflow_hook_v3"
+
+    /// Exact markers emitted by earlier managed Claude Code hooks.
+    public static let previousManagedHookMarkers = ["notchflow_hook_v2"]
 
     /// Every token an earlier version's command carried, all of which must be
     /// present for it to count as ours.
@@ -68,7 +71,8 @@ public struct HookSnippetGenerator: Sendable {
                                     "command": HookScript.claudeCodeHookCommand(
                                         state: event.state,
                                         detail: event.detail,
-                                        carriesToolName: event.carriesToolName
+                                        carriesToolName: event.carriesToolName,
+                                        carriesSubagentIdentity: event.carriesSubagentIdentity
                                     ),
                                 ]
                             ]
@@ -204,7 +208,7 @@ public struct HookSnippetGenerator: Sendable {
           child.unref()
         }
 
-        export const NotchFlowPlugin: Plugin = async ({ client }) => {
+        export const NotchFlowPlugin: Plugin = async ({ client, directory }) => {
           // The task tool gives every sub-agent a real child session with its own
           // id. Reported as-is, four sub-agents read as four more agents running;
           // the island needs the session the user actually started, so parentage
@@ -281,6 +285,7 @@ public struct HookSnippetGenerator: Sendable {
               detail,
               timestamp: new Date().toISOString(),
             }
+            if (directory) payload.workspace = directory
             if (root && root !== sessionId) {
               payload.rootSessionId = sessionUUID("opencode", root)
               const name = names.get(sessionId)
@@ -375,6 +380,7 @@ public struct HookSnippetGenerator: Sendable {
         let state: String
         let detail: String
         var carriesToolName = false
+        var carriesSubagentIdentity = false
     }
 
     /// The Claude Code hook events NotchFlow subscribes to.
@@ -391,10 +397,8 @@ public struct HookSnippetGenerator: Sendable {
     /// indefinitely. The first event that means anything is the user submitting
     /// a prompt, and `Stop` clears the card five seconds after the turn ends, so
     /// the island is empty between turns without a session event to bracket it.
-    /// No `SubagentStop` either. A subagent finishing is not a change of the
-    /// session the user is watching — the Task tool's own `PostToolUse` already
-    /// reports it — and mapping it to `working` reopened a turn that `Stop` had
-    /// just closed.
+    /// Sub-agent hooks carry their own identity below the root session, so their
+    /// completion updates the child rather than reopening the root turn.
     private static let claudeCodeLifecycle: [LifecycleEvent] = [
         LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
         LifecycleEvent(
@@ -407,8 +411,31 @@ public struct HookSnippetGenerator: Sendable {
         LifecycleEvent(event: "Notification", state: "waitingForUser", detail: "Needs attention"),
         LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
         LifecycleEvent(event: "SessionEnd", state: "idle", detail: "Session ended"),
+        LifecycleEvent(
+            event: "SubagentStart",
+            state: "working",
+            detail: "Sub-agent started",
+            carriesSubagentIdentity: true
+        ),
+        LifecycleEvent(
+            event: "SubagentStop",
+            state: "completed",
+            detail: "Sub-agent completed",
+            carriesSubagentIdentity: true
+        ),
     ]
 
+    /// The Codex hook events NotchFlow subscribes to, in `hooks.json`.
+    ///
+    /// Mirrors the Claude Code set event for event where Codex offers an
+    /// equivalent, so a semantic milestone — prompt, tool, turn, session end —
+    /// reads the same on the island whichever agent produced it. Codex has no
+    /// `Notification` event, so `PermissionRequest` alone covers "needs the
+    /// user". `SessionEnd` fires when Codex closes normally, when the
+    /// conversation is archived or deleted while open, or after it has been
+    /// idle and unopened for thirty minutes — the last two can arrive long
+    /// after `Stop`, which is exactly why the mapping is `idle`: the envelope
+    /// ends the presentation outright rather than restarting a dismiss timer.
     static let codexLifecycleEvents: [LifecycleEvent] = [
         LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
         LifecycleEvent(
@@ -424,6 +451,7 @@ public struct HookSnippetGenerator: Sendable {
             detail: "Needs attention"
         ),
         LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
+        LifecycleEvent(event: "SessionEnd", state: "idle", detail: "Session ended"),
     ]
 
     /// A Python string literal for `value`, produced by the JSON encoder because

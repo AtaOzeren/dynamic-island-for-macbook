@@ -37,6 +37,7 @@ public struct AIAgentActivity: Activity, Equatable {
     /// The sub-agent's own name, for the list under its instance. `nil` for a
     /// top-level session, which is named after its agent instead.
     public let sessionName: String?
+    public let workspace: String?
     public let state: AIAgentState
     /// The short, human-readable line the expanded view shows, straight from
     /// the envelope's `detail` field.
@@ -55,6 +56,7 @@ public struct AIAgentActivity: Activity, Equatable {
         sessionID: UUID,
         rootSessionID: UUID? = nil,
         sessionName: String? = nil,
+        workspace: String? = nil,
         state: AIAgentState,
         detail: String,
         toolName: String? = nil,
@@ -64,6 +66,7 @@ public struct AIAgentActivity: Activity, Equatable {
         self.sessionID = sessionID
         self.rootSessionID = rootSessionID ?? sessionID
         self.sessionName = sessionName
+        self.workspace = workspace
         self.state = state
         self.detail = detail
         self.toolName = state == .usingTool ? toolName : nil
@@ -79,6 +82,7 @@ public struct AIAgentActivity: Activity, Equatable {
             sessionID: message.sessionId,
             rootSessionID: message.rootSessionId,
             sessionName: message.sessionName,
+            workspace: message.workspace,
             state: message.state,
             detail: message.detail,
             toolName: message.toolName,
