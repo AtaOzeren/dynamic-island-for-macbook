@@ -637,24 +637,6 @@
         }
       }
     },
-    "Hide agent sessions": {
-      "comment": "Expanded AI agent group: VoiceOver label for collapsing the running-session list.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hide agent sessions"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajan oturumlarını gizle"
-          }
-        }
-      }
-    },
     "Idle": {
       "comment": "AI agent status: registered, but with no active task.",
       "extractionState": "manual",
@@ -1339,24 +1321,6 @@
         }
       }
     },
-    "Show agent sessions": {
-      "comment": "Expanded AI agent group: VoiceOver label for revealing the running-session list.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Show agent sessions"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ajan oturumlarını göster"
-          }
-        }
-      }
-    },
     "Show %@ status in the notch": {
       "comment": "Onboarding step 3: opts an agent into notch status. Placeholder is the agent name.",
       "extractionState": "manual",
@@ -1893,6 +1857,132 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld."
+          }
+        }
+      }
+    },
+    "activity.ai.sessionName": {
+      "comment": "Expanded AI agent card title when the same agent has more than one session running: the agent name, then its session number. Placeholders are the agent name and the session number. Named rather than keyed on its English because a placeholder-only key has no valid Swift symbol.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld"
+          }
+        }
+      }
+    },
+    "activity.ai.sessionCountOverflow": {
+      "comment": "Compact pill session-count badge when more sessions are running than the badge can spell out. Named rather than keyed on its English because a key starting with a digit has no valid Swift symbol.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9+"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9+"
+          }
+        }
+      }
+    },
+    "%lld sessions": {
+      "comment": "VoiceOver suffix for an AI agent slot standing in for several concurrent instances of that agent. Only ever spoken for two or more.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessions"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld oturum"
+          }
+        }
+      }
+    },
+    "%lld agents": {
+      "comment": "Expanded AI agent card: the control that opens the list of sub-agents this instance spawned, labelled with how many there are.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld agents"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld ajan"
+          }
+        }
+      }
+    },
+    "Show sub-agents": {
+      "comment": "Expanded AI agent card: VoiceOver label for revealing the sub-agent list.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show sub-agents"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alt ajanları göster"
+          }
+        }
+      }
+    },
+    "Hide sub-agents": {
+      "comment": "Expanded AI agent card: VoiceOver label for collapsing the sub-agent list.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide sub-agents"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alt ajanları gizle"
+          }
+        }
+      }
+    },
+    "activity.ai.subagentFallbackName": {
+      "comment": "Sub-agent row name when the agent sent none: the word agent and its position in the list. Placeholder is the position. Named rather than keyed on its English so the number stays a placeholder.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent %lld"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajan %lld"
           }
         }
       }

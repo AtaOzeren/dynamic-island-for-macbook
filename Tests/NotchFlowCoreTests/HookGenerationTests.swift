@@ -139,7 +139,7 @@ struct HookGenerationTests {
         let plugin = HookSnippetGenerator().openCodePluginFile()
 
         #expect(plugin.contains(#"import type { Plugin } from "@opencode-ai/plugin""#))
-        #expect(plugin.contains(#"spawn("open", ["-g", url]"#))
+        #expect(plugin.contains(#"spawn("open", ["-g", statusURL(body)]"#))
         #expect(plugin.contains(#"agentId: "opencode""#))
         #expect(plugin.contains(#"encodeURIComponent(body)"#))
         #expect(plugin.contains("/ai-status"))
@@ -150,6 +150,49 @@ struct HookGenerationTests {
         #expect(plugin.contains(#""session.error""#))
         #expect(plugin.contains(#""chat.message": async"#))
         #expect(plugin.contains(#""permission.asked""#))
+    }
+
+    /// Quitting opencode is neither the end of a turn nor the deletion of a
+    /// session, so nothing else reports it: the last state sat on the island for
+    /// its whole silence timeout while the process behind it was gone. Saying so
+    /// on the way out is the only message that can.
+    @Test("the OpenCode plugin ends its sessions when the process exits")
+    func openCodePluginSaysGoodbyeOnExit() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+
+        #expect(plugin.contains(#"process.on("exit", sayGoodbye)"#))
+        #expect(plugin.contains(#"spawnSync("open""#), "an exit handler cannot await a fetch")
+        #expect(plugin.contains(#"envelope("idle""#))
+    }
+
+    /// Registering a SIGINT or SIGTERM listener suppresses Node's default
+    /// termination. An agent that no longer quits on Ctrl-C is a far worse
+    /// defect than a card that lingers, and the silence timeout already covers
+    /// the signals this handler skips.
+    @Test("the OpenCode plugin never intercepts termination signals")
+    func openCodePluginLeavesSignalsAlone() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+
+        // Matched as a registration rather than as a word: the plugin's own
+        // comment names the signals to explain why it leaves them alone.
+        for registration in [#"process.on("SIG"#, #"process.once("SIG"#, #"process.addListener("SIG"#] {
+            #expect(
+                !plugin.contains(registration),
+                "\(registration) would break quitting opencode"
+            )
+        }
+        #expect(!plugin.contains("process.exit("))
+    }
+
+    /// The farewell is bounded: a synchronous `open` per session is a cost the
+    /// user feels on the way out, and the island ends an instance's sub-agents
+    /// with it, so only the roots need saying.
+    @Test("the OpenCode plugin bounds how many farewells it sends")
+    func openCodePluginBoundsItsFarewells() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+
+        #expect(plugin.contains("MAX_FAREWELLS"))
+        #expect(plugin.contains("liveRoots"))
     }
 
     /// The event JSON reaches Python on stdin, never as a shell word.
@@ -266,8 +309,19 @@ struct HookGenerationTests {
         #expect(hooks["UserPromptSubmit"] != nil, "the real start must still be covered")
         #expect(hooks["SessionEnd"] != nil, "a session ending must still clear a stale card")
 
+        // The OpenCode plugin does watch `session.created`, but only to learn
+        // which session is a sub-agent of which — the branch records parentage
+        // and sends nothing. A `notify` call there would be the same defect in
+        // the other agent's clothing.
         let plugin = HookSnippetGenerator().openCodePluginFile()
-        #expect(!plugin.contains(#"case "session.created""#))
+        let sessionCreated = try #require(
+            plugin.range(of: #"case "session.created":"#).map { plugin[$0.upperBound...] }
+        )
+        let branch = sessionCreated.prefix(while: { $0 != ";" })
+            .prefix(while: { _ in true })
+        let untilBreak = branch.range(of: "break").map { branch[..<$0.lowerBound] } ?? branch
+        #expect(!untilBreak.contains("notify("), "opening a session must send no state")
+        #expect(untilBreak.contains("remember("), "opening a session must record its parent")
         #expect(plugin.contains(#""chat.message": async"#))
     }
 

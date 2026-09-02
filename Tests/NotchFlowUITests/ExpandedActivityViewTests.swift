@@ -159,40 +159,35 @@ struct ExpandedActivityViewTests {
         #expect(widened.rowSpacing != widened.columnSpacing)
     }
 
-    // MARK: - Growing with a disclosed group
+    // MARK: - One card per agent session
 
-    /// Opening a group's sessions makes the panel taller.
+    /// Two sessions of the same agent are two cards, not one card standing in
+    /// for both.
     ///
-    /// The island's surface is sized from this same function, so a disclosure it
-    /// did not account for was a disclosure drawn past the bottom of the island
-    /// and onto the desktop.
-    @Test("the panel grows when a group is disclosed")
-    func panelGrowsWithDisclosure() {
-        let sessions = [
-            Self.agent(.claudeCode, state: .usingTool),
-            Self.agent(.claudeCode, state: .working),
-            Self.agent(.claudeCode, state: .thinking),
-        ]
-
-        let collapsed = expandedPanelSize(for: sessions)
-        let disclosed = expandedPanelSize(for: sessions, disclosedAgentIDs: [.claudeCode])
-
-        #expect(disclosed.height > collapsed.height)
-        #expect(
-            disclosed.height - collapsed.height
-                == aiAgentGroupDisclosureHeight(sessionCount: sessions.count, isDisclosed: true)
+    /// The grouped form this replaced showed a single row per agent with the
+    /// other sessions folded behind a disclosure, so a second session asking a
+    /// question was invisible until the user thought to open it.
+    @Test("each concurrent session gets its own card")
+    func eachSessionGetsItsOwnCard() {
+        let one = expandedPanelSize(for: [Self.agent(.claudeCode, state: .usingTool)])
+        let two = expandedPanelSize(
+            for: [
+                Self.agent(.claudeCode, state: .usingTool),
+                Self.agent(.claudeCode, state: .working),
+            ]
         )
+
+        #expect(two.height > one.height)
     }
 
-    /// Every extra session adds a row, so the panel keeps up as an agent opens
-    /// more of them.
-    @Test("each disclosed session adds its own row height")
-    func eachDisclosedSessionAddsARow() {
+    /// Every extra session costs exactly one card, whichever agent it belongs to.
+    @Test("panel height grows by one card per session")
+    func panelGrowsOneCardPerSession() {
         func height(sessionCount: Int) -> CGFloat {
             let sessions = (0..<sessionCount).map { _ in
                 Self.agent(.claudeCode, state: .usingTool)
             }
-            return expandedPanelSize(for: sessions, disclosedAgentIDs: [.claudeCode]).height
+            return expandedPanelSize(for: sessions).height
         }
 
         let two = height(sessionCount: 2)
@@ -203,25 +198,43 @@ struct ExpandedActivityViewTests {
         #expect(three > two)
     }
 
-    /// Disclosing one agent must not resize another's row.
-    @Test("disclosure only grows the agent that was opened")
-    func disclosureIsPerAgent() {
-        let activities: [any Activity] = [
-            Self.agent(.claudeCode, state: .usingTool),
-            Self.agent(.claudeCode, state: .working),
-            Self.agent(.opencode, state: .usingTool),
-            Self.agent(.opencode, state: .working),
-        ]
-
-        let none = expandedPanelSize(for: activities)
-        let claudeOnly = expandedPanelSize(for: activities, disclosedAgentIDs: [.claudeCode])
-        let both = expandedPanelSize(
-            for: activities,
-            disclosedAgentIDs: [.claudeCode, .opencode]
+    /// Sessions of different agents cost the same as sessions of one agent:
+    /// nothing about the panel's height depends on grouping any more.
+    @Test("mixed agents cost the same as repeated ones")
+    func mixedAgentsCostTheSame() {
+        let sameAgent = expandedPanelSize(
+            for: [
+                Self.agent(.claudeCode, state: .usingTool),
+                Self.agent(.claudeCode, state: .working),
+            ]
+        )
+        let differentAgents = expandedPanelSize(
+            for: [
+                Self.agent(.claudeCode, state: .usingTool),
+                Self.agent(.opencode, state: .working),
+            ]
         )
 
-        #expect(claudeOnly.height > none.height)
-        #expect(both.height - claudeOnly.height == claudeOnly.height - none.height)
+        #expect(sameAgent.height == differentAgents.height)
+    }
+
+    /// The height model must report what the card actually draws.
+    ///
+    /// It reported `rowHeight` while the grouped form intercepted every agent
+    /// activity, so the number was never exercised. Rendering sessions directly
+    /// made it live, and a card sized shorter than it draws is a card clipped
+    /// against the bottom of the island.
+    @Test("an agent card is measured at its drawn height")
+    func agentCardIsMeasuredAtItsDrawnHeight() {
+        let metrics = ExpandedItemMetrics.default
+        let session = Self.agent(.claudeCode, state: .usingTool)
+        let panel = expandedPanelSize(for: [session])
+
+        #expect(
+            panel.height
+                == aiAgentExpandedSize(hasProgress: false, metrics: metrics.aiAgent).height
+                + metrics.panel.contentInset * 2
+        )
     }
 
     private static func agent(_ id: IPCAgentID, state: AIAgentState) -> AIAgentActivity {

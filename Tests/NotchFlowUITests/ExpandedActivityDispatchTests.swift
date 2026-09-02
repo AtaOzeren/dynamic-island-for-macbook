@@ -113,15 +113,27 @@ struct ExpandedActivityDispatchTests {
                 == timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).height
         )
 
+        // The agent card is a glyph-height card, not a text row. It was measured
+        // at `rowHeight` while a grouped view intercepted every agent activity
+        // and this number went unused; drawing sessions as their own cards made
+        // the shortfall visible as clipping at the bottom of the island.
         let agentHeight = expandedItemHeight(for: Self.aiAgent(), metrics: metrics, panelMetrics: panelMetrics)
-        #expect(agentHeight == metrics.panel.rowHeight)
+        #expect(
+            agentHeight
+                == aiAgentExpandedSize(
+                    hasProgress: false,
+                    metrics: metrics.aiAgent,
+                    panelMetrics: panelMetrics
+                ).height
+        )
+        #expect(agentHeight > metrics.panel.rowHeight)
 
         let agentWithProgress = expandedItemHeight(
             for: Self.aiAgent(progress: 0.5),
             metrics: metrics,
             panelMetrics: panelMetrics
         )
-        #expect(agentWithProgress == agentHeight)
+        #expect(agentWithProgress > agentHeight, "the progress bar is drawn but not measured")
 
         #expect(
             expandedItemHeight(for: Self.charging(), metrics: metrics, panelMetrics: panelMetrics)
@@ -205,10 +217,11 @@ struct ExpandedActivityDispatchTests {
         // the viewport, and a fixed count silently stops overflowing the day
         // the panel's maximum height changes.
         let metrics = ExpandedItemMetrics.default
-        let rowsToOverflow = Int(
-            ((panelMetrics.maximumExpandedSize.height - notchHeight)
-                / (metrics.panel.rowHeight + metrics.panel.rowSpacing)).rounded(.up)
-        ) + 1
+        let rowsToOverflow =
+            Int(
+                ((panelMetrics.maximumExpandedSize.height - notchHeight)
+                    / (metrics.panel.rowHeight + metrics.panel.rowSpacing)).rounded(.up)
+            ) + 1
         let activities: [any Activity] = (0..<rowsToOverflow).map {
             SizedStubActivity(identity: ActivityIdentity("generic.\($0)"))
         }

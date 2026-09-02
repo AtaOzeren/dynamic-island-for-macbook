@@ -337,7 +337,6 @@ struct ActivityManagerTests {
         #expect(secondCount == 2)
     }
 
-
     // MARK: - Media and capture stay on top
 
     /// The reported wish, end to end: the track the user is listening to sits
@@ -417,6 +416,193 @@ struct ActivityManagerTests {
         let shown = manager.activeActivities.compactMap { $0 as? AIAgentActivity }
         #expect(shown.count == 1, "the turn was added beside the tick instead of replacing it")
         #expect(shown.first?.state == .thinking, "the tick outlived the turn that replaced it")
+    }
+
+    // MARK: - Counting the sessions behind one compact icon
+
+    /// One icon stands for every session of an agent, so the presentation has to
+    /// say how many are behind it — otherwise the pill cannot tell one terminal
+    /// apart from three.
+    @Test("reports how many sessions each agent icon stands for")
+    @MainActor
+    func compactPresentationCountsGroupedSessions() {
+        let manager = ActivityManager()
+        let opencode = aiAgent(agent: .opencode, sessionID: UUID())
+        manager.register(opencode)
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()))
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()))
+        let codex = aiAgent(agent: .codex, sessionID: UUID())
+        manager.register(codex)
+
+        let presentation = manager.compactPresentation
+
+        #expect(presentation.groupSizes[opencode.compactGroupIdentity] == 3)
+        #expect(presentation.groupSizes[codex.compactGroupIdentity] == 1)
+    }
+
+    /// An ungrouped kind is its own group of one, so a caller can look up any
+    /// drawn activity without special-casing the AI slot.
+    @Test("an ungrouped activity counts as a group of one")
+    @MainActor
+    func compactPresentationCountsUngroupedActivitiesAsOne() {
+        let manager = ActivityManager()
+        let timer = StubManagerActivity(
+            identity: ActivityIdentity("timer"),
+            kind: .timer,
+            priority: .normal
+        )
+        manager.register(timer)
+
+        #expect(manager.compactPresentation.groupSizes[timer.compactGroupIdentity] == 1)
+    }
+
+    /// Ending one session decrements the count rather than leaving a stale
+    /// number on the badge.
+    @Test("the count follows sessions ending")
+    @MainActor
+    func compactGroupCountFollowsSessionsEnding() {
+        let manager = ActivityManager()
+        let first = aiAgent(agent: .opencode, sessionID: UUID())
+        let second = aiAgent(agent: .opencode, sessionID: UUID())
+        manager.register(first)
+        manager.register(second)
+        manager.end(second.identity)
+
+        #expect(manager.compactPresentation.groupSizes[first.compactGroupIdentity] == 1)
+    }
+
+    // MARK: - Which agents survive the compact capacity
+
+    /// The reported defect: three agents running, and the one that stopped to
+    /// ask a question is the one the pill drops.
+    ///
+    /// Capacity used to be decided on start time alone, so the agent needing the
+    /// user was pushed out simply for having started first — the island then
+    /// showed two agents working and no sign that a third was blocked.
+    @Test("an agent waiting on the user is never dropped for a newer one")
+    @MainActor
+    func compactCapacityKeepsTheAgentNeedingTheUser() {
+        let manager = ActivityManager()
+        let waiting = aiAgent(agent: .claudeCode, sessionID: UUID(), state: .waitingForUser)
+        manager.register(waiting, at: date(0))
+        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(20))
+
+        let drawn = manager.compactPresentation.activities
+            .compactMap { ($0 as? AIAgentActivity)?.agent }
+
+        #expect(drawn.count == 2)
+        #expect(drawn.contains(.claudeCode), "the agent waiting on the user was dropped")
+    }
+
+    /// A failure outranks work in flight for the same reason a question does.
+    @Test("a failed agent is never dropped for a newer working one")
+    @MainActor
+    func compactCapacityKeepsTheFailedAgent() {
+        let manager = ActivityManager()
+        manager.register(
+            aiAgent(agent: .claudeCode, sessionID: UUID(), state: .error),
+            at: date(0)
+        )
+        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(20))
+
+        let drawn = manager.compactPresentation.activities
+            .compactMap { ($0 as? AIAgentActivity)?.agent }
+
+        #expect(drawn.contains(.claudeCode))
+    }
+
+    /// With nothing to separate them on urgency, recency still decides — the
+    /// behaviour the urgency rule refines rather than replaces.
+    @Test("equally urgent agents fall back to the most recent two")
+    @MainActor
+    func compactCapacityFallsBackToRecency() {
+        let manager = ActivityManager()
+        manager.register(aiAgent(agent: .claudeCode, sessionID: UUID()), at: date(0))
+        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(20))
+
+        let drawn = manager.compactPresentation.activities
+            .compactMap { ($0 as? AIAgentActivity)?.agent }
+
+        #expect(drawn == [.codex, .opencode])
+    }
+
+    /// The reported defect: one terminal delegating to four sub-agents badged
+    /// the icon "5".
+    ///
+    /// A sub-agent is a session the agent started, not one the user did.
+    /// Counting it makes the badge report how busy an agent is rather than how
+    /// many of it are running, which is not what the number is for.
+    @Test("sub-agents do not inflate the instance count")
+    @MainActor
+    func subagentsDoNotInflateTheCount() {
+        let manager = ActivityManager()
+        let root = UUID()
+        let instance = aiAgent(agent: .opencode, sessionID: root)
+        manager.register(instance)
+        for _ in 0..<4 {
+            manager.register(
+                AIAgentActivity(
+                    agent: .opencode,
+                    sessionID: UUID(),
+                    rootSessionID: root,
+                    sessionName: "explore",
+                    state: .usingTool,
+                    detail: "Delegated"
+                )
+            )
+        }
+
+        let presentation = manager.compactPresentation
+
+        #expect(presentation.groupSizes[instance.compactGroupIdentity] == 1)
+        #expect(manager.activeActivities.count == 5, "every session is still tracked")
+    }
+
+    /// Two terminals are two instances however many sub-agents each fans out to.
+    @Test("counts one instance per top-level session")
+    @MainActor
+    func countsOneInstancePerTopLevelSession() {
+        let manager = ActivityManager()
+        let first = UUID()
+        let second = UUID()
+        let instance = aiAgent(agent: .opencode, sessionID: first)
+        manager.register(instance)
+        manager.register(
+            AIAgentActivity(
+                agent: .opencode,
+                sessionID: UUID(),
+                rootSessionID: first,
+                sessionName: "explore",
+                state: .working,
+                detail: "Delegated"
+            )
+        )
+        manager.register(aiAgent(agent: .opencode, sessionID: second))
+
+        #expect(manager.compactPresentation.groupSizes[instance.compactGroupIdentity] == 2)
+    }
+
+    /// A group is judged on its most urgent session, not on whichever one
+    /// happens to have registered last.
+    @Test("a group is admitted on its most urgent session")
+    @MainActor
+    func compactCapacityJudgesAGroupOnItsMostUrgentSession() {
+        let manager = ActivityManager()
+        manager.register(aiAgent(agent: .claudeCode, sessionID: UUID()), at: date(0))
+        manager.register(
+            aiAgent(agent: .claudeCode, sessionID: UUID(), state: .waitingForUser),
+            at: date(1)
+        )
+        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
+        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(20))
+
+        let drawn = manager.compactPresentation.activities
+            .compactMap { ($0 as? AIAgentActivity)?.agent }
+
+        #expect(drawn.contains(.claudeCode))
     }
 }
 

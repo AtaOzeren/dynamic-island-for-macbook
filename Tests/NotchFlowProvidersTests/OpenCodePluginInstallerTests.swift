@@ -26,7 +26,7 @@ struct OpenCodePluginInstallerTests {
         #expect(fileSystem.text(at: Self.pluginURL) == proposal)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(proposal.contains("export const NotchFlowPlugin: Plugin"))
-        #expect(proposal.contains(#"spawn("open", ["-g", url]"#))
+        #expect(proposal.contains(#"spawn("open", ["-g", statusURL(body)]"#))
     }
 
     @Test("install and uninstall preserve unrelated plugin files")

@@ -72,16 +72,117 @@ struct AIAgentActivityTests {
     /// mid-task and no `Stop` and no `SessionEnd` ever arrive, so without a
     /// bound the card on screen at that moment stays for the rest of the
     /// session. Every state that can be left behind carries one.
-    @Test("every live state is bounded by the silence timeout")
+    @Test("every live state is bounded by a silence timeout")
     func liveStatesAreBoundedBySilence() {
         for state in AIAgentState.allCases where state != .completed && state != .idle {
-            let descriptor = Self.activity(state: state).autoDismiss
+            #expect(Self.activity(state: state).autoDismiss != nil, "\(state) is unbounded")
+        }
+    }
 
+    /// A state that claims work is in flight is contradicted by silence, while
+    /// sitting still is what the resting states mean. The bounds differ for that
+    /// reason, and the working one has to be the shorter of the two.
+    ///
+    /// The defect: closing an OpenCode window is neither the end of a turn nor
+    /// the deletion of a session, so nothing was sent and the last `working` sat
+    /// on screen for the full half hour after the process was gone.
+    @Test("a working state gives up on silence sooner than a resting one")
+    func workingStatesExpireSoonerThanRestingOnes() {
+        for state in [AIAgentState.thinking, .working, .usingTool] {
             #expect(
-                descriptor == AutoDismissDescriptor(after: AIAgentActivity.silenceTimeout),
-                "\(state) is unbounded"
+                Self.activity(state: state).autoDismiss
+                    == AutoDismissDescriptor(after: AIAgentActivity.workingSilenceTimeout),
+                "\(state) claims work in flight and must not wait out the resting bound"
             )
         }
+
+        for state in [AIAgentState.waitingForUser, .error] {
+            #expect(
+                Self.activity(state: state).autoDismiss
+                    == AutoDismissDescriptor(after: AIAgentActivity.silenceTimeout),
+                "\(state) is a resting state and must not be cut short"
+            )
+        }
+
+        #expect(AIAgentActivity.workingSilenceTimeout < AIAgentActivity.silenceTimeout)
+    }
+
+    /// A single tool call is silent from start to finish, so the working bound
+    /// has to outlast a build or a test suite by a wide margin — cutting a card
+    /// mid-run would make the island flicker exactly when it is most useful.
+    @Test("the working bound still outlasts a long tool call")
+    func workingBoundOutlastsALongToolCall() {
+        #expect(AIAgentActivity.workingSilenceTimeout >= .seconds(5 * 60))
+    }
+
+    // MARK: - Ending an instance ends its sub-agents
+
+    /// Nothing will ever report a sub-agent's end once its instance is gone: the
+    /// agent that would have sent the message is the thing that exited.
+    @Test("ending a root ends the sub-agents under it")
+    func endingARootEndsItsSubagents() {
+        let root = UUID()
+        let instance = Self.activity(agent: .opencode, sessionID: root)
+        let first = Self.subagent(root: root)
+        let second = Self.subagent(root: root)
+        let otherInstance = Self.activity(agent: .opencode, sessionID: UUID())
+        let otherSubagent = Self.subagent(root: otherInstance.sessionID)
+
+        let dependents = AIAgentActivity.dependents(
+            endingWith: instance,
+            in: [instance, first, second, otherInstance, otherSubagent]
+        )
+
+        #expect(Set(dependents.map(\.sessionID)) == [first.sessionID, second.sessionID])
+    }
+
+    /// One delegated task finishing says nothing about its siblings or about the
+    /// instance that spawned it.
+    @Test("a sub-agent ending takes nothing with it")
+    func subagentEndingTakesNothingWithIt() {
+        let root = UUID()
+        let instance = Self.activity(agent: .opencode, sessionID: root)
+        let first = Self.subagent(root: root)
+        let second = Self.subagent(root: root)
+
+        #expect(
+            AIAgentActivity.dependents(
+                endingWith: first,
+                in: [instance, first, second]
+            ).isEmpty
+        )
+    }
+
+    /// Two agents can each have an instance whose root identifier collides only
+    /// by coincidence; neither may reap the other's sessions.
+    @Test("sub-agents of another agent are left alone")
+    func subagentsOfAnotherAgentAreLeftAlone() {
+        let root = UUID()
+        let instance = Self.activity(agent: .opencode, sessionID: root)
+        let foreign = AIAgentActivity(
+            agent: .claudeCode,
+            sessionID: UUID(),
+            rootSessionID: root,
+            sessionName: "explore",
+            state: .working,
+            detail: "Delegated"
+        )
+
+        #expect(AIAgentActivity.dependents(endingWith: instance, in: [instance, foreign]).isEmpty)
+    }
+
+    private static func subagent(
+        root: UUID,
+        state: AIAgentState = .working
+    ) -> AIAgentActivity {
+        AIAgentActivity(
+            agent: .opencode,
+            sessionID: UUID(),
+            rootSessionID: root,
+            sessionName: "explore",
+            state: state,
+            detail: "Delegated"
+        )
     }
 
     /// `idle` ends the activity outright rather than lingering, which is what

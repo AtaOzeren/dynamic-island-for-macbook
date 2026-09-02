@@ -24,25 +24,26 @@ struct CompositionRootWiringTests {
         )
     }
 
-    /// The island's black surface and the rows drawn on it must be sized from
-    /// the same disclosure set.
+    /// The expanded panel must be handed the registration times that number an
+    /// agent's concurrent sessions.
     ///
-    /// While `ExpandedActivityView` owned that set privately, the surface was
-    /// sized for collapsed groups: opening one drew its sessions past the bottom
-    /// of the island and onto the desktop. The size function always accepted the
-    /// set — nothing was passing it — so only the wiring can catch this.
-    @Test("the island surface is sized from the same disclosure the rows use")
-    func islandSurfaceFollowsDisclosure() throws {
-        let source = try Self.appSource("NotchFlow/IslandPresenter.swift")
+    /// The numbering function defaults to an empty table, so a presenter that
+    /// never publishes the times still compiles and still draws — it just draws
+    /// two cards both called "OpenCode", which is the thing the numbers exist to
+    /// prevent. Only the wiring can catch that.
+    @Test("the expanded panel is handed the session registration times")
+    func expandedPanelReceivesRegistrationTimes() throws {
+        for presenter in ["NotchFlow/IslandPresenter.swift", "NotchFlow/SecondaryIslandPresentation.swift"] {
+            let source = try Self.appSource(presenter)
+            #expect(
+                source.contains("model.registrationTimes = manager.registrationTimes"),
+                "\(presenter) never refreshes the registration times"
+            )
+        }
 
-        // One owner for the set, read by the surface and bound into the rows.
-        #expect(source.contains("@Published var disclosedAgentIDs"))
-        #expect(source.contains("disclosedAgentIDs: model.disclosedAgentIDs"))
-        #expect(source.contains("disclosedAgentIDs: $model.disclosedAgentIDs"))
-
-        // Hit testing has to agree, or the pointer leaves the island the moment
-        // it moves onto a disclosed row.
-        #expect(source.contains("disclosedAgentIDs: { [model] in model.disclosedAgentIDs }"))
+        let primary = try Self.appSource("NotchFlow/IslandPresenter.swift")
+        #expect(primary.contains("@Published var registrationTimes"))
+        #expect(primary.contains("registrationTimes: model.registrationTimes"))
     }
 
     /// The pill's icons, the black bar behind them, and the hover target must
@@ -279,5 +280,25 @@ struct CompositionRootWiringTests {
         #expect(!source.contains("asyncAfter"))
         #expect(!source.contains("repeats: true"))
         #expect(!source.contains("Timer.scheduledTimer"))
+    }
+
+    /// Ending an instance has to reap its sub-agents at the delivery site.
+    ///
+    /// `AIAgentActivity.dependents(endingWith:in:)` is unit-tested, but it is a
+    /// pure function: nothing fails if the sink never calls it, and the symptom
+    /// is a card the user cannot dismiss rather than a broken build.
+    @Test("ending an agent session reaps the sub-agents under it")
+    func endingASessionReapsItsSubagents() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(source.contains("AIAgentActivity.dependents("))
+        #expect(
+            source.contains("endingWith: activity"),
+            "the sink never asks which sessions end with this one"
+        )
+        #expect(
+            source.contains("sessionLedger.forget(dependent.sessionID)"),
+            "a reaped sub-agent left in the ledger is judged against a dead timeline"
+        )
     }
 }

@@ -163,4 +163,89 @@ struct IPCMessageTests {
         }
         return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
     }
+
+    // MARK: - Sub-agent parentage
+
+    /// The envelope has to carry which session a sub-agent belongs to, or the
+    /// island counts every delegated session as another agent running.
+    @Test("accepts a sub-agent naming its root session")
+    func acceptsRootSessionId() throws {
+        let root = UUID()
+        let session = UUID()
+        let message = try IPCMessageValidator().decode(
+            Data(
+                """
+                {"schemaVersion":"1.0","agentId":"opencode","sessionId":"\(session.uuidString)",\
+                "rootSessionId":"\(root.uuidString)","sessionName":"explore","state":"usingTool",\
+                "detail":"Delegated","timestamp":"2026-09-02T10:00:00.000Z"}
+                """.utf8)
+        )
+
+        #expect(message.rootSessionId == root)
+        #expect(message.sessionName == "explore")
+    }
+
+    /// The two fields were added after 1.0 shipped. An older hook omits them and
+    /// must keep working exactly as before.
+    @Test("an envelope without the sub-agent fields is still a root session")
+    func envelopeWithoutRootSessionIsARoot() throws {
+        let message = try IPCMessageValidator().decode(
+            Data(
+                """
+                {"schemaVersion":"1.0","agentId":"opencode","sessionId":"\(UUID().uuidString)",\
+                "state":"working","detail":"Working","timestamp":"2026-09-02T10:00:00.000Z"}
+                """.utf8)
+        )
+
+        #expect(message.rootSessionId == nil)
+        #expect(message.sessionName == nil)
+    }
+
+    /// A session naming itself as its parent is a root written the long way, and
+    /// must not read as a sub-agent of itself.
+    @Test("a session that is its own root carries no parent")
+    func selfParentedSessionIsARoot() throws {
+        let session = UUID()
+        let message = try IPCMessageValidator().decode(
+            Data(
+                """
+                {"schemaVersion":"1.0","agentId":"opencode","sessionId":"\(session.uuidString)",\
+                "rootSessionId":"\(session.uuidString)","state":"working","detail":"Working",\
+                "timestamp":"2026-09-02T10:00:00.000Z"}
+                """.utf8)
+        )
+
+        #expect(message.rootSessionId == nil)
+        #expect(AIAgentActivity(message: message).isSubagent == false)
+    }
+
+    @Test("rejects a root session that is not a UUID")
+    func rejectsMalformedRootSessionId() {
+        #expect(throws: IPCMessageValidationError.invalidSessionId("not-a-uuid")) {
+            try IPCMessageValidator().decode(
+                Data(
+                    """
+                    {"schemaVersion":"1.0","agentId":"opencode","sessionId":"\(UUID().uuidString)",\
+                    "rootSessionId":"not-a-uuid","state":"working","detail":"Working",\
+                    "timestamp":"2026-09-02T10:00:00.000Z"}
+                    """.utf8)
+            )
+        }
+    }
+
+    /// A sub-agent name reaches the screen, so it goes through the same guard
+    /// every other display string does.
+    @Test("rejects a sub-agent name carrying shell metacharacters")
+    func rejectsUnsafeSessionName() {
+        #expect(throws: IPCMessageValidationError.unsafeString(field: "sessionName")) {
+            try IPCMessageValidator().decode(
+                Data(
+                    """
+                    {"schemaVersion":"1.0","agentId":"opencode","sessionId":"\(UUID().uuidString)",\
+                    "sessionName":"rm -rf $HOME","state":"working","detail":"Working",\
+                    "timestamp":"2026-09-02T10:00:00.000Z"}
+                    """.utf8)
+            )
+        }
+    }
 }

@@ -107,20 +107,26 @@ public final class PresentationController {
     /// here to keep its content in step.
     public var onSynchronize: (() -> Void)?
 
-    /// Which agent groups are open, read at hit-test time.
+    /// Which agent instances have their sub-agent list open, read at hit-test
+    /// time.
     ///
     /// A closure rather than a stored value because the disclosure lives in the
-    /// view model this controller does not own — and an expanded group makes the
+    /// view model this controller does not own — and an open list makes the
     /// island taller, so a hit test that missed it would treat the pointer as
-    /// having left the island the moment it moved onto a disclosed row.
-    private let disclosedAgentIDs: @MainActor () -> Set<IPCAgentID>
+    /// having left the island the moment it moved onto a sub-agent row.
+    private let disclosedInstances: @MainActor () -> Set<ActivityIdentity>
+
+    /// The registration times the panel numbers instances by, read here for the
+    /// same reason: they decide how the sessions fold into cards, and therefore
+    /// how tall the panel is.
+    private let registrationTimes: @MainActor () -> [ActivityIdentity: Date]
 
     /// Music icons whose few seconds on screen have elapsed.
     ///
-    /// Read here for the same reason the disclosure set is: they change how wide
-    /// the pill is drawn, so a hover target that ignored them would keep
-    /// reporting the pointer as over an island that had already shrunk away from
-    /// under it.
+    /// A closure rather than a stored value because they live in the view model
+    /// this controller does not own — and they change how wide the pill is
+    /// drawn, so a hover target that ignored them would keep reporting the
+    /// pointer as over an island that had already shrunk away from under it.
     private let hiddenMusicSlotIDs: @MainActor () -> Set<String>
 
     public init(
@@ -131,7 +137,8 @@ public final class PresentationController {
         motion: IslandMotion = .default,
         reduceMotion: any ReduceMotionQuerying = SystemReduceMotion(),
         screen: @escaping ScreenProvider,
-        disclosedAgentIDs: @escaping @MainActor () -> Set<IPCAgentID> = { [] },
+        disclosedInstances: @escaping @MainActor () -> Set<ActivityIdentity> = { [] },
+        registrationTimes: @escaping @MainActor () -> [ActivityIdentity: Date] = { [:] },
         hiddenMusicSlotIDs: @escaping @MainActor () -> Set<String> = { [] }
     ) {
         self.panel = panel
@@ -141,7 +148,8 @@ public final class PresentationController {
         self.motion = motion
         self.reduceMotion = reduceMotion
         self.screen = screen
-        self.disclosedAgentIDs = disclosedAgentIDs
+        self.disclosedInstances = disclosedInstances
+        self.registrationTimes = registrationTimes
         self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
     }
 
@@ -309,7 +317,8 @@ public final class PresentationController {
         )
         let expandedContentSize = expandedPanelSize(
             for: manager.expandedActivities,
-            disclosedAgentIDs: disclosedAgentIDs(),
+            disclosedInstances: disclosedInstances(),
+            registrationTimes: registrationTimes(),
             panelMetrics: metrics,
             topInset: notchSize.height
         )
