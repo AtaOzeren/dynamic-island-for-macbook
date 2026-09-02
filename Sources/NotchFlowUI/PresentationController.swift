@@ -319,6 +319,7 @@ public final class PresentationController {
             for: manager.expandedActivities,
             disclosedInstances: disclosedInstances(),
             registrationTimes: registrationTimes(),
+            notchSize: notchSize,
             panelMetrics: metrics,
             topInset: notchSize.height
         )

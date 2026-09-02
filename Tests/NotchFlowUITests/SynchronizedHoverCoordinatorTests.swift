@@ -100,6 +100,80 @@ struct SynchronizedHoverCoordinatorTests {
         #expect(changes.isEmpty)
         #expect(coordinator.isExpanded == false)
     }
+
+    // MARK: - The grace period after the pointer leaves
+
+    /// The panel is a target the pointer travels to, and the path from the notch
+    /// to a row crosses the island's own edge. Collapsing the instant the
+    /// pointer slipped off meant a hand that overshot had to start over.
+    @Test("leaving does not collapse the island until the grace period elapses")
+    func leavingHoldsTheIslandOpenBriefly() {
+        let scheduler = FakeHoverExpansionDelayScheduler()
+        let coordinator = SynchronizedHoverCoordinator(scheduler: scheduler)
+        coordinator.updateExpansionAvailability(true)
+        coordinator.setHovered(true, sourceID: "primary")
+        scheduler.fire()
+
+        coordinator.setHovered(false, sourceID: "primary")
+
+        #expect(coordinator.isExpanded, "the island collapsed before its grace period")
+    }
+
+    /// Coming back inside the grace period must be a no-op, not a collapse
+    /// followed by a fresh expansion — that flicker is the thing the delay
+    /// exists to prevent, and reintroducing it here would be worse than having
+    /// no delay at all.
+    @Test("returning within the grace period never closes and reopens the island")
+    func returningWithinTheGracePeriodDoesNotFlicker() {
+        let scheduler = FakeHoverExpansionDelayScheduler()
+        let coordinator = SynchronizedHoverCoordinator(scheduler: scheduler)
+        var changes: [Bool] = []
+        coordinator.onExpansionChange = { changes.append($0) }
+        coordinator.updateExpansionAvailability(true)
+        coordinator.setHovered(true, sourceID: "primary")
+        scheduler.fire()
+
+        coordinator.setHovered(false, sourceID: "primary")
+        coordinator.setHovered(true, sourceID: "primary")
+        // Whatever the pending collapse would have done, it must find the
+        // pointer back inside and leave the island alone.
+        coordinator.resolvePendingCollapse()
+
+        #expect(coordinator.isExpanded)
+        #expect(changes == [true], "the island closed and reopened instead of staying put")
+    }
+
+    /// The grace period is a delay, not a reprieve: a pointer that stays away
+    /// still collapses the island.
+    @Test("staying away collapses the island once the grace period resolves")
+    func stayingAwayStillCollapses() {
+        let scheduler = FakeHoverExpansionDelayScheduler()
+        let coordinator = SynchronizedHoverCoordinator(scheduler: scheduler)
+        coordinator.updateExpansionAvailability(true)
+        coordinator.setHovered(true, sourceID: "primary")
+        scheduler.fire()
+
+        coordinator.setHovered(false, sourceID: "primary")
+        coordinator.resolvePendingCollapse()
+
+        #expect(coordinator.isExpanded == false)
+    }
+
+    /// Losing the last activity is not an overshoot — there is nothing left to
+    /// come back to, so the island closes at once rather than holding an empty
+    /// surface open for half a second.
+    @Test("an emptied island collapses without waiting")
+    func anEmptiedIslandCollapsesAtOnce() {
+        let scheduler = FakeHoverExpansionDelayScheduler()
+        let coordinator = SynchronizedHoverCoordinator(scheduler: scheduler)
+        coordinator.updateExpansionAvailability(true)
+        coordinator.setHovered(true, sourceID: "primary")
+        scheduler.fire()
+
+        coordinator.updateExpansionAvailability(false)
+
+        #expect(coordinator.isExpanded == false)
+    }
 }
 
 @MainActor
