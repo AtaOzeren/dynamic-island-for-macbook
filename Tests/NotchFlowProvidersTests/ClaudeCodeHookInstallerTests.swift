@@ -26,8 +26,11 @@ struct ClaudeCodeHookInstallerTests {
             try jsonObject(from: Data(installed.utf8)) as NSDictionary == jsonObject(from: Data(proposal.utf8))
                 as NSDictionary)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
-        #expect(try hookCommands(in: proposal).count == 1)
-        #expect(try hookCommands(in: proposal).first?.hasSuffix(" &") == true)
+        #expect(try allHookCommands(in: proposal).count == 9)
+        #expect(try allHookCommands(in: proposal).allSatisfy { $0.hasSuffix(" &") })
+        let hooks = try #require(jsonObject(from: Data(proposal.utf8))["hooks"] as? [String: Any])
+        #expect(hooks["SubagentStart"] != nil)
+        #expect(hooks["SubagentStop"] != nil)
     }
 
     @Test("install merges settings and backs up the original bytes")
@@ -143,6 +146,22 @@ struct ClaudeCodeHookInstallerTests {
         #expect(fileSystem.data(at: Self.backupURL) == original)
     }
 
+    /// A backup that no longer parses must stop the restore before the
+    /// settings file is touched — silently skipping past it would leave the
+    /// managed hook installed with no way back to the user's bytes.
+    @Test("uninstall aborts on a corrupt backup without touching settings")
+    func uninstallWithCorruptBackupAborts() throws {
+        let corruptBackup = Data(#"{"hooks": "#.utf8)
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [Self.backupURL: corruptBackup])
+
+        #expect(throws: ClaudeCodeHookInstallerError.invalidExistingSettings) {
+            try Self.makeInstaller(fileSystem: fileSystem).uninstall()
+        }
+        #expect(fileSystem.data(at: Self.backupURL) == corruptBackup)
+        #expect(fileSystem.data(at: Self.settingsURL) == nil)
+        #expect(fileSystem.writeCount == 0)
+    }
+
     @Test("installation state is missing when no settings file exists")
     func installationStateWithoutSettingsFile() {
         let fileSystem = InMemoryClaudeCodeFileSystem()
@@ -208,6 +227,16 @@ struct ClaudeCodeHookInstallerTests {
         }
     }
 
+    private func allHookCommands(in settings: String) throws -> [String] {
+        let root = try jsonObject(from: Data(settings.utf8))
+        let hooks = try #require(root["hooks"] as? [String: Any])
+        return hooks.values.flatMap { event in
+            (event as? [[String: Any]])?.flatMap { group in
+                (group["hooks"] as? [[String: Any]])?.compactMap { $0["command"] as? String } ?? []
+            } ?? []
+        }
+    }
+
     // MARK: - Upgrading from an earlier NotchFlow
 
     /// The upgrade path. Installing over a previous version's hook must replace
@@ -243,6 +272,36 @@ struct ClaudeCodeHookInstallerTests {
         #expect(installed.contains(HookSnippetGenerator.managedHookMarker))
     }
 
+    @Test("install replaces v2 hooks across old events when adding subagent events")
+    func replacesV2HooksForSubagentUpgrade() throws {
+        let oldCommand = #"python3 -c 'print(1)' # notchflow_hook_v2"#
+        let oldGroup: [[String: Any]] = [
+            [
+                "hooks": [["type": "command", "command": oldCommand]]
+            ]
+        ]
+        let oldHooks = Dictionary(
+            uniqueKeysWithValues: [
+                "UserPromptSubmit",
+                "PreToolUse",
+                "PostToolUse",
+                "Notification",
+                "Stop",
+                "SessionEnd",
+            ].map { ($0, oldGroup) }
+        )
+        let oldSettings = try JSONSerialization.data(withJSONObject: ["hooks": oldHooks])
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [Self.settingsURL: oldSettings])
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        let commands = try allHookCommands(in: installed)
+        #expect(commands.count == 9)
+        #expect(commands.allSatisfy { $0.contains(HookSnippetGenerator.managedHookMarker) })
+        #expect(!installed.contains(oldCommand))
+    }
+
     /// `StopFailure` is not an event Claude Code emits; an earlier version
     /// subscribed to it anyway. Nothing else would ever clear a hook under a
     /// name the generator no longer produces.
@@ -251,7 +310,7 @@ struct ClaudeCodeHookInstallerTests {
         let stale = """
             {
               "hooks" : {
-                "StopFailure" : [
+                "PreCompact" : [
                   {
                     "hooks" : [
                       {
@@ -271,7 +330,7 @@ struct ClaudeCodeHookInstallerTests {
         try Self.makeInstaller(fileSystem: fileSystem).install()
 
         let installed = try #require(fileSystem.text(at: Self.settingsURL))
-        #expect(!installed.contains("StopFailure"))
+        #expect(!installed.contains("PreCompact"))
     }
 
     /// A hand-written hook that happens to open a `notchflow://` URL is the
@@ -335,6 +394,49 @@ struct ClaudeCodeHookInstallerTests {
         let installed = try #require(fileSystem.text(at: Self.settingsURL))
         #expect(installed.contains("say done"))
         #expect(installed.contains(HookSnippetGenerator.managedHookMarker))
+    }
+
+    /// The same protection as `installPreservesForeignHooks`, read from the
+    /// other end: without a backup to restore, removal must take exactly the
+    /// hook NotchFlow added and leave the user's own hook on the shared event
+    /// working.
+    @Test("uninstall without a backup keeps the user's hook on a shared event")
+    func uninstallPreservesForeignHooks() throws {
+        let existing = """
+            {
+              "hooks" : {
+                "Stop" : [
+                  {
+                    "hooks" : [
+                      {
+                        "type" : "command",
+                        "command" : "say done"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+            """
+        let installed = InMemoryClaudeCodeFileSystem(
+            files: [Self.settingsURL: Data(existing.utf8)]
+        )
+        try Self.makeInstaller(fileSystem: installed).install()
+        let installedBytes = try #require(installed.data(at: Self.settingsURL))
+
+        let withoutBackup = InMemoryClaudeCodeFileSystem(
+            files: [Self.settingsURL: installedBytes]
+        )
+        try Self.makeInstaller(fileSystem: withoutBackup).uninstall()
+
+        let remaining = try #require(withoutBackup.text(at: Self.settingsURL))
+        #expect(remaining.contains("say done"))
+        #expect(remaining.contains(HookSnippetGenerator.managedHookMarker) == false)
+        let document = try #require(
+            JSONSerialization.jsonObject(with: Data(remaining.utf8)) as? [String: Any]
+        )
+        let hooks = try #require(document["hooks"] as? [String: Any])
+        #expect(hooks["Stop"] != nil, "the shared event keeps the user's hook group")
     }
 }
 

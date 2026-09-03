@@ -20,7 +20,10 @@ public struct HookSnippetGenerator: Sendable {
     /// earlier version and replace it. Without that, upgrading only appended
     /// the new command and left the old one beside it: the previous, broken
     /// hook kept firing, and every event was delivered twice.
-    public static let managedHookMarker = "notchflow_hook_v2"
+    public static let managedHookMarker = "notchflow_hook_v3"
+
+    /// Exact markers emitted by earlier managed Claude Code hooks.
+    public static let previousManagedHookMarkers = ["notchflow_hook_v2"]
 
     /// Every token an earlier version's command carried, all of which must be
     /// present for it to count as ours.
@@ -68,7 +71,8 @@ public struct HookSnippetGenerator: Sendable {
                                     "command": HookScript.claudeCodeHookCommand(
                                         state: event.state,
                                         detail: event.detail,
-                                        carriesToolName: event.carriesToolName
+                                        carriesToolName: event.carriesToolName,
+                                        carriesSubagentIdentity: event.carriesSubagentIdentity
                                     ),
                                 ]
                             ]
@@ -204,7 +208,7 @@ public struct HookSnippetGenerator: Sendable {
           child.unref()
         }
 
-        export const NotchFlowPlugin: Plugin = async ({ client }) => {
+        export const NotchFlowPlugin: Plugin = async ({ client, directory }) => {
           // The task tool gives every sub-agent a real child session with its own
           // id. Reported as-is, four sub-agents read as four more agents running;
           // the island needs the session the user actually started, so parentage
@@ -263,12 +267,70 @@ public struct HookSnippetGenerator: Sendable {
               timestamp: new Date().toISOString(),
             })
 
+          // `session.idle` means the session stopped, not that it succeeded. A
+          // turn that died on a rate limit goes idle exactly like one that
+          // finished, and opencode emits no event for the failure itself
+          // (anomalyco/opencode#10432), so the only way to tell them apart is to
+          // ask what the last message actually says.
+          //
+          // Reporting the difference is the whole point: a green tick on a turn
+          // that never ran is worse than no island at all.
+          const OUTCOME_REASONS: Record<number, string> = {
+            401: "authFailed",
+            403: "authFailed",
+            402: "quotaExhausted",
+            429: "quotaExhausted",
+            529: "providerUnavailable",
+          }
+
+          const classify = (error: any): string | null => {
+            if (!error) return null
+            // An aborted turn is neither a success nor a failure: the user or
+            // the agent stopped it on purpose, and it is by far the most common
+            // stored error. Painting those red would turn a cancel loop into a
+            // wall of alarm.
+            if (error.name === "MessageAbortedError") return null
+            const status = Number(error.data?.statusCode)
+            if (OUTCOME_REASONS[status]) return OUTCOME_REASONS[status]
+            if (status >= 400 && status < 500) return "requestRejected"
+            const body = String(error.data?.message ?? "")
+            if (body.includes("overloaded_error")) return "providerUnavailable"
+            return "unknown"
+          }
+
+          const lastAssistantError = async (sessionId: string): Promise<any> => {
+            try {
+              const response = await client.session.messages({ path: { id: sessionId } })
+              const messages = ((response as any)?.data ?? response) as any[]
+              if (!Array.isArray(messages)) return null
+              for (let i = messages.length - 1; i >= 0; i--) {
+                const info = messages[i]?.info ?? messages[i]
+                if (info?.role !== "assistant") continue
+                return info?.error ?? null
+              }
+            } catch {
+              // The island degrades to what it knew before this lookup existed.
+            }
+            return null
+          }
+
+          const settle = async (sessionId: string) => {
+            if (!sessionId) return
+            const reason = classify(await lastAssistantError(sessionId))
+            if (reason === null) {
+              await notify("completed", sessionId, "Task completed")
+              return
+            }
+            await notify("error", sessionId, "Task failed", undefined, undefined, reason)
+          }
+
           const notify = async (
             state: string,
             sessionId: string,
             detail: string,
             toolName?: string,
             agentName?: string,
+            reason?: string,
           ) => {
             if (!sessionId) return
             if (agentName) names.set(sessionId, agentName)
@@ -281,12 +343,14 @@ public struct HookSnippetGenerator: Sendable {
               detail,
               timestamp: new Date().toISOString(),
             }
+            if (directory) payload.workspace = directory
             if (root && root !== sessionId) {
               payload.rootSessionId = sessionUUID("opencode", root)
               const name = names.get(sessionId)
               if (name) payload.sessionName = name
             }
             if (state === "usingTool" && toolName) payload.toolName = toolName
+            if (state === "error" && reason) payload.reason = reason
             if (root === sessionId) liveRoots.add(sessionId)
             deliver(JSON.stringify(payload))
           }
@@ -332,10 +396,7 @@ public struct HookSnippetGenerator: Sendable {
                   remember(event.properties.info)
                   break
                 case "session.idle":
-                  await notify("completed", event.properties.sessionID, "Task completed")
-                  break
-                case "session.error":
-                  await notify("error", event.properties.sessionID, "Session error")
+                  await settle(event.properties.sessionID)
                   break
                 case "session.deleted":
                   await notify("idle", event.properties.info.id, "Session ended")
@@ -375,6 +436,8 @@ public struct HookSnippetGenerator: Sendable {
         let state: String
         let detail: String
         var carriesToolName = false
+        var carriesSubagentIdentity = false
+        var carriesFailureReason = false
     }
 
     /// The Claude Code hook events NotchFlow subscribes to.
@@ -391,10 +454,8 @@ public struct HookSnippetGenerator: Sendable {
     /// indefinitely. The first event that means anything is the user submitting
     /// a prompt, and `Stop` clears the card five seconds after the turn ends, so
     /// the island is empty between turns without a session event to bracket it.
-    /// No `SubagentStop` either. A subagent finishing is not a change of the
-    /// session the user is watching — the Task tool's own `PostToolUse` already
-    /// reports it — and mapping it to `working` reopened a turn that `Stop` had
-    /// just closed.
+    /// Sub-agent hooks carry their own identity below the root session, so their
+    /// completion updates the child rather than reopening the root turn.
     private static let claudeCodeLifecycle: [LifecycleEvent] = [
         LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
         LifecycleEvent(
@@ -406,9 +467,43 @@ public struct HookSnippetGenerator: Sendable {
         LifecycleEvent(event: "PostToolUse", state: "working", detail: "Tool completed"),
         LifecycleEvent(event: "Notification", state: "waitingForUser", detail: "Needs attention"),
         LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
+        // `Stop` fires when Claude finishes responding; `StopFailure` when the
+        // turn ends on an API error instead. Without this the island had no
+        // signal at all for a rate-limited turn — the card simply sat at
+        // "working" until its silence bound ran out, half an hour later, saying
+        // nothing about why.
+        LifecycleEvent(
+            event: "StopFailure",
+            state: "error",
+            detail: "Task failed",
+            carriesFailureReason: true
+        ),
         LifecycleEvent(event: "SessionEnd", state: "idle", detail: "Session ended"),
+        LifecycleEvent(
+            event: "SubagentStart",
+            state: "working",
+            detail: "Sub-agent started",
+            carriesSubagentIdentity: true
+        ),
+        LifecycleEvent(
+            event: "SubagentStop",
+            state: "completed",
+            detail: "Sub-agent completed",
+            carriesSubagentIdentity: true
+        ),
     ]
 
+    /// The Codex hook events NotchFlow subscribes to, in `hooks.json`.
+    ///
+    /// Mirrors the Claude Code set event for event where Codex offers an
+    /// equivalent, so a semantic milestone — prompt, tool, turn, session end —
+    /// reads the same on the island whichever agent produced it. Codex has no
+    /// `Notification` event, so `PermissionRequest` alone covers "needs the
+    /// user". `SessionEnd` fires when Codex closes normally, when the
+    /// conversation is archived or deleted while open, or after it has been
+    /// idle and unopened for thirty minutes — the last two can arrive long
+    /// after `Stop`, which is exactly why the mapping is `idle`: the envelope
+    /// ends the presentation outright rather than restarting a dismiss timer.
     static let codexLifecycleEvents: [LifecycleEvent] = [
         LifecycleEvent(event: "UserPromptSubmit", state: "thinking", detail: "Task started"),
         LifecycleEvent(
@@ -424,6 +519,7 @@ public struct HookSnippetGenerator: Sendable {
             detail: "Needs attention"
         ),
         LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
+        LifecycleEvent(event: "SessionEnd", state: "idle", detail: "Session ended"),
     ]
 
     /// A Python string literal for `value`, produced by the JSON encoder because

@@ -41,7 +41,13 @@ public struct IPCMessage: Codable, Equatable, Sendable {
     /// four rows reading "1", "2", "3", "4" tells the user nothing about which
     /// one stopped to ask a question.
     public let sessionName: String?
+    public let workspace: String?
     public let state: AIAgentState
+    /// Why the turn failed. Meaningful only in `error`.
+    public let reason: AIAgentFailureReason?
+    /// When the condition named by `reason` lifts, where the agent could say.
+    /// Only quota exhaustion resolves with time, so only it ever carries one.
+    public let retryAt: Date?
     public let detail: String
     public let toolName: String?
     public let progress: Double?
@@ -53,7 +59,10 @@ public struct IPCMessage: Codable, Equatable, Sendable {
         sessionId: UUID,
         rootSessionId: UUID? = nil,
         sessionName: String? = nil,
+        workspace: String? = nil,
         state: AIAgentState,
+        reason: AIAgentFailureReason? = nil,
+        retryAt: Date? = nil,
         detail: String,
         toolName: String? = nil,
         progress: Double? = nil,
@@ -67,7 +76,13 @@ public struct IPCMessage: Codable, Equatable, Sendable {
         // "child of itself" as a case.
         self.rootSessionId = rootSessionId == sessionId ? nil : rootSessionId
         self.sessionName = sessionName
+        self.workspace = workspace
         self.state = state
+        // A reason outside `error` describes a failure that did not happen, so
+        // it is dropped rather than carried into a state no view would read it
+        // in — the same normalisation `toolName` gets outside `usingTool`.
+        self.reason = state == .error ? reason : nil
+        self.retryAt = state == .error ? retryAt : nil
         self.detail = detail
         self.toolName = toolName
         self.progress = progress
@@ -112,7 +127,10 @@ public struct IPCMessageValidator: Sendable {
     /// an older hook never sends is compatible in both directions, which a
     /// version bump is not.
     private static let allowedFields = Set(
-        requiredFields + ["toolName", "progress", "rootSessionId", "sessionName"]
+        requiredFields + [
+            "toolName", "progress", "rootSessionId", "sessionName", "workspace", "reason",
+            "retryAt",
+        ]
     )
     private static let shellMetacharacters = CharacterSet(
         charactersIn: "`$&;|<>\\\"'()*?[]{}!~#"
@@ -191,6 +209,13 @@ public struct IPCMessageValidator: Sendable {
         guard let state = AIAgentState(rawValue: rawMessage.state) else {
             throw IPCMessageValidationError.unsupportedState(rawMessage.state)
         }
+        // Unlike `state`, an unrecognised reason does not reject the message. A
+        // state the island cannot draw is unusable, but a reason is decoration
+        // on a state it already understands: a newer hook naming a cause this
+        // build has never heard of should still get its failure on screen — red,
+        // merely unnamed. An unparseable `retryAt` is dropped for the same
+        // reason. Neither may suppress the failure it describes.
+        let reason = rawMessage.reason.map { AIAgentFailureReason(rawValue: $0) ?? .unknown }
 
         try validateDisplayText(rawMessage.detail, field: "detail")
         if let toolName = rawMessage.toolName {
@@ -198,6 +223,9 @@ public struct IPCMessageValidator: Sendable {
         }
         if let sessionName = rawMessage.sessionName {
             try validateDisplayText(sessionName, field: "sessionName")
+        }
+        if let workspace = rawMessage.workspace {
+            try validateDisplayText(workspace, field: "workspace")
         }
         if let progress = rawMessage.progress, !(0...1).contains(progress) {
             throw IPCMessageValidationError.invalidProgress(progress)
@@ -212,7 +240,10 @@ public struct IPCMessageValidator: Sendable {
             sessionId: sessionId,
             rootSessionId: rootSessionId,
             sessionName: rawMessage.sessionName,
+            workspace: rawMessage.workspace,
             state: state,
+            reason: reason,
+            retryAt: rawMessage.retryAt.flatMap(parseTimestamp),
             detail: rawMessage.detail,
             toolName: rawMessage.toolName,
             progress: rawMessage.progress,
@@ -254,7 +285,10 @@ private struct RawIPCMessage: Decodable {
     let sessionId: String
     let rootSessionId: String?
     let sessionName: String?
+    let workspace: String?
     let state: String
+    let reason: String?
+    let retryAt: String?
     let detail: String
     let toolName: String?
     let progress: Double?

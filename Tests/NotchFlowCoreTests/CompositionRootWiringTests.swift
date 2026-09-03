@@ -328,4 +328,28 @@ struct CompositionRootWiringTests {
             "the collapse target was moved inside the mask and no longer covers the window"
         )
     }
+
+    /// A blocked agent's announcement has to end on a clock, not on the next
+    /// thing that happens to change.
+    ///
+    /// `refreshContent` is driven by events — an activity registering, the
+    /// pointer moving, the panel changing state. An agent that failed once and
+    /// went quiet produces none of those, so nothing would ever re-read the
+    /// compact presentation and the pill would stay red for the activity's
+    /// whole lifetime. The deadline function is pure and unit-tested; only the
+    /// wiring can catch a presenter that never asks it for one.
+    @Test("the island wakes itself when an announcement window runs out")
+    func islandWakesForAnnouncementDeadlines() throws {
+        let source = try Self.appSource("NotchFlow/IslandPresenter.swift")
+
+        #expect(source.contains("nextAnnouncementDeadline("))
+        #expect(source.contains("private var announcementRefreshTask"))
+        #expect(
+            source.contains("scheduleAnnouncementRefresh(after: now)"),
+            "the refresh never arms the next wake-up"
+        )
+        // Cancelled before each rearm, or a quiet agent accumulates one timer
+        // per refresh for as long as it stays blocked.
+        #expect(source.contains("announcementRefreshTask?.cancel()"))
+    }
 }

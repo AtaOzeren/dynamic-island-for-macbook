@@ -237,8 +237,12 @@ struct ExpandedActivityViewTests {
         )
     }
 
-    private static func agent(_ id: IPCAgentID, state: AIAgentState) -> AIAgentActivity {
-        AIAgentActivity(agent: id, sessionID: UUID(), state: state, detail: "Working")
+    private static func agent(
+        _ id: IPCAgentID,
+        state: AIAgentState,
+        sessionID: UUID = UUID()
+    ) -> AIAgentActivity {
+        AIAgentActivity(agent: id, sessionID: sessionID, state: state, detail: "Working")
     }
 
     // MARK: - Scrolling past the ceiling
@@ -306,6 +310,156 @@ struct ExpandedActivityViewTests {
         #expect(source.contains("ScrollView(.vertical) { content }\n                .frame(height: height)"))
         // The old shape: content forced to the clamped height before wrapping.
         #expect(!source.contains(".frame(width: size.width, height: size.height, alignment: .top)"))
+    }
+
+    /// The plan's Phase 2.3 verification: a synthetic set whose measured content
+    /// passes the 460pt window — one agent instance with a large disclosed
+    /// sub-agent tree — must scroll, with the cap on the box and the full height
+    /// on the content, so nothing is cut at the frame bounds.
+    @Test("a synthetic set exceeding 460pt scrolls, nothing clipped at the frame bounds")
+    func oversizedSubagentTreeScrollsPastTheCeiling() {
+        let panelMetrics = PanelMetrics.default
+        let metrics = ExpandedItemMetrics.default
+        let subagentCount = 25
+        let sessions = Self.instanceSessions(subagentCount: subagentCount)
+        let disclosed: Set<ActivityIdentity> = [Self.instanceIdentity(of: sessions)]
+
+        // (a) the set overflows the allocated window once the tree is open…
+        #expect(
+            expandedPanelOverflowsWindow(
+                for: sessions,
+                disclosedInstances: disclosed,
+                metrics: metrics,
+                panelMetrics: panelMetrics
+            )
+        )
+
+        // (b) …the box shown to the user is the cap, while the content laid out
+        // for the scroll view is the card's full drawn height plus the panel's
+        // insets — taller than the box, so the list scrolls rather than being
+        // cut at the frame.
+        let box = expandedPanelSize(
+            for: sessions,
+            disclosedInstances: disclosed,
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+        let cardHeight = aiAgentExpandedSize(
+            hasProgress: false,
+            subagentCount: subagentCount,
+            isDisclosed: true,
+            metrics: metrics.aiAgent,
+            panelMetrics: panelMetrics
+        ).height
+        let contentHeight = cardHeight + metrics.panel.contentInset * 2
+
+        #expect(box.height == panelMetrics.maximumExpandedSize.height)
+        #expect(cardHeight > panelMetrics.maximumExpandedSize.height)
+        #expect(contentHeight > box.height, "nothing to scroll: the tree would be clipped at the frame")
+
+        // Closed, the same set sits far under the ceiling: disclosure is what
+        // pushes it past, so toggling the tree closed must retract the scroll.
+        let closed = expandedPanelSize(
+            for: sessions,
+            disclosedInstances: [],
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+        #expect(!expandedPanelOverflowsWindow(for: sessions, metrics: metrics, panelMetrics: panelMetrics))
+        #expect(closed.height < panelMetrics.maximumExpandedSize.height)
+    }
+
+    /// The other shape Phase 2.3 names: music and timer cards beside agent
+    /// trees, summed together past the ceiling — per-kind heights all feed the
+    /// same overflow verdict, so mixed sets scroll too.
+    @Test("music and timer beside disclosed trees sum past the ceiling and scroll")
+    func mixedSyntheticSetScrollsPastTheCeiling() {
+        let panelMetrics = PanelMetrics.default
+        let metrics = ExpandedItemMetrics.default
+
+        let firstTree = Self.instanceSessions(subagentCount: 6)
+        let secondTree = Self.instanceSessions(subagentCount: 6)
+        var activities: [any Activity] = [
+            Self.musicActivity(),
+            Self.timerActivity(),
+        ]
+        activities.append(contentsOf: firstTree)
+        activities.append(contentsOf: secondTree)
+        let disclosed: Set<ActivityIdentity> = [
+            Self.instanceIdentity(of: firstTree),
+            Self.instanceIdentity(of: secondTree),
+        ]
+
+        #expect(
+            expandedPanelOverflowsWindow(
+                for: activities,
+                disclosedInstances: disclosed,
+                metrics: metrics,
+                panelMetrics: panelMetrics
+            )
+        )
+
+        let box = expandedPanelSize(
+            for: activities,
+            disclosedInstances: disclosed,
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+        #expect(box.height == panelMetrics.maximumExpandedSize.height)
+
+        // The same mix with both trees closed fits: per-kind heights and the
+        // disclosure state both count, or music and timer would sit beside a
+        // number that ignores them.
+        let closed = expandedPanelSize(
+            for: activities,
+            disclosedInstances: [],
+            metrics: metrics,
+            panelMetrics: panelMetrics
+        )
+        #expect(!expandedPanelOverflowsWindow(for: activities, metrics: metrics, panelMetrics: panelMetrics))
+        #expect(closed.height < box.height)
+    }
+
+    private static func instanceSessions(subagentCount: Int) -> [any Activity] {
+        let root = UUID()
+        var sessions: [any Activity] = [
+            agent(.opencode, state: .working, sessionID: root)
+        ]
+        sessions += (0..<subagentCount).map { index in
+            AIAgentActivity(
+                agent: .opencode,
+                sessionID: UUID(),
+                rootSessionID: root,
+                sessionName: "investigator-\(index)",
+                state: .usingTool,
+                detail: "Delegated work"
+            )
+        }
+        return sessions
+    }
+
+    private static func instanceIdentity(of sessions: [any Activity]) -> ActivityIdentity {
+        let root = sessions.compactMap { $0 as? AIAgentActivity }.first!
+        return AIAgentActivity.instanceIdentity(agent: root.agent, rootSessionID: root.rootSessionID)
+    }
+
+    private static func musicActivity() -> MusicActivity {
+        MusicActivity(
+            nowPlaying: NowPlaying(
+                title: "Track",
+                artist: "Artist",
+                playbackState: .playing,
+                sourceApplicationName: "Spotify"
+            )
+        )
+    }
+
+    private static func timerActivity() -> TimerActivity {
+        TimerActivity(
+            mode: .countdown(duration: .seconds(600)),
+            schedule: .started(at: Date(timeIntervalSince1970: 0)),
+            at: Date(timeIntervalSince1970: 0)
+        )
     }
 
     private static func rows(_ count: Int) -> [any Activity] {

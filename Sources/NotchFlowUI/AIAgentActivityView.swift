@@ -21,6 +21,13 @@ public struct AIAgentPresentation: Equatable, Sendable {
     public let toolName: String?
     public let progress: Double?
     public let primaryAction: PrimaryAction?
+    public let workspace: String?
+
+    public var workspaceName: String? {
+        guard let workspace, !workspace.isEmpty else { return nil }
+        let last = (workspace as NSString).lastPathComponent
+        return last.isEmpty || last == "/" ? nil : last
+    }
 
     /// `instanceOrdinal` numbers this instance among the concurrent instances of
     /// the same agent, and is `nil` when the agent has only one — two cards both
@@ -34,6 +41,7 @@ public struct AIAgentPresentation: Equatable, Sendable {
         toolName = activity.toolName
         progress = activity.progress
         primaryAction = activity.primaryAction
+        workspace = activity.workspace
     }
 
     private static func name(of agentID: IPCAgentID, instanceOrdinal: Int?) -> String {
@@ -62,7 +70,10 @@ public struct AIAgentPresentation: Equatable, Sendable {
 
     /// The minimal card's status line: agent and state separated by a middle dot.
     public var compactTitle: String {
-        localized("activity.ai.compactTitle", default: "\(agentName) · \(statusText)")
+        if let workspaceName {
+            return localized("activity.ai.compactTitleWithWorkspace", default: "\(agentName) · \(workspaceName) · \(statusText)")
+        }
+        return localized("activity.ai.compactTitle", default: "\(agentName) · \(statusText)")
     }
 
     /// What VoiceOver reads for the whole activity: the compact line, with the
@@ -83,10 +94,10 @@ public struct AIAgentPresentation: Equatable, Sendable {
 struct AIAgentInstance: Identifiable, Equatable, Sendable {
     let agentID: IPCAgentID
     let rootSessionID: UUID
-    /// Every session belonging to this instance, guaranteed non-empty.
+    /// Every session belonging to this instance.
     ///
     /// The instance exists because a session reported it, so there is always at
-    /// least one; taking that as an initialiser precondition is what lets
+    /// least one; rejecting malformed empty input during initialisation lets
     /// `representative` be a value rather than an optional every call site has
     /// to unwrap into a fallback it cannot supply.
     let sessions: [AIAgentActivity]
@@ -94,13 +105,16 @@ struct AIAgentInstance: Identifiable, Equatable, Sendable {
     /// absent when the agent is running only one.
     let ordinal: Int?
 
-    init(
+    init?(
         agentID: IPCAgentID,
         rootSessionID: UUID,
         sessions: [AIAgentActivity],
         ordinal: Int? = nil
     ) {
-        precondition(sessions.isEmpty == false, "an instance is created by a session reporting")
+        guard sessions.isEmpty == false else {
+            assertionFailure("an instance is created by a session reporting")
+            return nil
+        }
         self.agentID = agentID
         self.rootSessionID = rootSessionID
         self.sessions = sessions
@@ -263,7 +277,7 @@ func compactAIAgentIconSize(iconSize: CGFloat, state _: AIAgentState) -> CGSize 
             iconSize + metrics.countBadgeOverhang * 2,
             metrics.travelDistance + metrics.dotDiameter
         ),
-        height: metrics.countBadgeOverhang + iconSize + metrics.badgeDiameter + 1
+        height: metrics.countBadgeOverhang + metrics.statusBaseline(iconSize: iconSize)
     )
 }
 
@@ -295,6 +309,27 @@ struct CompactAIAgentMetrics: Equatable, Sendable {
     let countBadgeOverhang: CGFloat = 3
     /// The highest count the badge spells out before falling back to "9+".
     let countBadgeCeiling = 9
+
+    /// How far below the logo's top every status indicator ends.
+    ///
+    /// Indicators share a *baseline*, not a top offset. The working dot is 3pt
+    /// and the state badges are 7, so hanging both from the same top put the
+    /// badges four points lower than the dot — far enough that, near the pill's
+    /// rounded end, they fell outside it. The compact silhouette is drawn with
+    /// `.continuous` corners, and a squircle keeps curving well past the point a
+    /// circular arc of the same radius would have finished, so "inside the
+    /// pill's height" is not the same as "inside the pill".
+    ///
+    /// One baseline also reads better: the status light sits in one place under
+    /// the logo whatever shape it takes.
+    func statusBaseline(iconSize: CGFloat) -> CGFloat {
+        iconSize + 1 + dotDiameter
+    }
+
+    /// How far to drop an indicator of `diameter` so it ends on that baseline.
+    func statusOffset(iconSize: CGFloat, diameter: CGFloat) -> CGFloat {
+        statusBaseline(iconSize: iconSize) - diameter
+    }
 
     private init() {}
 }
@@ -439,9 +474,13 @@ public func aiAgentDisclosureHeight(
     return metrics.subagentSeparatorHeight + CGFloat(subagentCount) * metrics.subagentRowHeight
 }
 
-/// The expanded AI view's drawn size, clamped to the window's allocated maximum
-/// for the same reason `musicExpandedSize` clamps: the `NSPanel` frame is
-/// allocated once and never resized, so anything past it is silently clipped.
+/// The expanded AI view's natural drawn size.
+///
+/// Only the width clamps to the window's allocated maximum; the height is
+/// reported as drawn, however tall a disclosed sub-agent tree makes the card.
+/// The ceiling belongs to the panel, which clamps its own frame and scrolls
+/// whatever is taller — a card clamped here laid out shorter than its own
+/// sub-agent list, and the rows past the clamp could never scroll into view.
 public func aiAgentExpandedSize(
     hasProgress: Bool,
     subagentCount: Int = 0,
@@ -458,10 +497,7 @@ public func aiAgentExpandedSize(
     let contentHeight = metrics.glyphSize + progressHeight + disclosureHeight
     return CGSize(
         width: min(metrics.width, panelMetrics.maximumExpandedSize.width),
-        height: min(
-            contentHeight + metrics.contentInset * 2,
-            panelMetrics.maximumExpandedSize.height
-        )
+        height: contentHeight + metrics.contentInset * 2
     )
 }
 
@@ -689,36 +725,132 @@ struct AIAgentIcon: View {
                         height: size * aiAgentIconArtworkScale(for: agentID)
                     )
             } else {
-                fallback
-                    .frame(width: size, height: size)
+                AgentFallbackIcon(agentID: agentID, size: size)
             }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+    }
+}
+
+/// The tile an agent gets when its real artwork could not be loaded.
+///
+/// The three agents used to draw three unrelated things here — two coloured
+/// `ZStack`s and a standalone logo view that painted its own opaque black
+/// background — so a missing icon looked like a different *kind* of thing per
+/// agent, and OpenCode's raw `Color.black` read as an unblended box rather than
+/// as a tile. One component now owns the shared anatomy (square frame, rounded
+/// corners, a scheme-resolved background, a centred glyph) and lets only the two
+/// things that legitimately differ vary: the accent behind the glyph and the
+/// glyph itself.
+///
+/// The corner radius repeats `AIAgentIcon`'s so this reads as a finished tile
+/// wherever it is used, not only inside that one clipping parent; the two clips
+/// are the same shape, so nesting them changes nothing.
+struct AgentFallbackIcon: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    let agentID: IPCAgentID
+    let size: CGFloat
+
+    var body: some View {
+        let palette = agentFallbackIconPalette(
+            for: agentID,
+            scheme: colorScheme.islandColorScheme
+        )
+
+        ZStack {
+            palette.background
+            glyph(palette)
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
     }
 
     @ViewBuilder
-    private var fallback: some View {
+    private func glyph(_ palette: AgentFallbackIconPalette) -> some View {
         switch agentID {
         case .claudeCode:
-            ZStack {
-                Color(red: 0.84, green: 0.42, blue: 0.27)
-                Image(systemName: "asterisk")
-                    .font(.system(size: size * 0.56, weight: .medium))
-                    .foregroundStyle(.white)
-            }
+            Image(systemName: "asterisk")
+                .font(.system(size: size * 0.56, weight: .medium))
+                .foregroundStyle(palette.glyph)
         case .codex:
-            ZStack {
-                Color(red: 0.29, green: 0.35, blue: 0.96)
-                HStack(spacing: size * 0.04) {
-                    Image(systemName: "chevron.right")
-                    Rectangle().frame(width: size * 0.28, height: size * 0.08)
-                }
-                .font(.system(size: size * 0.32, weight: .bold))
-                .foregroundStyle(.white)
+            HStack(spacing: size * 0.04) {
+                Image(systemName: "chevron.right")
+                Rectangle().frame(width: size * 0.28, height: size * 0.08)
             }
+            .font(.system(size: size * 0.32, weight: .bold))
+            .foregroundStyle(palette.glyph)
         case .opencode:
-            OpenCodeLogo()
+            OpenCodeMark(
+                size: size,
+                stroke: palette.glyph,
+                counter: palette.glyphCounter
+            )
+        }
+    }
+}
+
+/// The colours one agent's fallback tile draws with, once a scheme has resolved
+/// them.
+struct AgentFallbackIconPalette: Equatable {
+    /// The rounded square behind the glyph.
+    let background: Color
+    /// The glyph's strokes.
+    let glyph: Color
+    /// The one secondary tone OpenCode's mark uses for the square enclosed by
+    /// its strokes. Single-tone glyphs leave it equal to `glyph`.
+    let glyphCounter: Color
+}
+
+/// The fallback tile's colours for an agent in a given scheme.
+///
+/// Pure over its two inputs so "OpenCode's tile is never a raw black rectangle"
+/// is assertable without a window server — the bug this replaced was exactly
+/// that, a hardcoded `Color.black` that read as an unblended box instead of as a
+/// deliberate tile.
+///
+/// Claude Code's terracotta and Codex's blue are brand marks and deliberately do
+/// **not** move between schemes: both carry a white glyph at a contrast that
+/// holds in either appearance, and shifting a brand hue by appearance would make
+/// one agent read as two different products. OpenCode's tile is not a brand
+/// colour — it is the *surface* its wordmark sits on — so it follows the scheme,
+/// and the mark's own tones follow with it, or the strokes would vanish into a
+/// light tile.
+func agentFallbackIconPalette(
+    for agentID: IPCAgentID,
+    scheme: IslandColorScheme
+) -> AgentFallbackIconPalette {
+    switch agentID {
+    case .claudeCode:
+        AgentFallbackIconPalette(
+            background: Color(red: 0.84, green: 0.42, blue: 0.27),
+            glyph: .white,
+            glyphCounter: .white
+        )
+    case .codex:
+        AgentFallbackIconPalette(
+            background: Color(red: 0.29, green: 0.35, blue: 0.96),
+            glyph: .white,
+            glyphCounter: .white
+        )
+    case .opencode:
+        switch scheme {
+        case .dark:
+            // Lifted off pure black so the tile still reads as a tile against
+            // the island's own `notchBlack` surface rather than dissolving into
+            // it, which is what the old `Color.black` did.
+            AgentFallbackIconPalette(
+                background: Color(white: 0.11),
+                glyph: Color(white: 0.94),
+                glyphCounter: Color(white: 0.29)
+            )
+        case .light:
+            AgentFallbackIconPalette(
+                background: Color(white: 0.93),
+                glyph: Color(white: 0.12),
+                glyphCounter: Color(white: 0.55)
+            )
         }
     }
 }
@@ -757,7 +889,7 @@ struct CompactAIAgentIcon: View {
             AIAgentIcon(agentID: presentation.agentID, size: iconSize)
                 .overlay(alignment: .topTrailing) { sessionCountBadge }
             statusIndicator
-                .offset(y: iconSize + 1)
+                .offset(y: metrics.statusOffset(iconSize: iconSize, diameter: statusDiameter))
         }
         .padding(.top, metrics.countBadgeOverhang)
         .frame(width: size.width, height: size.height, alignment: .top)
@@ -797,6 +929,12 @@ struct CompactAIAgentIcon: View {
                     y: -metrics.countBadgeOverhang
                 )
         }
+    }
+
+    /// The drawn size of whichever indicator this state calls for, which is what
+    /// the shared baseline is measured against.
+    private var statusDiameter: CGFloat {
+        presentation.indicator.badgeTone == nil ? metrics.dotDiameter : metrics.badgeDiameter
     }
 
     @ViewBuilder
@@ -865,35 +1003,40 @@ struct CompactAIAgentIcon: View {
     }
 }
 
-private struct OpenCodeLogo: View {
+/// OpenCode's brand mark: four bars enclosing a filled counter.
+///
+/// Glyph only — it paints no background of its own, because the background is
+/// the part that has to answer to the colour scheme and that decision belongs
+/// with the rest of the tile in `agentFallbackIconPalette`. Its tones arrive as
+/// parameters for the same reason.
+private struct OpenCodeMark: View {
+    let size: CGFloat
+    let stroke: Color
+    let counter: Color
+
     var body: some View {
-        GeometryReader { geometry in
-            let size = min(geometry.size.width, geometry.size.height)
-            let x = (geometry.size.width - size) / 2
-            let y = (geometry.size.height - size) / 2
-
-            ZStack(alignment: .topLeading) {
-                Color.black
-                Group {
-                    Rectangle().frame(width: size * 0.8, height: size * 0.2)
-                    Rectangle().frame(width: size * 0.8, height: size * 0.2)
-                        .offset(y: size * 0.8)
-                    Rectangle().frame(width: size * 0.2, height: size * 0.6)
-                        .offset(y: size * 0.2)
-                    Rectangle().frame(width: size * 0.2, height: size * 0.6)
-                        .offset(x: size * 0.6, y: size * 0.2)
-                }
-                .foregroundStyle(Color(white: 0.94))
-                .offset(x: size * 0.1)
-
-                Rectangle()
-                    .fill(Color(white: 0.29))
-                    .frame(width: size * 0.4, height: size * 0.4)
-                    .offset(x: size * 0.3, y: size * 0.4)
+        ZStack(alignment: .topLeading) {
+            // Anchors the stack to the full tile so the bars keep measuring
+            // their offsets from its corner rather than from their own union.
+            Color.clear
+            Group {
+                Rectangle().frame(width: size * 0.8, height: size * 0.2)
+                Rectangle().frame(width: size * 0.8, height: size * 0.2)
+                    .offset(y: size * 0.8)
+                Rectangle().frame(width: size * 0.2, height: size * 0.6)
+                    .offset(y: size * 0.2)
+                Rectangle().frame(width: size * 0.2, height: size * 0.6)
+                    .offset(x: size * 0.6, y: size * 0.2)
             }
-            .frame(width: size, height: size)
-            .offset(x: x, y: y)
+            .foregroundStyle(stroke)
+            .offset(x: size * 0.1)
+
+            Rectangle()
+                .fill(counter)
+                .frame(width: size * 0.4, height: size * 0.4)
+                .offset(x: size * 0.3, y: size * 0.4)
         }
+        .frame(width: size, height: size)
     }
 }
 

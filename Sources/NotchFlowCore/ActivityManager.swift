@@ -1,6 +1,16 @@
 import Foundation
 
 public struct CompactActivityPresentation {
+    public init(
+        activities: [any Activity],
+        overflowCount: Int,
+        groupSizes: [ActivityIdentity: Int]
+    ) {
+        self.activities = activities
+        self.overflowCount = overflowCount
+        self.groupSizes = groupSizes
+    }
+
     public let activities: [any Activity]
     public let overflowCount: Int
     /// How many distinct instances each drawn element stands for, keyed by

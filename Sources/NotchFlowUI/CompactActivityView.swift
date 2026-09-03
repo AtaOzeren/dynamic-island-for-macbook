@@ -301,6 +301,133 @@ func compactMusicSlotIDs(in slots: [CompactSlot]) -> Set<String> {
     Set(slots.lazy.filter { $0.musicSourceIdentity != nil }.map(\.id))
 }
 
+/// The presentation with finished announcements taken out of the pill, and the
+/// slots they were holding given back.
+///
+/// Hiding the slot is not enough on two counts.
+///
+/// The manager picks which agent groups fit the pill by urgency, and a failure
+/// outranks work in flight — so a blocked agent wins a slot, and hiding it
+/// afterwards leaves that slot empty while a third agent that is genuinely
+/// working is never drawn at all. And a group that keeps its slot because
+/// *some* of it is live still has its muted failure speaking for it, which
+/// holds an agent's icon red for hours while another instance of it runs
+/// happily.
+///
+/// Both are the same mistake — deciding who speaks before knowing who has
+/// anything left to say — so the agent side of the pill is re-picked here from
+/// the members that do. The rule mirrors the manager's, and the budget is
+/// whatever the manager already allowed, so nothing about the ordinary case
+/// changes: with no announcement pending this returns the presentation
+/// untouched.
+public func compactPresentation(
+    _ presentation: CompactActivityPresentation,
+    reconciledWith activities: [any Activity],
+    announcementStarts: [ActivityIdentity: Date],
+    registrationTimes: [ActivityIdentity: Date],
+    now: Date
+) -> CompactActivityPresentation {
+    guard announcementStarts.isEmpty == false else { return presentation }
+
+    let standard = presentation.activities.filter { $0.compactRegion != .agentTrailing }
+    let budget = presentation.activities.count - standard.count
+    guard budget > 0 else { return presentation }
+
+    var speakers: [ActivityIdentity: any Activity] = [:]
+    var latest: [ActivityIdentity: Date] = [:]
+    for activity in activities where activity.compactRegion == .agentTrailing {
+        let group = activity.compactGroupIdentity
+        // A group's age is its own, whether or not its oldest member still has
+        // something to say — otherwise muting a session would reorder the pill.
+        let registered = registrationTimes[activity.identity] ?? .distantPast
+        latest[group] = max(latest[group] ?? .distantPast, registered)
+
+        guard hasFinishedAnnouncing(activity, announcementStarts, now) == false else { continue }
+        if let speaker = speakers[group],
+            speaker.compactRepresentationPriority >= activity.compactRepresentationPriority
+        {
+            continue
+        }
+        speakers[group] = activity
+    }
+
+    let agents =
+        speakers
+        .sorted { left, right in
+            let leftKey = (left.value.compactRepresentationPriority, latest[left.key] ?? .distantPast)
+            let rightKey = (
+                right.value.compactRepresentationPriority, latest[right.key] ?? .distantPast
+            )
+            return leftKey > rightKey
+        }
+        .prefix(budget)
+        .sorted { (latest[$0.key] ?? .distantPast) < (latest[$1.key] ?? .distantPast) }
+        .map(\.value)
+
+    return CompactActivityPresentation(
+        activities: standard + agents,
+        overflowCount: presentation.overflowCount,
+        groupSizes: presentation.groupSizes
+    )
+}
+
+/// Whether the pill has already said what this activity had to say.
+private func hasFinishedAnnouncing(
+    _ activity: any Activity,
+    _ announcementStarts: [ActivityIdentity: Date],
+    _ now: Date
+) -> Bool {
+    guard let window = activity.compactAnnouncementWindow,
+        let start = announcementStarts[activity.identity]
+    else {
+        return false
+    }
+    return now.timeIntervalSince(start) >= window
+}
+
+/// When the next announcement window runs out, or `nil` when none is pending.
+///
+/// The compact presentation is computed on demand, so nothing re-reads it until
+/// something changes — and an agent that failed once and went quiet sends
+/// nothing more. Without a deadline to wake on, its announcement would never
+/// end and the pill would stay red until the activity itself timed out, half an
+/// hour later.
+public func nextAnnouncementDeadline(
+    for activities: [any Activity],
+    announcementStarts: [ActivityIdentity: Date],
+    after now: Date
+) -> Date? {
+    activities
+        .compactMap { activity -> Date? in
+            guard let window = activity.compactAnnouncementWindow,
+                let start = announcementStarts[activity.identity]
+            else {
+                return nil
+            }
+            let deadline = start.addingTimeInterval(window)
+            return deadline > now ? deadline : nil
+        }
+        .min()
+}
+
+/// When each activity started claiming the pill under an announcement window.
+///
+/// Carried forward for as long as the window persists, so an agent repeating the
+/// same failure every forty seconds does not restart its own announcement and
+/// sit in the pill forever. Cleared the moment the activity has something else
+/// to say, which is what lets a recovered agent announce itself again.
+public func advancedAnnouncementStarts(
+    previous: [ActivityIdentity: Date],
+    activities: [any Activity],
+    now: Date
+) -> [ActivityIdentity: Date] {
+    var advanced: [ActivityIdentity: Date] = [:]
+    for activity in activities where activity.compactAnnouncementWindow != nil {
+        advanced[activity.identity] = previous[activity.identity] ?? now
+    }
+    return advanced
+}
+
 /// The slots still drawn, once the music icons that have timed out are removed.
 ///
 /// Public because everything that sizes the compact pill has to agree on it:
@@ -537,6 +664,10 @@ struct MusicEqualiserSlotView: View {
             .task {
                 guard reduceMotion == false else { return }
                 isAnimating = true
+                // Cancellation — the slot leaving the hierarchy before the
+                // announcement finishes — is the only error thrown, and
+                // settling straight to the static glyph is the correct
+                // response to it, so it is dropped rather than propagated.
                 try? await Task.sleep(for: Self.animationDuration)
                 isAnimating = false
                 hasSettled = true

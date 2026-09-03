@@ -208,11 +208,18 @@ struct CodexHookInstallerTests {
         let installer = Self.makeInstaller(fileSystem: fileSystem)
 
         try installer.install()
+        let hooksAfterFirstInstall = try #require(fileSystem.data(at: Self.hooksURL))
         let writesAfterFirstInstall = fileSystem.writeCount
         try installer.install()
 
         let installed = try #require(fileSystem.text(at: Self.configURL))
         #expect(installed.components(separatedBy: Self.expectedNotifySetting).count == 2)
+        #expect(fileSystem.data(at: Self.hooksURL) == hooksAfterFirstInstall)
+        let document = try #require(fileSystem.jsonObject(at: Self.hooksURL))
+        let hooks = try #require(document["hooks"] as? [String: Any])
+        for event in Self.managedLifecycleEvents {
+            #expect(Self.managedHandlerCount(for: event, in: hooks) == 1)
+        }
         #expect(fileSystem.data(at: Self.backupURL) == original)
         #expect(fileSystem.writeCount == writesAfterFirstInstall)
     }
@@ -297,6 +304,7 @@ struct CodexHookInstallerTests {
         try installer.uninstall()
 
         #expect(fileSystem.data(at: Self.configURL) == nil)
+        #expect(fileSystem.data(at: Self.hooksURL) == nil)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
     }
 
@@ -404,6 +412,42 @@ struct CodexHookInstallerTests {
         #expect(fileSystem.writeCount == 0)
     }
 
+    /// A double-quoted token that is not a valid JSON string (bad escape)
+    /// makes the whole config unreadable — the error must surface and no
+    /// backup or partial rewrite may happen.
+    @Test("malformed JSON escape in a notify token aborts without writing")
+    func malformedNotifyTokenAborts() {
+        let config = Data("notify = [\"bad\\qescape\"]\n".utf8)
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: config])
+
+        #expect(throws: CodexHookInstallerError.invalidExistingConfiguration) {
+            try Self.makeInstaller(fileSystem: fileSystem).install()
+        }
+        #expect(fileSystem.data(at: Self.configURL) == config)
+        #expect(fileSystem.data(at: Self.backupURL) == nil)
+        #expect(fileSystem.writeCount == 0)
+    }
+
+    /// The base64 payload under our own forward marker decodes but is not a
+    /// JSON string array (hand-edited or truncated). Uninstall must still
+    /// remove the managed notify — dropping the unrecoverable chain is the
+    /// only move — rather than fail or leave the setting behind.
+    @Test("uninstall drops a corrupt forwarded chain and still removes the managed notify")
+    func uninstallDropsCorruptForwardedChain() throws {
+        let script = "echo \(HookSnippetGenerator.codexNotifyMarker) notchflow_forward_b64='bm90IGpzb24=' tail"
+        let config = Data(
+            "notify = [\"/usr/bin/python3\", \"-c\", \(Self.jsonStringLiteral(script))]\n".utf8
+        )
+        let fileSystem = InMemoryCodexHookFileSystem(files: [Self.configURL: config])
+
+        try Self.makeInstaller(fileSystem: fileSystem).uninstall()
+
+        // The notify assignment was the file's only content, so its removal
+        // takes the whole file — the corrupt chain is gone with it.
+        #expect(fileSystem.data(at: Self.configURL) == nil)
+        #expect(fileSystem.writeCount == 0)
+    }
+
     @Test("installation state is installed after install writes the notify setting")
     func installationStateAfterInstall() throws {
         let fileSystem = InMemoryCodexHookFileSystem()
@@ -440,6 +484,7 @@ struct CodexHookInstallerTests {
         "PostToolUse",
         "PermissionRequest",
         "Stop",
+        "SessionEnd",
     ]
 
     private static func managedHandlerCount(

@@ -220,17 +220,19 @@ func expandedActivityItems(
     )
 
     for (instanceIdentity, sessions) in sessionsByInstance {
-        guard let index = instanceIndexes[instanceIdentity], let first = sessions.first else {
-            continue
-        }
-        items[index] = ExpandedActivityItem(
-            aiAgentInstance: AIAgentInstance(
+        guard
+            let index = instanceIndexes[instanceIdentity],
+            let first = sessions.first,
+            let instance = AIAgentInstance(
                 agentID: first.agent,
                 rootSessionID: first.rootSessionID,
                 sessions: sessions,
                 ordinal: ordinals[instanceIdentity]
             )
-        )
+        else {
+            continue
+        }
+        items[index] = ExpandedActivityItem(aiAgentInstance: instance)
     }
 
     return items
@@ -313,7 +315,13 @@ public func expandedPanelSize(
         )
     }
     let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
-    let height = heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2
+    let footnote = blockedAgentFootnote(for: activities)
+    let footnoteHeight =
+        footnote.map {
+            blockedFootnoteHeight(hasRecoveryText: $0.hasRecoveryText(), metrics: metrics.panel)
+        } ?? 0
+    let height =
+        heights.reduce(0, +) + spacing + footnoteHeight + metrics.panel.contentInset * 2
 
     // One width for every arrangement, taken from the pill rather than from the
     // widest card: cards share the island's surface and stretch to whatever the
@@ -425,8 +433,13 @@ public func expandedPanelOverflowsWindow(
         )
     }
     let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
+    let footnoteHeight =
+        blockedAgentFootnote(for: activities).map {
+            blockedFootnoteHeight(hasRecoveryText: $0.hasRecoveryText(), metrics: metrics.panel)
+        } ?? 0
     let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
-    return heights.reduce(0, +) + spacing + metrics.panel.contentInset * 2 > availableHeight
+    return heights.reduce(0, +) + spacing + footnoteHeight + metrics.panel.contentInset * 2
+        > availableHeight
 }
 
 /// Whether `rowCount` generic rows still fit the allocated window at these
@@ -578,6 +591,14 @@ public struct ExpandedActivityView: View {
                     IslandItemSeparator(height: metrics.panel.rowSpacing)
                 }
                 itemView(for: item)
+            }
+
+            if let footnote = blockedAgentFootnote(for: activities) {
+                BlockedAgentFootnoteView(
+                    footnote: footnote,
+                    metrics: metrics.panel,
+                    scale: .default
+                )
             }
         }
     }

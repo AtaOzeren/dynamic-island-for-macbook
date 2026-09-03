@@ -1,5 +1,6 @@
 import Foundation
 import NotchFlowCore
+import os
 
 public enum ClaudeCodeHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingSettings
@@ -47,6 +48,10 @@ public struct FoundationClaudeCodeHookFileSystem: ClaudeCodeHookFileSystem {
 public struct ClaudeCodeHookInstaller: Sendable {
     private static let settingsPath = ".claude/settings.json"
     private static let backupSuffix = ".notchflow-backup"
+    private static let logger = Logger(
+        subsystem: "com.notchflow.NotchFlow",
+        category: "claude-code-installer"
+    )
 
     private let fileSystem: any ClaudeCodeHookFileSystem
     private let settingsURL: URL
@@ -235,6 +240,9 @@ public struct ClaudeCodeHookInstaller: Sendable {
             if command.contains(HookSnippetGenerator.managedHookMarker) {
                 return true
             }
+            if HookSnippetGenerator.previousManagedHookMarkers.contains(where: command.contains) {
+                return true
+            }
             // Every legacy token, not any: see `legacyManagedHookMarkers`.
             return HookSnippetGenerator.legacyManagedHookMarkers.allSatisfy(command.contains)
         }
@@ -351,10 +359,21 @@ public struct ClaudeCodeHookInstaller: Sendable {
     ) throws -> [String: Any] {
         // Claude Code's documented file is strict JSON. Rejecting JSON5 comments
         // before mutation is safer than accepting and then silently discarding them.
-        guard
-            let object = try? JSONSerialization.jsonObject(with: data),
-            let root = object as? [String: Any]
-        else {
+        let object: Any
+        do {
+            object = try JSONSerialization.jsonObject(with: data)
+        } catch let parseError {
+            // The typed error tells the caller which operation aborted; the
+            // parse error carries the reason a bare `try?` used to discard.
+            let location = error == .invalidExistingSettings
+                ? "existing settings at \(settingsURL.path) or its backup"
+                : "the generated settings fragment"
+            Self.logger.error(
+                "Claude Code \(location, privacy: .public) is not valid JSON: \(String(describing: parseError), privacy: .public)"
+            )
+            throw error
+        }
+        guard let root = object as? [String: Any] else {
             throw error
         }
         return root
