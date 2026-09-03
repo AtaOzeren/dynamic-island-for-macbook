@@ -39,6 +39,7 @@ struct HookGenerationTests {
                 "PostToolUse",
                 "Notification",
                 "Stop",
+                "StopFailure",
                 "SessionEnd",
                 "SubagentStart",
                 "SubagentStop",
@@ -179,9 +180,72 @@ struct HookGenerationTests {
         #expect(plugin.contains(#""tool.execute.before": async"#))
         #expect(plugin.contains(#""tool.execute.after": async"#))
         #expect(plugin.contains(#""session.idle""#))
-        #expect(plugin.contains(#""session.error""#))
+        // Deliberately absent: opencode fires `session.error` after perfectly
+        // normal completions too, so mapping it straight to red painted
+        // finished work as failed. The failure now comes from the last
+        // message's own error, which is the only source that distinguishes them.
+        #expect(!plugin.contains(#"case "session.error""#))
         #expect(plugin.contains(#""chat.message": async"#))
         #expect(plugin.contains(#""permission.asked""#))
+    }
+
+    /// `session.idle` means the session stopped, not that it succeeded. A turn
+    /// that died on a rate limit goes idle exactly like one that finished, and
+    /// opencode emits no event for the failure itself, so the only way to tell
+    /// them apart is to ask what the last message says.
+    @Test("the OpenCode plugin verifies the outcome before claiming success")
+    func openCodePluginVerifiesItsOutcome() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+
+        #expect(plugin.contains("const lastAssistantError"))
+        #expect(plugin.contains("client.session.messages("))
+        #expect(plugin.contains(#"await notify("error", sessionId, "Task failed""#))
+    }
+
+    /// An aborted turn is neither a success nor a failure: something stopped it
+    /// on purpose. It is also by far the most common stored error — painting
+    /// those red would turn a cancel loop into a wall of alarm.
+    @Test("the OpenCode plugin does not treat an abort as a failure")
+    func openCodePluginIgnoresAborts() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+
+        #expect(plugin.contains("MessageAbortedError"))
+        #expect(plugin.contains(#"if (error.name === "MessageAbortedError") return null"#))
+    }
+
+    /// The cause is classified into the island's own closed vocabulary rather
+    /// than passed through: the validator rejects the punctuation provider
+    /// errors are full of, so a raw message would drop the whole envelope.
+    @Test("the OpenCode plugin names causes from a closed vocabulary")
+    func openCodePluginClassifiesCauses() {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+
+        for status in ["401", "402", "403", "429", "529"] {
+            #expect(plugin.contains(status), "status \(status) is unclassified")
+        }
+        for reason in AIAgentFailureReason.allCases where reason != .unknown {
+            #expect(plugin.contains(reason.rawValue), "\(reason.rawValue) is never sent")
+        }
+    }
+
+    /// Claude Code names the cause in a closed set of its own, and every one of
+    /// its members has to land somewhere in ours — an unmapped name would reach
+    /// the island as an unexplained failure.
+    @Test("every Claude Code failure name maps to a reason")
+    func claudeCodeFailureNamesAreMapped() throws {
+        let hooks = try Self.claudeCodeHooks()
+        let command = try hookCommand(for: "StopFailure", in: hooks)
+
+        for name in [
+            "rate_limit", "account_on_hold", "billing_error",
+            "authentication_failed", "oauth_org_not_allowed",
+            "overloaded", "server_error",
+            "invalid_request", "model_not_found", "max_output_tokens",
+        ] {
+            #expect(command.contains(name), "\(name) is unmapped")
+        }
+        #expect(command.contains(#""error""#))
+        #expect(command.contains("notchflow_reason(event)"))
     }
 
     /// Quitting opencode is neither the end of a turn nor the deletion of a
@@ -298,7 +362,10 @@ struct HookGenerationTests {
     func claudeCodeHooksNameRealEventsOnly() throws {
         let hooks = try Self.claudeCodeHooks()
 
-        #expect(hooks["StopFailure"] == nil)
+        // `StopFailure` is the one failure signal Claude Code gives: the turn
+        // ended on an API error rather than on Claude finishing. Without it a
+        // rate-limited turn reported nothing at all.
+        #expect(hooks["StopFailure"] != nil)
     }
 
     /// The tool in flight is only meaningful in `usingTool`, and only

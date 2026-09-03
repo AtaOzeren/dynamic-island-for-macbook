@@ -175,16 +175,21 @@ public struct IslandTypeScale: Equatable, Sendable {
     public let nestedTitle: CGFloat
     /// The secondary line of a row nested inside a card.
     public let nestedDetail: CGFloat
+    /// The panel's footnote: smaller than anything a card draws, because it is
+    /// not one of the things the user came to read.
+    public let footnote: CGFloat
 
     public init(
         title: CGFloat = 12,
         detail: CGFloat = 10,
         nestedTitle: CGFloat = 10,
-        nestedDetail: CGFloat = 9
+        nestedDetail: CGFloat = 9,
+        footnote: CGFloat = 8
     ) {
         self.title = title
         self.detail = detail
         self.nestedTitle = nestedTitle
         self.nestedDetail = nestedDetail
+        self.footnote = footnote
     }
 }

@@ -26,7 +26,7 @@ struct ClaudeCodeHookInstallerTests {
             try jsonObject(from: Data(installed.utf8)) as NSDictionary == jsonObject(from: Data(proposal.utf8))
                 as NSDictionary)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
-        #expect(try allHookCommands(in: proposal).count == 8)
+        #expect(try allHookCommands(in: proposal).count == 9)
         #expect(try allHookCommands(in: proposal).allSatisfy { $0.hasSuffix(" &") })
         let hooks = try #require(jsonObject(from: Data(proposal.utf8))["hooks"] as? [String: Any])
         #expect(hooks["SubagentStart"] != nil)
@@ -275,9 +275,11 @@ struct ClaudeCodeHookInstallerTests {
     @Test("install replaces v2 hooks across old events when adding subagent events")
     func replacesV2HooksForSubagentUpgrade() throws {
         let oldCommand = #"python3 -c 'print(1)' # notchflow_hook_v2"#
-        let oldGroup: [[String: Any]] = [[
-            "hooks": [["type": "command", "command": oldCommand]]
-        ]]
+        let oldGroup: [[String: Any]] = [
+            [
+                "hooks": [["type": "command", "command": oldCommand]]
+            ]
+        ]
         let oldHooks = Dictionary(
             uniqueKeysWithValues: [
                 "UserPromptSubmit",
@@ -295,7 +297,7 @@ struct ClaudeCodeHookInstallerTests {
 
         let installed = try #require(fileSystem.text(at: Self.settingsURL))
         let commands = try allHookCommands(in: installed)
-        #expect(commands.count == 8)
+        #expect(commands.count == 9)
         #expect(commands.allSatisfy { $0.contains(HookSnippetGenerator.managedHookMarker) })
         #expect(!installed.contains(oldCommand))
     }
@@ -308,7 +310,7 @@ struct ClaudeCodeHookInstallerTests {
         let stale = """
             {
               "hooks" : {
-                "StopFailure" : [
+                "PreCompact" : [
                   {
                     "hooks" : [
                       {
@@ -328,7 +330,7 @@ struct ClaudeCodeHookInstallerTests {
         try Self.makeInstaller(fileSystem: fileSystem).install()
 
         let installed = try #require(fileSystem.text(at: Self.settingsURL))
-        #expect(!installed.contains("StopFailure"))
+        #expect(!installed.contains("PreCompact"))
     }
 
     /// A hand-written hook that happens to open a `notchflow://` URL is the

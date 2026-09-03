@@ -743,9 +743,44 @@ struct AIAgentActivityViewTests {
         let size = compactAIAgentIconSize(iconSize: iconSize, state: .working)
 
         #expect(size.width >= iconSize + metrics.countBadgeOverhang * 2)
-        #expect(size.height >= metrics.countBadgeOverhang + iconSize + metrics.badgeDiameter)
+        #expect(size.height == metrics.countBadgeOverhang + metrics.statusBaseline(iconSize: iconSize))
         // And still inside the pill's slot, or the icons overlap each other.
         #expect(size.width <= CompactPillMetrics.default.slotWidth)
+    }
+
+    /// Every state's indicator ends on the same line under the logo.
+    ///
+    /// Hanging a 3pt dot and a 7pt badge from the same *top* offset put the
+    /// badge four points lower, and near the pill's rounded end those four
+    /// points fell outside the silhouette — the compact shape uses `.continuous`
+    /// corners, and a squircle keeps curving well past where a circular arc of
+    /// the same radius would have finished.
+    @Test("every status indicator ends on the same baseline")
+    func statusIndicatorsShareABaseline() {
+        let metrics = CompactAIAgentMetrics.default
+        let iconSize: CGFloat = 13
+        let baseline = metrics.statusBaseline(iconSize: iconSize)
+
+        for diameter in [metrics.dotDiameter, metrics.badgeDiameter] {
+            let offset = metrics.statusOffset(iconSize: iconSize, diameter: diameter)
+            #expect(offset + diameter == baseline, "an indicator ends off the shared baseline")
+        }
+    }
+
+    /// The agent slot is the tallest thing in the pill, so it is the one that
+    /// decides whether anything is drawn outside the silhouette. It may not
+    /// reach lower than the plain glyph every other slot draws.
+    @Test("the agent slot is no taller than the pill can safely draw")
+    func agentSlotStaysInsideTheSilhouette() {
+        let pill = CompactPillMetrics.default
+        let box = compactAIAgentIconSize(iconSize: pill.symbolSize, state: .error)
+        let notch = PanelMetrics.default.compactFallbackSize
+
+        // Centred in the pill, the column must clear the rounded ends. Half the
+        // corner radius of headroom is what the working dot already had and what
+        // the state badges lost when they hung four points lower.
+        let headroom = (notch.height - box.height) / 2
+        #expect(headroom >= 4, "the agent column reaches into the pill's curved ends")
     }
 
     /// The count has to reach the pill through the manager's grouping rather
@@ -855,6 +890,10 @@ struct AIAgentActivityViewTests {
         let source = try Self.agentActivityViewSource()
 
         #expect(source.contains("compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)"))
-        #expect(source.contains("statusIndicator\n                .offset(y: iconSize + 1)"))
+        #expect(
+            source.contains(
+                "statusIndicator\n                .offset(y: metrics.statusOffset(iconSize: iconSize, diameter: statusDiameter))"
+            )
+        )
     }
 }

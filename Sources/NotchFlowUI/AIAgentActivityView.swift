@@ -277,7 +277,7 @@ func compactAIAgentIconSize(iconSize: CGFloat, state _: AIAgentState) -> CGSize 
             iconSize + metrics.countBadgeOverhang * 2,
             metrics.travelDistance + metrics.dotDiameter
         ),
-        height: metrics.countBadgeOverhang + iconSize + metrics.badgeDiameter + 1
+        height: metrics.countBadgeOverhang + metrics.statusBaseline(iconSize: iconSize)
     )
 }
 
@@ -309,6 +309,27 @@ struct CompactAIAgentMetrics: Equatable, Sendable {
     let countBadgeOverhang: CGFloat = 3
     /// The highest count the badge spells out before falling back to "9+".
     let countBadgeCeiling = 9
+
+    /// How far below the logo's top every status indicator ends.
+    ///
+    /// Indicators share a *baseline*, not a top offset. The working dot is 3pt
+    /// and the state badges are 7, so hanging both from the same top put the
+    /// badges four points lower than the dot — far enough that, near the pill's
+    /// rounded end, they fell outside it. The compact silhouette is drawn with
+    /// `.continuous` corners, and a squircle keeps curving well past the point a
+    /// circular arc of the same radius would have finished, so "inside the
+    /// pill's height" is not the same as "inside the pill".
+    ///
+    /// One baseline also reads better: the status light sits in one place under
+    /// the logo whatever shape it takes.
+    func statusBaseline(iconSize: CGFloat) -> CGFloat {
+        iconSize + 1 + dotDiameter
+    }
+
+    /// How far to drop an indicator of `diameter` so it ends on that baseline.
+    func statusOffset(iconSize: CGFloat, diameter: CGFloat) -> CGFloat {
+        statusBaseline(iconSize: iconSize) - diameter
+    }
 
     private init() {}
 }
@@ -868,7 +889,7 @@ struct CompactAIAgentIcon: View {
             AIAgentIcon(agentID: presentation.agentID, size: iconSize)
                 .overlay(alignment: .topTrailing) { sessionCountBadge }
             statusIndicator
-                .offset(y: iconSize + 1)
+                .offset(y: metrics.statusOffset(iconSize: iconSize, diameter: statusDiameter))
         }
         .padding(.top, metrics.countBadgeOverhang)
         .frame(width: size.width, height: size.height, alignment: .top)
@@ -908,6 +929,12 @@ struct CompactAIAgentIcon: View {
                     y: -metrics.countBadgeOverhang
                 )
         }
+    }
+
+    /// The drawn size of whichever indicator this state calls for, which is what
+    /// the shared baseline is measured against.
+    private var statusDiameter: CGFloat {
+        presentation.indicator.badgeTone == nil ? metrics.dotDiameter : metrics.badgeDiameter
     }
 
     @ViewBuilder

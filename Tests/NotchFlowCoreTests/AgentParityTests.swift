@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import NotchFlowCore
 
 /// Parity across the three agent integrations, per the stabilization plan's
@@ -74,7 +75,11 @@ struct AgentParityTests {
             name: "turn end",
             claudeCodeTrigger: "Stop",
             codexTrigger: "Stop",
-            openCodeTriggerPattern: #"case "session\.idle":\s*await notify\("completed""#,
+            // Routed through `settle`, which asks what the last message says
+            // before claiming success: opencode goes idle on a failed turn
+            // exactly as it does on a finished one.
+            openCodeTriggerPattern:
+                #"const settle = async[\s\S]*?await notify\("completed"[\s\S]*?case "session\.idle":\s*await settle\("#,
             state: .completed,
             unifiedDetail: "Task completed"
         ),
@@ -388,7 +393,8 @@ struct AgentParityTests {
         #expect(
             Self.pluginSource(
                 pluginSource,
-                matches: #""tool\.execute\.before": async \(input\) => \{\s*await notify\("usingTool", input\.sessionID, "Using tool", input\.tool,"#
+                matches:
+                    #""tool\.execute\.before": async \(input\) => \{\s*await notify\("usingTool", input\.sessionID, "Using tool", input\.tool,"#
             )
         )
         #expect(

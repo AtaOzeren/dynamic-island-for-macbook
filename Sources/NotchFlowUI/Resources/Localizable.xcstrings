@@ -1916,7 +1916,7 @@
       }
     },
     "%lld agents": {
-      "comment": "Expanded AI agent card: the control that opens the list of sub-agents this instance spawned, labelled with how many there are.",
+      "comment": "Expanded panel footnote subject when too many agents are blocked to name them individually.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1928,7 +1928,7 @@
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld ajan"
+            "value": "%lld aracı"
           }
         }
       }
@@ -1983,6 +1983,132 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajan %lld"
+          }
+        }
+      }
+    },
+    "Out of quota": {
+      "comment": "Expanded panel footnote: the agent stopped because the account has no quota, credits or rate-limit budget left.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Out of quota"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kota doldu"
+          }
+        }
+      }
+    },
+    "Sign-in required": {
+      "comment": "Expanded panel footnote: the agent stopped because its credentials were rejected.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-in required"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturum açmanız gerekiyor"
+          }
+        }
+      }
+    },
+    "Provider unavailable": {
+      "comment": "Expanded panel footnote: the agent stopped because its provider is overloaded or erroring.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provider unavailable"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sağlayıcı kullanılamıyor"
+          }
+        }
+      }
+    },
+    "Request refused": {
+      "comment": "Expanded panel footnote: the provider refused the request itself.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request refused"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İstek reddedildi"
+          }
+        }
+      }
+    },
+    "Stopped on an error": {
+      "comment": "Expanded panel footnote: the agent failed for a reason it could not name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stopped on an error"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir hatayla durdu"
+          }
+        }
+      }
+    },
+    "activity.ai.blockedFootnote": {
+      "comment": "Expanded panel footnote: which agents cannot run, and why. Placeholders are the agents and the reason. Named rather than keyed on its English because a punctuation-only key has no valid Swift symbol.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        }
+      }
+    },
+    "activity.ai.blockedRecovery": {
+      "comment": "Expanded panel footnote second line: when an exhausted quota resets. Placeholder is a localized time of day.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Resets at %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ sıfırlanır"
           }
         }
       }
