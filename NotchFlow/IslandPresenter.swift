@@ -32,6 +32,15 @@ final class IslandViewModel: ObservableObject {
     /// this model. While the view owned it privately, the icon vanished and the
     /// bar behind it stayed at full width.
     @Published var hiddenMusicSlotIDs: Set<String> = []
+    /// When each activity started claiming the pill under an announcement
+    /// window.
+    ///
+    /// Held here rather than in `ActivityManager` for a blunt reason: adding any
+    /// stored property to that class makes the whole test suite abort inside
+    /// `swift_task_dealloc`, reproducibly, with a single unused line. The
+    /// bookkeeping is presentation state either way, and this is the model the
+    /// pill is already drawn from.
+    @Published var announcementStarts: [ActivityIdentity: Date] = [:]
     @Published var notchSize: CGSize
     @Published var hoverScale: CGFloat = 1
     @Published var hoverOpacity: Double = 1
@@ -246,6 +255,7 @@ final class IslandPresenter {
     private let timerProvider: TimerProvider?
     private let primaryActions: any PrimaryActionDispatching
     private let hoverCoordinator = SynchronizedHoverCoordinator()
+    private var announcementRefreshTask: Task<Void, Never>?
     private var secondaryPresentations: [String: SecondaryIslandPresentation] = [:]
 
     init(
@@ -444,14 +454,58 @@ final class IslandPresenter {
         refreshContent()
     }
 
+    /// Wakes the island when the next announcement window runs out.
+    ///
+    /// `refreshContent` is driven by events — an activity registering, the
+    /// pointer moving, the panel changing state. A blocked agent that failed
+    /// once and went quiet produces none of those, so without a deadline to
+    /// sleep on its announcement would never end and the pill would stay red
+    /// until the activity itself timed out.
+    ///
+    /// Self-limiting: once the deadline passes the window is elapsed, so the
+    /// refresh it triggers finds nothing pending and schedules nothing more.
+    private func scheduleAnnouncementRefresh(after now: Date) {
+        announcementRefreshTask?.cancel()
+        announcementRefreshTask = nil
+
+        guard
+            let deadline = nextAnnouncementDeadline(
+                for: manager.expandedActivities,
+                announcementStarts: model.announcementStarts,
+                after: now
+            )
+        else {
+            return
+        }
+
+        announcementRefreshTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(deadline.timeIntervalSince(now)))
+            guard Task.isCancelled == false else { return }
+            self?.refreshContent()
+        }
+    }
+
     private func refreshContent() {
-        model.compact = manager.compactPresentation
+        let now = Date()
+        model.announcementStarts = advancedAnnouncementStarts(
+            previous: model.announcementStarts,
+            activities: manager.expandedActivities,
+            now: now
+        )
+        model.compact = compactPresentation(
+            manager.compactPresentation,
+            reconciledWith: manager.expandedActivities,
+            announcementStarts: model.announcementStarts,
+            registrationTimes: manager.registrationTimes,
+            now: now
+        )
         model.expanded = manager.expandedActivities
         model.registrationTimes = manager.registrationTimes
         model.notchSize = Self.notchSize(
             metrics: metrics,
             preference: settingsStore.generalPreferences.displayTarget
         )
+        scheduleAnnouncementRefresh(after: now)
         for secondary in secondaryPresentations.values {
             secondary.refreshContent()
         }

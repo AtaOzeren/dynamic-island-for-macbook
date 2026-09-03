@@ -70,6 +70,7 @@ enum HookScript {
             root_session=None,
             session_name=None,
             workspace=None,
+            reason=None,
         ):
             payload = {
                 "schemaVersion": "1.0",
@@ -89,7 +90,31 @@ enum HookScript {
                 payload["sessionName"] = session_name
             if workspace:
                 payload["workspace"] = workspace
+            if state == "error" and reason:
+                payload["reason"] = reason
             return json.dumps(payload, separators=(",", ":"))
+
+
+        # Claude Code names the cause in a closed set of its own. Mapped here
+        # rather than passed through, because the island localises what it draws
+        # and the validator refuses the punctuation a raw provider message is
+        # full of.
+        NOTCHFLOW_REASONS = {
+            "rate_limit": "quotaExhausted",
+            "account_on_hold": "quotaExhausted",
+            "billing_error": "quotaExhausted",
+            "authentication_failed": "authFailed",
+            "oauth_org_not_allowed": "authFailed",
+            "overloaded": "providerUnavailable",
+            "server_error": "providerUnavailable",
+            "invalid_request": "requestRejected",
+            "model_not_found": "requestRejected",
+            "max_output_tokens": "requestRejected",
+        }
+
+
+        def notchflow_reason(event):
+            return NOTCHFLOW_REASONS.get(str(event.get("error") or ""), "unknown")
 
 
         def notchflow_tool_name(event):
@@ -142,34 +167,39 @@ enum HookScript {
         state: String,
         detail: String,
         carriesToolName: Bool,
-        carriesSubagentIdentity: Bool
+        carriesSubagentIdentity: Bool,
+        carriesFailureReason: Bool = false
     ) -> String {
         let toolExpression = carriesToolName ? "notchflow_tool_name(event)" : "None"
-        let sessionExpression = carriesSubagentIdentity
+        let sessionExpression =
+            carriesSubagentIdentity
             ? "notchflow_session(event.get(\"agent_id\"))"
             : "notchflow_session(event.get(\"session_id\"))"
-        let rootSessionExpression = carriesSubagentIdentity
+        let rootSessionExpression =
+            carriesSubagentIdentity
             ? "notchflow_session(event.get(\"session_id\"))"
             : "None"
-        let sessionNameExpression = carriesSubagentIdentity
+        let sessionNameExpression =
+            carriesSubagentIdentity
             ? "event.get(\"agent_type\")"
             : "None"
         let script =
             pythonPreamble(agentID: "claude-code")
-            + """
-            event = notchflow_load("")
-            notchflow_send(
-                notchflow_payload(
-                    \(sessionExpression),
-                    \(HookTextEncoding.pythonStringLiteral(state)),
-                    \(HookTextEncoding.pythonStringLiteral(detail)),
-                    \(toolExpression),
-                    \(rootSessionExpression),
-                    \(sessionNameExpression),
-                    event.get("cwd"),
+                + """
+                event = notchflow_load("")
+                notchflow_send(
+                    notchflow_payload(
+                        \(sessionExpression),
+                        \(HookTextEncoding.pythonStringLiteral(state)),
+                        \(HookTextEncoding.pythonStringLiteral(detail)),
+                        \(toolExpression),
+                        \(rootSessionExpression),
+                        \(sessionNameExpression),
+                        event.get("cwd"),
+                        \(carriesFailureReason ? "notchflow_reason(event)" : "None"),
+                    )
                 )
-            )
-            """
+                """
         // Backgrounded as a whole so no hook ever adds its own latency to a tool
         // call. Reading stdin happens first, in the foreground, because the pipe
         // Claude Code opened is closed as soon as the hook process returns.
@@ -210,28 +240,28 @@ enum HookScript {
             .joined(separator: ",\n")
         let script =
             pythonPreamble(agentID: "codex")
-            + """
-            \(HookSnippetGenerator.codexLifecycleHookMarker) = True
+                + """
+                \(HookSnippetGenerator.codexLifecycleHookMarker) = True
 
-            STATES = {
-            \(states),
-            }
+                STATES = {
+                \(states),
+                }
 
-            event = notchflow_load("")
-            resolved = STATES.get(str(event.get("hook_event_name")))
-            if resolved is None:
-                sys.exit(0)
-            state, detail, carries_tool_name = resolved
-            notchflow_send(
-                notchflow_payload(
-                    notchflow_session(event.get("session_id")),
-                    state,
-                    detail,
-                    notchflow_tool_name(event) if carries_tool_name else None,
-                    workspace=event.get("cwd"),
+                event = notchflow_load("")
+                resolved = STATES.get(str(event.get("hook_event_name")))
+                if resolved is None:
+                    sys.exit(0)
+                state, detail, carries_tool_name = resolved
+                notchflow_send(
+                    notchflow_payload(
+                        notchflow_session(event.get("session_id")),
+                        state,
+                        detail,
+                        notchflow_tool_name(event) if carries_tool_name else None,
+                        workspace=event.get("cwd"),
+                    )
                 )
-            )
-            """
+                """
         return interpreterResolution
             + "\"$NOTCHFLOW_PY\" -c \(HookTextEncoding.shellSingleQuoted(script))"
     }

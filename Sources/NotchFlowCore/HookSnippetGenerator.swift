@@ -267,12 +267,70 @@ public struct HookSnippetGenerator: Sendable {
               timestamp: new Date().toISOString(),
             })
 
+          // `session.idle` means the session stopped, not that it succeeded. A
+          // turn that died on a rate limit goes idle exactly like one that
+          // finished, and opencode emits no event for the failure itself
+          // (anomalyco/opencode#10432), so the only way to tell them apart is to
+          // ask what the last message actually says.
+          //
+          // Reporting the difference is the whole point: a green tick on a turn
+          // that never ran is worse than no island at all.
+          const OUTCOME_REASONS: Record<number, string> = {
+            401: "authFailed",
+            403: "authFailed",
+            402: "quotaExhausted",
+            429: "quotaExhausted",
+            529: "providerUnavailable",
+          }
+
+          const classify = (error: any): string | null => {
+            if (!error) return null
+            // An aborted turn is neither a success nor a failure: the user or
+            // the agent stopped it on purpose, and it is by far the most common
+            // stored error. Painting those red would turn a cancel loop into a
+            // wall of alarm.
+            if (error.name === "MessageAbortedError") return null
+            const status = Number(error.data?.statusCode)
+            if (OUTCOME_REASONS[status]) return OUTCOME_REASONS[status]
+            if (status >= 400 && status < 500) return "requestRejected"
+            const body = String(error.data?.message ?? "")
+            if (body.includes("overloaded_error")) return "providerUnavailable"
+            return "unknown"
+          }
+
+          const lastAssistantError = async (sessionId: string): Promise<any> => {
+            try {
+              const response = await client.session.messages({ path: { id: sessionId } })
+              const messages = ((response as any)?.data ?? response) as any[]
+              if (!Array.isArray(messages)) return null
+              for (let i = messages.length - 1; i >= 0; i--) {
+                const info = messages[i]?.info ?? messages[i]
+                if (info?.role !== "assistant") continue
+                return info?.error ?? null
+              }
+            } catch {
+              // The island degrades to what it knew before this lookup existed.
+            }
+            return null
+          }
+
+          const settle = async (sessionId: string) => {
+            if (!sessionId) return
+            const reason = classify(await lastAssistantError(sessionId))
+            if (reason === null) {
+              await notify("completed", sessionId, "Task completed")
+              return
+            }
+            await notify("error", sessionId, "Task failed", undefined, undefined, reason)
+          }
+
           const notify = async (
             state: string,
             sessionId: string,
             detail: string,
             toolName?: string,
             agentName?: string,
+            reason?: string,
           ) => {
             if (!sessionId) return
             if (agentName) names.set(sessionId, agentName)
@@ -292,6 +350,7 @@ public struct HookSnippetGenerator: Sendable {
               if (name) payload.sessionName = name
             }
             if (state === "usingTool" && toolName) payload.toolName = toolName
+            if (state === "error" && reason) payload.reason = reason
             if (root === sessionId) liveRoots.add(sessionId)
             deliver(JSON.stringify(payload))
           }
@@ -337,10 +396,7 @@ public struct HookSnippetGenerator: Sendable {
                   remember(event.properties.info)
                   break
                 case "session.idle":
-                  await notify("completed", event.properties.sessionID, "Task completed")
-                  break
-                case "session.error":
-                  await notify("error", event.properties.sessionID, "Session error")
+                  await settle(event.properties.sessionID)
                   break
                 case "session.deleted":
                   await notify("idle", event.properties.info.id, "Session ended")
@@ -381,6 +437,7 @@ public struct HookSnippetGenerator: Sendable {
         let detail: String
         var carriesToolName = false
         var carriesSubagentIdentity = false
+        var carriesFailureReason = false
     }
 
     /// The Claude Code hook events NotchFlow subscribes to.
@@ -410,6 +467,17 @@ public struct HookSnippetGenerator: Sendable {
         LifecycleEvent(event: "PostToolUse", state: "working", detail: "Tool completed"),
         LifecycleEvent(event: "Notification", state: "waitingForUser", detail: "Needs attention"),
         LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
+        // `Stop` fires when Claude finishes responding; `StopFailure` when the
+        // turn ends on an API error instead. Without this the island had no
+        // signal at all for a rate-limited turn — the card simply sat at
+        // "working" until its silence bound ran out, half an hour later, saying
+        // nothing about why.
+        LifecycleEvent(
+            event: "StopFailure",
+            state: "error",
+            detail: "Task failed",
+            carriesFailureReason: true
+        ),
         LifecycleEvent(event: "SessionEnd", state: "idle", detail: "Session ended"),
         LifecycleEvent(
             event: "SubagentStart",

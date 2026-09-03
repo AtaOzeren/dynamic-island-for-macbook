@@ -39,6 +39,11 @@ public struct AIAgentActivity: Activity, Equatable {
     public let sessionName: String?
     public let workspace: String?
     public let state: AIAgentState
+    /// Why the turn failed, when the agent could say. Meaningful only in
+    /// `error`.
+    public let reason: AIAgentFailureReason?
+    /// When the failure named by `reason` lifts on its own.
+    public let retryAt: Date?
     /// The short, human-readable line the expanded view shows, straight from
     /// the envelope's `detail` field.
     public let detail: String
@@ -58,6 +63,8 @@ public struct AIAgentActivity: Activity, Equatable {
         sessionName: String? = nil,
         workspace: String? = nil,
         state: AIAgentState,
+        reason: AIAgentFailureReason? = nil,
+        retryAt: Date? = nil,
         detail: String,
         toolName: String? = nil,
         progress: Double? = nil
@@ -68,6 +75,8 @@ public struct AIAgentActivity: Activity, Equatable {
         self.sessionName = sessionName
         self.workspace = workspace
         self.state = state
+        self.reason = state == .error ? reason : nil
+        self.retryAt = state == .error ? retryAt : nil
         self.detail = detail
         self.toolName = state == .usingTool ? toolName : nil
         self.progress = progress.map { $0.clamped(to: 0...1) }
@@ -84,6 +93,8 @@ public struct AIAgentActivity: Activity, Equatable {
             sessionName: message.sessionName,
             workspace: message.workspace,
             state: message.state,
+            reason: message.reason,
+            retryAt: message.retryAt,
             detail: message.detail,
             toolName: message.toolName,
             progress: message.progress
@@ -126,6 +137,33 @@ public struct AIAgentActivity: Activity, Equatable {
 
     public var compactInstanceIdentity: ActivityIdentity {
         Self.instanceIdentity(agent: agent, rootSessionID: rootSessionID)
+    }
+
+    /// Whether the agent is stopped by a condition outside the task itself —
+    /// no quota, no credentials, no provider.
+    ///
+    /// These read differently from an ordinary failure. A task that errored is
+    /// news: it happened once, the user reads it and moves on. A blocked agent
+    /// is a *standing condition* that will keep failing every retry until
+    /// something outside the island changes, and an agent retrying every forty
+    /// seconds would otherwise announce the same news forever.
+    ///
+    /// The island therefore says it once in the pill and then keeps it as a
+    /// footnote, per `docs/04-overlay-window.md`.
+    public var isBlocked: Bool {
+        guard state == .error, let reason else { return false }
+        switch reason {
+        case .quotaExhausted, .authFailed, .providerUnavailable: return true
+        case .requestRejected, .unknown: return false
+        }
+    }
+
+    /// How long a blocked agent stays in the pill: long enough to be seen, not
+    /// long enough to become wallpaper.
+    public static let blockedAnnouncementWindow: TimeInterval = 60
+
+    public var compactAnnouncementWindow: TimeInterval? {
+        isBlocked ? Self.blockedAnnouncementWindow : nil
     }
 
     /// Whether this session was spawned by another rather than by the user.

@@ -123,7 +123,19 @@ final class SecondaryIslandPresentation {
     }
 
     func refreshContent() {
-        model.compact = manager.compactPresentation
+        let now = Date()
+        model.announcementStarts = advancedAnnouncementStarts(
+            previous: model.announcementStarts,
+            activities: manager.expandedActivities,
+            now: now
+        )
+        model.compact = compactPresentation(
+            manager.compactPresentation,
+            reconciledWith: manager.expandedActivities,
+            announcementStarts: model.announcementStarts,
+            registrationTimes: manager.registrationTimes,
+            now: now
+        )
         model.expanded = manager.expandedActivities
         model.registrationTimes = manager.registrationTimes
         model.notchSize = resolvedNotchSize(screen: screen(), metrics: metrics)

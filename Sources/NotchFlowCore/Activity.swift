@@ -13,6 +13,14 @@ public protocol Activity: Sendable {
     /// second agent running, and counting it as one turns "OpenCode ×1" into
     /// "OpenCode ×5" the moment a sub-agent fans out.
     var compactInstanceIdentity: ActivityIdentity { get }
+    /// How long this activity may occupy the compact pill before it becomes an
+    /// expanded-only concern. `nil` means for as long as it is active.
+    ///
+    /// For conditions that persist but only need saying once. An agent stopped
+    /// on an exhausted quota keeps failing every retry for hours; the pill is an
+    /// announcement surface and would repeat that news forever, while the
+    /// expanded panel is where a standing condition belongs.
+    var compactAnnouncementWindow: TimeInterval? { get }
     var compactRepresentationPriority: CompactRepresentationPriority { get }
     var compactRegion: CompactActivityRegion { get }
     var kind: ActivityKind { get }
@@ -26,6 +34,8 @@ extension Activity {
     public var compactGroupIdentity: ActivityIdentity { identity }
     /// An ungrouped activity is its own instance: one icon, one thing, count one.
     public var compactInstanceIdentity: ActivityIdentity { identity }
+    /// Most activities are their own news for as long as they last.
+    public var compactAnnouncementWindow: TimeInterval? { nil }
     public var compactRepresentationPriority: CompactRepresentationPriority { .active }
     public var compactRegion: CompactActivityRegion { .standard }
     /// Most activities queue by urgency alone. Only media and capture pin
