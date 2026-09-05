@@ -1,4 +1,5 @@
 import NotchFlowCore
+import ServiceManagement
 import SwiftUI
 
 /// The General pane: display target, menu bar visibility, launch at login,
@@ -12,18 +13,21 @@ public struct GeneralSettingsView: View {
     private let availableDisplays: [DisplayDescription]
     private let metrics: SettingsPaneMetrics
     private let onRestart: () -> Void
+    private let launchAtLoginNeedsApproval: Bool
     public let restartRequired: Bool
 
     public init(
         preferences: Binding<GeneralPreferences>,
         availableDisplays: [DisplayDescription],
         metrics: SettingsPaneMetrics = .default,
+        launchAtLoginNeedsApproval: Bool = false,
         restartRequired: Bool = false,
         onRestart: @escaping () -> Void = {}
     ) {
         self._preferences = preferences
         self.availableDisplays = availableDisplays
         self.metrics = metrics
+        self.launchAtLoginNeedsApproval = launchAtLoginNeedsApproval
         self.restartRequired = restartRequired
         self.onRestart = onRestart
     }
@@ -156,6 +160,18 @@ public struct GeneralSettingsView: View {
             metrics: metrics
         ) {
             Toggle(localized("Launch at login"), isOn: launchAtLogin)
+            if launchAtLoginNeedsApproval {
+                VStack(alignment: .leading, spacing: metrics.rowSpacing / 2) {
+                    Text(localized("Allow NotchFlow in Login Items to finish enabling launch at login."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button(localized("Open Login Items Settings")) {
+                        SMAppService.openSystemSettingsLoginItems()
+                    }
+                    .buttonStyle(.link)
+                }
+                .accessibilityIdentifier("settings.general.launchAtLoginApproval")
+            }
         }
     }
 

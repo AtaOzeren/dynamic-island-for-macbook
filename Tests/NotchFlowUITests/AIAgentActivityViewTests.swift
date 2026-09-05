@@ -10,6 +10,11 @@ import Testing
 @Suite("AIAgentActivityView")
 @MainActor
 struct AIAgentActivityViewTests {
+    private static let repositoryRoot = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+
     /// A session an agent spawned to delegate work, as `AIAgentActivity` sees it.
     private static func subagent(
         root: UUID,
@@ -389,6 +394,27 @@ struct AIAgentActivityViewTests {
                 ) + halfTravel
             ) < 0.001
         )
+    }
+
+    /// The working dot must never be driven by a clock again.
+    ///
+    /// `TimelineView(.animation)` re-evaluated the body up to thirty times a
+    /// second for as long as any agent was working, and the island's hosting
+    /// view sizes itself to its content, so each of those invalidations pulled a
+    /// full measure-and-layout pass through the view graph — once per panel, per
+    /// display, on the main thread. A sample of the shipped build showed it as
+    /// the dominant cost in an otherwise idle process. The motion is the same;
+    /// only the thing driving it changed, and it must stay changed.
+    @Test("the working dot animates by phase, never by a per-frame clock")
+    func compactWorkingDotIsNotClockDriven() throws {
+        let source = try String(
+            contentsOf: Self.repositoryRoot
+                .appendingPathComponent("Sources/NotchFlowUI/AIAgentActivityView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(!source.contains("TimelineView("))
+        #expect(source.contains("PhaseAnimator(Self.workingDotEndpoints)"))
     }
 
     @Test("centres the working dot when reduced motion is enabled")

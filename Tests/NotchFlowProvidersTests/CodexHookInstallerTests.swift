@@ -539,6 +539,25 @@ struct CodexHookInstallerTests {
         #expect(!installed.contains(#"forward = json.loads("[\"python3\""#))
     }
 
+    @Test("install replaces a v3 notify and preserves legacy URL detection")
+    func installReplacesV3ManagedNotify() throws {
+        let legacyScript =
+            #"notchflow_codex_notify_v3=True; url="notchflow://ai-status"; payload={"agentId":"codex"}"#
+        let legacy = "notify = "
+            + Self.jsonArrayLiteral(["python3", "-c", legacyScript])
+            + "\n"
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data(legacy.utf8)]
+        )
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+        #expect(installed.contains(HookSnippetGenerator.codexNotifyMarker))
+        #expect(!installed.contains("notchflow_codex_notify_v3"))
+        #expect(!installed.contains("notchflow://ai-status"))
+    }
+
     /// When another tool has wrapped our notify inside its own, the chain is
     /// not ours to rewrite — and the lifecycle hooks carry the same states.
     @Test("install leaves a notify nested inside another tool alone")

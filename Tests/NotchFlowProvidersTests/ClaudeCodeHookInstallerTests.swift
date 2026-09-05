@@ -302,6 +302,23 @@ struct ClaudeCodeHookInstallerTests {
         #expect(!installed.contains(oldCommand))
     }
 
+    @Test("install replaces v3 hooks with loopback-only hooks")
+    func replacesV3Hooks() throws {
+        let oldCommand = #"python3 -c 'print(1)' # notchflow_hook_v3"#
+        let oldSettings = try JSONSerialization.data(withJSONObject: [
+            "hooks": [
+                "Stop": [["hooks": [["type": "command", "command": oldCommand]]]]
+            ]
+        ])
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [Self.settingsURL: oldSettings])
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(installed.contains(HookSnippetGenerator.managedHookMarker))
+        #expect(!installed.contains("notchflow_hook_v3"))
+    }
+
     /// `StopFailure` is not an event Claude Code emits; an earlier version
     /// subscribed to it anyway. Nothing else would ever clear a hook under a
     /// name the generator no longer produces.

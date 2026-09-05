@@ -882,6 +882,8 @@ struct CompactAIAgentIcon: View {
     /// position: it answers a different question ("how many of this agent") from
     /// the status light ("what is it doing"), and stacking the two would make
     /// each state change look like a change in the number of sessions.
+    @State private var isWorkingDotAtTravelEnd = false
+
     var body: some View {
         let size = compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)
 
@@ -953,19 +955,48 @@ struct CompactAIAgentIcon: View {
         }
     }
 
+    /// The two ends of the dot's travel, read from the same easing function that
+    /// specifies the motion so the extents have exactly one definition.
+    private static let workingDotTravelStart = compactAIAgentWorkingDotOffset(
+        at: 0,
+        reduceMotion: false
+    )
+    private static let workingDotTravelEnd = compactAIAgentWorkingDotOffset(
+        at: CompactAIAgentMetrics.default.oneWayDuration,
+        reduceMotion: false
+    )
+
+    /// Animated by interpolating one value, not by re-running the body.
+    ///
+    /// Two earlier versions drove this from a per-frame schedule — first a
+    /// `TimelineView` at 30 Hz, then a `PhaseAnimator`, which is built on the
+    /// same per-frame driver. Both re-evaluated the body every frame, and the
+    /// island's hosting view sizes itself to its content, so each evaluation
+    /// dragged a full measure-and-layout pass behind it. Measured on the shipped
+    /// build: 11.9% CPU with the timeline, 11.3% with the phase animator, 0.3%
+    /// with the motion removed entirely — the animation was the whole cost, and
+    /// swapping one per-frame driver for another bought nothing.
+    ///
+    /// An implicit repeating animation over a single `Bool` lets SwiftUI
+    /// interpolate the offset itself. `offset` is a render-time transform, so
+    /// nothing above it is re-measured and the body runs once.
     @ViewBuilder
     private var workingDot: some View {
         if reduceMotion {
             dot(offset: 0)
         } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
-                dot(
-                    offset: compactAIAgentWorkingDotOffset(
-                        at: context.date.timeIntervalSinceReferenceDate,
-                        reduceMotion: false
-                    )
-                )
-            }
+            dot(
+                offset: isWorkingDotAtTravelEnd
+                    ? Self.workingDotTravelEnd
+                    : Self.workingDotTravelStart
+            )
+            .animation(
+                .easeInOut(duration: metrics.oneWayDuration)
+                    .repeatForever(autoreverses: true),
+                value: isWorkingDotAtTravelEnd
+            )
+            .onAppear { isWorkingDotAtTravelEnd = true }
+            .onDisappear { isWorkingDotAtTravelEnd = false }
         }
     }
 

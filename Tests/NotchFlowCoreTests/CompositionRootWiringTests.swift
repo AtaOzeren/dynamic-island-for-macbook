@@ -5,10 +5,11 @@ import Testing
 ///
 /// The defect class this file exists to catch is not a broken unit — every unit
 /// here has passing tests — it is a unit that is never constructed. No test
-/// target can import the `NotchFlow` executable, so the composition root is
-/// inspected as source, the same way `HookSnippetDocDriftTests` inspects
-/// `docs/07-ai-integration.md`. Coarse by nature: it proves a wire exists, not
-/// that it carries the right current. `scripts/check-composition-root.sh` is
+/// target can reach the composition root's `App.init` — `NotchFlowTests` can
+/// import the executable, but nothing can construct the scene it assembles — so
+/// the wiring is inspected as source, the same way `HookSnippetDocDriftTests`
+/// inspects `docs/07-ai-integration.md`. Coarse by nature: it proves a wire
+/// exists, not that it carries the right current. `scripts/check-composition-root.sh` is
 /// the broad sweep; these are the named wires the audit found cut.
 @Suite("Composition root wiring")
 struct CompositionRootWiringTests {
@@ -22,6 +23,14 @@ struct CompositionRootWiringTests {
             contentsOf: repositoryRoot.appendingPathComponent(relativePath),
             encoding: .utf8
         )
+    }
+
+    @Test("launch initialization never replaces the stored preference with service state")
+    func launchAtLoginPreferenceRemainsAuthoritative() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(!source.contains("launchAtLogin = Self.launchAtLoginIsRequested"))
+        #expect(source.contains("resolveLaunchAtLogin("))
     }
 
     /// The expanded panel must be handed the registration times that number an
@@ -124,7 +133,7 @@ struct CompositionRootWiringTests {
         // redraw, may come back: both produced an item that reported itself
         // visible while the menu bar drew nothing.
         #expect(source.contains("URLSchemeAppDelegate.onDidFinishLaunching"))
-        #expect(source.contains("didChangeScreenParametersNotification"))
+        #expect(source.contains("statusItemPresenter.screenConfigurationDidChange()"))
         #expect(!source.contains("statusItem.autosaveName ="))
         #expect(!source.contains("statusItem.isVisible = false"))
         #expect(!source.contains("visibilityRestorationTask"))
@@ -135,6 +144,17 @@ struct CompositionRootWiringTests {
         #expect(source.contains("isSettingsActionBridgeInserted = false"))
         #expect(!source.contains("isInserted: .constant(true)"))
         #expect(source.contains("SettingsActionBridge("))
+    }
+
+    @Test("hiding the status item leaves no screen notification token")
+    func hiddenStatusItemHasNoScreenNotificationToken() throws {
+        let source = try Self.appSource("NotchFlow/NotchFlowApp.swift")
+
+        #expect(source.contains("func screenConfigurationDidChange()"))
+        #expect(source.contains("func setVisible(_ isVisible: Bool)"))
+        #expect(source.contains("stop()"))
+        #expect(!source.contains("screenChangeObserver"))
+        #expect(!source.contains("didChangeScreenParametersNotification"))
     }
 
     @Test("a language change can relaunch the app from Settings")

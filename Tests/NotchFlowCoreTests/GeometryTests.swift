@@ -164,4 +164,39 @@ struct GeometryTests {
                 auxiliaryTopRightArea: CGRect(x: 793, y: 945, width: 719, height: 37)
             ) == nil)
     }
+
+    @Test("a frame is only usable for presentation when it describes real pixels")
+    func usableForPresentationRequiresARealFrame() {
+        let validScreen = ScreenDescription(
+            frame: CGRect(x: -1_800, y: 0, width: 2_560, height: 1_440),
+            safeAreaInsets: .zero,
+            auxiliaryTopLeftArea: nil,
+            auxiliaryTopRightArea: nil,
+            isBuiltIn: false
+        )
+        let zeroWidth = validScreen.withFrame(CGRect(x: 0, y: 0, width: 0, height: 1_440))
+        let zeroHeight = validScreen.withFrame(CGRect(x: 0, y: 0, width: 2_560, height: 0))
+        let infinite = validScreen.withFrame(
+            CGRect(x: 0, y: 0, width: CGFloat.infinity, height: CGFloat.infinity)
+        )
+        let nullFrame = validScreen.withFrame(.null)
+
+        #expect(validScreen.isUsableForPresentation)
+        #expect(!zeroWidth.isUsableForPresentation)
+        #expect(!zeroHeight.isUsableForPresentation)
+        #expect(!infinite.isUsableForPresentation)
+        #expect(!nullFrame.isUsableForPresentation)
+    }
+}
+
+private extension ScreenDescription {
+    func withFrame(_ frame: CGRect) -> ScreenDescription {
+        ScreenDescription(
+            frame: frame,
+            safeAreaInsets: safeAreaInsets,
+            auxiliaryTopLeftArea: auxiliaryTopLeftArea,
+            auxiliaryTopRightArea: auxiliaryTopRightArea,
+            isBuiltIn: isBuiltIn
+        )
+    }
 }

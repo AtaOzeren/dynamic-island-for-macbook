@@ -73,6 +73,18 @@ struct DisplaySelectionTests {
         )
     }
 
+    @Test("falls back to the built-in display when the identified display detaches")
+    func identifiedDisplayDetachedFallsBack() {
+        let detached = DisplayDescription(identifier: "65537", name: "Studio Display", isBuiltIn: false)
+
+        #expect(
+            selectDisplay(
+                from: [builtIn],
+                preference: .identified(id: detached.identifier, name: detached.name)
+            ) == builtIn
+        )
+    }
+
     @Test("all-displays mode selects every connected display")
     func allDisplaysSelectsEveryScreen() {
         #expect(
