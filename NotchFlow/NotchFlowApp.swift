@@ -3,8 +3,18 @@ import Foundation
 import NotchFlowCore
 import NotchFlowProviders
 import NotchFlowUI
+import os
 import ServiceManagement
 import SwiftUI
+
+@MainActor
+private final class DisplayInventory: ObservableObject {
+    @Published var displays: [DisplayDescription]
+
+    init(displays: [DisplayDescription]) {
+        self.displays = displays
+    }
+}
 
 @main
 struct NotchFlowApp: App {
@@ -54,7 +64,8 @@ struct NotchFlowApp: App {
     @State private var musicAutomation: [MusicAutomationAccess]
     @State private var musicAutomationRequestsInProgress: Set<MusicPlayerTarget>
     @State private var hookStates: [IPCAgentID: HookInstallationState]
-    @State private var availableDisplays: [DisplayDescription]
+    @State private var launchAtLoginNeedsApproval: Bool
+    @StateObject private var displayInventory: DisplayInventory
     @State private var isSettingsActionBridgeInserted = true
 
     init() {
@@ -78,7 +89,8 @@ struct NotchFlowApp: App {
         _musicAutomationRequestsInProgress = State(initialValue: [])
         _hookStates = State(initialValue: [:])
         let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
-        _availableDisplays = State(initialValue: currentDisplays)
+        let displayInventory = DisplayInventory(displays: currentDisplays)
+        _displayInventory = StateObject(wrappedValue: displayInventory)
         let settingsStore = SettingsStore()
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
@@ -88,9 +100,16 @@ struct NotchFlowApp: App {
             initialGeneralPreferences.displayTarget,
             availableDisplayCount: currentDisplays.count
         )
-        initialGeneralPreferences.launchAtLogin = Self.launchAtLoginIsRequested
         initialGeneralPreferences.appearance = .dark
         _generalPreferences = State(initialValue: initialGeneralPreferences)
+        _launchAtLoginNeedsApproval = State(
+            initialValue: SMAppService.mainApp.status == .requiresApproval
+        )
+        do {
+            try Self.applyLaunchAtLogin(initialGeneralPreferences.launchAtLogin)
+        } catch {
+            Self.present(error)
+        }
         _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
         let appliedLanguageOverride = settingsStore[.languageOverride]
         self.appliedLanguageOverride = appliedLanguageOverride
@@ -130,7 +149,11 @@ struct NotchFlowApp: App {
             manager: manager,
             settingsStore: settingsStore,
             musicProvider: musicProvider,
-            timerProvider: timerProvider
+            timerProvider: timerProvider,
+            screenConfigurationSettled: { displays in
+                statusItemPresenter.screenConfigurationDidChange()
+                displayInventory.displays = displays
+            }
         )
         self.islandPresenter = islandPresenter
 
@@ -205,8 +228,13 @@ struct NotchFlowApp: App {
         // A listening socket outliving the process that owned it is a defect,
         // and an accessory app is quit from a menu item rather than by closing
         // a window — so termination is the only hook that always runs.
+        // The status item is deliberately *not* removed here. `removeStatusItem`
+        // is how a user-initiated hide is expressed, and AppKit records that by
+        // writing the item's persisted visibility flag to false — so removing it
+        // on the way out taught every subsequent launch that the icon was not
+        // wanted, and the item was created but never given a menu bar slot. The
+        // process is exiting; the item goes with it.
         URLSchemeAppDelegate.onTerminate = {
-            statusItemPresenter.stop()
             Self.stopSynchronously(loopbackListener)
         }
 
@@ -332,20 +360,25 @@ struct NotchFlowApp: App {
         preferences: AIIntegrationPreferences,
         manualSetupPresenter: ManualSetupPresenter
     ) {
-        for agentID in preferences.enabledAgentIDs {
-            let state = hookState(for: agentID)
-            guard state == .configurationMissing || state == .hookAbsent else {
-                continue
-            }
-            do {
-                try installHook(for: agentID)
-            } catch {
-                presentManualSetup(
-                    for: agentID,
-                    with: manualSetupPresenter,
-                    fallbackError: error
-                )
-            }
+        LaunchHookRepairer(hooks: managedAgentHooks()).repair(
+            preferences: preferences
+        ) { agentID, error in
+            presentManualSetup(
+                for: agentID,
+                with: manualSetupPresenter,
+                fallbackError: error
+            )
+        }
+    }
+
+    private static func managedAgentHooks() -> [ManagedAgentHook] {
+        IPCAgentID.allCases.map { agentID in
+            ManagedAgentHook(
+                agentID: agentID,
+                installationState: { hookState(for: agentID) },
+                install: { try installHook(for: agentID) },
+                uninstallManagedHook: { try uninstallHook(for: agentID) }
+            )
         }
     }
 
@@ -354,14 +387,7 @@ struct NotchFlowApp: App {
         // zero-size scene captures that official action for Finder reopen
         // events, then removes itself before it can remain as a second status
         // item. The visible, reliable menu bar item is AppKit-owned.
-        MenuBarExtra(isInserted: $isSettingsActionBridgeInserted) {
-            EmptyView()
-        } label: {
-            SettingsActionBridge(router: settingsWindowRouter) {
-                isSettingsActionBridgeInserted = false
-            }
-        }
-
+        // DIAGNOSTIC: MenuBarExtra scene removed entirely.
         Settings {
             settingsWindowContent
         }
@@ -373,7 +399,7 @@ struct NotchFlowApp: App {
             enabledIdentifiers: $enabledIdentifiers,
             aiPreferences: $aiPreferences,
             languageOverride: $languageOverride,
-            availableDisplays: availableDisplays,
+            availableDisplays: displayInventory.displays,
             information: aboutInformation,
             languages: LanguageOption.shipped,
             musicAutomation: $musicAutomation,
@@ -382,12 +408,14 @@ struct NotchFlowApp: App {
             onRequestAutomation: requestAutomation,
             onAIPreferencesChange: applyAIPreferences,
             onHookAction: handleHookAction,
+            launchAtLoginNeedsApproval: launchAtLoginNeedsApproval,
             restartRequired: languageOverride != appliedLanguageOverride,
             onRestart: restartApplication
         )
         .onAppear {
             aiPreferences = settingsStore.aiIntegrationPreferences
             hookStates = Self.currentHookStates()
+            refreshLaunchAtLoginApprovalState()
             refreshAvailableDisplays()
             reloadMusicAutomationState()
         }
@@ -405,26 +433,24 @@ struct NotchFlowApp: App {
         ) { _ in
             refreshMusicAutomationState()
         }
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: NSApplication.didChangeScreenParametersNotification
-            )
-        ) { _ in
-            refreshAvailableDisplays()
-        }
         .onChange(of: generalPreferences, initial: true) { _, preferences in
             do {
                 try Self.applyLaunchAtLogin(preferences.launchAtLogin)
             } catch {
                 Self.present(error)
-                generalPreferences.launchAtLogin = Self.launchAtLoginIsRequested
-                return
             }
+            refreshLaunchAtLoginApprovalState()
             settingsStore.generalPreferences = preferences
             statusItemPresenter.setVisible(preferences.showMenuBarIcon)
             islandPresenter.applyAppearance(preferences.appearance)
             islandPresenter.applyReducedMotion(preferences.reducedMotionOverride)
             islandPresenter.applyDisplayTarget()
+        }
+        .onChange(of: displayInventory.displays) { _, displays in
+            generalPreferences.displayTarget = normalizeDisplayPreference(
+                generalPreferences.displayTarget,
+                availableDisplayCount: displays.count
+            )
         }
         .onChange(of: enabledIdentifiers) { _, identifiers in
             settingsStore.enabledProviderIdentifiers = identifiers
@@ -526,22 +552,19 @@ struct NotchFlowApp: App {
         hookStates = Self.currentHookStates()
     }
 
-    private static var launchAtLoginIsRequested: Bool {
-        switch SMAppService.mainApp.status {
-        case .enabled, .requiresApproval: true
-        case .notRegistered, .notFound: false
-        @unknown default: false
-        }
+    private func refreshLaunchAtLoginApprovalState() {
+        launchAtLoginNeedsApproval = SMAppService.mainApp.status == .requiresApproval
     }
 
     private static func applyLaunchAtLogin(_ shouldLaunch: Bool) throws {
         let service = SMAppService.mainApp
-        if shouldLaunch {
-            guard !launchAtLoginIsRequested else { return }
+        switch resolveLaunchAtLogin(preference: shouldLaunch, serviceStatus: service.status) {
+        case .register:
             try service.register()
-        } else {
-            guard launchAtLoginIsRequested else { return }
+        case .unregister:
             try service.unregister()
+        case .needsApproval, .none:
+            break
         }
     }
 
@@ -606,12 +629,7 @@ struct NotchFlowApp: App {
 
 extension NotchFlowApp {
     fileprivate func refreshAvailableDisplays() {
-        let displays = NSScreen.screens.map(DisplayDescription.init)
-        availableDisplays = displays
-        generalPreferences.displayTarget = normalizeDisplayPreference(
-            generalPreferences.displayTarget,
-            availableDisplayCount: displays.count
-        )
+        displayInventory.displays = NSScreen.screens.map(DisplayDescription.init)
     }
 
     fileprivate var aboutInformation: AboutInformation {
@@ -649,6 +667,19 @@ private final class StatusItemPresenter: NSObject {
     /// than trusting the asset keeps a future art change from producing an item
     /// that is silently clipped to nothing.
     private static let iconSize = NSSize(width: 18, height: 18)
+
+    /// Named explicitly so the visibility AppKit persists lands under a key this
+    /// app can find and repair, rather than one AppKit derives.
+    private static let statusItemAutosaveName = "NotchFlowMenuBarItem"
+
+    /// AppKit concatenates its prefix and the autosave name with no separator.
+    private static var visibilityDefaultsKey: String {
+        "NSStatusItem Visible\(statusItemAutosaveName)"
+    }
+    private static let logger = Logger(
+        subsystem: "com.notchflow.NotchFlow",
+        category: "status-item"
+    )
     private static let timerPresets: [(minutes: Int, title: String)] = [
         (5, String(localized: "Start 5-Minute Timer")),
         (10, String(localized: "Start 10-Minute Timer")),
@@ -658,7 +689,6 @@ private final class StatusItemPresenter: NSObject {
     private let timerProvider: TimerProvider
     private let openSettings: () -> Void
     private var statusItem: NSStatusItem?
-    private var screenChangeObserver: (any NSObjectProtocol)?
 
     init(timerProvider: TimerProvider, openSettings: @escaping () -> Void) {
         self.timerProvider = timerProvider
@@ -674,19 +704,10 @@ private final class StatusItemPresenter: NSObject {
     /// any menu bar — the same off-screen state a too-early creation produces,
     /// arrived at from the other direction. Removing and re-adding is the only
     /// way to ask for a fresh placement.
-    private func observeScreenChanges() {
-        guard screenChangeObserver == nil else { return }
-        screenChangeObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, self.statusItem != nil else { return }
-                self.stop()
-                self.start()
-            }
-        }
+    func screenConfigurationDidChange() {
+        guard statusItem != nil else { return }
+        stop()
+        start()
     }
 
     func setVisible(_ isVisible: Bool) {
@@ -706,14 +727,28 @@ private final class StatusItemPresenter: NSObject {
     /// state the menu bar does not reliably recover from — the item reported
     /// itself visible while nothing was ever drawn.
     ///
-    /// `autosaveName` is deliberately absent. It persists a position and a
-    /// visibility flag under a key the app never reads, so a single accidental
-    /// ⌘-drag out of the menu bar hides the item for good, with the in-app
-    /// switch still reading "on" and no way back. The item's presence is the
-    /// user's setting, and that setting lives in `GeneralPreferences`.
+    /// `autosaveName` is set rather than omitted, and the visibility it persists
+    /// is repaired before the item is created.
+    ///
+    /// An earlier version left `autosaveName` unset on the theory that this
+    /// avoided the persisted visibility flag. It does not: AppKit derives a name
+    /// anyway — the flag simply lands under `NSStatusItem VisibleCC Item-0`,
+    /// a key nobody thinks to look at. That flag is read when the item is
+    /// created, and a false value leaves the item without a menu bar slot: it
+    /// reports itself visible, it has an image, and its window sits at the
+    /// screen's origin at the old 22-point bar height while a placed item on the
+    /// same display gets 33. Nothing the app does afterwards re-places it.
+    ///
+    /// So the name is made explicit, and the flag is written to match the user's
+    /// setting first. The item's presence is that setting, which lives in
+    /// `GeneralPreferences`; a stale flag left behind by a ⌘-drag out of the
+    /// menu bar — or by a previous version removing the item on quit — must not
+    /// outvote it.
     func start() {
         guard statusItem == nil else { return }
+        UserDefaults.standard.set(true, forKey: Self.visibilityDefaultsKey)
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem.autosaveName = Self.statusItemAutosaveName
         statusItem.behavior = []
         guard let button = statusItem.button else {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -735,7 +770,48 @@ private final class StatusItemPresenter: NSObject {
         statusItem.menu = makeMenu()
         statusItem.isVisible = true
         self.statusItem = statusItem
-        observeScreenChanges()
+        reportPlacement(of: statusItem)
+    }
+
+    /// Records what the menu bar actually did with the item.
+    ///
+    /// "The icon never appears" has three unrelated causes that look identical
+    /// from outside the process: no image, an item the status bar declined to
+    /// make visible, and an item placed at coordinates no menu bar occupies —
+    /// the last of which is what a crowded or notched menu bar produces. Only
+    /// the button's window frame separates them, so it is recorded rather than
+    /// guessed at.
+    private func reportPlacement(of statusItem: NSStatusItem) {
+        report(statusItem, phase: "immediate")
+        // The window is laid out on a later turn, so the frame read inside
+        // `start()` is always pre-layout. The delayed read is the one that says
+        // where the item actually landed.
+        Task { @MainActor [weak statusItem] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let statusItem else { return }
+            self.report(statusItem, phase: "settled")
+        }
+        assert(
+            statusItem.button?.image != nil,
+            "Menu bar item has no image; the MenuBarIcon asset and the SF Symbol fallback both failed."
+        )
+    }
+
+    private func report(_ statusItem: NSStatusItem, phase: String) {
+        let button = statusItem.button
+        let window = button?.window
+        Self.logger.info(
+            """
+            status item \(phase, privacy: .public): \
+            visible=\(statusItem.isVisible, privacy: .public) \
+            length=\(statusItem.length, privacy: .public) \
+            hasImage=\(button?.image != nil, privacy: .public) \
+            hasWindow=\(window != nil, privacy: .public) \
+            buttonFrame=\(NSStringFromRect(button?.frame ?? .zero), privacy: .public) \
+            windowFrame=\(NSStringFromRect(window?.frame ?? .zero), privacy: .public) \
+            barThickness=\(NSStatusBar.system.thickness, privacy: .public)
+            """
+        )
     }
 
     func stop() {

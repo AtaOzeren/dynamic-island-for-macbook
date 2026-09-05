@@ -126,7 +126,9 @@ public struct OpenCodePluginInstaller: Sendable {
 
     public func uninstall() throws {
         if let backupData = try fileSystem.readFile(at: backupURL) {
-            guard try fileSystem.readFile(at: pluginURL) == generatedPlugin().data else {
+            guard let pluginData = try fileSystem.readFile(at: pluginURL),
+                  pluginData == (try generatedPlugin().data) || isLegacyManagedPlugin(pluginData)
+            else {
                 throw OpenCodePluginInstallerError.pluginChangedSinceInstall
             }
             try fileSystem.writeFileAtomically(backupData, to: pluginURL)
@@ -138,7 +140,7 @@ public struct OpenCodePluginInstaller: Sendable {
             return
         }
         let generatedData = try generatedPlugin().data
-        guard pluginData == generatedData else {
+        guard pluginData == generatedData || isLegacyManagedPlugin(pluginData) else {
             throw OpenCodePluginInstallerError.pluginChangedSinceInstall
         }
         try fileSystem.removeFile(at: pluginURL)
@@ -156,6 +158,18 @@ public struct OpenCodePluginInstaller: Sendable {
             throw OpenCodePluginInstallerError.invalidGeneratedPlugin
         }
         return (text, data)
+    }
+
+    // OpenCode has no version marker by design; structural markers plus the
+    // retired transport distinguish legacy generated plugins during uninstall.
+    private func isLegacyManagedPlugin(_ data: Data) -> Bool {
+        guard let text = String(data: data, encoding: .utf8) else { return false }
+        return text.contains("export const NotchFlowPlugin: Plugin")
+            && text.contains("agentId: \"opencode\"")
+            && text.contains("session.created")
+            && text.contains("tool.execute.before")
+            && text.contains("notchflow://ai-status")
+            && text.contains(#"spawn("open""#)
     }
 
     private func removeEmptyParents() throws {

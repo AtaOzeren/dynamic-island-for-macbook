@@ -60,6 +60,11 @@ let package = Package(
                 "Localizable.xcstrings",
             ]
         ),
+        .testTarget(
+            name: "NotchFlowTests",
+            dependencies: ["NotchFlow"],
+            path: "Tests/NotchFlowTests"
+        ),
     ],
     swiftLanguageModes: [.v6]
 )

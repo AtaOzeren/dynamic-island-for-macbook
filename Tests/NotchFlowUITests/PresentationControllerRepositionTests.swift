@@ -38,6 +38,16 @@ struct PresentationControllerRepositionTests {
         isBuiltIn: false
     )
 
+    /// What AppKit can report for a display that is mid-detach: a screen
+    /// object still exists, but its frame no longer describes real pixels.
+    private static let degenerateScreen = ScreenDescription(
+        frame: .zero,
+        safeAreaInsets: .zero,
+        auxiliaryTopLeftArea: nil,
+        auxiliaryTopRightArea: nil,
+        isBuiltIn: true
+    )
+
     private final class MutableScreen {
         var current: ScreenDescription?
 
@@ -157,6 +167,52 @@ struct PresentationControllerRepositionTests {
         harness.mouse.move(to: CGPoint(x: hit.midX, y: hit.midY))
 
         #expect(harness.controller.isHovered)
+    }
+
+    @Test("hides when the settled screen reports a degenerate frame mid-churn")
+    func hidesWhenResolvedScreenHasDegenerateFrame() {
+        let harness = Self.makeHarness(startingOn: Self.builtInNotchedScreen)
+        harness.manager.register(Self.activity("timer.focus"))
+        #expect(harness.controller.state == .compact)
+
+        harness.screen.current = Self.degenerateScreen
+        harness.controller.screenConfigurationDidChange()
+
+        #expect(harness.controller.state == .hidden)
+        #expect(!harness.panel.isVisible)
+    }
+
+    @Test("hides when the screen resolver returns nil mid-churn")
+    func hidesWhenScreenResolverReturnsNil() {
+        let harness = Self.makeHarness(startingOn: Self.builtInNotchedScreen)
+        harness.manager.register(Self.activity("timer.focus"))
+        #expect(harness.controller.state == .compact)
+
+        harness.screen.current = nil
+        harness.controller.screenConfigurationDidChange()
+
+        #expect(harness.controller.state == .hidden)
+        #expect(!harness.panel.isVisible)
+    }
+
+    @Test("re-shows at the notch-anchored frame once churn settles on a valid screen")
+    func reShowsAtNotchAnchoredFrameAfterChurn() {
+        let harness = Self.makeHarness(startingOn: Self.builtInNotchedScreen)
+        harness.manager.register(Self.activity("timer.focus"))
+
+        harness.screen.current = nil
+        harness.controller.screenConfigurationDidChange()
+        #expect(harness.controller.state == .hidden)
+
+        harness.screen.current = Self.builtInNotchedScreen
+        harness.controller.screenConfigurationDidChange()
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+        #expect(
+            harness.panel.frame
+                == panelFrame(for: Self.builtInNotchedScreen, metrics: Self.metrics)
+        )
     }
 }
 

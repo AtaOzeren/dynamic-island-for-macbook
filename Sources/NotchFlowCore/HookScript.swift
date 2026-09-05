@@ -35,7 +35,7 @@ enum HookScript {
     /// Stored rather than built inside the function so the embedded program is
     /// a constant, not a hundred-line function body.
     private static let preambleTemplate = """
-        import datetime, json, os, subprocess, sys, urllib.parse, urllib.request, uuid
+        import datetime, json, os, sys, urllib.request, uuid
 
         NOTCHFLOW_AGENT = "\(agentPlaceholder)"
         \(HookSnippetGenerator.managedHookMarker) = True
@@ -123,10 +123,8 @@ enum HookScript {
             return cleaned or None
 
 
-        # The loopback socket first: it reaches a running island in a few
-        # milliseconds. `open` is the fallback rather than the default because it
-        # is an order of magnitude slower per event -- but it is also the only one
-        # that can launch NotchFlow when it is not running.
+        # Deliver only to a running island. Missing or stale discovery data is
+        # expected when NotchFlow is not running, so failed events are dropped.
         def notchflow_send(body):
             try:
                 port = open(os.path.expanduser("\(discoveryFilePath)")).read().strip()
@@ -139,20 +137,8 @@ enum HookScript {
                         ),
                         timeout=2,
                     )
-                    return
             except Exception:
                 pass
-            subprocess.Popen(
-                [
-                    "open",
-                    "-g",
-                    "notchflow://ai-status?payload=" + urllib.parse.quote(body, safe=""),
-                ],
-                start_new_session=True,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
 
 
         """
