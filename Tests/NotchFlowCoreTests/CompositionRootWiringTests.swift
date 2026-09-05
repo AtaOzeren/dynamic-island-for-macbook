@@ -127,23 +127,32 @@ struct CompositionRootWiringTests {
         #expect(source.contains("statusItem.isVisible = true"))
         #expect(source.contains("NSImage(named: \"MenuBarIcon\")"))
 
-        // The item is added once AppKit has finished launching, and re-added
-        // when the display arrangement changes. Neither an autosaved visibility
-        // flag the app never reads back, nor a toggle of `isVisible` to force a
-        // redraw, may come back: both produced an item that reported itself
-        // visible while the menu bar drew nothing.
+        // The item is added once AppKit has finished launching. It carries an
+        // explicit autosave name: on macOS 26 Control Center hosts the item
+        // under bundle id plus that name, and a derived `Item-N` shifts as
+        // scenes come and go. A toggle of `isVisible` to force a redraw may not
+        // come back — it produced an item that reported itself visible while
+        // the menu bar drew nothing — and neither may removing the item on
+        // quit or on a screen change, which Control Center records as the item
+        // being unwanted and then hides on every later launch.
         #expect(source.contains("URLSchemeAppDelegate.onDidFinishLaunching"))
         #expect(source.contains("statusItemPresenter.screenConfigurationDidChange()"))
-        #expect(!source.contains("statusItem.autosaveName ="))
+        #expect(source.contains("statusItem.autosaveName = Self.statusItemAutosaveName"))
+        #expect(source.contains("if #available(macOS 26, *) { return }"))
+        #expect(!source.contains("statusItemPresenter.stop()\n            Self.stopSynchronously"))
         #expect(!source.contains("statusItem.isVisible = false"))
         #expect(!source.contains("visibilityRestorationTask"))
         #expect(source.contains("systemSymbolName: \"capsule.fill\""))
         #expect(source.contains("setAccessibilityLabel(\"NotchFlow\")"))
         #expect(source.contains("statusItemPresenter.setVisible(preferences.showMenuBarIcon)"))
-        #expect(source.contains("$isSettingsActionBridgeInserted"))
-        #expect(source.contains("isSettingsActionBridgeInserted = false"))
-        #expect(!source.contains("isInserted: .constant(true)"))
-        #expect(source.contains("SettingsActionBridge("))
+        // No SwiftUI `MenuBarExtra` may exist beside the AppKit item: on macOS 26
+        // Control Center hosts every status item itself and kept a blank slot
+        // for the zero-size bridge next to the real icon. Settings opens
+        // through the responder chain instead.
+        #expect(!source.contains("MenuBarExtra("))
+        #expect(!source.contains("SettingsActionBridge"))
+        #expect(!source.contains("Selector((\"showSettingsWindow:\"))"))
+        #expect(source.contains("settingsMenuItem(in: NSApp.mainMenu)"))
     }
 
     @Test("hiding the status item leaves no screen notification token")
@@ -178,7 +187,7 @@ struct CompositionRootWiringTests {
         #expect(delegateSource.contains("Self.onReopen?()"))
         #expect(appSource.contains("URLSchemeAppDelegate.onReopen ="))
         #expect(appSource.contains("settingsWindowRouter.open()"))
-        #expect(appSource.contains("@Environment(\\.openSettings)"))
+        #expect(appSource.contains("item.keyEquivalent == \",\" && item.keyEquivalentModifierMask.contains(.command)"))
         #expect(appSource.contains("NSApp.activate(ignoringOtherApps: true)"))
         #expect(appSource.contains("$0.level == .normal && $0.canBecomeKey"))
         #expect(appSource.contains("settingsWindow.makeKeyAndOrderFront(nil)"))

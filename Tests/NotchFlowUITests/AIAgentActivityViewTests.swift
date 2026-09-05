@@ -396,16 +396,17 @@ struct AIAgentActivityViewTests {
         )
     }
 
-    /// The working dot must never be driven by a clock again.
+    /// The working dot must never be driven per frame again.
     ///
     /// `TimelineView(.animation)` re-evaluated the body up to thirty times a
     /// second for as long as any agent was working, and the island's hosting
-    /// view sizes itself to its content, so each of those invalidations pulled a
-    /// full measure-and-layout pass through the view graph — once per panel, per
-    /// display, on the main thread. A sample of the shipped build showed it as
-    /// the dominant cost in an otherwise idle process. The motion is the same;
-    /// only the thing driving it changed, and it must stay changed.
-    @Test("the working dot animates by phase, never by a per-frame clock")
+    /// view sizes itself to its content, so each invalidation pulled a full
+    /// measure-and-layout pass through the view graph. Measured on the shipped
+    /// build: 11.9% CPU; `PhaseAnimator`, which is built on the same driver,
+    /// 11.3%; the motion removed, 0.3%; an implicit repeating animation over one
+    /// `Bool`, 0.0%. The motion is the same; only the driver changed, and it
+    /// must stay changed.
+    @Test("the working dot animates by interpolation, never by a per-frame driver")
     func compactWorkingDotIsNotClockDriven() throws {
         let source = try String(
             contentsOf: Self.repositoryRoot
@@ -414,7 +415,9 @@ struct AIAgentActivityViewTests {
         )
 
         #expect(!source.contains("TimelineView("))
-        #expect(source.contains("PhaseAnimator(Self.workingDotEndpoints)"))
+        #expect(!source.contains("PhaseAnimator("))
+        #expect(source.contains(".repeatForever(autoreverses: true)"))
+        #expect(source.contains("value: isWorkingDotAtTravelEnd"))
     }
 
     @Test("centres the working dot when reduced motion is enabled")
