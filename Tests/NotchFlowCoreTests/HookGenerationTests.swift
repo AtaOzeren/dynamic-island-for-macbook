@@ -167,7 +167,7 @@ struct HookGenerationTests {
             #expect(command.contains("hook_event_name"))
             #expect(command.contains("session_id"))
             #expect(command.contains("uuid.uuid5"))
-        #expect(command.contains("http://127.0.0.1:"))
+            #expect(command.contains("http://127.0.0.1:"))
         }
 
         let promptCommand = try hookCommand(for: "UserPromptSubmit", in: hooks)

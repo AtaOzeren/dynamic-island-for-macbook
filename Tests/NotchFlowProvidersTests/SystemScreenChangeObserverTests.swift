@@ -55,7 +55,7 @@ struct SystemScreenChangeObserverTests {
 
         var received: [ScreenChange] = []
         observer.startObserving { received.append($0) }
-        for _ in 0 ..< 5 {
+        for _ in 0..<5 {
             applicationCenter.post(
                 name: NSApplication.didChangeScreenParametersNotification,
                 object: nil

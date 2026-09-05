@@ -126,7 +126,7 @@ public struct OpenCodePluginInstaller: Sendable {
     public func uninstall() throws {
         if let backupData = try fileSystem.readFile(at: backupURL) {
             guard let pluginData = try fileSystem.readFile(at: pluginURL),
-                  pluginData == (try generatedPlugin().data) || isLegacyManagedPlugin(pluginData)
+                pluginData == (try generatedPlugin().data) || isLegacyManagedPlugin(pluginData)
             else {
                 // The file under our name is no longer ours to remove, and the
                 // backup is not ours to restore over it.

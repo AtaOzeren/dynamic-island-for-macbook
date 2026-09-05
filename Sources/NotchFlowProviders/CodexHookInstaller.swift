@@ -442,7 +442,8 @@ public struct CodexHookInstaller: Sendable {
             // A `notify` an earlier NotchFlow wrote is replaced rather than
             // forwarded to — forwarding to our own previous command would
             // deliver every turn twice, once through each version.
-            let forwardedArguments = isLegacyManagedNotify(assignment.arguments)
+            let forwardedArguments =
+                isLegacyManagedNotify(assignment.arguments)
                 ? []
                 : assignment.arguments
             return existing.replacingCharacters(

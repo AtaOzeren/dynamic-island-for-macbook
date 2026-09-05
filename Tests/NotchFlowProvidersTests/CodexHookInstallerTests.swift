@@ -495,9 +495,10 @@ struct CodexHookInstallerTests {
         guard let groups = hooks[event] as? [[String: Any]] else { return 0 }
         return groups.reduce(into: 0) { count, group in
             guard let handlers = group["hooks"] as? [[String: Any]] else { return }
-            count += handlers.filter { handler in
-                (handler["command"] as? String)?.contains(HookSnippetGenerator.codexLifecycleHookMarker) == true
-            }.count
+            count +=
+                handlers.filter { handler in
+                    (handler["command"] as? String)?.contains(HookSnippetGenerator.codexLifecycleHookMarker) == true
+                }.count
         }
     }
 
@@ -523,7 +524,8 @@ struct CodexHookInstallerTests {
         // construction and the test cannot fail on its own quoting.
         let legacyScript =
             #"import x; url="notchflow://ai-status"; payload={"agentId":"codex"}"#
-        let legacy = "notify = "
+        let legacy =
+            "notify = "
             + Self.jsonArrayLiteral(["python3", "-c", legacyScript])
             + "\nmodel = \"gpt-5\"\n"
 
@@ -544,7 +546,8 @@ struct CodexHookInstallerTests {
     func installReplacesV3ManagedNotify() throws {
         let legacyScript =
             #"notchflow_codex_notify_v3=True; url="notchflow://ai-status"; payload={"agentId":"codex"}"#
-        let legacy = "notify = "
+        let legacy =
+            "notify = "
             + Self.jsonArrayLiteral(["python3", "-c", legacyScript])
             + "\n"
         let fileSystem = InMemoryCodexHookFileSystem(
@@ -567,7 +570,8 @@ struct CodexHookInstallerTests {
             .codexNotifyFragment()
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let inner = String(nested.dropFirst("notify = ".count))
-        let wrapper = "notify = [\"other-tool\",\"--previous-notify\","
+        let wrapper =
+            "notify = [\"other-tool\",\"--previous-notify\","
             + Self.jsonStringLiteral(inner)
             + "]\n"
         let fileSystem = InMemoryCodexHookFileSystem(
@@ -586,7 +590,8 @@ struct CodexHookInstallerTests {
         let legacyScript =
             #"notchflow_codex_notify_v2=True; url="notchflow://ai-status"; payload={"agentId":"codex"}"#
         let inner = Self.jsonArrayLiteral(["python3", "-c", legacyScript])
-        let wrapper = "notify = [\"other-tool\",\"--previous-notify\","
+        let wrapper =
+            "notify = [\"other-tool\",\"--previous-notify\","
             + Self.jsonStringLiteral(inner)
             + "]\n"
         let fileSystem = InMemoryCodexHookFileSystem(
@@ -635,7 +640,8 @@ struct CodexHookInstallerTests {
             try JSONSerialization.jsonObject(with: Data(installed.utf8)) as? [String: Any]
         )
         let preToolUse = try #require((document["hooks"] as? [String: Any])?["PreToolUse"] as? [[String: Any]])
-        let managed = preToolUse
+        let managed =
+            preToolUse
             .flatMap { ($0["hooks"] as? [[String: Any]]) ?? [] }
             .filter { (($0["command"] as? String) ?? "").contains(HookSnippetGenerator.codexLifecycleHookMarker) }
         #expect(managed.count == 1)

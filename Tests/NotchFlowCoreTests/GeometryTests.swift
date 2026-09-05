@@ -189,8 +189,8 @@ struct GeometryTests {
     }
 }
 
-private extension ScreenDescription {
-    func withFrame(_ frame: CGRect) -> ScreenDescription {
+extension ScreenDescription {
+    fileprivate func withFrame(_ frame: CGRect) -> ScreenDescription {
         ScreenDescription(
             frame: frame,
             safeAreaInsets: safeAreaInsets,

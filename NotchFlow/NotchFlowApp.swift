@@ -3,9 +3,9 @@ import Foundation
 import NotchFlowCore
 import NotchFlowProviders
 import NotchFlowUI
-import os
 import ServiceManagement
 import SwiftUI
+import os
 
 @MainActor
 private final class DisplayInventory: ObservableObject {
@@ -765,7 +765,7 @@ private final class StatusItemPresenter: NSObject {
     /// or, on macOS 26, whether Control Center gave it a slot at all: a hosted
     /// item on the notched display reads 33 points tall, an item Control Center
     /// hid idles at the screen origin at the old 22.
-     func stop() {
+    func stop() {
         guard let statusItem else { return }
         NSStatusBar.system.removeStatusItem(statusItem)
         self.statusItem = nil
@@ -883,4 +883,3 @@ private final class SettingsWindowRouter {
         settingsWindow.orderFrontRegardless()
     }
 }
-

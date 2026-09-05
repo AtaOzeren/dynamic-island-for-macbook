@@ -71,7 +71,8 @@ public struct AIAgentPresentation: Equatable, Sendable {
     /// The minimal card's status line: agent and state separated by a middle dot.
     public var compactTitle: String {
         if let workspaceName {
-            return localized("activity.ai.compactTitleWithWorkspace", default: "\(agentName) · \(workspaceName) · \(statusText)")
+            return localized(
+                "activity.ai.compactTitleWithWorkspace", default: "\(agentName) · \(workspaceName) · \(statusText)")
         }
         return localized("activity.ai.compactTitle", default: "\(agentName) · \(statusText)")
     }

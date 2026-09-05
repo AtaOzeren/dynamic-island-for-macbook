@@ -41,7 +41,8 @@ public struct GeneralSettingsView: View {
         var seenNames: [String: Int] = [:]
         let attached = availableDisplays.map { display in
             seenNames[display.name, default: 0] += 1
-            let name = nameCounts[display.name, default: 0] > 1
+            let name =
+                nameCounts[display.name, default: 0] > 1
                 ? "\(display.name) (\(seenNames[display.name, default: 1]))"
                 : display.name
             return DisplayPreference.identified(id: display.identifier, name: name)
@@ -138,9 +139,11 @@ public struct GeneralSettingsView: View {
         ) {
             Toggle(localized("Show menu bar icon"), isOn: menuBarIconVisibility)
             if shouldShowMenuBarPlacementHint {
-                Text(localized(
-                    "macOS shows this icon on the main menu bar. With multiple displays, it may appear on another screen."
-                ))
+                Text(
+                    localized(
+                        "macOS shows this icon on the main menu bar. With multiple displays, it may appear on another screen."
+                    )
+                )
                 .font(.caption)
                 .foregroundStyle(.secondary)
             }

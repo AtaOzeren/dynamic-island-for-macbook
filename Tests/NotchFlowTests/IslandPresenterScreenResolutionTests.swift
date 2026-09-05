@@ -1,7 +1,7 @@
 import Testing
 
-@testable import NotchFlowCore
 @testable import NotchFlow
+@testable import NotchFlowCore
 
 /// A display identifier that is no longer in `NSScreen.screens` must resolve
 /// to no screen at all — returning a stale or "best guess" screen here is what

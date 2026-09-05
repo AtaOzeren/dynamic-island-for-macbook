@@ -366,7 +366,8 @@ public struct ClaudeCodeHookInstaller: Sendable {
         } catch let parseError {
             // The typed error tells the caller which operation aborted; the
             // parse error carries the reason a bare `try?` used to discard.
-            let location = error == .invalidExistingSettings
+            let location =
+                error == .invalidExistingSettings
                 ? "existing settings at \(settingsURL.path) or its backup"
                 : "the generated settings fragment"
             Self.logger.error(
