@@ -882,8 +882,6 @@ struct CompactAIAgentIcon: View {
     /// position: it answers a different question ("how many of this agent") from
     /// the status light ("what is it doing"), and stacking the two would make
     /// each state change look like a change in the number of sessions.
-    @State private var isWorkingDotAtTravelEnd = false
-
     var body: some View {
         let size = compactAIAgentIconSize(iconSize: iconSize, state: presentation.state)
 
@@ -966,37 +964,29 @@ struct CompactAIAgentIcon: View {
         reduceMotion: false
     )
 
-    /// Animated by interpolating one value, not by re-running the body.
+    /// Animated by Core Animation, outside SwiftUI entirely.
     ///
-    /// Two earlier versions drove this from a per-frame schedule — first a
-    /// `TimelineView` at 30 Hz, then a `PhaseAnimator`, which is built on the
-    /// same per-frame driver. Both re-evaluated the body every frame, and the
-    /// island's hosting view sizes itself to its content, so each evaluation
-    /// dragged a full measure-and-layout pass behind it. Measured on the shipped
-    /// build: 11.9% CPU with the timeline, 11.3% with the phase animator, 0.3%
-    /// with the motion removed entirely — the animation was the whole cost, and
-    /// swapping one per-frame driver for another bought nothing.
-    ///
-    /// An implicit repeating animation over a single `Bool` lets SwiftUI
-    /// interpolate the offset itself. `offset` is a render-time transform, so
-    /// nothing above it is re-measured and the body runs once.
+    /// Every SwiftUI-driven version of this motion cost the same. Measured on
+    /// the shipped build with an agent working: a `TimelineView` at 30 Hz took
+    /// 11.9% CPU, a `PhaseAnimator` 11.3%, an implicit repeating `.animation`
+    /// 11.1% — and removing the motion left 0.3%. The driver was never the
+    /// difference: the island's hosting view sizes itself to its content, so any
+    /// per-frame attribute-graph update drags a measure-and-layout pass behind
+    /// it, once per panel, per display, for as long as any agent is working. A
+    /// `CABasicAnimation` on a layer runs in the render server instead: the body
+    /// is evaluated once, the graph stays quiet, and the motion is unchanged.
     @ViewBuilder
     private var workingDot: some View {
         if reduceMotion {
             dot(offset: 0)
         } else {
-            dot(
-                offset: isWorkingDotAtTravelEnd
-                    ? Self.workingDotTravelEnd
-                    : Self.workingDotTravelStart
+            WorkingDotLayerView(
+                diameter: metrics.dotDiameter,
+                travelStart: Self.workingDotTravelStart,
+                travelEnd: Self.workingDotTravelEnd,
+                oneWayDuration: metrics.oneWayDuration
             )
-            .animation(
-                .easeInOut(duration: metrics.oneWayDuration)
-                    .repeatForever(autoreverses: true),
-                value: isWorkingDotAtTravelEnd
-            )
-            .onAppear { isWorkingDotAtTravelEnd = true }
-            .onDisappear { isWorkingDotAtTravelEnd = false }
+            .frame(width: metrics.dotDiameter, height: metrics.dotDiameter)
         }
     }
 
@@ -1137,5 +1127,92 @@ func aiAgentIndicatorColor(_ indicator: AIAgentCompactIndicator) -> Color {
     case .question: .yellow
     case .error: .red
     case .completed: .green
+    }
+}
+
+/// The working dot's motion, owned by AppKit and Core Animation.
+///
+/// Lives outside SwiftUI so the animation never enters the view graph — see
+/// `CompactAIAgentIcon.workingDot` for the measurements behind that. The view
+/// keeps the dot's resting footprint; the layer is free to draw past it while
+/// travelling.
+private struct WorkingDotLayerView: NSViewRepresentable {
+    let diameter: CGFloat
+    let travelStart: CGFloat
+    let travelEnd: CGFloat
+    let oneWayDuration: TimeInterval
+
+    func makeNSView(context: Context) -> WorkingDotHostView {
+        let view = WorkingDotHostView(frame: CGRect(x: 0, y: 0, width: diameter, height: diameter))
+        view.configure(travel: travel)
+        return view
+    }
+
+    func updateNSView(_ view: WorkingDotHostView, context: Context) {
+        view.configure(travel: travel)
+    }
+
+    private var travel: WorkingDotHostView.Travel {
+        .init(diameter: diameter, start: travelStart, end: travelEnd, oneWayDuration: oneWayDuration)
+    }
+}
+
+private final class WorkingDotHostView: NSView {
+    struct Travel: Equatable {
+        let diameter: CGFloat
+        let start: CGFloat
+        let end: CGFloat
+        let oneWayDuration: TimeInterval
+    }
+
+    private static let animationKey = "notchflow.workingDot.travel"
+    private let dot = CAShapeLayer()
+    private var travel: Travel?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.masksToBounds = false
+        dot.fillColor = NSColor.white.cgColor
+        layer?.addSublayer(dot)
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    func configure(travel: Travel) {
+        if self.travel != travel {
+            self.travel = travel
+            let bounds = CGRect(x: 0, y: 0, width: travel.diameter, height: travel.diameter)
+            dot.bounds = bounds
+            dot.path = CGPath(ellipseIn: bounds, transform: nil)
+            dot.position = CGPoint(x: bounds.midX + travel.start, y: bounds.midY)
+            dot.removeAnimation(forKey: Self.animationKey)
+        }
+        startTravelIfNeeded()
+    }
+
+    /// Core Animation drops a layer's animations when it leaves the render
+    /// tree, which the dot does every time the pill collapses or the panel is
+    /// ordered out — so the animation is re-armed whenever the view lands in a
+    /// window again.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        startTravelIfNeeded()
+    }
+
+    private func startTravelIfNeeded() {
+        guard let travel, window != nil, dot.animation(forKey: Self.animationKey) == nil else { return }
+        let midX = travel.diameter / 2
+        let animation = CABasicAnimation(keyPath: "position.x")
+        animation.fromValue = midX + travel.start
+        animation.toValue = midX + travel.end
+        animation.duration = travel.oneWayDuration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        animation.autoreverses = true
+        animation.repeatCount = .infinity
+        animation.isRemovedOnCompletion = false
+        dot.add(animation, forKey: Self.animationKey)
     }
 }

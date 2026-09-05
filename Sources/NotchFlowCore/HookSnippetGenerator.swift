@@ -101,6 +101,7 @@ public struct HookSnippetGenerator: Sendable {
             HookScript.pythonPreamble(agentID: "codex")
                 + """
                 \(Self.codexNotifyMarker) = True
+                import subprocess
                 forward = json.loads(\(HookTextEncoding.pythonStringLiteral(forwardedJSON)))
                 event_args = sys.argv[1:]
                 forward and subprocess.Popen(

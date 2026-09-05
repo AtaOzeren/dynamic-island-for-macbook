@@ -416,8 +416,8 @@ struct AIAgentActivityViewTests {
 
         #expect(!source.contains("TimelineView("))
         #expect(!source.contains("PhaseAnimator("))
-        #expect(source.contains(".repeatForever(autoreverses: true)"))
-        #expect(source.contains("value: isWorkingDotAtTravelEnd"))
+        #expect(!source.contains(".repeatForever("))
+        #expect(source.contains("CABasicAnimation(keyPath: \"position.x\")"))
     }
 
     @Test("centres the working dot when reduced motion is enabled")

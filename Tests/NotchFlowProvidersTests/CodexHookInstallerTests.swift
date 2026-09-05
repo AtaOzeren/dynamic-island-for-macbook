@@ -288,10 +288,11 @@ struct CodexHookInstallerTests {
             .replacingOccurrences(of: "gpt-5", with: "gpt-5.1")
         fileSystem.setText(changed, at: Self.configURL)
 
-        #expect(throws: CodexHookInstallerError.configurationChangedSinceInstall) {
-            try installer.uninstall()
-        }
-        #expect(fileSystem.text(at: Self.configURL) == changed)
+        try installer.uninstall()
+
+        let remaining = try #require(fileSystem.text(at: Self.configURL))
+        #expect(remaining.contains("gpt-5.1"))
+        #expect(!remaining.contains(HookSnippetGenerator.codexNotifyMarker))
         #expect(fileSystem.data(at: Self.backupURL) == original)
     }
 

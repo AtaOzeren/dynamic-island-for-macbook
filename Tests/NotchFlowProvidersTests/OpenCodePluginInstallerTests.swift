@@ -114,9 +114,8 @@ struct OpenCodePluginInstallerTests {
         let changed = try #require(fileSystem.data(at: Self.pluginURL)) + Data("// user change\n".utf8)
         fileSystem.setData(changed, at: Self.pluginURL)
 
-        #expect(throws: OpenCodePluginInstallerError.pluginChangedSinceInstall) {
-            try installer.uninstall()
-        }
+        try installer.uninstall()
+
         #expect(fileSystem.data(at: Self.pluginURL) == changed)
         #expect(fileSystem.data(at: Self.backupURL) == original)
     }

@@ -5,7 +5,6 @@ import os
 public enum CodexHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingConfiguration
     case invalidGeneratedConfiguration
-    case configurationChangedSinceInstall
 }
 
 public typealias CodexTOMLSyntaxValidator = @Sendable (String) -> Bool
@@ -163,12 +162,15 @@ public struct CodexHookInstaller: Sendable {
         if let backup = try fileSystem.readFile(at: backupURL) {
             _ = try validatedText(from: backup, error: .invalidExistingConfiguration)
             let installedData = Data(try mergedConfiguration(from: backup).text.utf8)
-            guard try fileSystem.readFile(at: configURL) == installedData else {
-                throw CodexHookInstallerError.configurationChangedSinceInstall
+            if try fileSystem.readFile(at: configURL) == installedData {
+                try fileSystem.writeFileAtomically(backup, to: configURL)
+                try fileSystem.removeFile(at: backupURL)
+                return
             }
-            try fileSystem.writeFileAtomically(backup, to: configURL)
-            try fileSystem.removeFile(at: backupURL)
-            return
+            // The configuration moved on after installation — a hand edit, or a
+            // notify an earlier version wrote. Restoring the backup would discard
+            // that, so only the managed notify is removed below and the backup
+            // stays.
         }
 
         guard let existingData = try fileSystem.readFile(at: configURL) else {
