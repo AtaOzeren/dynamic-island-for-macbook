@@ -964,17 +964,11 @@ struct CompactAIAgentIcon: View {
         reduceMotion: false
     )
 
-    /// Animated by Core Animation, outside SwiftUI entirely.
-    ///
-    /// Every SwiftUI-driven version of this motion cost the same. Measured on
-    /// the shipped build with an agent working: a `TimelineView` at 30 Hz took
-    /// 11.9% CPU, a `PhaseAnimator` 11.3%, an implicit repeating `.animation`
-    /// 11.1% — and removing the motion left 0.3%. The driver was never the
-    /// difference: the island's hosting view sizes itself to its content, so any
-    /// per-frame attribute-graph update drags a measure-and-layout pass behind
-    /// it, once per panel, per display, for as long as any agent is working. A
-    /// `CABasicAnimation` on a layer runs in the render server instead: the body
-    /// is evaluated once, the graph stays quiet, and the motion is unchanged.
+    /// Animated by Core Animation, outside SwiftUI. The island's hosting view
+    /// sizes itself to its content, so any per-frame SwiftUI animation here
+    /// drags a measure-and-layout pass behind it — about 11% CPU per panel for
+    /// as long as an agent works. A layer animation runs in the render server
+    /// and the body is evaluated once.
     @ViewBuilder
     private var workingDot: some View {
         if reduceMotion {
@@ -1130,12 +1124,9 @@ func aiAgentIndicatorColor(_ indicator: AIAgentCompactIndicator) -> Color {
     }
 }
 
-/// The working dot's motion, owned by AppKit and Core Animation.
-///
-/// Lives outside SwiftUI so the animation never enters the view graph — see
-/// `CompactAIAgentIcon.workingDot` for the measurements behind that. The view
-/// keeps the dot's resting footprint; the layer is free to draw past it while
-/// travelling.
+/// The working dot's motion, owned by Core Animation so it never enters the
+/// SwiftUI view graph. The view keeps the dot's resting footprint; the layer
+/// draws past it while travelling.
 private struct WorkingDotLayerView: NSViewRepresentable {
     let diameter: CGFloat
     let travelStart: CGFloat

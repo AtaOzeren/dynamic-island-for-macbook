@@ -14,6 +14,14 @@ public struct HookSnippetGenerator: Sendable {
     /// The same, for the Codex lifecycle hooks file.
     public static let codexLifecycleHookMarker = "notchflow_codex_hook_v3"
 
+    /// Exact markers earlier managed Codex lifecycle handlers carried. Recognising
+    /// them is what lets an upgrade replace the old handler instead of leaving it
+    /// beside the new one — where it kept firing, still carrying the launch
+    /// fallback it was written with.
+    public static let previousCodexLifecycleHookMarkers = [
+        "notchflow_codex_hook_v1", "notchflow_codex_hook_v2",
+    ]
+
     /// The token every generated hook command carries, whatever the agent.
     ///
     /// It is what lets an installer recognise a command *it* wrote in an
@@ -39,24 +47,6 @@ public struct HookSnippetGenerator: Sendable {
     ]
 
     public init() {}
-
-    public static func statusURL(for message: IPCMessage) throws -> URL {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = try encoder.encode(message)
-
-        var components = URLComponents()
-        components.scheme = "notchflow"
-        components.host = "ai-status"
-        components.queryItems = [
-            URLQueryItem(name: "payload", value: String(decoding: payload, as: UTF8.self))
-        ]
-        guard let url = components.url else {
-            preconditionFailure("The fixed NotchFlow URL components must form a URL")
-        }
-        return url
-    }
 
     public func claudeCodeSettingsFragment() -> String {
         let hooks = Dictionary(

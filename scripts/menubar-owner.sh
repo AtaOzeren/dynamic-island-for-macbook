@@ -1,19 +1,13 @@
 #!/bin/zsh
-# Shows — and with --detach repairs — which applications Control Center
-# believes own NotchFlow's menu bar item on macOS 26.
-#
-# Control Center attributes a status item to the application that launched the
-# process, and hides the item if any owning application has "Allow in the Menu
-# Bar" turned off. Launching NotchFlow from an agent or IDE terminal (Codex,
-# Claude Code, VS Code) therefore lets that tool's switch hide NotchFlow.
-#
-# The store is TCC-protected: run this from a terminal with Full Disk Access.
-# --clean also drops rows left by bare dev binaries (.build/…/NotchFlow) and
-# throwaway probe bundles, so the Menu Bar pane lists NotchFlow once.
-# --detach leaves NotchFlow owned only by itself, writes through cfprefsd (a
-# plain file copy is overwritten from cfprefsd's cache), restarts Control
-# Center with SIGKILL so it cannot persist stale memory on exit, and relaunches
-# the app.
+# Shows which applications Control Center believes own NotchFlow's menu bar
+# item on macOS 26, and repairs the record. Control Center attributes the item
+# to every application that launched the process and hides it while any of
+# them has "Allow in the Menu Bar" off; launching NotchFlow from an agent or
+# IDE terminal is how that happens. Needs a Full-Disk-Access terminal.
+#   --detach  leave NotchFlow owned only by itself
+#   --clean   also drop rows left by bare dev binaries and probe bundles
+# Writes through cfprefsd (a plain copy is overwritten from its cache) and
+# restarts Control Center with SIGKILL so it cannot persist stale memory.
 set -euo pipefail
 BUNDLE_ID="${NOTCHFLOW_BUNDLE_ID:-com.notchflow.NotchFlow}"
 STORE="$HOME/Library/Group Containers/group.com.apple.controlcenter/Library/Preferences/group.com.apple.controlcenter"

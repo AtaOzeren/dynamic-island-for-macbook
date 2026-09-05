@@ -581,6 +581,66 @@ struct CodexHookInstallerTests {
         #expect(installed.hasPrefix("notify = [\"other-tool\""))
     }
 
+    @Test("install upgrades a previous version's notify nested inside another tool")
+    func installUpgradesNestedLegacyNotify() throws {
+        let legacyScript =
+            #"notchflow_codex_notify_v2=True; url="notchflow://ai-status"; payload={"agentId":"codex"}"#
+        let inner = Self.jsonArrayLiteral(["python3", "-c", legacyScript])
+        let wrapper = "notify = [\"other-tool\",\"--previous-notify\","
+            + Self.jsonStringLiteral(inner)
+            + "]\n"
+        let fileSystem = InMemoryCodexHookFileSystem(
+            files: [Self.configURL: Data(wrapper.utf8)]
+        )
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        #expect(installer.installationState() == .hookAbsent)
+        try installer.install()
+
+        let installed = try #require(fileSystem.text(at: Self.configURL))
+        #expect(installed.hasPrefix("notify = [\"other-tool\",\"--previous-notify\","))
+        #expect(installed.contains(HookSnippetGenerator.codexNotifyMarker))
+        #expect(!installed.contains("notchflow_codex_notify_v2"))
+        #expect(!installed.contains("notchflow://ai-status"))
+        #expect(installer.installationState() == .hookInstalled)
+    }
+
+    @Test("install replaces a previous version's lifecycle handlers instead of stacking beside them")
+    func installReplacesLegacyLifecycleHandlers() throws {
+        let existingHooks: [String: Any] = [
+            "hooks": [
+                "PreToolUse": [
+                    [
+                        "hooks": [
+                            ["type": "command", "command": "python3 -c 'pass' # notchflow_codex_hook_v2"],
+                            ["type": "command", "command": "python3 existing.py"],
+                        ]
+                    ]
+                ]
+            ]
+        ]
+        let fileSystem = InMemoryCodexHookFileSystem(files: [
+            Self.configURL: Data("model = \"gpt-5\"\n".utf8),
+            Self.hooksURL: try JSONSerialization.data(withJSONObject: existingHooks),
+        ])
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        #expect(installer.installationState() == .hookAbsent)
+        try installer.install()
+
+        let installed = try #require(fileSystem.text(at: Self.hooksURL))
+        #expect(!installed.contains("notchflow_codex_hook_v2"))
+        #expect(installed.contains("python3 existing.py"))
+        let document = try #require(
+            try JSONSerialization.jsonObject(with: Data(installed.utf8)) as? [String: Any]
+        )
+        let preToolUse = try #require((document["hooks"] as? [String: Any])?["PreToolUse"] as? [[String: Any]])
+        let managed = preToolUse
+            .flatMap { ($0["hooks"] as? [[String: Any]]) ?? [] }
+            .filter { (($0["command"] as? String) ?? "").contains(HookSnippetGenerator.codexLifecycleHookMarker) }
+        #expect(managed.count == 1)
+    }
+
     private static func jsonArrayLiteral(_ values: [String]) -> String {
         guard
             let data = try? JSONSerialization.data(withJSONObject: values),

@@ -227,12 +227,9 @@ struct NotchFlowApp: App {
         // A listening socket outliving the process that owned it is a defect,
         // and an accessory app is quit from a menu item rather than by closing
         // a window — so termination is the only hook that always runs.
-        // The status item is deliberately *not* removed here. `removeStatusItem`
-        // is how a user-initiated hide is expressed, and AppKit records that by
-        // writing the item's persisted visibility flag to false — so removing it
-        // on the way out taught every subsequent launch that the icon was not
-        // wanted, and the item was created but never given a menu bar slot. The
-        // process is exiting; the item goes with it.
+        // The status item is not removed here: on macOS 26 Control Center
+        // records a removal as the app discarding its item. The process is
+        // exiting; the item goes with it.
         URLSchemeAppDelegate.onTerminate = {
             Self.stopSynchronously(loopbackListener)
         }
@@ -382,12 +379,9 @@ struct NotchFlowApp: App {
     }
 
     var body: some Scene {
-        // The only scene. An earlier version also declared a zero-size
-        // `MenuBarExtra` to capture `openSettings` from the environment and
-        // removed it on first appearance. On macOS 26 Control Center hosts
-        // every status item itself and kept a blank 16-point slot for that
-        // bridge beside the real icon; the Settings window is reached through
-        // the responder chain instead (see `SettingsWindowRouter`).
+        // The only scene. No `MenuBarExtra`: Control Center hosts one as a
+        // blank slot beside the real icon on macOS 26. Settings is opened by
+        // `SettingsWindowRouter` instead.
         Settings {
             settingsWindowContent
         }
@@ -671,11 +665,6 @@ private final class StatusItemPresenter: NSObject {
     /// Named explicitly so Control Center tracks one stable host identity across
     /// launches instead of a derived `Item-N` that shifts as scenes come and go.
     private static let statusItemAutosaveName = "NotchFlowMenuBarItem"
-    private static let logger = Logger(
-        subsystem: "com.notchflow.NotchFlow",
-        category: "status-item"
-    )
-
     private static let timerPresets: [(minutes: Int, title: String)] = [
         (5, String(localized: "Start 5-Minute Timer")),
         (10, String(localized: "Start 10-Minute Timer")),
@@ -692,20 +681,12 @@ private final class StatusItemPresenter: NSObject {
         super.init()
     }
 
-    /// Re-adds the item after the display arrangement changes — on releases
-    /// where the app still places its own item.
+    /// Re-adds the item after the display arrangement changes.
     ///
-    /// Through macOS 15 a status item is placed once, against the arrangement
-    /// in force when it was added. Plugging in or unplugging a display moves the
-    /// menu bar without re-placing it, which leaves the item at coordinates that
-    /// no longer name any menu bar. Removing and re-adding is the only way to
-    /// ask for a fresh placement there.
-    ///
-    /// From macOS 26 the item is hosted by Control Center, which re-lays it out
-    /// itself. Removing it there is not a re-placement request but a removal:
-    /// Control Center stops tracking the host and treats the item as one the
-    /// app no longer wants, and the first time it recorded NotchFlow's item as
-    /// blocked was immediately after exactly this remove-and-re-add cycle.
+    /// Through macOS 15 an item is placed once, against the arrangement in
+    /// force when it was added, and removing and re-adding is the only way to
+    /// ask for a fresh placement. From macOS 26 Control Center places it and
+    /// treats a removal as the app discarding its item, so nothing is done.
     func screenConfigurationDidChange() {
         guard statusItem != nil else { return }
         if #available(macOS 26, *) { return }
@@ -713,14 +694,9 @@ private final class StatusItemPresenter: NSObject {
         start()
     }
 
-    /// Shows or hides the item without ever removing it on macOS 26.
-    ///
-    /// Control Center owns the item there. Removing it and adding it back is
-    /// how the app looked like it kept discarding its own item, and Control
-    /// Center answered by blocking the bundle id — every later launch was hosted
-    /// and immediately hidden, with nothing in the app able to undo it. Toggling
-    /// `isVisible` is the supported signal: Control Center records it as the
-    /// client's visibility request and honours the next `true`.
+    /// Shows or hides the item. On macOS 26 it is never removed — Control
+    /// Center records a removal as the app discarding its item — so hiding is
+    /// `isVisible`, which it records as the client's request and honours.
     func setVisible(_ isVisible: Bool) {
         if #available(macOS 26, *) {
             if isVisible {
@@ -750,18 +726,11 @@ private final class StatusItemPresenter: NSObject {
     /// state the menu bar does not reliably recover from — the item reported
     /// itself visible while nothing was ever drawn.
     ///
-    /// `autosaveName` is set rather than omitted.
-    ///
-    /// On macOS 26 the item is not placed by this process at all: Control Center
-    /// hosts it, keyed by bundle id plus this name, and decides whether it is
-    /// shown. It attributes the item to every application that ever launched
-    /// this process and hides it while any of them has "Allow in the Menu Bar"
-    /// turned off — a hidden item reports itself visible, has an image, and its
-    /// window idles at the screen origin at the old 22-point bar height while a
-    /// shown item on the same display gets 33. That state is outside the app
-    /// (`scripts/menubar-owner.sh` diagnoses and repairs it); what this side
-    /// controls is to never give Control Center a removal to record — see
-    /// `screenConfigurationDidChange()` and the terminate path.
+    /// On macOS 26 Control Center hosts the item, keyed by bundle id plus
+    /// `autosaveName`, and hides it while any application that ever launched
+    /// this process has "Allow in the Menu Bar" off. That state is outside the
+    /// app (`scripts/menubar-owner.sh` repairs it); this side only makes sure
+    /// Control Center never sees a removal to record.
     func start() {
         guard statusItem == nil else { return }
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -787,7 +756,6 @@ private final class StatusItemPresenter: NSObject {
         statusItem.menu = makeMenu()
         statusItem.isVisible = true
         self.statusItem = statusItem
-        reportPlacement(of: statusItem)
     }
 
     /// Records where the item actually landed.
@@ -797,25 +765,7 @@ private final class StatusItemPresenter: NSObject {
     /// or, on macOS 26, whether Control Center gave it a slot at all: a hosted
     /// item on the notched display reads 33 points tall, an item Control Center
     /// hid idles at the screen origin at the old 22.
-    private func reportPlacement(of statusItem: NSStatusItem) {
-        assert(
-            statusItem.button?.image != nil,
-            "Menu bar item has no image; the MenuBarIcon asset and the SF Symbol fallback both failed."
-        )
-        Task { @MainActor [weak statusItem] in
-            try? await Task.sleep(for: .seconds(1))
-            guard let statusItem else { return }
-            let frame = statusItem.button?.window?.frame ?? .zero
-            Self.logger.info(
-                """
-                status item settled: visible=\(statusItem.isVisible, privacy: .public) \
-                windowFrame=\(NSStringFromRect(frame), privacy: .public)
-                """
-            )
-        }
-    }
-
-    func stop() {
+     func stop() {
         guard let statusItem else { return }
         NSStatusBar.system.removeStatusItem(statusItem)
         self.statusItem = nil
@@ -892,19 +842,11 @@ private final class SettingsWindowRouter {
         category: "settings"
     )
 
-    /// Opens the SwiftUI `Settings` scene the way ⌘, does: by triggering the
-    /// "Settings…" item SwiftUI installs in the application menu, with that item
-    /// as the sender.
-    ///
-    /// Two other routes were tried and rejected. Sending `showSettingsWindow:`
-    /// down the responder chain is refused on macOS 26 ("Please use
-    /// SettingsLink for opening the Settings scene") and opens nothing. Reading
-    /// `openSettings` from a zero-size `MenuBarExtra` — the route this app used
-    /// before — creates a second status item, and on macOS 26 Control Center
-    /// hosts it as a blank 16-point slot beside the real icon.
-    ///
-    /// The item is found by its key equivalent rather than its title, which is
-    /// localized.
+    /// Opens the `Settings` scene the way ⌘, does: through the menu item
+    /// SwiftUI installs for it, with that item as the sender. Sending
+    /// `showSettingsWindow:` down the responder chain is refused on macOS 26,
+    /// and a `MenuBarExtra` bridge for `openSettings` costs a blank status item
+    /// slot. The item is found by key equivalent; its title is localized.
     func open() {
         bringSettingsForward()
         if let item = Self.settingsMenuItem(in: NSApp.mainMenu), let action = item.action {

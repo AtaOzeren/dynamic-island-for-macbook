@@ -36,26 +36,6 @@ struct HookGenerationTests {
         #expect(HookSnippetGenerator.codexLifecycleHookMarker == "notchflow_codex_hook_v3")
     }
 
-    @Test("builds a URL that round-trips through the IPC parser")
-    func statusURLRoundTrip() throws {
-        let message = IPCMessage(
-            schemaVersion: IPCMessageValidator.supportedSchemaVersion,
-            agentId: .claudeCode,
-            sessionId: UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!,
-            state: .usingTool,
-            detail: "Editing App.swift",
-            toolName: "Edit",
-            progress: 0.5,
-            timestamp: Date(timeIntervalSince1970: 1_700_000_000)
-        )
-
-        let url = try HookSnippetGenerator.statusURL(for: message)
-
-        #expect(url.scheme == "notchflow")
-        #expect(url.host == "ai-status")
-        #expect(try IPCURLParser().parse(url) == message)
-    }
-
     @Test("generates Claude Code lifecycle hooks using stdin event fields")
     func claudeCodeSettingsFragment() throws {
         let fragment = HookSnippetGenerator().claudeCodeSettingsFragment()
