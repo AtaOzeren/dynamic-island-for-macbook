@@ -202,28 +202,33 @@ struct AppleEventsAutomationAuthorityTests {
         #expect(musicStarted.wait(timeout: .now() + .seconds(1)) == .success)
     }
 
+    /// The query is held open on a semaphore that only this test releases, and
+    /// it is released only after the test — which runs on the main actor — has
+    /// observed the query start. If the query ran on the main actor, the test
+    /// could not run to release it: the determiner would sit on the hang guard
+    /// instead and report `.denied`. No wall-clock deadline is raced, so a slow
+    /// runner cannot fail this on timing alone.
     @Test("explicit permission request does not block the main actor")
     func permissionRequestIsAsynchronous() async {
         let queryStarted = AsyncSignal()
         let releaseQuery = DispatchSemaphore(value: 0)
-        let watchdogFired = LockedFlag()
-        let authority = AppleEventsAutomationAuthority { _, askUserIfNeeded in
-            #expect(askUserIfNeeded)
-            queryStarted.signal()
-            _ = releaseQuery.wait(timeout: .now() + .seconds(3))
-            return .granted
-        }
-        DispatchQueue.global().asyncAfter(deadline: .now() + .seconds(2)) {
-            watchdogFired.set()
-            releaseQuery.signal()
-        }
+        let authority = AppleEventsAutomationAuthority(
+            determinePermission: { _, askUserIfNeeded in
+                #expect(askUserIfNeeded)
+                queryStarted.signal()
+                let releasedByTest = releaseQuery.wait(timeout: .now() + .seconds(30)) == .success
+                return releasedByTest ? .granted : .denied
+            },
+            targetEnvironment: .init(
+                isRunning: { _ in true },
+                prepare: { _ in true }
+            )
+        )
 
         let request = Task { await authority.requestWithoutBlocking(for: .spotify) }
         await queryStarted.wait()
-        let mainActorStayedResponsive = watchdogFired.read() == false
         releaseQuery.signal()
 
-        #expect(mainActorStayedResponsive)
         #expect(await request.value == .granted)
     }
 }

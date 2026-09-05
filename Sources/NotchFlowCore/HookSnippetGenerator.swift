@@ -9,10 +9,18 @@ public struct HookSnippetGenerator: Sendable {
     /// installer went on looking for the old token, and it stopped recognising
     /// its own hook — reporting the configuration unreadable and refusing to
     /// upgrade. One constant, emitted and matched, cannot drift.
-    public static let codexNotifyMarker = "notchflow_codex_notify_v3"
+    public static let codexNotifyMarker = "notchflow_codex_notify_v4"
 
     /// The same, for the Codex lifecycle hooks file.
-    public static let codexLifecycleHookMarker = "notchflow_codex_hook_v2"
+    public static let codexLifecycleHookMarker = "notchflow_codex_hook_v3"
+
+    /// Exact markers earlier managed Codex lifecycle handlers carried. Recognising
+    /// them is what lets an upgrade replace the old handler instead of leaving it
+    /// beside the new one — where it kept firing, still carrying the launch
+    /// fallback it was written with.
+    public static let previousCodexLifecycleHookMarkers = [
+        "notchflow_codex_hook_v1", "notchflow_codex_hook_v2",
+    ]
 
     /// The token every generated hook command carries, whatever the agent.
     ///
@@ -20,10 +28,10 @@ public struct HookSnippetGenerator: Sendable {
     /// earlier version and replace it. Without that, upgrading only appended
     /// the new command and left the old one beside it: the previous, broken
     /// hook kept firing, and every event was delivered twice.
-    public static let managedHookMarker = "notchflow_hook_v3"
+    public static let managedHookMarker = "notchflow_hook_v4"
 
     /// Exact markers emitted by earlier managed Claude Code hooks.
-    public static let previousManagedHookMarkers = ["notchflow_hook_v2"]
+    public static let previousManagedHookMarkers = ["notchflow_hook_v2", "notchflow_hook_v3"]
 
     /// Every token an earlier version's command carried, all of which must be
     /// present for it to count as ours.
@@ -39,24 +47,6 @@ public struct HookSnippetGenerator: Sendable {
     ]
 
     public init() {}
-
-    public static func statusURL(for message: IPCMessage) throws -> URL {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        let payload = try encoder.encode(message)
-
-        var components = URLComponents()
-        components.scheme = "notchflow"
-        components.host = "ai-status"
-        components.queryItems = [
-            URLQueryItem(name: "payload", value: String(decoding: payload, as: UTF8.self))
-        ]
-        guard let url = components.url else {
-            preconditionFailure("The fixed NotchFlow URL components must form a URL")
-        }
-        return url
-    }
 
     public func claudeCodeSettingsFragment() -> String {
         let hooks = Dictionary(
@@ -101,6 +91,7 @@ public struct HookSnippetGenerator: Sendable {
             HookScript.pythonPreamble(agentID: "codex")
                 + """
                 \(Self.codexNotifyMarker) = True
+                import subprocess
                 forward = json.loads(\(HookTextEncoding.pythonStringLiteral(forwardedJSON)))
                 event_args = sys.argv[1:]
                 forward and subprocess.Popen(
@@ -156,7 +147,9 @@ public struct HookSnippetGenerator: Sendable {
     /// a constant rather than a hundred-line function body.
     private static let openCodePluginSource = """
         import type { Plugin } from "@opencode-ai/plugin"
-        import { spawn, spawnSync } from "node:child_process"
+        // Node does not await promises in exit handlers, so spawnSync is reserved
+        // for the bounded loopback farewell while live events keep using fetch.
+        import { spawnSync } from "node:child_process"
         import { createHash } from "node:crypto"
         import { readFileSync } from "node:fs"
         import { homedir } from "node:os"
@@ -172,15 +165,18 @@ public struct HookSnippetGenerator: Sendable {
           return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
         }
 
-        // Falls back to the URL scheme when the island is not listening: `open`
-        // launches NotchFlow, the loopback socket only reaches it once running.
-        const deliver = (body: string) => {
-          let port = ""
+        const discoveryPort = () => {
           try {
-            port = readFileSync(PORT_FILE, "utf8").trim()
+            return readFileSync(PORT_FILE, "utf8").trim()
           } catch {
-            port = ""
+            return ""
           }
+        }
+
+        // Live events use non-blocking fetch so hook traffic never delays the
+        // agent; the exit handler has a separate synchronous delivery path.
+        const deliver = (body: string) => {
+          const port = discoveryPort()
           if (port) {
             const controller = new AbortController()
             const timeout = setTimeout(() => controller.abort(), 2000)
@@ -191,21 +187,22 @@ public struct HookSnippetGenerator: Sendable {
               signal: controller.signal,
             })
               .then(() => clearTimeout(timeout))
-              .catch(() => {
-                clearTimeout(timeout)
-                openURL(body)
-              })
+              .catch(() => clearTimeout(timeout))
             return
           }
-          openURL(body)
         }
 
-        const statusURL = (body: string) =>
-          `notchflow://ai-status?payload=${encodeURIComponent(body)}`
-
-        const openURL = (body: string) => {
-          const child = spawn("open", ["-g", statusURL(body)], { detached: true, stdio: "ignore" })
-          child.unref()
+        const deliverBeforeExit = (body: string) => {
+          const port = discoveryPort()
+          if (!port) return
+          spawnSync("/usr/bin/curl", [
+            "-s",
+            "--max-time", "2",
+            "--request", "POST",
+            "--header", "Content-Type: application/json",
+            "--data-binary", body,
+            `http://127.0.0.1:${port}/ai-status`,
+          ], { stdio: "ignore" })
         }
 
         export const NotchFlowPlugin: Plugin = async ({ client, directory }) => {
@@ -361,17 +358,14 @@ public struct HookSnippetGenerator: Sendable {
           // gone. Saying so on the way out is the only message that can.
           //
           // Sending the roots alone is enough — the island ends an instance's
-          // sub-agents with it, and a handful of synchronous `open` calls on
-          // exit is a cost the user feels.
+          // sub-agents with it.
           const MAX_FAREWELLS = 8
           let saidGoodbye = false
           const sayGoodbye = () => {
             if (saidGoodbye) return
             saidGoodbye = true
             for (const sessionId of Array.from(liveRoots).slice(0, MAX_FAREWELLS)) {
-              // Synchronous on purpose: an exit handler is the last code this
-              // process runs, and `fetch` would never get its turn.
-              spawnSync("open", ["-g", statusURL(envelope("idle", sessionId, "Session ended"))])
+              deliverBeforeExit(envelope("idle", sessionId, "Session ended"))
             }
             liveRoots.clear()
           }

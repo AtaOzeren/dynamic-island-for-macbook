@@ -6,7 +6,6 @@ public enum ClaudeCodeHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingSettings
     case invalidGeneratedSettings
     case incompatibleHooksStructure
-    case configurationChangedSinceInstall
 }
 
 public protocol ClaudeCodeHookFileSystem: Sendable {
@@ -127,12 +126,14 @@ public struct ClaudeCodeHookInstaller: Sendable {
         if let backup = try fileSystem.readFile(at: backupURL) {
             _ = try validatedRoot(from: backup, error: .invalidExistingSettings)
             let installedData = try mergedSettings(from: backup).data
-            guard try fileSystem.readFile(at: settingsURL) == installedData else {
-                throw ClaudeCodeHookInstallerError.configurationChangedSinceInstall
+            if try fileSystem.readFile(at: settingsURL) == installedData {
+                try fileSystem.writeFileAtomically(backup, to: settingsURL)
+                try fileSystem.removeFile(at: backupURL)
+                return
             }
-            try fileSystem.writeFileAtomically(backup, to: settingsURL)
-            try fileSystem.removeFile(at: backupURL)
-            return
+            // The settings moved on after installation — a hand edit, or a hook
+            // an earlier version wrote. Restoring the backup would discard that,
+            // so only the managed hook is removed below and the backup stays.
         }
 
         guard let existingData = try fileSystem.readFile(at: settingsURL) else {
@@ -365,7 +366,8 @@ public struct ClaudeCodeHookInstaller: Sendable {
         } catch let parseError {
             // The typed error tells the caller which operation aborted; the
             // parse error carries the reason a bare `try?` used to discard.
-            let location = error == .invalidExistingSettings
+            let location =
+                error == .invalidExistingSettings
                 ? "existing settings at \(settingsURL.path) or its backup"
                 : "the generated settings fragment"
             Self.logger.error(

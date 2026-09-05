@@ -3,7 +3,6 @@ import NotchFlowCore
 
 public enum OpenCodePluginInstallerError: Error, Equatable, Sendable {
     case invalidGeneratedPlugin
-    case pluginChangedSinceInstall
 }
 
 public protocol OpenCodePluginFileSystem: Sendable {
@@ -126,8 +125,12 @@ public struct OpenCodePluginInstaller: Sendable {
 
     public func uninstall() throws {
         if let backupData = try fileSystem.readFile(at: backupURL) {
-            guard try fileSystem.readFile(at: pluginURL) == generatedPlugin().data else {
-                throw OpenCodePluginInstallerError.pluginChangedSinceInstall
+            guard let pluginData = try fileSystem.readFile(at: pluginURL),
+                pluginData == (try generatedPlugin().data) || isLegacyManagedPlugin(pluginData)
+            else {
+                // The file under our name is no longer ours to remove, and the
+                // backup is not ours to restore over it.
+                return
             }
             try fileSystem.writeFileAtomically(backupData, to: pluginURL)
             try fileSystem.removeFile(at: backupURL)
@@ -138,8 +141,8 @@ public struct OpenCodePluginInstaller: Sendable {
             return
         }
         let generatedData = try generatedPlugin().data
-        guard pluginData == generatedData else {
-            throw OpenCodePluginInstallerError.pluginChangedSinceInstall
+        guard pluginData == generatedData || isLegacyManagedPlugin(pluginData) else {
+            return
         }
         try fileSystem.removeFile(at: pluginURL)
         try removeEmptyParents()
@@ -156,6 +159,18 @@ public struct OpenCodePluginInstaller: Sendable {
             throw OpenCodePluginInstallerError.invalidGeneratedPlugin
         }
         return (text, data)
+    }
+
+    // OpenCode has no version marker by design; structural markers plus the
+    // retired transport distinguish legacy generated plugins during uninstall.
+    private func isLegacyManagedPlugin(_ data: Data) -> Bool {
+        guard let text = String(data: data, encoding: .utf8) else { return false }
+        return text.contains("export const NotchFlowPlugin: Plugin")
+            && text.contains("agentId: \"opencode\"")
+            && text.contains("session.created")
+            && text.contains("tool.execute.before")
+            && text.contains("notchflow://ai-status")
+            && text.contains(#"spawn("open""#)
     }
 
     private func removeEmptyParents() throws {

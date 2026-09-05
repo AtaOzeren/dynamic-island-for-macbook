@@ -198,7 +198,7 @@ public final class PresentationController {
 
     /// Re-evaluates visibility and geometry after display topology changes.
     public func screenConfigurationDidChange() {
-        guard let targetScreen = screen() else {
+        guard let targetScreen = screen(), targetScreen.isUsableForPresentation else {
             hide()
             return
         }

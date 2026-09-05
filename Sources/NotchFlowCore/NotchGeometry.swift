@@ -80,6 +80,16 @@ public func isNotchedBuiltInDisplay(_ screen: ScreenDescription) -> Bool {
     screen.isBuiltIn && screen.safeAreaInsets.top.isFinite && screen.safeAreaInsets.top > 0
 }
 
+extension ScreenDescription {
+    /// AppKit can hand out a screen whose frame no longer describes real pixels
+    /// while a display transition is still settling; placing from such a frame
+    /// lands the panel at window-server junk coordinates, so treat it as "no
+    /// screen" and wait for the settled event.
+    public var isUsableForPresentation: Bool {
+        isValid(rect: frame)
+    }
+}
+
 private func isValid(rect: CGRect) -> Bool {
     !rect.isNull
         && !rect.isInfinite

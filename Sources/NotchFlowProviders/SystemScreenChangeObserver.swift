@@ -4,18 +4,21 @@ import NotchFlowCore
 
 /// Wraps the system notifications that invalidate display selection — screen
 /// parameter changes plus sleep and wake — and emits the screen set as it is at
-/// the moment each notification arrives. Never polls.
+/// the moment each event is delivered. Never polls.
 @MainActor
 public final class SystemScreenChangeObserver: ScreenChangeObserving {
     private let applicationCenter: NotificationCenter
     private let workspaceCenter: NotificationCenter
     private let currentDisplays: @Sendable () -> [DisplayDescription]
+    private let debounceInterval: Duration
     private let subscriptions = NotificationSubscriptionBag()
+    private var pendingScreenChange: Task<Void, Never>?
 
-    public convenience init() {
+    public convenience init(debounceInterval: Duration = .milliseconds(300)) {
         self.init(
             applicationCenter: .default,
             workspaceCenter: NSWorkspace.shared.notificationCenter,
+            debounceInterval: debounceInterval,
             currentDisplays: {
                 MainActor.assumeIsolated { NSScreen.screens.map(DisplayDescription.init) }
             }
@@ -25,10 +28,12 @@ public final class SystemScreenChangeObserver: ScreenChangeObserving {
     init(
         applicationCenter: NotificationCenter,
         workspaceCenter: NotificationCenter,
+        debounceInterval: Duration = .milliseconds(300),
         currentDisplays: @escaping @Sendable () -> [DisplayDescription]
     ) {
         self.applicationCenter = applicationCenter
         self.workspaceCenter = workspaceCenter
+        self.debounceInterval = debounceInterval
         self.currentDisplays = currentDisplays
     }
 
@@ -37,42 +42,69 @@ public final class SystemScreenChangeObserver: ScreenChangeObserving {
 
         subscribe(
             to: NSApplication.didChangeScreenParametersNotification,
-            on: applicationCenter,
-            emitting: .screenParametersChanged,
-            to: observer
-        )
+            on: applicationCenter
+        ) { [weak self] in
+            self?.scheduleScreenParametersChanged(to: observer)
+        }
         subscribe(
             to: NSWorkspace.willSleepNotification,
-            on: workspaceCenter,
-            emitting: .systemWillSleep,
-            to: observer
-        )
+            on: workspaceCenter
+        ) { [weak self] in
+            self?.emit(.systemWillSleep, to: observer)
+        }
         subscribe(
             to: NSWorkspace.didWakeNotification,
-            on: workspaceCenter,
-            emitting: .systemDidWake,
-            to: observer
-        )
+            on: workspaceCenter
+        ) { [weak self] in
+            self?.emit(.systemDidWake, to: observer)
+        }
     }
 
     public func stopObserving() {
+        pendingScreenChange?.cancel()
+        pendingScreenChange = nil
         subscriptions.removeAll()
     }
 
     private func subscribe(
         to name: Notification.Name,
         on center: NotificationCenter,
-        emitting event: ScreenChangeEvent,
-        to observer: @escaping ScreenChangeObserver
+        action: @escaping @MainActor () -> Void
     ) {
-        let displays = currentDisplays
         let token = center.addObserver(forName: name, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated {
-                observer(ScreenChange(event: event, displays: displays()))
+                action()
             }
         }
 
         subscriptions.add(token, to: center)
+    }
+
+    private func scheduleScreenParametersChanged(to observer: @escaping ScreenChangeObserver) {
+        pendingScreenChange?.cancel()
+        let interval = debounceInterval
+        guard interval > .zero else {
+            emit(.screenParametersChanged, to: observer)
+            return
+        }
+        pendingScreenChange = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: interval)
+            } catch {
+                return
+            }
+            guard let self, !Task.isCancelled else { return }
+            pendingScreenChange = nil
+            emit(.screenParametersChanged, to: observer)
+        }
+    }
+
+    private func emit(_ event: ScreenChangeEvent, to observer: ScreenChangeObserver) {
+        observer(ScreenChange(event: event, displays: currentDisplays()))
+    }
+
+    deinit {
+        pendingScreenChange?.cancel()
     }
 }
 

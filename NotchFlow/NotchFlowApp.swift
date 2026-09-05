@@ -5,6 +5,16 @@ import NotchFlowProviders
 import NotchFlowUI
 import ServiceManagement
 import SwiftUI
+import os
+
+@MainActor
+private final class DisplayInventory: ObservableObject {
+    @Published var displays: [DisplayDescription]
+
+    init(displays: [DisplayDescription]) {
+        self.displays = displays
+    }
+}
 
 @main
 struct NotchFlowApp: App {
@@ -54,8 +64,8 @@ struct NotchFlowApp: App {
     @State private var musicAutomation: [MusicAutomationAccess]
     @State private var musicAutomationRequestsInProgress: Set<MusicPlayerTarget>
     @State private var hookStates: [IPCAgentID: HookInstallationState]
-    @State private var availableDisplays: [DisplayDescription]
-    @State private var isSettingsActionBridgeInserted = true
+    @State private var launchAtLoginNeedsApproval: Bool
+    @StateObject private var displayInventory: DisplayInventory
 
     init() {
         let automationGate = MusicAutomationGate()
@@ -78,7 +88,8 @@ struct NotchFlowApp: App {
         _musicAutomationRequestsInProgress = State(initialValue: [])
         _hookStates = State(initialValue: [:])
         let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
-        _availableDisplays = State(initialValue: currentDisplays)
+        let displayInventory = DisplayInventory(displays: currentDisplays)
+        _displayInventory = StateObject(wrappedValue: displayInventory)
         let settingsStore = SettingsStore()
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
@@ -88,9 +99,16 @@ struct NotchFlowApp: App {
             initialGeneralPreferences.displayTarget,
             availableDisplayCount: currentDisplays.count
         )
-        initialGeneralPreferences.launchAtLogin = Self.launchAtLoginIsRequested
         initialGeneralPreferences.appearance = .dark
         _generalPreferences = State(initialValue: initialGeneralPreferences)
+        _launchAtLoginNeedsApproval = State(
+            initialValue: SMAppService.mainApp.status == .requiresApproval
+        )
+        do {
+            try Self.applyLaunchAtLogin(initialGeneralPreferences.launchAtLogin)
+        } catch {
+            Self.present(error)
+        }
         _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
         let appliedLanguageOverride = settingsStore[.languageOverride]
         self.appliedLanguageOverride = appliedLanguageOverride
@@ -130,7 +148,11 @@ struct NotchFlowApp: App {
             manager: manager,
             settingsStore: settingsStore,
             musicProvider: musicProvider,
-            timerProvider: timerProvider
+            timerProvider: timerProvider,
+            screenConfigurationSettled: { displays in
+                statusItemPresenter.screenConfigurationDidChange()
+                displayInventory.displays = displays
+            }
         )
         self.islandPresenter = islandPresenter
 
@@ -205,8 +227,10 @@ struct NotchFlowApp: App {
         // A listening socket outliving the process that owned it is a defect,
         // and an accessory app is quit from a menu item rather than by closing
         // a window — so termination is the only hook that always runs.
+        // The status item is not removed here: on macOS 26 Control Center
+        // records a removal as the app discarding its item. The process is
+        // exiting; the item goes with it.
         URLSchemeAppDelegate.onTerminate = {
-            statusItemPresenter.stop()
             Self.stopSynchronously(loopbackListener)
         }
 
@@ -332,36 +356,32 @@ struct NotchFlowApp: App {
         preferences: AIIntegrationPreferences,
         manualSetupPresenter: ManualSetupPresenter
     ) {
-        for agentID in preferences.enabledAgentIDs {
-            let state = hookState(for: agentID)
-            guard state == .configurationMissing || state == .hookAbsent else {
-                continue
-            }
-            do {
-                try installHook(for: agentID)
-            } catch {
-                presentManualSetup(
-                    for: agentID,
-                    with: manualSetupPresenter,
-                    fallbackError: error
-                )
-            }
+        LaunchHookRepairer(hooks: managedAgentHooks()).repair(
+            preferences: preferences
+        ) { agentID, error in
+            presentManualSetup(
+                for: agentID,
+                with: manualSetupPresenter,
+                fallbackError: error
+            )
+        }
+    }
+
+    private static func managedAgentHooks() -> [ManagedAgentHook] {
+        IPCAgentID.allCases.map { agentID in
+            ManagedAgentHook(
+                agentID: agentID,
+                installationState: { hookState(for: agentID) },
+                install: { try installHook(for: agentID) },
+                uninstallManagedHook: { try uninstallHook(for: agentID) }
+            )
         }
     }
 
     var body: some Scene {
-        // `openSettings` exists only in SwiftUI's scene environment. This
-        // zero-size scene captures that official action for Finder reopen
-        // events, then removes itself before it can remain as a second status
-        // item. The visible, reliable menu bar item is AppKit-owned.
-        MenuBarExtra(isInserted: $isSettingsActionBridgeInserted) {
-            EmptyView()
-        } label: {
-            SettingsActionBridge(router: settingsWindowRouter) {
-                isSettingsActionBridgeInserted = false
-            }
-        }
-
+        // The only scene. No `MenuBarExtra`: Control Center hosts one as a
+        // blank slot beside the real icon on macOS 26. Settings is opened by
+        // `SettingsWindowRouter` instead.
         Settings {
             settingsWindowContent
         }
@@ -373,7 +393,7 @@ struct NotchFlowApp: App {
             enabledIdentifiers: $enabledIdentifiers,
             aiPreferences: $aiPreferences,
             languageOverride: $languageOverride,
-            availableDisplays: availableDisplays,
+            availableDisplays: displayInventory.displays,
             information: aboutInformation,
             languages: LanguageOption.shipped,
             musicAutomation: $musicAutomation,
@@ -382,12 +402,14 @@ struct NotchFlowApp: App {
             onRequestAutomation: requestAutomation,
             onAIPreferencesChange: applyAIPreferences,
             onHookAction: handleHookAction,
+            launchAtLoginNeedsApproval: launchAtLoginNeedsApproval,
             restartRequired: languageOverride != appliedLanguageOverride,
             onRestart: restartApplication
         )
         .onAppear {
             aiPreferences = settingsStore.aiIntegrationPreferences
             hookStates = Self.currentHookStates()
+            refreshLaunchAtLoginApprovalState()
             refreshAvailableDisplays()
             reloadMusicAutomationState()
         }
@@ -405,26 +427,24 @@ struct NotchFlowApp: App {
         ) { _ in
             refreshMusicAutomationState()
         }
-        .onReceive(
-            NotificationCenter.default.publisher(
-                for: NSApplication.didChangeScreenParametersNotification
-            )
-        ) { _ in
-            refreshAvailableDisplays()
-        }
         .onChange(of: generalPreferences, initial: true) { _, preferences in
             do {
                 try Self.applyLaunchAtLogin(preferences.launchAtLogin)
             } catch {
                 Self.present(error)
-                generalPreferences.launchAtLogin = Self.launchAtLoginIsRequested
-                return
             }
+            refreshLaunchAtLoginApprovalState()
             settingsStore.generalPreferences = preferences
             statusItemPresenter.setVisible(preferences.showMenuBarIcon)
             islandPresenter.applyAppearance(preferences.appearance)
             islandPresenter.applyReducedMotion(preferences.reducedMotionOverride)
             islandPresenter.applyDisplayTarget()
+        }
+        .onChange(of: displayInventory.displays) { _, displays in
+            generalPreferences.displayTarget = normalizeDisplayPreference(
+                generalPreferences.displayTarget,
+                availableDisplayCount: displays.count
+            )
         }
         .onChange(of: enabledIdentifiers) { _, identifiers in
             settingsStore.enabledProviderIdentifiers = identifiers
@@ -526,22 +546,19 @@ struct NotchFlowApp: App {
         hookStates = Self.currentHookStates()
     }
 
-    private static var launchAtLoginIsRequested: Bool {
-        switch SMAppService.mainApp.status {
-        case .enabled, .requiresApproval: true
-        case .notRegistered, .notFound: false
-        @unknown default: false
-        }
+    private func refreshLaunchAtLoginApprovalState() {
+        launchAtLoginNeedsApproval = SMAppService.mainApp.status == .requiresApproval
     }
 
     private static func applyLaunchAtLogin(_ shouldLaunch: Bool) throws {
         let service = SMAppService.mainApp
-        if shouldLaunch {
-            guard !launchAtLoginIsRequested else { return }
+        switch resolveLaunchAtLogin(preference: shouldLaunch, serviceStatus: service.status) {
+        case .register:
             try service.register()
-        } else {
-            guard launchAtLoginIsRequested else { return }
+        case .unregister:
             try service.unregister()
+        case .needsApproval, .none:
+            break
         }
     }
 
@@ -606,12 +623,7 @@ struct NotchFlowApp: App {
 
 extension NotchFlowApp {
     fileprivate func refreshAvailableDisplays() {
-        let displays = NSScreen.screens.map(DisplayDescription.init)
-        availableDisplays = displays
-        generalPreferences.displayTarget = normalizeDisplayPreference(
-            generalPreferences.displayTarget,
-            availableDisplayCount: displays.count
-        )
+        displayInventory.displays = NSScreen.screens.map(DisplayDescription.init)
     }
 
     fileprivate var aboutInformation: AboutInformation {
@@ -649,6 +661,10 @@ private final class StatusItemPresenter: NSObject {
     /// than trusting the asset keeps a future art change from producing an item
     /// that is silently clipped to nothing.
     private static let iconSize = NSSize(width: 18, height: 18)
+
+    /// Named explicitly so Control Center tracks one stable host identity across
+    /// launches instead of a derived `Item-N` that shifts as scenes come and go.
+    private static let statusItemAutosaveName = "NotchFlowMenuBarItem"
     private static let timerPresets: [(minutes: Int, title: String)] = [
         (5, String(localized: "Start 5-Minute Timer")),
         (10, String(localized: "Start 10-Minute Timer")),
@@ -658,7 +674,6 @@ private final class StatusItemPresenter: NSObject {
     private let timerProvider: TimerProvider
     private let openSettings: () -> Void
     private var statusItem: NSStatusItem?
-    private var screenChangeObserver: (any NSObjectProtocol)?
 
     init(timerProvider: TimerProvider, openSettings: @escaping () -> Void) {
         self.timerProvider = timerProvider
@@ -668,28 +683,33 @@ private final class StatusItemPresenter: NSObject {
 
     /// Re-adds the item after the display arrangement changes.
     ///
-    /// A status item is placed once, against the arrangement in force when it
-    /// was added. Plugging in or unplugging a display moves the menu bar without
-    /// re-placing it, which leaves the item at coordinates that no longer name
-    /// any menu bar — the same off-screen state a too-early creation produces,
-    /// arrived at from the other direction. Removing and re-adding is the only
-    /// way to ask for a fresh placement.
-    private func observeScreenChanges() {
-        guard screenChangeObserver == nil else { return }
-        screenChangeObserver = NotificationCenter.default.addObserver(
-            forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, self.statusItem != nil else { return }
-                self.stop()
-                self.start()
-            }
-        }
+    /// Through macOS 15 an item is placed once, against the arrangement in
+    /// force when it was added, and removing and re-adding is the only way to
+    /// ask for a fresh placement. From macOS 26 Control Center places it and
+    /// treats a removal as the app discarding its item, so nothing is done.
+    func screenConfigurationDidChange() {
+        guard statusItem != nil else { return }
+        if #available(macOS 26, *) { return }
+        stop()
+        start()
     }
 
+    /// Shows or hides the item. On macOS 26 it is never removed — Control
+    /// Center records a removal as the app discarding its item — so hiding is
+    /// `isVisible`, which it records as the client's request and honours.
     func setVisible(_ isVisible: Bool) {
+        if #available(macOS 26, *) {
+            if isVisible {
+                if let statusItem {
+                    statusItem.isVisible = true
+                } else {
+                    start()
+                }
+            } else {
+                statusItem?.isVisible = false
+            }
+            return
+        }
         if isVisible {
             start()
         } else {
@@ -706,14 +726,15 @@ private final class StatusItemPresenter: NSObject {
     /// state the menu bar does not reliably recover from — the item reported
     /// itself visible while nothing was ever drawn.
     ///
-    /// `autosaveName` is deliberately absent. It persists a position and a
-    /// visibility flag under a key the app never reads, so a single accidental
-    /// ⌘-drag out of the menu bar hides the item for good, with the in-app
-    /// switch still reading "on" and no way back. The item's presence is the
-    /// user's setting, and that setting lives in `GeneralPreferences`.
+    /// On macOS 26 Control Center hosts the item, keyed by bundle id plus
+    /// `autosaveName`, and hides it while any application that ever launched
+    /// this process has "Allow in the Menu Bar" off. That state is outside the
+    /// app (`scripts/menubar-owner.sh` repairs it); this side only makes sure
+    /// Control Center never sees a removal to record.
     func start() {
         guard statusItem == nil else { return }
         let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        statusItem.autosaveName = Self.statusItemAutosaveName
         statusItem.behavior = []
         guard let button = statusItem.button else {
             NSStatusBar.system.removeStatusItem(statusItem)
@@ -735,9 +756,15 @@ private final class StatusItemPresenter: NSObject {
         statusItem.menu = makeMenu()
         statusItem.isVisible = true
         self.statusItem = statusItem
-        observeScreenChanges()
     }
 
+    /// Records where the item actually landed.
+    ///
+    /// The window is laid out on a later turn, so a frame read inside `start()`
+    /// is always pre-layout. Only the delayed read says where the item landed —
+    /// or, on macOS 26, whether Control Center gave it a slot at all: a hosted
+    /// item on the notched display reads 33 points tall, an item Control Center
+    /// hid idles at the screen origin at the old 22.
     func stop() {
         guard let statusItem else { return }
         NSStatusBar.system.removeStatusItem(statusItem)
@@ -810,26 +837,39 @@ private final class StatusItemPresenter: NSObject {
 
 @MainActor
 private final class SettingsWindowRouter {
-    private var action: OpenSettingsAction?
-    private var hasPendingRequest = false
+    private static let logger = Logger(
+        subsystem: "com.notchflow.NotchFlow",
+        category: "settings"
+    )
 
-    func install(_ action: OpenSettingsAction) {
-        self.action = action
-        guard hasPendingRequest else { return }
-        hasPendingRequest = false
-        open()
-    }
-
+    /// Opens the `Settings` scene the way ⌘, does: through the menu item
+    /// SwiftUI installs for it, with that item as the sender. Sending
+    /// `showSettingsWindow:` down the responder chain is refused on macOS 26,
+    /// and a `MenuBarExtra` bridge for `openSettings` costs a blank status item
+    /// slot. The item is found by key equivalent; its title is localized.
     func open() {
         bringSettingsForward()
-        guard let action else {
-            hasPendingRequest = true
-            return
+        if let item = Self.settingsMenuItem(in: NSApp.mainMenu), let action = item.action {
+            NSApp.sendAction(action, to: item.target, from: item)
+        } else {
+            Self.logger.error("No ⌘, item in the main menu; the Settings scene cannot be opened.")
         }
-        action()
         DispatchQueue.main.async { [weak self] in
             self?.bringSettingsForward()
         }
+    }
+
+    private static func settingsMenuItem(in menu: NSMenu?) -> NSMenuItem? {
+        guard let menu else { return nil }
+        for item in menu.items {
+            if item.keyEquivalent == "," && item.keyEquivalentModifierMask.contains(.command) {
+                return item
+            }
+            if let found = settingsMenuItem(in: item.submenu) {
+                return found
+            }
+        }
+        return nil
     }
 
     private func bringSettingsForward() {
@@ -841,20 +881,5 @@ private final class SettingsWindowRouter {
         else { return }
         settingsWindow.makeKeyAndOrderFront(nil)
         settingsWindow.orderFrontRegardless()
-    }
-}
-
-private struct SettingsActionBridge: View {
-    @Environment(\.openSettings) private var openSettings
-    let router: SettingsWindowRouter
-    let onInstalled: () -> Void
-
-    var body: some View {
-        Color.clear
-            .frame(width: 0, height: 0)
-            .onAppear {
-                router.install(openSettings)
-                onInstalled()
-            }
     }
 }

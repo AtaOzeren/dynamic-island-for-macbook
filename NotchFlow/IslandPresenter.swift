@@ -254,6 +254,7 @@ final class IslandPresenter {
     private let musicProvider: (any MusicProvider)?
     private let timerProvider: TimerProvider?
     private let primaryActions: any PrimaryActionDispatching
+    private let screenConfigurationSettled: @MainActor ([DisplayDescription]) -> Void
     private let hoverCoordinator = SynchronizedHoverCoordinator()
     private var announcementRefreshTask: Task<Void, Never>?
     private var secondaryPresentations: [String: SecondaryIslandPresentation] = [:]
@@ -265,7 +266,8 @@ final class IslandPresenter {
         screenChanges: any ScreenChangeObserving = SystemScreenChangeObserver(),
         musicProvider: (any MusicProvider)? = nil,
         timerProvider: TimerProvider? = nil,
-        primaryActions: any PrimaryActionDispatching = WorkspacePrimaryActionDispatcher()
+        primaryActions: any PrimaryActionDispatching = WorkspacePrimaryActionDispatcher(),
+        screenConfigurationSettled: @escaping @MainActor ([DisplayDescription]) -> Void = { _ in }
     ) {
         self.manager = manager
         self.settingsStore = settingsStore
@@ -274,6 +276,7 @@ final class IslandPresenter {
         self.musicProvider = musicProvider
         self.timerProvider = timerProvider
         self.primaryActions = primaryActions
+        self.screenConfigurationSettled = screenConfigurationSettled
 
         let reduceMotion = ConfigurableReduceMotion(
             override: settingsStore.generalPreferences.reducedMotionOverride
@@ -425,6 +428,7 @@ final class IslandPresenter {
                 secondary.suspend()
             }
         case .screenParametersChanged, .systemDidWake:
+            screenConfigurationSettled(change.displays)
             reconcileSecondaryPresentations()
             controller.screenConfigurationDidChange()
             for secondary in secondaryPresentations.values {
@@ -605,7 +609,7 @@ final class IslandPresenter {
         return ScreenDescription(screen)
     }
 
-    private static func screen(identifier: String) -> ScreenDescription? {
+    static func screen(identifier: String) -> ScreenDescription? {
         NSScreen.screens.first {
             DisplayDescription($0).identifier == identifier
         }.map(ScreenDescription.init)

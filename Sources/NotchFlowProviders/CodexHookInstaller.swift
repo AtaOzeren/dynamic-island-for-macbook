@@ -5,7 +5,6 @@ import os
 public enum CodexHookInstallerError: Error, Equatable, Sendable {
     case invalidExistingConfiguration
     case invalidGeneratedConfiguration
-    case configurationChangedSinceInstall
 }
 
 public typealias CodexTOMLSyntaxValidator = @Sendable (String) -> Bool
@@ -59,7 +58,7 @@ public struct CodexHookInstaller: Sendable {
     /// second copy of the token is how the installer stopped recognising the
     /// hook it had just written.
     private static let lifecycleHookMarker = HookSnippetGenerator.codexLifecycleHookMarker
-    private static let legacyLifecycleHookMarker = "notchflow_codex_hook_v1"
+    private static let legacyLifecycleHookMarkers = HookSnippetGenerator.previousCodexLifecycleHookMarkers
 
     private struct RootNotifyAssignment {
         let range: Range<String.Index>
@@ -163,12 +162,15 @@ public struct CodexHookInstaller: Sendable {
         if let backup = try fileSystem.readFile(at: backupURL) {
             _ = try validatedText(from: backup, error: .invalidExistingConfiguration)
             let installedData = Data(try mergedConfiguration(from: backup).text.utf8)
-            guard try fileSystem.readFile(at: configURL) == installedData else {
-                throw CodexHookInstallerError.configurationChangedSinceInstall
+            if try fileSystem.readFile(at: configURL) == installedData {
+                try fileSystem.writeFileAtomically(backup, to: configURL)
+                try fileSystem.removeFile(at: backupURL)
+                return
             }
-            try fileSystem.writeFileAtomically(backup, to: configURL)
-            try fileSystem.removeFile(at: backupURL)
-            return
+            // The configuration moved on after installation — a hand edit, or a
+            // notify an earlier version wrote. Restoring the backup would discard
+            // that, so only the managed notify is removed below and the backup
+            // stays.
         }
 
         guard let existingData = try fileSystem.readFile(at: configURL) else {
@@ -375,7 +377,7 @@ public struct CodexHookInstaller: Sendable {
     private func isManagedLifecycleHandler(_ handler: [String: Any]) -> Bool {
         guard let command = handler["command"] as? String else { return false }
         return command.contains(Self.lifecycleHookMarker)
-            || command.contains(Self.legacyLifecycleHookMarker)
+            || Self.legacyLifecycleHookMarkers.contains(where: command.contains)
     }
 
     private func encodedLifecycleHooksDocument(
@@ -420,20 +422,28 @@ public struct CodexHookInstaller: Sendable {
 
     private func configurationBySettingRootNotify(in existing: String) throws -> String {
         if let assignment = try rootNotifyAssignment(in: existing) {
-            // Already this version's, or ours but wrapped by another tool's
-            // notifier. The wrapped case is deliberately left alone: upgrading
-            // it would mean rewriting a chain NotchFlow does not own, and the
-            // lifecycle hooks carry the states that matter either way.
-            if isCurrentManagedNotify(assignment.arguments)
-                || containsNestedManagedNotify(assignment.arguments)
-            {
+            if isCurrentManagedNotify(assignment.arguments) {
                 return existing
+            }
+            // Ours, but wrapped by another tool's notifier. The chain is that
+            // tool's to own, so only NotchFlow's element inside it is touched —
+            // and only when it is a previous version's. Left alone, that
+            // element kept the launch fallback it was written with: every turn
+            // Codex reported through the wrapper relaunched a quit NotchFlow.
+            if containsNestedManagedNotify(assignment.arguments) {
+                let upgraded = try upgradingNestedManagedNotify(in: assignment.arguments)
+                guard upgraded != assignment.arguments else { return existing }
+                return existing.replacingCharacters(
+                    in: assignment.range,
+                    with: try plainNotifySetting(upgraded)
+                )
             }
 
             // A `notify` an earlier NotchFlow wrote is replaced rather than
             // forwarded to — forwarding to our own previous command would
             // deliver every turn twice, once through each version.
-            let forwardedArguments = isLegacyManagedNotify(assignment.arguments)
+            let forwardedArguments =
+                isLegacyManagedNotify(assignment.arguments)
                 ? []
                 : assignment.arguments
             return existing.replacingCharacters(
@@ -720,7 +730,53 @@ public struct CodexHookInstaller: Sendable {
         }
     }
 
+    /// The chain with every nested NotchFlow notify an earlier version wrote
+    /// replaced by this version's, and everything else exactly as it was.
+    private func upgradingNestedManagedNotify(
+        in arguments: [String],
+        depth: Int = 0
+    ) throws -> [String] {
+        guard depth < 4 else { return arguments }
+        return try arguments.map { argument in
+            // The decode is a probe, as in `containsNestedManagedNotify`: a
+            // plain argument fails it by design.
+            guard
+                let data = argument.data(using: .utf8),
+                let nested = try? JSONDecoder().decode([String].self, from: data),
+                nested != arguments
+            else {
+                return argument
+            }
+            if isCurrentManagedNotify(nested) {
+                return argument
+            }
+            let replacement: [String]
+            if isLegacyManagedNotify(nested) {
+                replacement = try currentManagedNotifyArguments()
+            } else {
+                replacement = try upgradingNestedManagedNotify(in: nested, depth: depth + 1)
+                guard replacement != nested else { return argument }
+            }
+            return try encodedNotifyArguments(replacement)
+        }
+    }
+
+    private func currentManagedNotifyArguments() throws -> [String] {
+        let literal = generatedNotifySetting()
+            .dropFirst("notify = ".count)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        do {
+            return try JSONDecoder().decode([String].self, from: Data(literal.utf8))
+        } catch {
+            throw CodexHookInstallerError.invalidGeneratedConfiguration
+        }
+    }
+
     private func plainNotifySetting(_ arguments: [String]) throws -> String {
+        "notify = \(try encodedNotifyArguments(arguments))\n"
+    }
+
+    private func encodedNotifyArguments(_ arguments: [String]) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let data: Data
@@ -735,7 +791,7 @@ public struct CodexHookInstaller: Sendable {
             )
             throw CodexHookInstallerError.invalidGeneratedConfiguration
         }
-        return "notify = \(String(decoding: data, as: UTF8.self))\n"
+        return String(decoding: data, as: UTF8.self)
     }
 
     private func rootTableEnd(in text: String) -> String.Index {

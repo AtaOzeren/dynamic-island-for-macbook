@@ -5,24 +5,35 @@ import Testing
 
 @Suite("HookGeneration")
 struct HookGenerationTests {
-    @Test("builds a URL that round-trips through the IPC parser")
-    func statusURLRoundTrip() throws {
-        let message = IPCMessage(
-            schemaVersion: IPCMessageValidator.supportedSchemaVersion,
-            agentId: .claudeCode,
-            sessionId: UUID(uuidString: "6F9619FF-8B86-D011-B42D-00C04FC964FF")!,
-            state: .usingTool,
-            detail: "Editing App.swift",
-            toolName: "Edit",
-            progress: 0.5,
-            timestamp: Date(timeIntervalSince1970: 1_700_000_000)
+    @Test("generated agent hooks never launch NotchFlow")
+    func generatedHooksUseLoopbackOnly() {
+        let generator = HookSnippetGenerator()
+        let generatedHooks = [
+            generator.claudeCodeSettingsFragment(),
+            generator.codexNotifyFragment(),
+            generator.codexLifecycleHooksFragment(),
+            generator.openCodePluginFile(),
+        ]
+
+        for hook in generatedHooks {
+            #expect(!hook.contains(#"["open", "-g""#))
+            #expect(!hook.contains(#"spawn("open""#))
+            #expect(!hook.contains(#"spawnSync("open""#))
+            #expect(!hook.contains("notchflow://ai-status"))
+        }
+    }
+
+    @Test("generated hook markers identify loopback-only generations")
+    func generatedHookMarkersAreCurrent() {
+        #expect(HookSnippetGenerator.managedHookMarker == "notchflow_hook_v4")
+        #expect(
+            HookSnippetGenerator.previousManagedHookMarkers == [
+                "notchflow_hook_v2",
+                "notchflow_hook_v3",
+            ]
         )
-
-        let url = try HookSnippetGenerator.statusURL(for: message)
-
-        #expect(url.scheme == "notchflow")
-        #expect(url.host == "ai-status")
-        #expect(try IPCURLParser().parse(url) == message)
+        #expect(HookSnippetGenerator.codexNotifyMarker == "notchflow_codex_notify_v4")
+        #expect(HookSnippetGenerator.codexLifecycleHookMarker == "notchflow_codex_hook_v3")
     }
 
     @Test("generates Claude Code lifecycle hooks using stdin event fields")
@@ -106,8 +117,7 @@ struct HookGenerationTests {
         #expect(arguments[2].contains("sys.argv[1:]"))
         #expect(arguments[2].contains("thread-id"))
         #expect(arguments[2].contains("uuid.uuid5"))
-        #expect(arguments[2].contains("subprocess.Popen"))
-        #expect(arguments[2].contains("notchflow://ai-status"))
+        #expect(arguments[2].contains("http://127.0.0.1:"))
     }
 
     @Test("Codex notify forwards events to an existing notifier")
@@ -157,7 +167,7 @@ struct HookGenerationTests {
             #expect(command.contains("hook_event_name"))
             #expect(command.contains("session_id"))
             #expect(command.contains("uuid.uuid5"))
-            #expect(command.contains("notchflow://ai-status"))
+            #expect(command.contains("http://127.0.0.1:"))
         }
 
         let promptCommand = try hookCommand(for: "UserPromptSubmit", in: hooks)
@@ -167,14 +177,14 @@ struct HookGenerationTests {
         #expect(promptCommand.contains(#""SessionEnd": ("idle", "Session ended""#))
     }
 
-    @Test("generates an OpenCode plugin that posts to loopback and falls back to open")
+    @Test("generates an OpenCode plugin that posts to loopback")
     func openCodePluginFile() {
         let plugin = HookSnippetGenerator().openCodePluginFile()
 
         #expect(plugin.contains(#"import type { Plugin } from "@opencode-ai/plugin""#))
-        #expect(plugin.contains(#"spawn("open", ["-g", statusURL(body)]"#))
+        #expect(plugin.contains(#"fetch(`http://127.0.0.1:${port}/ai-status`"#))
         #expect(plugin.contains(#"agentId: "opencode""#))
-        #expect(plugin.contains(#"encodeURIComponent(body)"#))
+        #expect(!plugin.contains(#"encodeURIComponent(body)"#))
         #expect(plugin.contains("/ai-status"))
         #expect(plugin.contains(#"createHash("sha256")"#))
         #expect(plugin.contains(#""tool.execute.before": async"#))
@@ -252,12 +262,13 @@ struct HookGenerationTests {
     /// session, so nothing else reports it: the last state sat on the island for
     /// its whole silence timeout while the process behind it was gone. Saying so
     /// on the way out is the only message that can.
-    @Test("the OpenCode plugin ends its sessions when the process exits")
-    func openCodePluginSaysGoodbyeOnExit() {
+    @Test("the OpenCode plugin delivers exit notifications over loopback")
+    func openCodePluginDeliversGoodbyeOverLoopback() {
         let plugin = HookSnippetGenerator().openCodePluginFile()
 
         #expect(plugin.contains(#"process.on("exit", sayGoodbye)"#))
-        #expect(plugin.contains(#"spawnSync("open""#), "an exit handler cannot await a fetch")
+        #expect(plugin.contains(#"spawnSync("/usr/bin/curl""#), "an exit handler cannot await a fetch")
+        #expect(plugin.contains("deliverBeforeExit(envelope("))
         #expect(plugin.contains(#"envelope("idle""#))
     }
 
@@ -280,7 +291,7 @@ struct HookGenerationTests {
         #expect(!plugin.contains("process.exit("))
     }
 
-    /// The farewell is bounded: a synchronous `open` per session is a cost the
+    /// The farewell is bounded: a synchronous loopback POST per session is a cost the
     /// user feels on the way out, and the island ends an instance's sub-agents
     /// with it, so only the roots need saying.
     @Test("the OpenCode plugin bounds how many farewells it sends")
@@ -331,19 +342,20 @@ struct HookGenerationTests {
         #expect(codexCommand.contains(#"os.environ.get("OPENCODE")"#))
     }
 
-    /// The loopback socket reaches a running island in milliseconds; `open` is
-    /// an order of magnitude slower but is the only path that can launch
-    /// NotchFlow when it is not running. Both have to be present.
-    @Test("hooks prefer the loopback socket and keep the URL scheme as a fallback")
-    func hooksPreferLoopbackAndFallBackToTheURLScheme() throws {
+    /// Hooks may report only to an already-running island. A URL fallback would
+    /// launch NotchFlow after the user quit it, so its absence is part of the
+    /// delivery contract rather than an implementation detail.
+    @Test("hooks use loopback only and silently drop unavailable deliveries")
+    func hooksUseLoopbackWithoutALaunchFallback() throws {
         let hooks = try Self.claudeCodeHooks()
         let command = try hookCommand(for: "Stop", in: hooks)
 
         #expect(command.contains("127.0.0.1"))
         #expect(command.contains("/ai-status"))
         #expect(command.contains("ipc-port"))
-        #expect(command.contains("notchflow://ai-status?payload="))
         #expect(command.contains("urllib.request.urlopen"))
+        #expect(!command.contains("notchflow://ai-status"))
+        #expect(!command.contains(#"["open", "-g""#))
     }
 
     /// Every hook is backgrounded, so no agent waits on the island.
@@ -507,44 +519,56 @@ struct HookGenerationTests {
             at: pythonURL,
             withDestinationURL: URL(fileURLWithPath: "/usr/bin/python3")
         )
-        let curlURL = binDirectory.appending(path: "curl")
         let payloadURL = temporaryDirectory.appending(path: "payload.json")
-        let curlScript = """
-            #!/bin/sh
-            while [ "$#" -gt 0 ]; do
-              if [ "$1" = "--data-binary" ]; then
-                shift
-                printf %s "$1" > "$NOTCHFLOW_TEST_PAYLOAD"
-                exit 0
-              fi
-              shift
-            done
-            exit 1
-            """
-        try Data(curlScript.utf8).write(to: curlURL)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o755],
-            ofItemAtPath: curlURL.path
-        )
+        let listenerURL = temporaryDirectory.appending(path: "listener.py")
+        let listenerScript = """
+            import http.server, pathlib, sys
 
-        let openURL = binDirectory.appending(path: "open")
-        let openScript = """
-            #!/bin/sh
-            for arg in "$@"; do
-              case "$arg" in
-                notchflow://ai-status\\?payload=*)
-                  payload="${arg#*payload=}"
-                  exec python3 -c "import sys, urllib.parse; open(sys.argv[2], 'w').write(urllib.parse.unquote(sys.argv[1]))" "$payload" "$NOTCHFLOW_TEST_PAYLOAD"
-                  ;;
-              esac
-            done
-            exit 1
+            class Handler(http.server.BaseHTTPRequestHandler):
+                def do_POST(self):
+                    length = int(self.headers.get("Content-Length", "0"))
+                    pathlib.Path(sys.argv[1]).write_bytes(self.rfile.read(length))
+                    self.send_response(204)
+                    self.end_headers()
+
+                def log_message(self, format, *args):
+                    pass
+
+            server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+            print(server.server_port, flush=True)
+            server.handle_request()
             """
-        try Data(openScript.utf8).write(to: openURL)
-        try FileManager.default.setAttributes(
-            [.posixPermissions: 0o755],
-            ofItemAtPath: openURL.path
+        try Data(listenerScript.utf8).write(to: listenerURL)
+
+        let listener = Process()
+        listener.executableURL = pythonURL
+        listener.arguments = [listenerURL.path, payloadURL.path]
+        let listenerOutput = Pipe()
+        listener.standardOutput = listenerOutput
+        try listener.run()
+        defer {
+            if listener.isRunning { listener.terminate() }
+        }
+
+        let port = String(
+            decoding: listenerOutput.fileHandleForReading.availableData,
+            as: UTF8.self
+        ).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !port.isEmpty else {
+            throw NSError(
+                domain: "HookGenerationTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Stub listener did not publish a port"]
+            )
+        }
+        let discoveryURL = temporaryDirectory.appending(
+            path: "Library/Application Support/NotchFlow/ipc-port"
         )
+        try FileManager.default.createDirectory(
+            at: discoveryURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(port.utf8).write(to: discoveryURL)
 
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/zsh")
@@ -556,7 +580,6 @@ struct HookGenerationTests {
         process.standardError = stderr
         var environment = ProcessInfo.processInfo.environment
         environment["PATH"] = "\(binDirectory.path):\(ProcessInfo.processInfo.environment["PATH"] ?? "/bin:/usr/bin")"
-        environment["NOTCHFLOW_TEST_PAYLOAD"] = payloadURL.path
         environment["HOME"] = temporaryDirectory.path
         environment.removeValue(forKey: "OPENCODE")
         environment.removeValue(forKey: "OPENCODE_PID")

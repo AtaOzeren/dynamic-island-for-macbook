@@ -96,10 +96,36 @@ struct ClaudeCodeHookInstallerTests {
             .replacingOccurrences(of: "\"dark\"", with: "\"light\"")
         fileSystem.setText(changed, at: Self.settingsURL)
 
-        #expect(throws: ClaudeCodeHookInstallerError.configurationChangedSinceInstall) {
-            try installer.uninstall()
-        }
-        #expect(fileSystem.text(at: Self.settingsURL) == changed)
+        try installer.uninstall()
+
+        let remaining = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(remaining.contains("\"light\""))
+        #expect(!remaining.contains(HookSnippetGenerator.managedHookMarker))
+        #expect(fileSystem.data(at: Self.backupURL) == original)
+    }
+
+    /// The launch-time sweep uninstalls a disabled agent's hook, and after an
+    /// upgrade that hook carries an earlier marker while the backup from the
+    /// original install is still on disk. That must strip the hook, not fail on
+    /// every launch.
+    @Test("uninstall strips a previous version's hook when the backup no longer matches")
+    func uninstallStripsLegacyHookBesideBackup() throws {
+        let original = Data(#"{"theme":"dark"}"#.utf8)
+        let legacyCommand = #"python3 -c 'print(1)' # notchflow_hook_v3"#
+        let legacySettings = try JSONSerialization.data(withJSONObject: [
+            "theme": "dark",
+            "hooks": ["Stop": [["hooks": [["type": "command", "command": legacyCommand]]]]],
+        ])
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [
+            Self.settingsURL: legacySettings,
+            Self.backupURL: original,
+        ])
+
+        try Self.makeInstaller(fileSystem: fileSystem).uninstall()
+
+        let remaining = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(remaining.contains("\"dark\""))
+        #expect(!remaining.contains("notchflow_hook_v3"))
         #expect(fileSystem.data(at: Self.backupURL) == original)
     }
 
@@ -300,6 +326,23 @@ struct ClaudeCodeHookInstallerTests {
         #expect(commands.count == 9)
         #expect(commands.allSatisfy { $0.contains(HookSnippetGenerator.managedHookMarker) })
         #expect(!installed.contains(oldCommand))
+    }
+
+    @Test("install replaces v3 hooks with loopback-only hooks")
+    func replacesV3Hooks() throws {
+        let oldCommand = #"python3 -c 'print(1)' # notchflow_hook_v3"#
+        let oldSettings = try JSONSerialization.data(withJSONObject: [
+            "hooks": [
+                "Stop": [["hooks": [["type": "command", "command": oldCommand]]]]
+            ]
+        ])
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [Self.settingsURL: oldSettings])
+
+        try Self.makeInstaller(fileSystem: fileSystem).install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        #expect(installed.contains(HookSnippetGenerator.managedHookMarker))
+        #expect(!installed.contains("notchflow_hook_v3"))
     }
 
     /// `StopFailure` is not an event Claude Code emits; an earlier version

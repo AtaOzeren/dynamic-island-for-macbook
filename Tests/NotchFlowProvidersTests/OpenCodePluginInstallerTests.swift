@@ -26,7 +26,7 @@ struct OpenCodePluginInstallerTests {
         #expect(fileSystem.text(at: Self.pluginURL) == proposal)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
         #expect(proposal.contains("export const NotchFlowPlugin: Plugin"))
-        #expect(proposal.contains(#"spawn("open", ["-g", statusURL(body)]"#))
+        #expect(proposal.contains(#"fetch(`http://127.0.0.1:${port}/ai-status`"#))
     }
 
     @Test("install and uninstall preserve unrelated plugin files")
@@ -114,11 +114,54 @@ struct OpenCodePluginInstallerTests {
         let changed = try #require(fileSystem.data(at: Self.pluginURL)) + Data("// user change\n".utf8)
         fileSystem.setData(changed, at: Self.pluginURL)
 
-        #expect(throws: OpenCodePluginInstallerError.pluginChangedSinceInstall) {
-            try installer.uninstall()
-        }
+        try installer.uninstall()
+
         #expect(fileSystem.data(at: Self.pluginURL) == changed)
         #expect(fileSystem.data(at: Self.backupURL) == original)
+    }
+
+    @Test("install replaces and uninstall removes a v3-era plugin")
+    func installAndUninstallLegacyPlugin() throws {
+        let legacy = Data(
+            """
+            import type { Plugin } from "@opencode-ai/plugin"
+            import { spawn } from "node:child_process"
+            export const NotchFlowPlugin: Plugin = async () => ({
+              "session.created": async () => ({ agentId: "opencode" }),
+              "tool.execute.before": async () => spawn("open", ["-g", "notchflow://ai-status"]),
+            })
+            """.utf8
+        )
+        let fileSystem = InMemoryOpenCodePluginFileSystem(files: [Self.pluginURL: legacy])
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        #expect(installer.installationState() == .hookAbsent)
+        try installer.install()
+        #expect(fileSystem.data(at: Self.pluginURL) != legacy)
+
+        try installer.uninstall()
+
+        #expect(fileSystem.data(at: Self.pluginURL) == legacy)
+        #expect(fileSystem.data(at: Self.backupURL) == nil)
+    }
+
+    @Test("uninstall removes a v3-era plugin without a backup")
+    func uninstallLegacyPluginWithoutBackup() throws {
+        let legacy = Data(
+            """
+            import type { Plugin } from "@opencode-ai/plugin"
+            import { spawn } from "node:child_process"
+            export const NotchFlowPlugin: Plugin = async () => ({
+              "session.created": async () => ({ agentId: "opencode" }),
+              "tool.execute.before": async () => spawn("open", ["-g", "notchflow://ai-status"]),
+            })
+            """.utf8
+        )
+        let fileSystem = InMemoryOpenCodePluginFileSystem(files: [Self.pluginURL: legacy])
+
+        try Self.makeInstaller(fileSystem: fileSystem).uninstall()
+
+        #expect(fileSystem.data(at: Self.pluginURL) == nil)
     }
 
     @Test("installation state is missing when no plugin file exists")

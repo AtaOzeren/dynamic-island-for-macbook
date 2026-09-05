@@ -14,11 +14,13 @@ struct SystemScreenChangeObserverTests {
     private func makeObserver(
         applicationCenter: NotificationCenter,
         workspaceCenter: NotificationCenter,
+        debounceInterval: Duration = .zero,
         displays: @escaping @Sendable () -> [DisplayDescription] = { [] }
     ) -> SystemScreenChangeObserver {
         SystemScreenChangeObserver(
             applicationCenter: applicationCenter,
             workspaceCenter: workspaceCenter,
+            debounceInterval: debounceInterval,
             currentDisplays: displays
         )
     }
@@ -39,6 +41,70 @@ struct SystemScreenChangeObserverTests {
         applicationCenter.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
 
         #expect(received == [ScreenChange(event: .screenParametersChanged, displays: displays)])
+    }
+
+    @Test("coalesces rapid screen-parameters notifications")
+    func coalescesRapidScreenParametersNotifications() async {
+        let applicationCenter = NotificationCenter()
+        let workspaceCenter = NotificationCenter()
+        let observer = makeObserver(
+            applicationCenter: applicationCenter,
+            workspaceCenter: workspaceCenter,
+            debounceInterval: .milliseconds(10)
+        )
+
+        var received: [ScreenChange] = []
+        observer.startObserving { received.append($0) }
+        for _ in 0..<5 {
+            applicationCenter.post(
+                name: NSApplication.didChangeScreenParametersNotification,
+                object: nil
+            )
+        }
+        await Task.yield()
+
+        #expect(received.isEmpty)
+        try? await Task.sleep(for: .milliseconds(20))
+        #expect(received == [ScreenChange(event: .screenParametersChanged, displays: [])])
+    }
+
+    @Test("will-sleep emits immediately")
+    func willSleepEmitsImmediately() {
+        let applicationCenter = NotificationCenter()
+        let workspaceCenter = NotificationCenter()
+        let observer = makeObserver(
+            applicationCenter: applicationCenter,
+            workspaceCenter: workspaceCenter,
+            debounceInterval: .milliseconds(10)
+        )
+
+        var received: [ScreenChangeEvent] = []
+        observer.startObserving { received.append($0.event) }
+        workspaceCenter.post(name: NSWorkspace.willSleepNotification, object: nil)
+
+        #expect(received == [.systemWillSleep])
+    }
+
+    @Test("stopObserving cancels a pending screen-parameters emission")
+    func stopObservingCancelsPendingEmission() async {
+        let applicationCenter = NotificationCenter()
+        let workspaceCenter = NotificationCenter()
+        let observer = makeObserver(
+            applicationCenter: applicationCenter,
+            workspaceCenter: workspaceCenter,
+            debounceInterval: .milliseconds(10)
+        )
+
+        var received: [ScreenChange] = []
+        observer.startObserving { received.append($0) }
+        applicationCenter.post(
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+        observer.stopObserving()
+        try? await Task.sleep(for: .milliseconds(20))
+
+        #expect(received.isEmpty)
     }
 
     @Test("emits once per sleep and once per wake")
@@ -159,18 +225,34 @@ struct SystemScreenChangeObserverTests {
     func readsScreenSetAtEmissionTime() {
         let applicationCenter = NotificationCenter()
         let workspaceCenter = NotificationCenter()
-        nonisolated(unsafe) var connected = [builtIn, studioDisplay]
+        let connected = DisplaySource([builtIn, studioDisplay])
         let observer = makeObserver(
             applicationCenter: applicationCenter,
             workspaceCenter: workspaceCenter,
-            displays: { connected }
+            displays: connected.current
         )
 
         var received: [[DisplayDescription]] = []
         observer.startObserving { received.append($0.displays) }
-        connected = [builtIn]
+        connected.update([builtIn])
         applicationCenter.post(name: NSApplication.didChangeScreenParametersNotification, object: nil)
 
         #expect(received == [[builtIn]])
+    }
+}
+
+private final class DisplaySource: @unchecked Sendable {
+    private var displays: [DisplayDescription]
+
+    init(_ displays: [DisplayDescription]) {
+        self.displays = displays
+    }
+
+    func current() -> [DisplayDescription] {
+        displays
+    }
+
+    func update(_ displays: [DisplayDescription]) {
+        self.displays = displays
     }
 }

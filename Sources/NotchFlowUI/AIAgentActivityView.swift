@@ -71,7 +71,8 @@ public struct AIAgentPresentation: Equatable, Sendable {
     /// The minimal card's status line: agent and state separated by a middle dot.
     public var compactTitle: String {
         if let workspaceName {
-            return localized("activity.ai.compactTitleWithWorkspace", default: "\(agentName) · \(workspaceName) · \(statusText)")
+            return localized(
+                "activity.ai.compactTitleWithWorkspace", default: "\(agentName) · \(workspaceName) · \(statusText)")
         }
         return localized("activity.ai.compactTitle", default: "\(agentName) · \(statusText)")
     }
@@ -953,19 +954,34 @@ struct CompactAIAgentIcon: View {
         }
     }
 
+    /// The two ends of the dot's travel, read from the same easing function that
+    /// specifies the motion so the extents have exactly one definition.
+    private static let workingDotTravelStart = compactAIAgentWorkingDotOffset(
+        at: 0,
+        reduceMotion: false
+    )
+    private static let workingDotTravelEnd = compactAIAgentWorkingDotOffset(
+        at: CompactAIAgentMetrics.default.oneWayDuration,
+        reduceMotion: false
+    )
+
+    /// Animated by Core Animation, outside SwiftUI. The island's hosting view
+    /// sizes itself to its content, so any per-frame SwiftUI animation here
+    /// drags a measure-and-layout pass behind it — about 11% CPU per panel for
+    /// as long as an agent works. A layer animation runs in the render server
+    /// and the body is evaluated once.
     @ViewBuilder
     private var workingDot: some View {
         if reduceMotion {
             dot(offset: 0)
         } else {
-            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { context in
-                dot(
-                    offset: compactAIAgentWorkingDotOffset(
-                        at: context.date.timeIntervalSinceReferenceDate,
-                        reduceMotion: false
-                    )
-                )
-            }
+            WorkingDotLayerView(
+                diameter: metrics.dotDiameter,
+                travelStart: Self.workingDotTravelStart,
+                travelEnd: Self.workingDotTravelEnd,
+                oneWayDuration: metrics.oneWayDuration
+            )
+            .frame(width: metrics.dotDiameter, height: metrics.dotDiameter)
         }
     }
 
@@ -1106,5 +1122,89 @@ func aiAgentIndicatorColor(_ indicator: AIAgentCompactIndicator) -> Color {
     case .question: .yellow
     case .error: .red
     case .completed: .green
+    }
+}
+
+/// The working dot's motion, owned by Core Animation so it never enters the
+/// SwiftUI view graph. The view keeps the dot's resting footprint; the layer
+/// draws past it while travelling.
+private struct WorkingDotLayerView: NSViewRepresentable {
+    let diameter: CGFloat
+    let travelStart: CGFloat
+    let travelEnd: CGFloat
+    let oneWayDuration: TimeInterval
+
+    func makeNSView(context: Context) -> WorkingDotHostView {
+        let view = WorkingDotHostView(frame: CGRect(x: 0, y: 0, width: diameter, height: diameter))
+        view.configure(travel: travel)
+        return view
+    }
+
+    func updateNSView(_ view: WorkingDotHostView, context: Context) {
+        view.configure(travel: travel)
+    }
+
+    private var travel: WorkingDotHostView.Travel {
+        .init(diameter: diameter, start: travelStart, end: travelEnd, oneWayDuration: oneWayDuration)
+    }
+}
+
+private final class WorkingDotHostView: NSView {
+    struct Travel: Equatable {
+        let diameter: CGFloat
+        let start: CGFloat
+        let end: CGFloat
+        let oneWayDuration: TimeInterval
+    }
+
+    private static let animationKey = "notchflow.workingDot.travel"
+    private let dot = CAShapeLayer()
+    private var travel: Travel?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.masksToBounds = false
+        dot.fillColor = NSColor.white.cgColor
+        layer?.addSublayer(dot)
+    }
+
+    required init?(coder: NSCoder) {
+        return nil
+    }
+
+    func configure(travel: Travel) {
+        if self.travel != travel {
+            self.travel = travel
+            let bounds = CGRect(x: 0, y: 0, width: travel.diameter, height: travel.diameter)
+            dot.bounds = bounds
+            dot.path = CGPath(ellipseIn: bounds, transform: nil)
+            dot.position = CGPoint(x: bounds.midX + travel.start, y: bounds.midY)
+            dot.removeAnimation(forKey: Self.animationKey)
+        }
+        startTravelIfNeeded()
+    }
+
+    /// Core Animation drops a layer's animations when it leaves the render
+    /// tree, which the dot does every time the pill collapses or the panel is
+    /// ordered out — so the animation is re-armed whenever the view lands in a
+    /// window again.
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        startTravelIfNeeded()
+    }
+
+    private func startTravelIfNeeded() {
+        guard let travel, window != nil, dot.animation(forKey: Self.animationKey) == nil else { return }
+        let midX = travel.diameter / 2
+        let animation = CABasicAnimation(keyPath: "position.x")
+        animation.fromValue = midX + travel.start
+        animation.toValue = midX + travel.end
+        animation.duration = travel.oneWayDuration
+        animation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        animation.autoreverses = true
+        animation.repeatCount = .infinity
+        animation.isRemovedOnCompletion = false
+        dot.add(animation, forKey: Self.animationKey)
     }
 }

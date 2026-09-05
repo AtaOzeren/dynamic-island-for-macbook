@@ -50,6 +50,7 @@ public struct SettingsWindowView: View {
     private let hookStates: [IPCAgentID: HookInstallationState]
     private let onAIPreferencesChange: (AIIntegrationPreferences) -> Void
     private let onHookAction: (IPCAgentID, AIHookAction) -> Void
+    private let launchAtLoginNeedsApproval: Bool
     private let restartRequired: Bool
     private let onRestart: () -> Void
 
@@ -70,6 +71,7 @@ public struct SettingsWindowView: View {
         onRequestAutomation: @escaping (MusicPlayerTarget) -> Void = { _ in },
         onAIPreferencesChange: @escaping (AIIntegrationPreferences) -> Void = { _ in },
         onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in },
+        launchAtLoginNeedsApproval: Bool = false,
         restartRequired: Bool = false,
         onRestart: @escaping () -> Void = {}
     ) {
@@ -87,6 +89,7 @@ public struct SettingsWindowView: View {
         self.onRequestAutomation = onRequestAutomation
         self.onAIPreferencesChange = onAIPreferencesChange
         self.onHookAction = onHookAction
+        self.launchAtLoginNeedsApproval = launchAtLoginNeedsApproval
         self.restartRequired = restartRequired
         self.onRestart = onRestart
     }
@@ -114,6 +117,7 @@ public struct SettingsWindowView: View {
                 preferences: $general,
                 availableDisplays: availableDisplays,
                 metrics: metrics,
+                launchAtLoginNeedsApproval: launchAtLoginNeedsApproval,
                 restartRequired: restartRequired,
                 onRestart: onRestart
             )
