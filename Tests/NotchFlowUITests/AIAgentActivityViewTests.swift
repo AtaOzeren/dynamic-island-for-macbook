@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Foundation
 import SwiftUI
@@ -428,6 +429,61 @@ struct AIAgentActivityViewTests {
                 reduceMotion: true
             ) == 0
         )
+    }
+
+    /// Whether the Core Animation dot host is actually in the rendered tree.
+    ///
+    /// The host view is private to the module, so it is recognised by name: the
+    /// question a caller asks is "did the animating layer get instantiated",
+    /// and only its presence answers that. Reading a `@ViewBuilder` property
+    /// cannot, because both branches type-check either way.
+    private static func rendersAnimatedWorkingDot(motionSuspended: Bool) -> Bool {
+        let icon = CompactAIAgentIcon(
+            presentation: CompactAIAgentSlotPresentation(activity: activity(state: .working)),
+            iconSize: 13
+        )
+        .environment(\.islandMotionSuspended, motionSuspended)
+
+        let hostingView = NSHostingView(rootView: icon)
+        hostingView.frame = CGRect(x: 0, y: 0, width: 64, height: 64)
+        hostingView.layoutSubtreeIfNeeded()
+
+        return containsWorkingDotHost(hostingView)
+    }
+
+    private static func containsWorkingDotHost(_ view: NSView) -> Bool {
+        if String(describing: type(of: view)).contains("WorkingDotHostView") {
+            return true
+        }
+        return view.subviews.contains(where: containsWorkingDotHost)
+    }
+
+    /// The healthy path, pinned so the suspension hook below cannot quietly
+    /// take the animation away from everyone.
+    ///
+    /// `accessibilityReduceMotion` is read-only in the SDK, so the machine's own
+    /// setting decides the expectation rather than an injected one.
+    @Test("draws the animating dot while an agent works")
+    func compactWorkingDotAnimatesWhileWorking() {
+        #expect(
+            Self.rendersAnimatedWorkingDot(motionSuspended: false)
+                == !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )
+    }
+
+    @Test("stands the working dot still while island motion is suspended")
+    func compactWorkingDotMotionSuspended() {
+        #expect(!Self.rendersAnimatedWorkingDot(motionSuspended: true))
+    }
+
+    /// Suspension takes the branch Reduce Motion already takes. A second static
+    /// dot would be a second resting state to keep in step with the first.
+    @Test("motion suspension reuses the reduced-motion branch")
+    func compactWorkingDotSuspensionSharesTheReducedMotionBranch() throws {
+        let source = try Self.agentActivityViewSource()
+
+        #expect(source.contains("if reduceMotion || islandMotionSuspended {"))
+        #expect(source.components(separatedBy: "dot(offset: 0)").count == 2)
     }
 
     /// The green tick is the one thing the user looks up *after* the work is

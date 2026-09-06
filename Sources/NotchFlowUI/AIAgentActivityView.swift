@@ -865,6 +865,7 @@ func aiAgentIconArtworkScale(for agentID: IPCAgentID) -> CGFloat {
 
 struct CompactAIAgentIcon: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.islandMotionSuspended) private var islandMotionSuspended
 
     let presentation: CompactAIAgentSlotPresentation
     let iconSize: CGFloat
@@ -972,7 +973,7 @@ struct CompactAIAgentIcon: View {
     /// and the body is evaluated once.
     @ViewBuilder
     private var workingDot: some View {
-        if reduceMotion {
+        if reduceMotion || islandMotionSuspended {
             dot(offset: 0)
         } else {
             WorkingDotLayerView(

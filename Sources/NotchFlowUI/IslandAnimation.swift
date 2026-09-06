@@ -165,7 +165,7 @@ public struct SystemReduceMotion: ReduceMotionQuerying {
 /// Runtime motion preference: explicit user choice wins, `nil` follows macOS.
 @MainActor
 public final class ConfigurableReduceMotion: ReduceMotionQuerying {
-    private var preferenceOverride: Bool?
+    public private(set) var preferenceOverride: Bool?
     private let system: any ReduceMotionQuerying
 
     public init(
