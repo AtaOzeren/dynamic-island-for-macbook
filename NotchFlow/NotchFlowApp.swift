@@ -82,6 +82,10 @@ struct NotchFlowApp: App {
             exit(EXIT_SUCCESS)
         }
 
+        #if DEBUG
+        Self.startCPUDrillIfRequested(CommandLine.arguments)
+        #endif
+
         self.automationGate = automationGate
         self.settingsWindowRouter = settingsWindowRouter
         _musicAutomation = State(initialValue: makePendingMusicAutomationAccess())
@@ -275,6 +279,58 @@ struct NotchFlowApp: App {
 
         }
     }
+
+    /// Runs the synthetic CPU load requested by `--cpu-drill*` so the
+    /// verification drills have real load to catch. DEBUG builds only —
+    /// the release path never reads these flags.
+    #if DEBUG
+    private static func startCPUDrillIfRequested(_ arguments: [String]) {
+        guard arguments.contains(where: { $0.hasPrefix("--cpu-drill") }) else { return }
+        guard let options = LaunchArguments.parseCPUDrill(arguments) else {
+            print(
+                "--cpu-drill: malformed value; expected background:<percent>:<seconds>, main:<seconds>, or --cpu-drill-fast-clock"
+            )
+            return
+        }
+        switch options.drill {
+        case .background(let percent, let seconds):
+            startBackgroundDrill(percent: percent, seconds: seconds)
+        case .mainThread(let seconds):
+            startMainThreadDrill(seconds: seconds)
+        case nil:
+            break
+        }
+    }
+
+    /// Duty-cycled rather than a tight loop, so `background:30:60` measures
+    /// ~30% of one core: each 10 ms cycle spins for the duty fraction and
+    /// sleeps the rest.
+    private static func startBackgroundDrill(percent: Int, seconds: Int) {
+        let cycleSeconds = 0.01
+        let busyFraction = Double(percent) / 100
+        let drill = Thread {
+            let deadline = Date().addingTimeInterval(TimeInterval(seconds))
+            while Date() < deadline {
+                let spinEnd = Date().addingTimeInterval(cycleSeconds * busyFraction)
+                while Date() < spinEnd {}
+                Thread.sleep(forTimeInterval: cycleSeconds * (1 - busyFraction))
+            }
+        }
+        drill.qualityOfService = .utility
+        drill.start()
+    }
+
+    /// Dispatched rather than run inline so the app finishes launching first;
+    /// the drill then blocks the main thread, which is the point. The 10 s
+    /// delay gives the watchdog a healthy baseline before the hang starts.
+    private static func startMainThreadDrill(seconds: Int) {
+        DispatchQueue.main.async {
+            Thread.sleep(forTimeInterval: 10)
+            let deadline = Date().addingTimeInterval(TimeInterval(seconds))
+            while Date() < deadline {}
+        }
+    }
+    #endif
 
     /// Closes the listener's socket before the process exits.
     ///
