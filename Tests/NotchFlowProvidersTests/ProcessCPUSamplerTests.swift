@@ -228,14 +228,28 @@ struct MainThreadLivenessProbeTests {
 
         _ = probe.tick()
 
-        // 30 s of wall-clock sleep. CLOCK_UPTIME_RAW is frozen while the
-        // system sleeps, so this fake — modelling the real clock — does not
-        // advance either. A Date/DispatchTime-based age would read 30 s and
-        // call a healthy main thread hung; decision 9 forbids exactly that.
-        clock.uptime += 0
+        // 30 s of system sleep. CLOCK_UPTIME_RAW freezes while asleep, so the
+        // uptime dial does not move; every other dial does. Advancing the CPU
+        // dial alone models that divergence, so a probe reading the wrong dial
+        // — or any wall-clock source — ages the ping past 10 s and calls a
+        // healthy main thread hung. Decision 9 forbids exactly that.
+        clock.processCPU += 30_000_000_000
 
         #expect(probe.tick() == true)
         #expect(executor.pingCount == 1)
+
+        // After wake, ageing resumes from the pre-sleep instant: 9 s of
+        // suspending time is still inside the 10 s budget even though 39 s of
+        // wall time has passed since the ping went out.
+        clock.uptime += 9_000_000_000
+
+        #expect(probe.tick() == true)
+        #expect(executor.pingCount == 1)
+
+        // One more second crosses the budget on the suspending clock alone.
+        clock.uptime += 1_000_000_000
+
+        #expect(probe.tick() == false)
     }
 
     @Test("a late ack recovers responsiveness and allows a fresh ping")

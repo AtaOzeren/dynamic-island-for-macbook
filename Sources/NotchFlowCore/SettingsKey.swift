@@ -94,6 +94,9 @@ extension SettingsKey where Value == SettingsAppearance {
 
 extension SettingsKey where Value == Bool {
     public static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
+    public static var cpuWatchdogDisabled: Self {
+        boolKey(path: "cpuWatchdog.disabled", defaultValue: false)
+    }
     public static var showMenuBarIcon: Self {
         boolKey(path: "general.showMenuBarIcon", defaultValue: true)
     }
@@ -170,6 +173,7 @@ public enum SettingsKeys {
         register(.showAINeedsInput, in: &defaults)
         register(.showAIToolActivity, in: &defaults)
         register(.hasCompletedOnboarding, in: &defaults)
+        register(.cpuWatchdogDisabled, in: &defaults)
         return defaults
     }
 

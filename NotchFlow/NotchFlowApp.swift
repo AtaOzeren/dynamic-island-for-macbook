@@ -51,6 +51,12 @@ struct NotchFlowApp: App {
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
     private let islandPresenter: IslandPresenter
 
+    /// Watches the process's own CPU and degrades, restarts, or quits the app
+    /// when it runs away. Held for the app's lifetime for the plainest reason:
+    /// a supervisor that deallocates takes its sampler's timer with it, which is
+    /// indistinguishable from never having armed one.
+    private let watchdogLaunch: WatchdogLaunch
+
     /// The one gate both the music backend and the Activities pane consult, so
     /// the button the user presses and the permission the provider is blocked on
     /// are the same fact.
@@ -228,6 +234,27 @@ struct NotchFlowApp: App {
         let seededPreferences = settingsStore.aiIntegrationPreferences
         Task { try? await loopbackListener.updatePreferences(seededPreferences) }
 
+        // The watchdog is built here and armed after launch, so its sampler and
+        // its restart ledger are anchored once for the process. The context
+        // closure reads the two facts a diagnostics report wants that only the
+        // main thread knows; kind names only, never activity content, because a
+        // report is a file the user may hand to someone else.
+        let activityManagerForContext = manager
+        watchdogLaunch = WatchdogLaunch(
+            island: islandPresenter,
+            stopListener: { Self.stopSynchronously(loopbackListener) },
+            context: {
+                CPUWatchdogSupervisor.Context(
+                    displayTarget: String(
+                        describing: settingsStore.generalPreferences.displayTarget
+                    ),
+                    activityKinds: activityManagerForContext.activeActivities.map {
+                        String(describing: $0.kind)
+                    }
+                )
+            }
+        )
+
         // A listening socket outliving the process that owned it is a defect,
         // and an accessory app is quit from a menu item rather than by closing
         // a window — so termination is the only hook that always runs.
@@ -247,6 +274,7 @@ struct NotchFlowApp: App {
         // common case — never probes the file system for agent configuration.
         let presenter = onboardingPresenter
         let manualSetupPresenter = manualSetupPresenter
+        let watchdogLaunch = watchdogLaunch
         URLSchemeAppDelegate.onDidFinishLaunching = {
             // Ordering a window front, or adding a menu bar item, before AppKit
             // has finished launching is unreliable — the screen arrangement is
@@ -254,6 +282,16 @@ struct NotchFlowApp: App {
             // menu bar at all.
             statusItemPresenter.setVisible(settingsStore.generalPreferences.showMenuBarIcon)
             islandPresenter.start()
+
+            // After the island is up, in both directions: the watchdog's first
+            // context read needs a presenter that has a panel, and a notice has
+            // nowhere to be announced until there is one.
+            watchdogLaunch.startIfAllowed(
+                isUITesting: Self.isUITesting,
+                isDisabledBySetting: settingsStore[.cpuWatchdogDisabled]
+            )
+            watchdogLaunch.presentNoticeIfNeeded()
+
             Self.repairEnabledHooks(
                 preferences: settingsStore.aiIntegrationPreferences,
                 manualSetupPresenter: manualSetupPresenter
@@ -338,7 +376,10 @@ struct NotchFlowApp: App {
     /// detached into a `Task` would be killed mid-cancel and leave the port
     /// bound. The semaphore waits on the actor's own `stop()` instead — bounded,
     /// because it is a cancel and a file removal with nothing to block on.
-    private static func stopSynchronously(_ listener: LoopbackHTTPListener) {
+    /// `nonisolated` because the watchdog's alarm path calls it from the
+    /// watchdog queue: an alarm fires exactly when the main thread may be unable
+    /// to answer, so requiring main here would deadlock the recovery.
+    private nonisolated static func stopSynchronously(_ listener: LoopbackHTTPListener) {
         let finished = DispatchSemaphore(value: 0)
         Task.detached {
             await listener.stop()

@@ -514,6 +514,17 @@ final class IslandPresenter {
         preDegradeReducedMotionOverride = nil
     }
 
+    /// Says on the island that the last run ended in a watchdog restart or
+    /// quit, through the same announcement path every other activity uses.
+    ///
+    /// Registered rather than drawn directly so it expires the way news does:
+    /// the announcement window takes it off the pill and auto-dismiss takes it
+    /// out of the model, without the presenter holding a timer of its own.
+    @MainActor
+    func announceWatchdogNotice(didRelaunch: Bool) {
+        manager.register(WatchdogNoticeActivity(didRelaunch: didRelaunch))
+    }
+
     func applyDisplayTarget() {
         controller.screenConfigurationDidChange()
         reconcileSecondaryPresentations()

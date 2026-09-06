@@ -305,6 +305,23 @@ public final class PresentationController {
 
         let hardwareNotch = notchRect(for: currentScreen)
         let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
+        let panelRect = panelFrame(for: currentScreen, metrics: metrics)
+
+        // Cheap reject before any size is built. The island is always flush with
+        // the top of the panel and its neck plus its content can never outgrow
+        // the window's height budget, so a pointer outside that vertical band is
+        // off the island whatever happens to be running — and that is where the
+        // pointer is for almost every move made while the island is open. The
+        // band is deliberately not the panel frame: `expandedPanelSize` clamps
+        // its content to the panel's *width* and the surface then flares wider
+        // still, so a frame test would cut hover off at the island's own edge.
+        let maximumIslandHeight = max(metrics.maximumExpandedSize.height, notchSize.height)
+        guard location.y <= panelRect.maxY,
+            location.y >= panelRect.maxY - maximumIslandHeight
+        else {
+            return false
+        }
+
         // Balanced, matching the collar the expanded surface actually draws:
         // this rectangle is only consulted while expanded, and the expanded
         // shape keeps its neck centred.
@@ -327,9 +344,7 @@ public final class PresentationController {
             compactSize: compactSize,
             expandedContentSize: expandedContentSize
         )
-        let screenFrame = geometry.expandedScreenFrame(
-            in: panelFrame(for: currentScreen, metrics: metrics)
-        )
+        let screenFrame = geometry.expandedScreenFrame(in: panelRect)
         guard screenFrame.contains(location) else { return false }
 
         let localPoint = CGPoint(

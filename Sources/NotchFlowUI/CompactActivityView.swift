@@ -460,6 +460,7 @@ public func compactSymbolName(_ kind: ActivityKind) -> String {
     case .charging: "bolt.fill"
     case .aiAgent: "sparkles"
     case .fileTransfer: "arrow.down.circle"
+    case .watchdogNotice: "exclamationmark.triangle.fill"
     }
 }
 
@@ -471,6 +472,7 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
     case .charging: localized("Charging")
     case .aiAgent: localized("AI agent")
     case .fileTransfer: localized("Transfer")
+    case .watchdogNotice: localized("High CPU recovery")
     }
 }
 

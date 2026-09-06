@@ -1,6 +1,60 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Agent sessions are not carried across a restart. Each one reappears on its next event.": {
+      "comment": "Post-launch alert detail: why the island shows no agent sessions yet.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent sessions are not carried across a restart. Each one reappears on its next event."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aracı oturumları yeniden başlatma sırasında taşınmaz. Her biri bir sonraki olayında yeniden görünür."
+          }
+        }
+      }
+    },
+    "Last time, NotchFlow quit itself because CPU stayed high after three restarts. Report: %@": {
+      "comment": "Post-launch alert after the watchdog quit the app.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last time, NotchFlow quit itself because CPU stayed high after three restarts. Report: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow son çalışmasında üç yeniden başlatmaya rağmen CPU yüksek kaldığı için kendini kapattı. Rapor: %@"
+          }
+        }
+      }
+    },
+    "NotchFlow restarted itself after sustained high CPU use. Report: %@": {
+      "comment": "Post-launch alert after the watchdog restarted the app.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow restarted itself after sustained high CPU use. Report: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow sürekli yüksek CPU kullanımı sonrası kendini yeniden başlattı. Rapor: %@"
+          }
+        }
+      }
+    },
     "Quit NotchFlow": {
       "comment": "Status item menu: terminates the app.",
       "extractionState": "manual",
@@ -123,6 +177,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "NotchFlow'a hoş geldiniz"
+          }
+        }
+      }
+    },
+    "not saved": {
+      "comment": "Stands in for the report path when the diagnostics report could not be written.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not saved"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kaydedilmedi"
           }
         }
       }

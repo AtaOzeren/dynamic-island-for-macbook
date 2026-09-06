@@ -63,14 +63,7 @@ public struct RunawayDiagnostics: Sendable {
         }
 
         public static var defaultDirectoryURL: URL {
-            let libraryDirectory = FileManager.default
-                .urls(for: .libraryDirectory, in: .userDomainMask)
-                .first
-                ?? FileManager.default.homeDirectoryForCurrentUser
-                    .appendingPathComponent("Library", isDirectory: true)
-            return libraryDirectory
-                .appendingPathComponent("Logs", isDirectory: true)
-                .appendingPathComponent("NotchFlow", isDirectory: true)
+            ApplicationDirectories.logs
         }
     }
 
