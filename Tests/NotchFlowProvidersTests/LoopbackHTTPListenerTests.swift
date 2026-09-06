@@ -209,6 +209,112 @@ struct LoopbackHTTPListenerTests {
         }
     }
 
+    @Test("stop leaves a discovery file published by another instance")
+    func stopLeavesForeignDiscoveryFile() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        let ownPort = try #require(
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        )
+        let foreignPort: UInt16 = ownPort == 59_999 ? 60_000 : 59_999
+        let foreignContents = "\(foreignPort)\n"
+        try foreignContents.write(
+            to: fixture.discoveryFile,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        await fixture.listener.stop()
+
+        #expect(FileManager.default.fileExists(atPath: fixture.discoveryFile.path))
+        #expect(try String(contentsOf: fixture.discoveryFile, encoding: .utf8) == foreignContents)
+    }
+
+    @Test("stop removes the discovery file when trailing whitespace pads its own port")
+    func stopRemovesOwnPortDespiteTrailingWhitespace() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        let ownPort = try #require(
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        )
+        try "\(ownPort) \n\t".write(
+            to: fixture.discoveryFile,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        await fixture.listener.stop()
+
+        #expect(!FileManager.default.fileExists(atPath: fixture.discoveryFile.path))
+    }
+
+    @Test("stop leaves an unparseable discovery file in place")
+    func stopLeavesUnparseableDiscoveryFile() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        _ = try #require(
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        )
+        try Data("not-a-port".utf8).write(to: fixture.discoveryFile)
+
+        await fixture.listener.stop()
+
+        #expect(FileManager.default.fileExists(atPath: fixture.discoveryFile.path))
+        #expect(try String(contentsOf: fixture.discoveryFile, encoding: .utf8) == "not-a-port")
+    }
+
+    @Test("stop leaves an empty discovery file in place")
+    func stopLeavesEmptyDiscoveryFile() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        _ = try #require(
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        )
+        try Data().write(to: fixture.discoveryFile)
+
+        await fixture.listener.stop()
+
+        #expect(FileManager.default.fileExists(atPath: fixture.discoveryFile.path))
+        #expect(try String(contentsOf: fixture.discoveryFile, encoding: .utf8).isEmpty)
+    }
+
+    @Test("stop tolerates a discovery file that vanished on its own")
+    func stopToleratesMissingDiscoveryFile() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        _ = try #require(
+            await fixture.listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        )
+        try FileManager.default.removeItem(at: fixture.discoveryFile)
+
+        await fixture.listener.stop()
+
+        #expect(!FileManager.default.fileExists(atPath: fixture.discoveryFile.path))
+    }
+
+    @Test("stop leaves a foreign discovery file even when this instance never started")
+    func stopLeavesForeignFileWithoutStart() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        // No listener start here, so nothing has created the directory that
+        // `publish` would normally own; a relaunch always inherits it.
+        try FileManager.default.createDirectory(
+            at: fixture.directory,
+            withIntermediateDirectories: true
+        )
+        let foreignContents = "59999\n"
+        try foreignContents.write(
+            to: fixture.discoveryFile,
+            atomically: true,
+            encoding: .utf8
+        )
+
+        await fixture.listener.stop()
+
+        #expect(FileManager.default.fileExists(atPath: fixture.discoveryFile.path))
+        #expect(try String(contentsOf: fixture.discoveryFile, encoding: .utf8) == foreignContents)
+    }
+
     @Test("publishes the discovery file readable only by its owner")
     func discoveryFileIsOwnerOnly() async throws {
         let fixture = Self.makeFixture()

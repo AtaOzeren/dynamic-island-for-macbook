@@ -65,9 +65,9 @@ public enum IslandSurface: Equatable, Sendable {
     /// The compact pill. Always the notch's own black, in both schemes, because
     /// the pill's job is to read as an extension of the physical cutout.
     case notchBlack
-    /// The translucent material behind the expanded panel.
+    /// The translucent material behind the expanded panel (retained for planned light-mode panel support).
     case material(IslandColorScheme)
-    /// The opaque substitute for `material`, used under Reduce Transparency.
+    /// The opaque substitute for `material`, used under Reduce Transparency (retained for planned light-mode panel support).
     case solid(IslandColorScheme)
 
     /// Whether the surface lets what is behind it through. The signal a Reduce

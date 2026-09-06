@@ -5,4 +5,6 @@ public enum ActivityKind: Hashable, CaseIterable, Sendable {
     case charging
     case aiAgent
     case fileTransfer
+    /// The one-off explanation of a CPU watchdog episode the user did not see.
+    case watchdogNotice
 }

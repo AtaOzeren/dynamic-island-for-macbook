@@ -3,7 +3,11 @@ set -euo pipefail
 
 PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUTPUT_DIR=${OUTPUT_DIR:-"$PROJECT_ROOT/dist"}
-DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData/DirectPackage"}
+# Spotlight skips any path whose component ends in `.noindex`, so the app
+# bundles a packaging run produces never surface beside the installed app in
+# Spotlight and Launchpad. Every stray "NotchFlow.app" a user finds there is a
+# build product, and each one is a copy they can launch by mistake.
+DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData.noindex/DirectPackage"}
 PACKAGE_STAGE_PATH=${PACKAGE_STAGE_PATH:-"$DERIVED_DATA_PATH/PackageStage"}
 APP_PATH="$DERIVED_DATA_PATH/Build/Products/Direct/NotchFlow.app"
 ENTITLEMENTS_PATH="$PROJECT_ROOT/NotchFlow-Direct.entitlements"
@@ -16,6 +20,23 @@ if { [ -n "$DEVELOPER_ID_APPLICATION" ] && [ -z "$NOTARYTOOL_KEYCHAIN_PROFILE" ]
     echo "Error: DEVELOPER_ID_APPLICATION and NOTARYTOOL_KEYCHAIN_PROFILE must be set together" >&2
     exit 1
 fi
+
+# xcodebuild registers every product it builds with LaunchServices, which is
+# how a packaging run leaves a second "NotchFlow.app" in Spotlight and
+# Launchpad beside the one the user installed — a copy they can launch by
+# mistake, and one that never updates again. The `.noindex` derived-data path
+# keeps Spotlight out; LaunchServices ignores that convention, so the
+# registration is withdrawn here instead. Best effort: a packaged artefact is
+# the point of the run, and a stale registration must not fail it.
+unregister_from_launch_services() {
+    local lsregister="/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister"
+    [ -x "$lsregister" ] || return 0
+    local bundle
+    for bundle in "$@"; do
+        [ -e "$bundle" ] || continue
+        "$lsregister" -u "$bundle" >/dev/null 2>&1 || true
+    done
+}
 
 rm -rf "$DERIVED_DATA_PATH" "$PACKAGE_STAGE_PATH"
 mkdir -p "$OUTPUT_DIR"
@@ -118,6 +139,8 @@ fi
     cd "$OUTPUT_DIR"
     shasum -a 256 "$(basename "$DISK_IMAGE")" > "$(basename "$DISK_IMAGE").sha256"
 )
+
+unregister_from_launch_services "$APP_PATH" "$PACKAGE_STAGE_PATH/NotchFlow.app"
 
 echo "==> Packaged $DISK_IMAGE"
 echo "==> Checksum $DISK_IMAGE.sha256"

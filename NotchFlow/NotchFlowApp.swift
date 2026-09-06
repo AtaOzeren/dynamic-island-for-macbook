@@ -51,6 +51,12 @@ struct NotchFlowApp: App {
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
     private let islandPresenter: IslandPresenter
 
+    /// Watches the process's own CPU and degrades, restarts, or quits the app
+    /// when it runs away. Held for the app's lifetime for the plainest reason:
+    /// a supervisor that deallocates takes its sampler's timer with it, which is
+    /// indistinguishable from never having armed one.
+    private let watchdogLaunch: WatchdogLaunch
+
     /// The one gate both the music backend and the Activities pane consult, so
     /// the button the user presses and the permission the provider is blocked on
     /// are the same fact.
@@ -81,6 +87,10 @@ struct NotchFlowApp: App {
             print(musicProvider.backendName)
             exit(EXIT_SUCCESS)
         }
+
+        #if DEBUG
+        Self.startCPUDrillIfRequested(CommandLine.arguments)
+        #endif
 
         self.automationGate = automationGate
         self.settingsWindowRouter = settingsWindowRouter
@@ -224,6 +234,27 @@ struct NotchFlowApp: App {
         let seededPreferences = settingsStore.aiIntegrationPreferences
         Task { try? await loopbackListener.updatePreferences(seededPreferences) }
 
+        // The watchdog is built here and armed after launch, so its sampler and
+        // its restart ledger are anchored once for the process. The context
+        // closure reads the two facts a diagnostics report wants that only the
+        // main thread knows; kind names only, never activity content, because a
+        // report is a file the user may hand to someone else.
+        let activityManagerForContext = manager
+        watchdogLaunch = WatchdogLaunch(
+            island: islandPresenter,
+            stopListener: { Self.stopSynchronously(loopbackListener) },
+            context: {
+                CPUWatchdogSupervisor.Context(
+                    displayTarget: String(
+                        describing: settingsStore.generalPreferences.displayTarget
+                    ),
+                    activityKinds: activityManagerForContext.activeActivities.map {
+                        String(describing: $0.kind)
+                    }
+                )
+            }
+        )
+
         // A listening socket outliving the process that owned it is a defect,
         // and an accessory app is quit from a menu item rather than by closing
         // a window — so termination is the only hook that always runs.
@@ -243,6 +274,7 @@ struct NotchFlowApp: App {
         // common case — never probes the file system for agent configuration.
         let presenter = onboardingPresenter
         let manualSetupPresenter = manualSetupPresenter
+        let watchdogLaunch = watchdogLaunch
         URLSchemeAppDelegate.onDidFinishLaunching = {
             // Ordering a window front, or adding a menu bar item, before AppKit
             // has finished launching is unreliable — the screen arrangement is
@@ -250,6 +282,16 @@ struct NotchFlowApp: App {
             // menu bar at all.
             statusItemPresenter.setVisible(settingsStore.generalPreferences.showMenuBarIcon)
             islandPresenter.start()
+
+            // After the island is up, in both directions: the watchdog's first
+            // context read needs a presenter that has a panel, and a notice has
+            // nowhere to be announced until there is one.
+            watchdogLaunch.startIfAllowed(
+                isUITesting: Self.isUITesting,
+                isDisabledBySetting: settingsStore[.cpuWatchdogDisabled]
+            )
+            watchdogLaunch.presentNoticeIfNeeded()
+
             Self.repairEnabledHooks(
                 preferences: settingsStore.aiIntegrationPreferences,
                 manualSetupPresenter: manualSetupPresenter
@@ -276,13 +318,87 @@ struct NotchFlowApp: App {
         }
     }
 
+    /// Runs the synthetic CPU load requested by `--cpu-drill*` so the
+    /// verification drills have real load to catch. DEBUG builds only —
+    /// the release path never reads these flags.
+    #if DEBUG
+    private static func startCPUDrillIfRequested(_ arguments: [String]) {
+        guard arguments.contains(where: { $0.hasPrefix("--cpu-drill") }) else { return }
+        guard let options = LaunchArguments.parseCPUDrill(arguments) else {
+            print(
+                "--cpu-drill: malformed value; expected background:<percent>:<seconds>, main:<seconds>, or --cpu-drill-fast-clock"
+            )
+            return
+        }
+        switch options.drill {
+        case .background(let percent, let seconds):
+            startBackgroundDrill(percent: percent, seconds: seconds)
+        case .mainThread(let seconds):
+            startMainThreadDrill(seconds: seconds)
+        case nil:
+            break
+        }
+    }
+
+    /// Holds `percent` of one core for `seconds`, closing the loop on CPU time
+    /// actually consumed rather than on a fixed spin/sleep cycle.
+    ///
+    /// A fixed cycle does not survive contact with a `.utility` thread: its
+    /// sleeps are coalesced and it lands on efficiency cores, so the sleep half
+    /// overshoots unpredictably. Measured on this Mac, a 10 ms cycle asked for
+    /// 30% and delivered ~16% — under the watchdog's own 20% threshold, which
+    /// made the plan's own degrade drill verify nothing at all. Comparing
+    /// `CLOCK_THREAD_CPUTIME_ID` against the elapsed suspending clock converges
+    /// on the requested share whatever the scheduler does with the sleeps.
+    private static func startBackgroundDrill(percent: Int, seconds: Int) {
+        let dutyFraction = Double(percent) / 100
+        let spinSliceNanoseconds: UInt64 = 2_000_000
+        let idleSliceSeconds = 0.002
+        let drill = Thread {
+            let startWall = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+            let startCPU = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
+            let runNanoseconds = UInt64(seconds) * 1_000_000_000
+
+            while true {
+                let elapsed = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) &- startWall
+                guard elapsed < runNanoseconds else { return }
+
+                let consumed = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) &- startCPU
+                guard Double(consumed) < Double(elapsed) * dutyFraction else {
+                    Thread.sleep(forTimeInterval: idleSliceSeconds)
+                    continue
+                }
+                let sliceEnd = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
+                    &+ spinSliceNanoseconds
+                while clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) < sliceEnd {}
+            }
+        }
+        drill.qualityOfService = .utility
+        drill.start()
+    }
+
+    /// Dispatched rather than run inline so the app finishes launching first;
+    /// the drill then blocks the main thread, which is the point. The 10 s
+    /// delay gives the watchdog a healthy baseline before the hang starts.
+    private static func startMainThreadDrill(seconds: Int) {
+        DispatchQueue.main.async {
+            Thread.sleep(forTimeInterval: 10)
+            let deadline = Date().addingTimeInterval(TimeInterval(seconds))
+            while Date() < deadline {}
+        }
+    }
+    #endif
+
     /// Closes the listener's socket before the process exits.
     ///
     /// `applicationWillTerminate` returns into `exit()`, so an `async` stop
     /// detached into a `Task` would be killed mid-cancel and leave the port
     /// bound. The semaphore waits on the actor's own `stop()` instead — bounded,
     /// because it is a cancel and a file removal with nothing to block on.
-    private static func stopSynchronously(_ listener: LoopbackHTTPListener) {
+    /// `nonisolated` because the watchdog's alarm path calls it from the
+    /// watchdog queue: an alarm fires exactly when the main thread may be unable
+    /// to answer, so requiring main here would deadlock the recovery.
+    private nonisolated static func stopSynchronously(_ listener: LoopbackHTTPListener) {
         let finished = DispatchSemaphore(value: 0)
         Task.detached {
             await listener.stop()

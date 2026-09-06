@@ -162,38 +162,55 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
     /// would redraw it every time a row appeared.
     public static let topFlareRadius: CGFloat = 16
 
+    /// The drawn size of a compact pill whose content measures `pillSize`.
+    ///
+    /// One flare wider on each side, the same allowance `expandedSize` makes
+    /// and for the same reason: the top corners turn outwards, so the shape is
+    /// widest along its very top edge, and that width has to be inside the
+    /// frame or it is clipped away. The pill's *bottom* edge keeps the content
+    /// width exactly, so nothing about the layout moves.
+    public static func compactSurfaceSize(forPillSize pillSize: CGSize) -> CGSize {
+        CGSize(
+            width: pillSize.width + topFlareRadius * 2,
+            height: pillSize.height
+        )
+    }
+
     public func path(in bounds: CGRect) -> Path {
         guard bounds.width > 0, bounds.height > 0 else { return Path() }
-        let neckHeight = min(compactSize.height, bounds.height)
+        return Self.flaredPath(in: bounds)
+    }
 
-        // Compact: a true capsule, so the pill's ends match the notch's own
-        // curvature whatever height the hardware reports.
-        if neckHeight > 0, bounds.height <= neckHeight + 0.5 {
-            return Path(
-                roundedRect: bounds,
-                cornerRadius: min(bounds.width, bounds.height) / 2,
-                style: .continuous
-            )
-        }
-
-        // Expanded: rounded at the bottom, flared at the top.
-        //
-        // The bottom two corners turn inwards like any card. The top two turn
-        // *outwards*, so the panel widens as it reaches the menu bar and reads
-        // as flowing into it rather than as a rectangle parked underneath it.
-        // Rounding all four inwards left the top corners curving away from the
-        // bar with a sliver of desktop showing through the gap.
+    /// The island's silhouette, compact and expanded alike: rounded at the
+    /// bottom, flared at the top.
+    ///
+    /// The bottom two corners turn inwards like any card. The top two turn
+    /// *outwards*, so the shape widens as it reaches the menu bar and reads as
+    /// flowing into it rather than as something parked underneath it. Rounding
+    /// all four inwards left the top corners curving away from the bar with a
+    /// sliver of desktop showing through the gap.
+    ///
+    /// The compact pill was a true capsule until it was given this shape too.
+    /// One silhouette for both states is the point: the island no longer
+    /// changes character as it opens, and the capsule's ends had the same gap
+    /// against the bar that the expanded shape was built to close.
+    private static func flaredPath(in bounds: CGRect) -> Path {
         let flare = min(
-            Self.topFlareRadius,
+            topFlareRadius,
             bounds.width / 4,
             max(bounds.height - 1, 0)
         )
         let bodyMinX = bounds.minX + flare
         let bodyMaxX = bounds.maxX - flare
+        // Vertically the bottom radius is bounded by what the flare leaves, not
+        // by half of it: the side runs from `minY + flare` down to
+        // `maxY - bottomRadius`, so the two only have to fit inside the height.
+        // Halving it squared off the compact pill, which is the one case short
+        // enough for this bound to bind at all.
         let bottomRadius = min(
-            Self.expandedCornerRadius,
+            expandedCornerRadius,
             (bodyMaxX - bodyMinX) / 2,
-            max(bounds.height - flare, 0) / 2
+            max(bounds.height - flare, 0)
         )
 
         var path = Path()

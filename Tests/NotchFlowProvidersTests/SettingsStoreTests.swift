@@ -34,6 +34,22 @@ struct SettingsStoreTests {
         #expect(store[.showAIToolActivity] == false)
         #expect(store[.languageOverride] == nil)
         #expect(store[.hasCompletedOnboarding] == false)
+        #expect(store[.cpuWatchdogDisabled] == false)
+    }
+
+    /// `store[key]` falls back to the key's own `defaultValue`, so reading
+    /// `false` back stays green even if the key is never registered. Only the
+    /// registered dictionary proves registration.
+    @Test("registers a false default for the hidden cpuWatchdogDisabled key")
+    func registersCPUWatchdogKillSwitchDefault() throws {
+        let storage = DictionarySettingsStorage()
+        _ = SettingsStore(storage: storage)
+        let key = SettingsKey<Bool>.cpuWatchdogDisabled
+
+        let registered = try #require(
+            storage.lastRegisteredDefaults[key.name] as? Bool
+        )
+        #expect(registered == false)
     }
 
     @Test("round-trips every documented setting through its typed key")
@@ -60,6 +76,7 @@ struct SettingsStoreTests {
         store[.showAIToolActivity] = true
         store[.languageOverride] = "tr"
         store[.hasCompletedOnboarding] = true
+        store[.cpuWatchdogDisabled] = true
 
         #expect(store[.displayTarget] == .named("Studio Display"))
         #expect(store[.launchAtLogin])
@@ -81,6 +98,7 @@ struct SettingsStoreTests {
         #expect(store[.showAIToolActivity])
         #expect(store[.languageOverride] == "tr")
         #expect(store[.hasCompletedOnboarding])
+        #expect(store[.cpuWatchdogDisabled])
 
         store[.displayTarget] = .builtIn
         store[.reducedMotionOverride] = nil

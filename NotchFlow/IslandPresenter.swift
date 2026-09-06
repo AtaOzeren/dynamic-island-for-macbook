@@ -45,6 +45,9 @@ final class IslandViewModel: ObservableObject {
     @Published var hoverScale: CGFloat = 1
     @Published var hoverOpacity: Double = 1
     @Published var transitionMovesGeometry = true
+    /// Set only by the CPU watchdog's degrade action, to stand the island's
+    /// continuous motion still while the process is over budget.
+    @Published var isMotionSuspended = false
 
     /// Assigned by the presenter after the controller exists. The content view
     /// is built *before* the controller — the panel's initialiser demands it —
@@ -97,6 +100,7 @@ struct IslandRootView: View {
         .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
         .opacity(model.state == .compact ? model.hoverOpacity : 1)
         .environment(\.colorScheme, .dark)
+        .environment(\.islandMotionSuspended, model.isMotionSuspended)
     }
 
     /// The compact pill's own geometry, whose flanks are only as wide as the
@@ -143,8 +147,15 @@ struct IslandRootView: View {
     }
 
     /// What the island currently is, surface and silhouette alike.
+    ///
+    /// Both states allow for the outward top flare, so the drawn surface is one
+    /// flare wider than the content on each side. Only the top of the shape
+    /// uses that room — the pill's bottom edge is still exactly the pill's
+    /// width — so nothing inside it moves.
     private var surfaceSize: CGSize {
-        model.state == .expanded ? geometry.expandedSize : compactPill.size
+        model.state == .expanded
+            ? geometry.expandedSize
+            : ConnectedIslandGeometry.compactSurfaceSize(forPillSize: compactPill.size)
     }
 
     private var connectedSurface: some View {
@@ -257,6 +268,10 @@ final class IslandPresenter {
     private let screenConfigurationSettled: @MainActor ([DisplayDescription]) -> Void
     private let hoverCoordinator = SynchronizedHoverCoordinator()
     private var announcementRefreshTask: Task<Void, Never>?
+    private var isDegraded = false
+    /// The user's own motion preference, held for the length of one watchdog
+    /// episode because degrading overwrites the same override it is stored in.
+    private var preDegradeReducedMotionOverride: Bool?
     private var secondaryPresentations: [String: SecondaryIslandPresentation] = [:]
 
     init(
@@ -450,6 +465,71 @@ final class IslandPresenter {
 
     func applyReducedMotion(_ preferenceOverride: Bool?) {
         reduceMotion.updateOverride(preferenceOverride)
+    }
+
+    /// What degrading did, as one value the watchdog's tests can compare.
+    ///
+    /// `presentationState` is in here because the pointer is only observed while
+    /// the panel is on screen: a degrade that left the island hidden would be a
+    /// degrade that silently stopped answering the mouse.
+    var motionState: MotionState {
+        MotionState(
+            isDegraded: isDegraded,
+            isMotionSuspended: model.isMotionSuspended,
+            reducedMotionOverride: reduceMotion.preferenceOverride,
+            presentationState: controller.state
+        )
+    }
+
+    struct MotionState: Equatable {
+        let isDegraded: Bool
+        let isMotionSuspended: Bool
+        let reducedMotionOverride: Bool?
+        let presentationState: PresentationState
+    }
+
+    /// Stands the island's motion down while the CPU watchdog says the process
+    /// is over budget: no travelling dot, no animated transitions, nothing open.
+    ///
+    /// The pointer keeps being watched on purpose. An island that stops
+    /// answering hover and clicks reads as a crashed app, which is the report
+    /// the watchdog exists to prevent, and mouse tracking is not what burns the
+    /// CPU. Idempotent: the user's own motion preference is captured on the
+    /// first call only, so a second degrade cannot overwrite it with the
+    /// override this method itself installed.
+    @MainActor
+    func enterDegradedMode() {
+        guard isDegraded == false else { return }
+        isDegraded = true
+        preDegradeReducedMotionOverride = reduceMotion.preferenceOverride
+
+        model.isMotionSuspended = true
+        applyReducedMotion(true)
+        hoverCoordinator.collapseNow()
+    }
+
+    /// The exact reverse, including handing the motion preference back to the
+    /// user unchanged — someone who had already forced Reduce Motion on must
+    /// not find it off because a watchdog episode ended.
+    @MainActor
+    func exitDegradedMode() {
+        guard isDegraded else { return }
+        isDegraded = false
+
+        model.isMotionSuspended = false
+        applyReducedMotion(preDegradeReducedMotionOverride)
+        preDegradeReducedMotionOverride = nil
+    }
+
+    /// Says on the island that the last run ended in a watchdog restart or
+    /// quit, through the same announcement path every other activity uses.
+    ///
+    /// Registered rather than drawn directly so it expires the way news does:
+    /// the announcement window takes it off the pill and auto-dismiss takes it
+    /// out of the model, without the presenter holding a timer of its own.
+    @MainActor
+    func announceWatchdogNotice(didRelaunch: Bool) {
+        manager.register(WatchdogNoticeActivity(didRelaunch: didRelaunch))
     }
 
     func applyDisplayTarget() {

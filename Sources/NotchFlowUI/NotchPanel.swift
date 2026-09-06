@@ -52,7 +52,12 @@ public final class NotchPanel: NSPanel {
         isRestorable = false
         animationBehavior = .none
 
-        contentView = NSHostingView(rootView: content)
+        // The frame is fixed at `maximumExpandedSize` and the root view already
+        // fills it, so intrinsic sizing buys nothing and costs an AppKit layout
+        // pass on every SwiftUI state change, per panel, per display.
+        let hostingView = NSHostingView(rootView: content)
+        hostingView.sizingOptions = []
+        contentView = hostingView
         applyAppearance(appearance)
     }
 

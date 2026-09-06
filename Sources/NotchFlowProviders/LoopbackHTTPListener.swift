@@ -76,6 +76,8 @@ public actor LoopbackHTTPListener {
     }
 
     public func stop() async {
+        let publishedPort = boundPort
+
         listener?.newConnectionHandler = nil
         listener?.cancel()
         listener = nil
@@ -91,6 +93,32 @@ public actor LoopbackHTTPListener {
         guard FileManager.default.fileExists(atPath: discoveryFileURL.path) else {
             return
         }
+
+        // During a relaunch the replacement instance publishes its port
+        // before the old instance's terminate hook runs, so the file on
+        // disk can address a live socket that must keep receiving hook
+        // traffic. Removal is ownership-guarded: only a file that still
+        // names this instance's port is deleted, and anything else — a
+        // foreign port, unparseable bytes, or a file this instance never
+        // wrote — is left for its owner.
+        let fileContents = try? String(contentsOf: discoveryFileURL, encoding: .utf8)
+        let filePort = fileContents.flatMap {
+            UInt16($0.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+        guard let publishedPort, filePort == publishedPort else {
+            Self.logger.notice(
+                "IPC discovery file at \(discoveryFileURL.path, privacy: .public) was not published by this instance; leaving it for its owner"
+            )
+            return
+        }
+
+        // Read-then-remove is not atomic: a replacement could overwrite the
+        // file in the microseconds between the ownership read above and the
+        // removal below, and its port file would be lost. The window is
+        // tiny, occurs only during relaunch, and its worst case is one
+        // launch without a port file — the same damage this guard already
+        // prevents in the common ordering — so a cross-process lock to close
+        // it would cost more complexity than the race can ever cause.
         do {
             try FileManager.default.removeItem(at: discoveryFileURL)
         } catch let removalError {
