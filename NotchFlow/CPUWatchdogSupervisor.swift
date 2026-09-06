@@ -56,6 +56,12 @@ protocol WatchdogApplicationRelaunching: Sendable {
     func relaunch(completion: @escaping @Sendable (Error?) -> Void)
 }
 
+/// Runs `work` no sooner than `after` seconds from now, off the main thread.
+/// Injectable so a test can fire the relaunch deadline on demand rather than
+/// waiting for it, and so a finished suite leaves no armed timer behind.
+typealias WatchdogDeadlineScheduling =
+    @Sendable (_ after: TimeInterval, _ work: @escaping @Sendable () -> Void) -> Void
+
 // MARK: - Supervisor
 
 /// Turns `CPUWatchdog`'s decisions into the things that actually happen to the
@@ -108,9 +114,21 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
         subsystem: "com.notchflow.NotchFlow",
         category: "cpu-watchdog"
     )
-    /// How many samples a report carries. Six covers both the 30 s degrade
-    /// window and the run-up to an alarm at the 5 s sample interval.
-    private static let retainedSampleCount = 6
+    /// How many samples a report carries: five minutes at the 5 s sample
+    /// interval. The 30 s decision window is what the state machine reads, but
+    /// a report is read by a human asking when the climb started, and a
+    /// six-line history cannot answer that.
+    private static let retainedSampleCount = 60
+    /// How long the relaunch may take to answer before this process exits
+    /// without it. Generous next to a healthy `openApplication` round trip
+    /// (milliseconds) and short next to the damage of not exiting at all.
+    private static let relaunchCompletionTimeoutSeconds = 20.0
+    /// Its own queue, not the sampler's: the deadline has to keep running
+    /// while the alarm path blocks the watchdog queue on `/usr/bin/sample`.
+    private static let deadlineQueue = DispatchQueue(
+        label: "com.notchflow.cpu-watchdog.relaunch-deadline",
+        qos: .utility
+    )
 
     private let island: any IslandMotionDegrading
     private let mainThread: any WatchdogMainThreadDispatching
@@ -124,6 +142,7 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
     private let stopListener: @Sendable () -> Void
     private let terminate: @Sendable () -> Void
     private let contextProvider: (@MainActor @Sendable () -> Context)?
+    private let scheduleDeadline: WatchdogDeadlineScheduling
 
     private let lock = NSLock()
     private var recentSamples: [CPUSample] = []
@@ -132,6 +151,10 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
     /// `.degrade` after a failed recovery, and a notification per attempt is
     /// noise about a condition the user has already been told about.
     private var hasNotifiedThisEpisode = false
+    /// Claimed once, by the relaunch completion or by its deadline, whichever
+    /// arrives first: both end in `exit`, and running the exit steps twice
+    /// would stop the listener under itself.
+    private var hasExited = false
 
     private var sampler: ProcessCPUSampler?
     private var watchdog: CPUWatchdog?
@@ -148,7 +171,8 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
         now: @escaping @Sendable () -> ContinuousClock.Instant,
         stopListener: @escaping @Sendable () -> Void,
         terminate: @escaping @Sendable () -> Void,
-        contextProvider: (@MainActor @Sendable () -> Context)? = nil
+        contextProvider: (@MainActor @Sendable () -> Context)? = nil,
+        scheduleDeadline: WatchdogDeadlineScheduling? = nil
     ) {
         self.island = island
         self.mainThread = mainThread
@@ -162,6 +186,10 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
         self.stopListener = stopListener
         self.terminate = terminate
         self.contextProvider = contextProvider
+        self.scheduleDeadline = scheduleDeadline ?? { after, work in
+            CPUWatchdogSupervisor.deadlineQueue
+                .asyncAfter(deadline: .now() + after, execute: work)
+        }
     }
 
     // MARK: Gate
@@ -196,13 +224,11 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
         sampler.start { [weak self] sample in
             self?.receive(sample)
         }
-        Self.logger.info("CPU watchdog armed.")
-    }
-
-    func stop() {
-        sampler?.stop()
-        sampler = nil
-        watchdog = nil
+        // `notice`, not `info`: an `info` line lives in the memory buffer only,
+        // so `log show` after an incident could not answer "was the watchdog
+        // even running?" — while the line saying it refused to start is
+        // persisted. Both halves of that answer have to survive.
+        Self.logger.notice("CPU watchdog armed.")
     }
 
     /// One sample, on the watchdog queue.
@@ -282,6 +308,14 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
         writeMarker(.relaunch, reason: reason, reportPath: reportPath)
         notifications.post(body: copy.restart)
 
+        // The exit is claimed by whichever comes first, the completion or the
+        // deadline, and runs once: `openApplication` hands the request to
+        // launchservicesd and then answers over XPC, so a wedged daemon would
+        // otherwise leave this process running hot forever — the one outcome
+        // the whole watchdog exists to prevent. Exiting on the deadline does
+        // not cancel the launch that was already asked for, and Task 1.2's
+        // ownership guard already covers the port-file race with the new
+        // instance.
         relauncher.relaunch { [self] error in
             if let error {
                 // The marker is rewritten rather than left claiming a relaunch
@@ -292,9 +326,29 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
                 )
                 writeMarker(.quit, reason: reason, reportPath: reportPath)
             }
+            finishExit()
+        }
+        scheduleDeadline(Self.relaunchCompletionTimeoutSeconds) { [weak self] in
+            guard let self, claimExit() else { return }
+            Self.logger.error("Relaunch did not answer in time; exiting anyway.")
             stopListener()
             terminate()
         }
+    }
+
+    /// Runs the exit steps unless the other racer already did.
+    private func finishExit() {
+        guard claimExit() else { return }
+        stopListener()
+        terminate()
+    }
+
+    private func claimExit() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard hasExited == false else { return false }
+        hasExited = true
+        return true
     }
 
     /// The restart budget is spent; this is the end of the episode, so no
@@ -307,8 +361,7 @@ final class CPUWatchdogSupervisor: @unchecked Sendable {
         writeMarker(.quit, reason: reason, reportPath: reportPath)
         notifications.post(body: copy.quit(reportPath))
 
-        stopListener()
-        terminate()
+        finishExit()
     }
 
     // MARK: Helpers

@@ -64,6 +64,27 @@ struct ProcessCPUSamplerTests {
         return (ProcessCPUSampler(clock: clock, probe: probe), executor, clock)
     }
 
+    /// A sampler whose cadence does not match the configuration's prunes each
+    /// sample before the next arrives, so the degrade window never fills and
+    /// the watchdog never fires — silently.
+    @Test("the timer ticks at the configuration's own sample interval")
+    func timerFollowsTheConfiguration() {
+        let standard = ProcessCPUSampler(configuration: CPUWatchdog.Configuration())
+        #expect(standard.interval == .nanoseconds(5_000_000_000))
+        #expect(standard.leeway == .nanoseconds(1_000_000_000))
+
+        let fast = ProcessCPUSampler(configuration: CPUWatchdog.Configuration(timeScale: 0.1))
+        #expect(fast.interval == .nanoseconds(500_000_000))
+        #expect(fast.leeway == .nanoseconds(100_000_000))
+    }
+
+    @Test("a duration becomes the nanosecond interval the timer takes")
+    func durationConvertsToDispatchInterval() {
+        #expect(ProcessCPUSampler.dispatchInterval(for: .seconds(5)) == .nanoseconds(5_000_000_000))
+        #expect(ProcessCPUSampler.dispatchInterval(for: .milliseconds(500)) == .nanoseconds(500_000_000))
+        #expect(ProcessCPUSampler.dispatchInterval(for: .zero) == .nanoseconds(0))
+    }
+
     @Test("the first tick only establishes the baseline: no sample, no ping")
     func firstTickEmitsNothing() {
         let (sampler, executor, _) = makeSampler()

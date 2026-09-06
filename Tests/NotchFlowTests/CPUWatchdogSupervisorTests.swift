@@ -147,6 +147,59 @@ struct CPUWatchdogSupervisorTests {
         #expect(harness.steps.last == .terminate)
     }
 
+    @Test("exits anyway when the relaunch never answers")
+    func alarmAndRestartExitsOnDeadline() {
+        let harness = Harness()
+        harness.relauncher.withholdsCompletion = true
+        let supervisor = harness.makeSupervisor()
+
+        supervisor.perform(
+            .alarmAndRestart(reason: .cpuAboveAlarmThreshold),
+            for: Harness.sample(cpuPercent: 61)
+        )
+        #expect(harness.steps.contains(.terminate) == false)
+
+        harness.fireRelaunchDeadline()
+
+        #expect(harness.steps.suffix(2) == [.stopListener, .terminate])
+        #expect(harness.deadlineDelay == 20)
+    }
+
+    /// Both racers end in `exit`; running the steps twice would stop the
+    /// listener under itself and log a second, false termination.
+    @Test("a late relaunch answer after the deadline exits only once")
+    func alarmAndRestartExitsOnlyOnce() {
+        let harness = Harness()
+        harness.relauncher.withholdsCompletion = true
+        let supervisor = harness.makeSupervisor()
+
+        supervisor.perform(
+            .alarmAndRestart(reason: .cpuAboveAlarmThreshold),
+            for: Harness.sample(cpuPercent: 61)
+        )
+        harness.fireRelaunchDeadline()
+        harness.relauncher.withheld?(nil)
+
+        #expect(harness.steps.count { $0 == .terminate } == 1)
+        #expect(harness.steps.count { $0 == .stopListener } == 1)
+    }
+
+    /// The deadline is armed on the restart path only: a quit exits inline, so
+    /// a timer left behind would fire into a process that is already gone.
+    @Test("quitting arms no relaunch deadline")
+    func alarmAndQuitArmsNoDeadline() {
+        let harness = Harness()
+        let supervisor = harness.makeSupervisor()
+
+        supervisor.perform(
+            .alarmAndQuit(reason: .degradeFailed),
+            for: Harness.sample(cpuPercent: 88)
+        )
+
+        #expect(harness.deadline == nil)
+        #expect(harness.steps.suffix(2) == [.stopListener, .terminate])
+    }
+
     // MARK: - Alarm and quit
 
     @Test("quitting writes the report and marker, notifies, and never relaunches")
@@ -234,6 +287,14 @@ private final class Harness: @unchecked Sendable {
     lazy var mainThread = QueuedMainThread()
     lazy var marker = MarkerSpy(harness: self)
     lazy var relauncher = RelauncherSpy(harness: self)
+    /// The relaunch deadline, held rather than armed, so the test decides when
+    /// it fires and the suite never leaves a timer running.
+    private(set) var deadline: (@Sendable () -> Void)?
+    private(set) var deadlineDelay: TimeInterval?
+
+    func fireRelaunchDeadline() {
+        deadline?()
+    }
 
     func makeSupervisor() -> CPUWatchdogSupervisor {
         CPUWatchdogSupervisor(
@@ -251,7 +312,11 @@ private final class Harness: @unchecked Sendable {
             ),
             now: { ContinuousClock().now },
             stopListener: { [weak self] in self?.record(.stopListener) },
-            terminate: { [weak self] in self?.record(.terminate) }
+            terminate: { [weak self] in self?.record(.terminate) },
+            scheduleDeadline: { [weak self] after, work in
+                self?.deadlineDelay = after
+                self?.deadline = work
+            }
         )
     }
 
@@ -361,13 +426,21 @@ private final class Harness: @unchecked Sendable {
     final class RelauncherSpy: WatchdogApplicationRelaunching, @unchecked Sendable {
         let harness: Harness
         var failure: Error?
+        /// A launch services call that accepts the request and never answers,
+        /// which is the case the relaunch deadline exists for.
+        var withholdsCompletion = false
         private(set) var attempts = 0
+        private(set) var withheld: (@Sendable (Error?) -> Void)?
 
         init(harness: Harness) { self.harness = harness }
 
         func relaunch(completion: @escaping @Sendable (Error?) -> Void) {
             attempts += 1
             harness.record(.relaunch)
+            guard withholdsCompletion == false else {
+                withheld = completion
+                return
+            }
             completion(failure)
         }
     }

@@ -1969,6 +1969,24 @@
         }
       }
     },
+    "High CPU recovery": {
+      "comment": "Accessibility label for the compact watchdog notice icon.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "High CPU recovery"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Yüksek CPU toparlanması"
+          }
+        }
+      }
+    },
     "activity.ai.subagentFallbackName": {
       "comment": "Sub-agent row name when the agent sent none: the word agent and its position in the list. Placeholder is the position. Named rather than keyed on its English so the number stays a placeholder.",
       "extractionState": "manual",

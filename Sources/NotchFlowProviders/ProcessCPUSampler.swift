@@ -135,8 +135,8 @@ public final class ProcessCPUSampler: @unchecked Sendable {
 
     private let clock: WatchdogClock
     private let probe: MainThreadLivenessProbe
-    private let interval: DispatchTimeInterval
-    private let leeway: DispatchTimeInterval
+    public let interval: DispatchTimeInterval
+    public let leeway: DispatchTimeInterval
     private let watchdogQueue = DispatchQueue(label: "com.notchflow.cpu-watchdog", qos: .utility)
     private var timer: DispatchSourceTimer?
     private var lastCPUNanoseconds: UInt64?
@@ -162,6 +162,38 @@ public final class ProcessCPUSampler: @unchecked Sendable {
         self.leeway = leeway
         self.instantAnchor = ContinuousClock().now
         self.uptimeAnchorNanoseconds = clock.uptimeNanoseconds
+    }
+
+    /// Ticks at the cadence the state machine counts in.
+    ///
+    /// The windows are counted in *samples* and pruned by *time*, so the two
+    /// cadences have to be the same number: a sampler left at 5 s under a
+    /// configuration scaled to a 3 s degrade window prunes each sample before
+    /// the next arrives, and the window never fills at all. Deriving the timer
+    /// from the configuration is what makes `--cpu-drill-fast-clock` reach the
+    /// long-horizon thresholds instead of silently disarming the watchdog.
+    public convenience init(
+        configuration: CPUWatchdog.Configuration,
+        clock: WatchdogClock = SystemWatchdogClock(),
+        probe: MainThreadLivenessProbe? = nil
+    ) {
+        self.init(
+            clock: clock,
+            probe: probe,
+            interval: Self.dispatchInterval(for: configuration.sampleInterval),
+            // The stock 5 s / 1 s ratio, kept under any scale: leeway is what
+            // lets the timer coalesce with other wakeups, and the performance
+            // contract in `docs/02-performance-contract.md` counts on it.
+            leeway: Self.dispatchInterval(for: configuration.sampleInterval / 5)
+        )
+    }
+
+    /// A `Duration` as the nanosecond interval `DispatchSourceTimer` takes.
+    public static func dispatchInterval(for duration: Duration) -> DispatchTimeInterval {
+        let parts = duration.components
+        return .nanoseconds(
+            Int(clamping: parts.seconds * 1_000_000_000 + parts.attoseconds / 1_000_000_000)
+        )
     }
 
     /// The watchdog timeline as an instant, for wiring the pure watchdog's

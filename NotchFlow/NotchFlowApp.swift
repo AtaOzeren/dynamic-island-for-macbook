@@ -340,18 +340,37 @@ struct NotchFlowApp: App {
         }
     }
 
-    /// Duty-cycled rather than a tight loop, so `background:30:60` measures
-    /// ~30% of one core: each 10 ms cycle spins for the duty fraction and
-    /// sleeps the rest.
+    /// Holds `percent` of one core for `seconds`, closing the loop on CPU time
+    /// actually consumed rather than on a fixed spin/sleep cycle.
+    ///
+    /// A fixed cycle does not survive contact with a `.utility` thread: its
+    /// sleeps are coalesced and it lands on efficiency cores, so the sleep half
+    /// overshoots unpredictably. Measured on this Mac, a 10 ms cycle asked for
+    /// 30% and delivered ~16% — under the watchdog's own 20% threshold, which
+    /// made the plan's own degrade drill verify nothing at all. Comparing
+    /// `CLOCK_THREAD_CPUTIME_ID` against the elapsed suspending clock converges
+    /// on the requested share whatever the scheduler does with the sleeps.
     private static func startBackgroundDrill(percent: Int, seconds: Int) {
-        let cycleSeconds = 0.01
-        let busyFraction = Double(percent) / 100
+        let dutyFraction = Double(percent) / 100
+        let spinSliceNanoseconds: UInt64 = 2_000_000
+        let idleSliceSeconds = 0.002
         let drill = Thread {
-            let deadline = Date().addingTimeInterval(TimeInterval(seconds))
-            while Date() < deadline {
-                let spinEnd = Date().addingTimeInterval(cycleSeconds * busyFraction)
-                while Date() < spinEnd {}
-                Thread.sleep(forTimeInterval: cycleSeconds * (1 - busyFraction))
+            let startWall = clock_gettime_nsec_np(CLOCK_UPTIME_RAW)
+            let startCPU = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
+            let runNanoseconds = UInt64(seconds) * 1_000_000_000
+
+            while true {
+                let elapsed = clock_gettime_nsec_np(CLOCK_UPTIME_RAW) &- startWall
+                guard elapsed < runNanoseconds else { return }
+
+                let consumed = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) &- startCPU
+                guard Double(consumed) < Double(elapsed) * dutyFraction else {
+                    Thread.sleep(forTimeInterval: idleSliceSeconds)
+                    continue
+                }
+                let sliceEnd = clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID)
+                    &+ spinSliceNanoseconds
+                while clock_gettime_nsec_np(CLOCK_THREAD_CPUTIME_ID) < sliceEnd {}
             }
         }
         drill.qualityOfService = .utility

@@ -146,19 +146,61 @@ struct ConnectedIslandSurfaceTests {
         #expect(!geometry.contains(CGPoint(x: bounds.midX, y: bounds.maxY + 5), in: bounds))
     }
 
-    /// The compact pill is untouched: still a true capsule, so its ends match
-    /// the notch's own curvature whatever height the hardware reports.
-    @Test("the compact pill is still a capsule")
-    func compactRemainsACapsule() {
+    /// The drawn pill is one flare wider on each side than its content, so the
+    /// outward top corners have room inside the frame instead of being clipped
+    /// off at the content's edge.
+    @Test("the compact surface reserves one flare on each side")
+    func compactSurfaceReservesTheFlare() {
+        let pill = CGSize(width: 220, height: 37)
+        let surface = ConnectedIslandGeometry.compactSurfaceSize(forPillSize: pill)
+
+        #expect(surface.width == pill.width + ConnectedIslandGeometry.topFlareRadius * 2)
+        #expect(surface.height == pill.height)
+    }
+
+    /// The pill wears the same silhouette the expanded island does — widest
+    /// along its very top edge, rounded underneath — so the island keeps one
+    /// character as it opens instead of morphing out of a capsule.
+    @Test("the compact pill flares at the top and rounds at the bottom")
+    func compactPillFlaresAndRounds() {
         for notchHeight in [24.0, 32.0, 37.0, 44.0] as [CGFloat] {
             let geometry = ConnectedIslandGeometry(
                 compactSize: CGSize(width: 220, height: notchHeight),
                 expandedContentSize: .zero
             )
-            let bounds = CGRect(origin: .zero, size: geometry.compactSize)
+            let bounds = CGRect(
+                origin: .zero,
+                size: ConnectedIslandGeometry.compactSurfaceSize(
+                    forPillSize: CGSize(width: 220, height: notchHeight)
+                )
+            )
+            let flare = ConnectedIslandGeometry.topFlareRadius
+            let bodyMinX = bounds.minX + flare
+            let bodyMaxX = bounds.maxX - flare
 
             #expect(geometry.contains(CGPoint(x: bounds.midX, y: bounds.midY), in: bounds))
-            #expect(!geometry.contains(CGPoint(x: bounds.minX + 0.5, y: bounds.minY + 0.5), in: bounds))
+
+            // Outside the body but high up: inside the flare, on both sides.
+            #expect(geometry.contains(CGPoint(x: bodyMinX - 2, y: 1), in: bounds))
+            #expect(geometry.contains(CGPoint(x: bodyMaxX + 2, y: 1), in: bounds))
+
+            // The same distance outside the body, below the flare: past the edge.
+            #expect(!geometry.contains(CGPoint(x: bodyMinX - 2, y: flare + 4), in: bounds))
+            #expect(!geometry.contains(CGPoint(x: bodyMaxX + 2, y: flare + 4), in: bounds))
+
+            // The bottom corners still turn inwards.
+            #expect(
+                !geometry.contains(
+                    CGPoint(x: bodyMinX + 1, y: bounds.maxY - 1),
+                    in: bounds
+                )
+            )
+            #expect(
+                !geometry.contains(
+                    CGPoint(x: bodyMaxX - 1, y: bounds.maxY - 1),
+                    in: bounds
+                )
+            )
         }
     }
 }

@@ -181,4 +181,37 @@ struct LaunchArgumentsTests {
             == nil
         )
     }
+
+    /// The flag only earns its keep if it reaches `CPUWatchdog.Configuration`;
+    /// parsed-but-unapplied is the state in which every long-horizon drill
+    /// silently runs at real time and reports nothing.
+    @Test("the fast-clock flag becomes the watchdog's time scale")
+    func fastClockBecomesTimeScale() {
+        #expect(LaunchArguments.watchdogTimeScale(["--cpu-drill-fast-clock"]) == 0.1)
+        #expect(
+            LaunchArguments.watchdogTimeScale(
+                ["--cpu-drill=background:60:120", "--cpu-drill-fast-clock"]
+            ) == 0.1
+        )
+    }
+
+    @Test("a launch without the flag runs the watchdog at real time")
+    func realTimeWithoutFastClock() {
+        #expect(LaunchArguments.watchdogTimeScale([]) == 1)
+        #expect(LaunchArguments.watchdogTimeScale(["--cpu-drill=main:120"]) == 1)
+        #expect(LaunchArguments.watchdogTimeScale(["--cpu-drill=oops"]) == 1)
+    }
+
+    @Test("the fast clock shortens every watchdog duration by a factor of ten")
+    func fastClockScalesConfiguration() {
+        let configuration = CPUWatchdog.Configuration(
+            timeScale: LaunchArguments.watchdogTimeScale(["--cpu-drill-fast-clock"])
+        )
+
+        #expect(configuration.startupGracePeriod == .seconds(6))
+        #expect(configuration.degradeWindow == .seconds(3))
+        #expect(configuration.minimumDegradedDwell == .seconds(30))
+        #expect(configuration.degradeFailureTimeout == .seconds(90))
+        #expect(configuration.restartLoopWindow == .seconds(360))
+    }
 }

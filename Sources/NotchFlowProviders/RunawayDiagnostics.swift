@@ -213,15 +213,36 @@ public struct RunawayDiagnostics: Sendable {
         guard
             let entries = try? fileManager.contentsOfDirectory(
                 at: configuration.directoryURL,
-                includingPropertiesForKeys: [.isRegularFileKey]
+                includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey]
             )
         else {
             return
         }
-        let files = entries.filter {
-            (try? $0.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true
+        // Sorted by write time, not by name: the directory holds two prefixes
+        // (`cpu-*` reports and `sample-*` captures) and every `sample-` name
+        // sorts above every `cpu-` one, so a name sort would delete the newest
+        // report to keep an older capture — losing exactly the file the next
+        // occurrence has to be diagnosed from. The name is the tie-break
+        // because its stamp is second-resolution and two files written in the
+        // same second must still order deterministically.
+        let files = entries.compactMap { url -> (url: URL, modifiedAt: Date)? in
+            guard
+                let values = try? url.resourceValues(
+                    forKeys: [.isRegularFileKey, .contentModificationDateKey]
+                ),
+                values.isRegularFile == true
+            else {
+                return nil
+            }
+            return (url, values.contentModificationDate ?? .distantPast)
         }
-        let sortedByNewest = files.sorted { $0.lastPathComponent > $1.lastPathComponent }
+        let sortedByNewest = files
+            .sorted {
+                $0.modifiedAt == $1.modifiedAt
+                    ? $0.url.lastPathComponent > $1.url.lastPathComponent
+                    : $0.modifiedAt > $1.modifiedAt
+            }
+            .map(\.url)
         guard sortedByNewest.count > newestCount else {
             return
         }

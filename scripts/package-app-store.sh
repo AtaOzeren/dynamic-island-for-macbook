@@ -3,13 +3,34 @@ set -euo pipefail
 
 PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUTPUT_DIR=${OUTPUT_DIR:-"$PROJECT_ROOT/dist/app-store"}
-DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData/AppStoreSubmission"}
+# Spotlight skips any path whose component ends in `.noindex`, so the app
+# bundles a packaging run produces never surface beside the installed app in
+# Spotlight and Launchpad. Every stray "NotchFlow.app" a user finds there is a
+# build product, and each one is a copy they can launch by mistake.
+DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData.noindex/AppStoreSubmission"}
 ARCHIVE_PATH="$OUTPUT_DIR/NotchFlow.xcarchive"
 APP_PATH="$ARCHIVE_PATH/Products/Applications/NotchFlow.app"
 APP_BINARY="$APP_PATH/Contents/MacOS/NotchFlow"
 APPLE_TEAM_ID=${APPLE_TEAM_ID:-}
 ASSET_CHECK_PATH=${ASSET_CHECK_PATH:-"$PROJECT_ROOT/scripts/check-assets.sh"}
 FORBIDDEN_SYMBOL_CHECK_PATH=${FORBIDDEN_SYMBOL_CHECK_PATH:-"$PROJECT_ROOT/scripts/check-forbidden-symbols.sh"}
+
+# xcodebuild registers every product it builds with LaunchServices, which is
+# how a packaging run leaves a second "NotchFlow.app" in Spotlight and
+# Launchpad beside the one the user installed — a copy they can launch by
+# mistake, and one that never updates again. The `.noindex` derived-data path
+# keeps Spotlight out; LaunchServices ignores that convention, so the
+# registration is withdrawn here instead. Best effort: a packaged artefact is
+# the point of the run, and a stale registration must not fail it.
+unregister_from_launch_services() {
+    local lsregister="/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister"
+    [ -x "$lsregister" ] || return 0
+    local bundle
+    for bundle in "$@"; do
+        [ -e "$bundle" ] || continue
+        "$lsregister" -u "$bundle" >/dev/null 2>&1 || true
+    done
+}
 
 rm -rf "$DERIVED_DATA_PATH" "$ARCHIVE_PATH"
 mkdir -p "$OUTPUT_DIR"
@@ -59,6 +80,8 @@ else
     echo "SKIPPED (no membership): Organizer/App Store Connect validation"
     echo "Set APPLE_TEAM_ID after enrollment to produce and validate a distribution-signed archive."
 fi
+
+unregister_from_launch_services "$APP_PATH"
 
 echo "App Store archive: $ARCHIVE_PATH"
 echo "Local validation completed with zero errors."

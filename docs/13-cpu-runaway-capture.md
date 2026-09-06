@@ -67,6 +67,54 @@ plan review:
 | Was Clock.app running? | `AppleClockMirror` drives Clock.app via Accessibility when permission is granted |
 | Accessibility permission state for NotchFlow (granted / revoked / not asked) | Row F of the idle matrix isolates this path |
 
+## If `log show` comes back empty
+
+On a Mac where unified-log persistence is off, `log show` returns nothing for
+*any* process — check with `log show --last 2m | wc -l` before concluding
+NotchFlow logged nothing. The capture kit's `log show` step is then dead weight,
+and the live stream is the only way to read the app's own messages:
+
+```bash
+log stream --predicate 'subsystem == "com.notchflow.NotchFlow"' --style compact
+```
+
+This does not weaken the watchdog's record. Everything the next occurrence has
+to be diagnosed from is written to files, not to the log: the report and the
+`sample` capture under `~/Library/Logs/NotchFlow/`, the restart ledger and the
+launch marker under `~/Library/Application Support/NotchFlow/`. The log line is
+a convenience; the files are the evidence.
+
+## Turning the watchdog off
+
+The CPU watchdog has no UI. It is switched off with a hidden default, and the
+key is the settings store's namespaced name — every `SettingsKey` prefixes its
+path with `com.notchflow.settings.`, so the bare `cpuWatchdog.disabled` written
+by hand does nothing:
+
+```bash
+defaults write com.notchflow.NotchFlow "com.notchflow.settings.cpuWatchdog.disabled" -bool YES
+```
+
+Relaunch NotchFlow afterwards; the setting is read once, at launch. The log
+line `CPU watchdog not started: cpuWatchdogDisabled is set` (subsystem
+`com.notchflow.NotchFlow`, category `cpu-watchdog`) confirms it was honoured.
+Undo it with `defaults delete com.notchflow.NotchFlow "com.notchflow.settings.cpuWatchdog.disabled"`.
+
+**On a machine that has run both build flavours**, `defaults` sends the write to
+the sandbox container (`~/Library/Containers/com.notchflow.NotchFlow/Data/Library/Preferences/`)
+as soon as that container exists, while a non-sandboxed **Direct** build reads
+`~/Library/Preferences/com.notchflow.NotchFlow.plist`. The write then lands
+where the running app never looks. For a Direct build, address the file and
+flush the preferences daemon's cache:
+
+```bash
+defaults write "$HOME/Library/Preferences/com.notchflow.NotchFlow" "com.notchflow.settings.cpuWatchdog.disabled" -bool YES
+killall -u "$USER" cfprefsd
+```
+
+Check which plist the app actually reads before trusting either form:
+`plutil -p ~/Library/Preferences/com.notchflow.NotchFlow.plist | grep cpuWatchdog`.
+
 ## Where results go
 
 Everything lands under `.omo/evidence/cpu-runaway/`, named to sort by date:

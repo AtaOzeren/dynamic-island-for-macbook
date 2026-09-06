@@ -130,6 +130,48 @@ struct RunawayDiagnosticsTests {
         #expect(names.contains { !$0.hasPrefix("cpu-degrade-20250101") })
     }
 
+    /// Every `sample-` name sorts above every `cpu-` one, so a prune that
+    /// ordered by filename threw away the report it had just written to keep
+    /// captures from days earlier — losing the one file the next occurrence
+    /// has to be diagnosed from.
+    @Test("prune keeps the newest report even when older sample captures fill the budget")
+    func pruneOrdersByWriteTimeNotName() throws {
+        let directory = makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let ancient = Date(timeIntervalSince1970: 1_000_000)
+        for index in 1...25 {
+            let stale = directory.appendingPathComponent(
+                String(format: "sample-20250101-0000%02d.txt", index)
+            )
+            try Data("stale".utf8).write(to: stale)
+            try FileManager.default.setAttributes(
+                [.modificationDate: ancient.addingTimeInterval(TimeInterval(index))],
+                ofItemAtPath: stale.path
+            )
+        }
+        let diagnostics = RunawayDiagnostics(
+            configuration: makeConfiguration(directory: directory)
+        )
+
+        try diagnostics.writeSnapshot(
+            cpuPercent: 24.5,
+            sampleHistory: [],
+            transitions: [],
+            mainThreadResponsive: true,
+            displayTarget: "builtin",
+            activityKinds: []
+        )
+
+        let names = try FileManager.default.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil
+        ).map(\.lastPathComponent)
+
+        #expect(names.count == 20)
+        #expect(names.contains { $0.hasPrefix("cpu-degrade-") })
+        #expect(!names.contains("sample-20250101-000001.txt"))
+    }
+
     @Test("atomic write leaves no temporary file behind")
     func atomicWriteCleansUpTemporaryFile() throws {
         let directory = makeTempDirectory()

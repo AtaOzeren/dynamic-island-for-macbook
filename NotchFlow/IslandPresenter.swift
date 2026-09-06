@@ -147,8 +147,15 @@ struct IslandRootView: View {
     }
 
     /// What the island currently is, surface and silhouette alike.
+    ///
+    /// Both states allow for the outward top flare, so the drawn surface is one
+    /// flare wider than the content on each side. Only the top of the shape
+    /// uses that room — the pill's bottom edge is still exactly the pill's
+    /// width — so nothing inside it moves.
     private var surfaceSize: CGSize {
-        model.state == .expanded ? geometry.expandedSize : compactPill.size
+        model.state == .expanded
+            ? geometry.expandedSize
+            : ConnectedIslandGeometry.compactSurfaceSize(forPillSize: compactPill.size)
     }
 
     private var connectedSurface: some View {

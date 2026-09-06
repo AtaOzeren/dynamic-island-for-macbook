@@ -20,6 +20,11 @@ public struct CPUDrillOptions: Equatable, Sendable {
 
     /// `nil` when no `--cpu-drill=` flag was given at all.
     public let drill: Drill?
+    /// What `--cpu-drill-fast-clock` multiplies every watchdog duration by, so
+    /// the long-horizon drills (the 15 min degrade-failure timeout, the 1 h
+    /// restart-loop window) fit inside one verification session.
+    public static let fastClockTimeScale = 0.1
+
     /// `--cpu-drill-fast-clock`: scale every watchdog duration by 1/10.
     public let fastClock: Bool
 
@@ -86,6 +91,18 @@ public enum LaunchArguments {
         default:
             return nil
         }
+    }
+
+    /// The scale `CPUWatchdog.Configuration` is built with on this launch.
+    ///
+    /// The plan puts the scaling in `Configuration`'s construction and nowhere
+    /// else, so this is the one place that turns the flag into a number; a
+    /// malformed `--cpu-drill` value leaves the watchdog at real time rather
+    /// than guessing which drill was meant.
+    public static func watchdogTimeScale(_ arguments: [String]) -> Double {
+        parseCPUDrill(arguments)?.fastClock == true
+            ? CPUDrillOptions.fastClockTimeScale
+            : 1
     }
 
     private static func clamped(_ seconds: Int) -> Int {

@@ -37,6 +37,60 @@
         }
       }
     },
+    "NotchFlow is restarting because CPU stayed high despite protective measures. A diagnostic report was saved.": {
+      "comment": "Tier 2 watchdog notification: the app is relaunching itself.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow is restarting because CPU stayed high despite protective measures. A diagnostic report was saved."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow koruyucu önlemlere rağmen CPU yüksek kaldığı için yeniden başlatılıyor. Tanı raporu kaydedildi."
+          }
+        }
+      }
+    },
+    "NotchFlow is using more CPU than expected. Animations are paused while it recovers.": {
+      "comment": "Tier 1 watchdog notification: the island paused its motion to shed CPU.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow is using more CPU than expected. Animations are paused while it recovers."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow beklenenden fazla CPU kullanıyor. Toparlanana kadar animasyonlar duraklatıldı."
+          }
+        }
+      }
+    },
+    "NotchFlow quit itself: CPU stayed high after 3 restarts within an hour. Diagnostic report: %@": {
+      "comment": "Watchdog notification: the restart budget is spent, so the app quits instead of relaunching.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow quit itself: CPU stayed high after 3 restarts within an hour. Diagnostic report: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "NotchFlow kendini kapattı: bir saat içinde 3 yeniden başlatmaya rağmen CPU yüksek kaldı. Tanı raporu: %@"
+          }
+        }
+      }
+    },
     "NotchFlow restarted itself after sustained high CPU use. Report: %@": {
       "comment": "Post-launch alert after the watchdog restarted the app.",
       "extractionState": "manual",
