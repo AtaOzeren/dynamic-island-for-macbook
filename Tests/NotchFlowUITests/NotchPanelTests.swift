@@ -92,6 +92,20 @@ struct NotchPanelTests {
         #expect(Self.makePanel().isReleasedWhenClosed == false)
     }
 
+    @Test("is created at the maximum expanded size")
+    func isCreatedAtTheMaximumExpandedSize() {
+        #expect(Self.makePanel().frame.size == Self.metrics.maximumExpandedSize)
+    }
+
+    @Test("never lets its hosting view size itself to its content")
+    func hostingViewDoesNotSizeItselfToItsContent() {
+        let panel = Self.makePanel()
+
+        let hostingView = panel.contentView as? NSHostingView<Color>
+
+        #expect(hostingView?.sizingOptions == [])
+    }
+
     @Test("positions itself under the notch of the given screen")
     func positionsUnderTheNotch() {
         let panel = Self.makePanel()
