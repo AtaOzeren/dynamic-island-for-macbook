@@ -33,7 +33,7 @@ struct KerNotchApp: App {
     private let registry: ActivityProviderRegistry
     private let settingsStore: SettingsStore
     private let urlSchemeReceiver = URLSchemeReceiver()
-    private let onboardingPresenter = OnboardingPresenter()
+    private let onboardingPresenter: OnboardingPresenter
     private let manualSetupPresenter = ManualSetupPresenter()
     private let settingsWindowRouter: SettingsWindowRouter
 
@@ -94,6 +94,9 @@ struct KerNotchApp: App {
 
         self.automationGate = automationGate
         self.settingsWindowRouter = settingsWindowRouter
+        // Onboarding's last step opens the same Settings scene ⌘, does, so it
+        // rides the router rather than a second, divergent open path.
+        self.onboardingPresenter = OnboardingPresenter(openSettings: settingsWindowRouter.open)
         _musicAutomation = State(initialValue: makePendingMusicAutomationAccess())
         _musicAutomationRequestsInProgress = State(initialValue: [])
         _hookStates = State(initialValue: [:])
@@ -952,33 +955,97 @@ private final class StatusItemPresenter: NSObject {
 }
 
 @MainActor
-private final class SettingsWindowRouter {
+final class SettingsWindowRouter {
     private static let logger = Logger(
         subsystem: "com.kernotch.KerNotch",
         category: "settings"
     )
 
+    /// How many times `open()` tries to deliver the Settings action before
+    /// giving up. The first attempt covers the common case — the app is
+    /// already active, or the window already exists — and the retries cover
+    /// the two races: an activation that has not landed yet, and a main menu
+    /// whose ⌘, item SwiftUI has not installed yet (the relaunch path).
+    private static let maximumAttempts = 6
+
+    /// Space between attempts. One run loop turn is the least an activation
+    /// needs; 100 ms leaves headroom for a busy launch without a perceptible
+    /// delay when a retry is needed.
+    private static let attemptDelay: TimeInterval = 0.1
+
     /// Opens the `Settings` scene the way ⌘, does: through the menu item
-    /// SwiftUI installs for it, with that item as the sender. Sending
-    /// `showSettingsWindow:` down the responder chain is refused on macOS 26,
-    /// and a `MenuBarExtra` bridge for `openSettings` costs a blank status item
-    /// slot. The item is found by key equivalent; its title is localized.
+    /// SwiftUI installs for it, with that item as the sender. A
+    /// `MenuBarExtra` bridge for `openSettings` costs a blank status item
+    /// slot, so the item is the path.
+    ///
+    /// Delivery is verified, not assumed. `NSApp.activate` takes effect on a
+    /// later pass of the event loop, and the send can race the launch-time
+    /// installation of the menu. A failed send is retried a bounded number of
+    /// times so an open that races activation lands once activation settles,
+    /// instead of being dropped silently.
     func open() {
+        open(attempt: 1)
+    }
+
+    private func open(attempt: Int) {
         bringSettingsForward()
-        if let item = Self.settingsMenuItem(in: NSApp.mainMenu), let action = item.action {
-            NSApp.sendAction(action, to: item.target, from: item)
-        } else {
-            Self.logger.error("No ⌘, item in the main menu; the Settings scene cannot be opened.")
+
+        guard let item = Self.settingsMenuItem(in: NSApp.mainMenu), let action = item.action else {
+            Self.logger.error(
+                "No ⌘, item in the main menu (attempt \(attempt, privacy: .public) of \(Self.maximumAttempts, privacy: .public))."
+            )
+            return retryOrGiveUp(attempt: attempt)
         }
+
+        guard NSApp.sendAction(action, to: item.target, from: item) else {
+            Self.logger.error(
+                "Settings send failed \(attempt, privacy: .public)/\(Self.maximumAttempts, privacy: .public); active: \(NSApp.isActive)."
+            )
+            return retryOrGiveUp(attempt: attempt)
+        }
+
+        // The scene creates its window asynchronously, so fronting must wait a
+        // turn; fronting before SwiftUI has built the window fronts nothing.
+        // A second, delayed front covers an activation that has still not
+        // landed by then — the window is open either way, but an accessory app
+        // that never became active leaves it behind whoever holds focus.
         DispatchQueue.main.async { [weak self] in
+            self?.bringSettingsForward()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.attemptDelay) { [weak self] in
             self?.bringSettingsForward()
         }
     }
 
-    private static func settingsMenuItem(in menu: NSMenu?) -> NSMenuItem? {
+    private func retryOrGiveUp(attempt: Int) {
+        guard attempt < Self.maximumAttempts else {
+            Self.logger.error(
+                "Settings scene could not be opened after \(Self.maximumAttempts, privacy: .public) attempts."
+            )
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.attemptDelay) { [weak self] in
+            self?.open(attempt: attempt + 1)
+        }
+    }
+
+    /// The Settings scene's menu item, matched two ways because either alone
+    /// misses a real machine.
+    ///
+    /// The key equivalent is read back localized: on a Turkish keyboard the
+    /// item SwiftUI writes reports `"ö"`, not `","`, so an exact-string match
+    /// never finds it and Settings silently never opened there. The action —
+    /// SwiftUI's private `menuAction:` — is layout-independent, and the item
+    /// carries a non-nil target (a SwiftUI menu-item callback), so the send
+    /// below reaches it directly without a key window to walk a responder
+    /// chain from. Both probes verified live on macOS 26.
+    static func settingsMenuItem(in menu: NSMenu?) -> NSMenuItem? {
         guard let menu else { return nil }
         for item in menu.items {
-            if item.keyEquivalent == "," && item.keyEquivalentModifierMask.contains(.command) {
+            let opensSettingsByShortcut =
+                item.keyEquivalent == "," && item.keyEquivalentModifierMask.contains(.command)
+            let opensSettingsByAction = item.action == Selector(("menuAction:"))
+            if opensSettingsByShortcut || opensSettingsByAction {
                 return item
             }
             if let found = settingsMenuItem(in: item.submenu) {
@@ -990,12 +1057,24 @@ private final class SettingsWindowRouter {
 
     private func bringSettingsForward() {
         NSApp.activate(ignoringOtherApps: true)
-        guard
-            let settingsWindow = NSApp.windows.first(where: {
-                $0.level == .normal && $0.canBecomeKey
-            })
-        else { return }
+        guard let settingsWindow = Self.settingsWindow(in: NSApp.windows) else { return }
         settingsWindow.makeKeyAndOrderFront(nil)
         settingsWindow.orderFrontRegardless()
+    }
+
+    /// The Settings scene's window, identified rather than guessed.
+    ///
+    /// SwiftUI gives the scene's window its own identifier; matching on that
+    /// stops the router from keying whichever ordinary window happens to be
+    /// first in `NSApp.windows`. Onboarding, manual setup, and alert windows
+    /// are all ordinary keyable windows that must not be brought forward in
+    /// the settings window's place, and none of them carries an identifier.
+    static func settingsWindow(in windows: [NSWindow]) -> NSWindow? {
+        windows.first { window in
+            guard window.level == .normal,
+                let identifier = window.identifier?.rawValue.lowercased()
+            else { return false }
+            return identifier.contains("settings")
+        }
     }
 }

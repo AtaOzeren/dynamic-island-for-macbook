@@ -17,6 +17,12 @@ import SwiftUI
 final class OnboardingPresenter: NSObject, NSWindowDelegate {
     private var window: NSWindow?
     private var onFinish: ((OnboardingOutcome) -> Void)?
+    private let openSettings: () -> Void
+
+    init(openSettings: @escaping () -> Void) {
+        self.openSettings = openSettings
+        super.init()
+    }
 
     /// Shows the flow, or does nothing if this is not a first run.
     ///
@@ -43,7 +49,7 @@ final class OnboardingPresenter: NSObject, NSWindowDelegate {
         window.contentViewController = NSHostingController(
             rootView: OnboardingRoot(
                 initialFlow: OnboardingFlow(detectedAgents: detectedAgents()),
-                onOpenSettings: Self.openSettings,
+                onOpenSettings: openSettings,
                 onFinish: { [weak self] outcome in
                     self?.complete(with: outcome)
                 }
@@ -76,22 +82,6 @@ final class OnboardingPresenter: NSObject, NSWindowDelegate {
         closingWindow?.close()
     }
 
-    /// The same action ⌘, and the status item send, so onboarding's last step
-    /// opens the one settings window rather than a second copy of it.
-    ///
-    /// Activation comes first because the send is what actually fails without
-    /// it: an accessory app that is not frontmost has no key window, so the
-    /// responder chain the action walks is empty and the settings scene never
-    /// sees it. The selector is also spelled two ways — macOS 14 renamed the
-    /// preferences action — and neither spelling reports failure other than by
-    /// returning `false`, so both are tried before giving up.
-    private static func openSettings() {
-        NSApp.activate(ignoringOtherApps: true)
-        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
-            return
-        }
-        _ = NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-    }
 }
 
 /// Retains manual hook instructions window for automatic-install failures and

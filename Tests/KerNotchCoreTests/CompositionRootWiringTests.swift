@@ -187,9 +187,18 @@ struct CompositionRootWiringTests {
         #expect(delegateSource.contains("Self.onReopen?()"))
         #expect(appSource.contains("URLSchemeAppDelegate.onReopen ="))
         #expect(appSource.contains("settingsWindowRouter.open()"))
-        #expect(appSource.contains("item.keyEquivalent == \",\" && item.keyEquivalentModifierMask.contains(.command)"))
+        // The item is matched by action, not by key equivalent alone: on a
+        // Turkish keyboard the item SwiftUI installs reads its key back as
+        // "ö", and the comma-only match made Settings silently never open.
+        #expect(appSource.contains("item.action == Selector((\"menuAction:\"))"))
         #expect(appSource.contains("NSApp.activate(ignoringOtherApps: true)"))
-        #expect(appSource.contains("$0.level == .normal && $0.canBecomeKey"))
+        // The send is verified and retried: the item's target is a SwiftUI
+        // callback, so the send reaches it directly and an open that races
+        // launch is retried rather than dropped silently. The window is found
+        // by identifier, not by being the first ordinary keyable window.
+        #expect(appSource.contains("NSApp.sendAction(action, to: item.target, from: item)"))
+        #expect(appSource.contains("retryOrGiveUp(attempt:"))
+        #expect(appSource.contains("settingsWindow(in: NSApp.windows)"))
         #expect(appSource.contains("settingsWindow.makeKeyAndOrderFront(nil)"))
         #expect(appSource.contains("settingsWindow.orderFrontRegardless()"))
     }
