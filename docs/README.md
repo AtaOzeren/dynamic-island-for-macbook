@@ -1,14 +1,14 @@
-# NotchFlow Documentation
+# KerNotch Documentation
 
 **Your notch, alive with what matters.**
 
-This folder is a design specification, not code. Every document here describes what NotchFlow must do and why, before a single line of Swift gets written. Read them in order the first time; after that, jump straight to the one you need.
+This folder is a design specification, not code. Every document here describes what KerNotch must do and why, before a single line of Swift gets written. Read them in order the first time; after that, jump straight to the one you need.
 
 ## Contents
 
 | # | Document | What it covers |
 |---|----------|-----------------|
-| 00 | [Product Overview](00-product-overview.md) | What NotchFlow is, who it's for, the problem it solves |
+| 00 | [Product Overview](00-product-overview.md) | What KerNotch is, who it's for, the problem it solves |
 | 01 | [Architecture](01-architecture.md) | Module graph, dependency rule, event flow, threading model |
 | 02 | [Performance Contract](02-performance-contract.md) | The idle-CPU and memory budget every build must satisfy |
 | 03 | [Display and Notch](03-display-and-notch.md) | Finding the notch, computing its rectangle, reacting to display changes |

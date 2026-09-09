@@ -1,15 +1,15 @@
-# Contributing to NotchFlow
+# Contributing to KerNotch
 
-Thank you for your interest in contributing to NotchFlow!
+Thank you for your interest in contributing to KerNotch!
 
 ## Development Workflow & TDD
 
-1. **Test-Driven Development (TDD):** All domain logic in `NotchFlowCore` must be written test-first. Keep `NotchFlowCore` pure Foundation without importing AppKit or SwiftUI.
+1. **Test-Driven Development (TDD):** All domain logic in `KerNotchCore` must be written test-first. Keep `KerNotchCore` pure Foundation without importing AppKit or SwiftUI.
 2. **Module Separation:**
-   - `NotchFlowCore`: Pure business logic, state machines, geometry calculations, and protocols. Imports Foundation only.
-   - `NotchFlowProviders`: OS integrations, ScriptingBridge/MediaRemote, ScreenCaptureKit, IOKit, and IPC listeners.
-   - `NotchFlowUI`: SwiftUI compact/expanded view components and `NSPanel` presentation controller.
-   - `NotchFlow`: Application entry point and composition root.
+   - `KerNotchCore`: Pure business logic, state machines, geometry calculations, and protocols. Imports Foundation only.
+   - `KerNotchProviders`: OS integrations, ScriptingBridge/MediaRemote, ScreenCaptureKit, IOKit, and IPC listeners.
+   - `KerNotchUI`: SwiftUI compact/expanded view components and `NSPanel` presentation controller.
+   - `KerNotch`: Application entry point and composition root.
 
 ## Building and Testing
 
@@ -26,7 +26,7 @@ swiftlint --strict
 
 ## Commit Convention
 
-NotchFlow follows the [Conventional Commits](https://www.conventionalcommits.org/) specification:
+KerNotch follows the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 
 - `feat(<scope>): description` — New functionality
 - `fix(<scope>): description` — Bug fixes
@@ -43,6 +43,6 @@ Scope rules:
 
 Before submitting a PR, ensure:
 - [ ] `swift test` passes with zero failures.
-- [ ] `NotchFlowCore` does not import AppKit or SwiftUI.
+- [ ] `KerNotchCore` does not import AppKit or SwiftUI.
 - [ ] All code comments explain *why* decision was made (no change-tracking comments or obsolete code).
 - [ ] Commits follow Conventional Commits formatting.

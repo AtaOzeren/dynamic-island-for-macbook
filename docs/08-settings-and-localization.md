@@ -1,14 +1,14 @@
 # Settings and Localization
 
-This document specifies the complete settings surface, its persistence mechanism and defaults policy, the settings window and first-run onboarding flow, and the localization mechanism NotchFlow uses for every user-visible string. It is a design specification — nothing in this folder is code.
+This document specifies the complete settings surface, its persistence mechanism and defaults policy, the settings window and first-run onboarding flow, and the localization mechanism KerNotch uses for every user-visible string. It is a design specification — nothing in this folder is code.
 
 ## Design principle
 
-Every setting NotchFlow exposes has a safe, disclosed default: nothing is enabled on first run that would surprise a user who never opened the settings window. Persistence uses a single typed wrapper over `UserDefaults` so every read and write goes through one place, with one naming convention and one migration path. Every user-visible string ships through String Catalogs, never as a literal in a view — this is a lint-enforced rule, not a style preference.
+Every setting KerNotch exposes has a safe, disclosed default: nothing is enabled on first run that would surprise a user who never opened the settings window. Persistence uses a single typed wrapper over `UserDefaults` so every read and write goes through one place, with one naming convention and one migration path. Every user-visible string ships through String Catalogs, never as a literal in a view — this is a lint-enforced rule, not a style preference.
 
 ## The settings table
 
-Every setting below has a type, a default, a persistence key, and the screen or section it appears in. Keys use the `com.notchflow.settings.` prefix followed by a dot-separated path matching the table's grouping.
+Every setting below has a type, a default, a persistence key, and the screen or section it appears in. Keys use the `com.kernotch.settings.` prefix followed by a dot-separated path matching the table's grouping.
 
 | Setting | Type | Default | Persistence key | Appears in |
 |---|---|---|---|---|
@@ -34,7 +34,7 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Hook install / uninstall action | action, not a stored setting | — | — | AI Integrations |
 | App language | picker, driven by system locale unless overridden | system default | `general.languageOverride` | About |
 
-Two defaults are deliberately conservative and worth calling out. First, every AI agent is **disabled** by default — a user must opt in per agent before NotchFlow surfaces anything for it, matching the rule in `07-ai-integration.md` that an agent not explicitly enabled is ignored even if its hook is technically installed. Second, the `usingTool` event toggle defaults to **off** per agent, because tool-level updates are the highest-frequency, lowest-signal event in the state machine (`07-ai-integration.md`); a user who wants that level of detail turns it on deliberately.
+Two defaults are deliberately conservative and worth calling out. First, every AI agent is **disabled** by default — a user must opt in per agent before KerNotch surfaces anything for it, matching the rule in `07-ai-integration.md` that an agent not explicitly enabled is ignored even if its hook is technically installed. Second, the `usingTool` event toggle defaults to **off** per agent, because tool-level updates are the highest-frequency, lowest-signal event in the state machine (`07-ai-integration.md`); a user who wants that level of detail turns it on deliberately.
 
 The per-agent event toggles apply uniformly across Claude Code, Codex CLI, and OpenCode — the settings UI renders one row of five toggles per enabled agent, not five independent tables, because the underlying `AIActivity` state machine is the same regardless of which agent produced the message.
 
@@ -42,7 +42,7 @@ The per-agent event toggles apply uniformly across Claude Code, Codex CLI, and O
 
 ### Typed wrapper
 
-NotchFlow never calls `UserDefaults.standard` directly from a view or a provider. A single typed wrapper (conceptually a property-wrapper-backed struct, one static instance) exposes every setting above as a strongly typed property. This gives three things a raw `UserDefaults` call cannot: a compile-time guarantee that a setting's type cannot drift between the reader and the writer, a single place to add a default value, and a single place to add migration logic when a key's meaning or shape changes.
+KerNotch never calls `UserDefaults.standard` directly from a view or a provider. A single typed wrapper (conceptually a property-wrapper-backed struct, one static instance) exposes every setting above as a strongly typed property. This gives three things a raw `UserDefaults` call cannot: a compile-time guarantee that a setting's type cannot drift between the reader and the writer, a single place to add a default value, and a single place to add migration logic when a key's meaning or shape changes.
 
 ### Key naming convention
 
@@ -50,7 +50,7 @@ Keys are dot-separated, lower-camel-case path segments, always starting with the
 
 ### Migration policy
 
-A settings schema change — a renamed key, a changed type, or a value whose meaning shifts — ships with a one-time migration step that runs once per app update: read the old key if present, translate it into the new key's value, and remove the old key. Migrations are additive and ordered; NotchFlow never overwrites a key it cannot confidently translate, and when a migration cannot determine a safe value it falls back to the documented default rather than guessing. There is no schema version number stored separately — the presence or absence of a given key is itself the signal a migration step checks for.
+A settings schema change — a renamed key, a changed type, or a value whose meaning shifts — ships with a one-time migration step that runs once per app update: read the old key if present, translate it into the new key's value, and remove the old key. Migrations are additive and ordered; KerNotch never overwrites a key it cannot confidently translate, and when a migration cannot determine a safe value it falls back to the documented default rather than guessing. There is no schema version number stored separately — the presence or absence of a given key is itself the signal a migration step checks for.
 
 ### Defaults-are-safe rule
 
@@ -58,11 +58,11 @@ No setting in the table above defaults to a state that would show the user somet
 
 ## The settings window
 
-Settings is a standard SwiftUI `Settings` scene, giving NotchFlow platform-native window chrome and keyboard shortcut (⌘,). It opens from the AppKit status item's menu, first-run onboarding, or by reopening the running app from Finder. Reopening remains available when the user hides the status item. Opening Settings does not change the app's activation policy — NotchFlow remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open.
+Settings is a standard SwiftUI `Settings` scene, giving KerNotch platform-native window chrome and keyboard shortcut (⌘,). It opens from the AppKit status item's menu, first-run onboarding, or by reopening the running app from Finder. Reopening remains available when the user hides the status item. Opening Settings does not change the app's activation policy — KerNotch remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open.
 
 The window is organized into the sections implied by the "Appears in" column above: **General** (display target, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in `UserDefaults`.
 
-Most settings apply live. The language override is the exception because `Bundle` resolves and caches its localization at launch. Changing it shows a restart-required warning in both About and General. General's restart action launches one replacement NotchFlow instance, reopens Settings, then terminates the old instance only after launch succeeds; a launch failure leaves the current process running and presents the error. Restart requests for external AI tools remain in their hook setup guidance because restarting NotchFlow cannot reload another application's configuration.
+Most settings apply live. The language override is the exception because `Bundle` resolves and caches its localization at launch. Changing it shows a restart-required warning in both About and General. General's restart action launches one replacement KerNotch instance, reopens Settings, then terminates the old instance only after launch succeeds; a launch failure leaves the current process running and presents the error. Restart requests for external AI tools remain in their hook setup guidance because restarting KerNotch cannot reload another application's configuration.
 
 The menu bar icon toggle also applies live. With multiple displays, macOS owns status-item placement and may put the icon on a different active or main menu bar than the Settings window. General discloses this while multiple displays are attached instead of describing it as a restart requirement.
 
@@ -71,8 +71,8 @@ The menu bar icon toggle also applies live. With multiple displays, macOS owns s
 Onboarding runs once, on the first launch after install, gated by a single `hasCompletedOnboarding` flag in the typed wrapper (not itself listed in the settings table because it is not a user-facing preference). The flow has four steps:
 
 1. **Welcome.** A short screen naming the product and its scope: a live activity surface around the notch for music, timers, recording indicators, charging state, and AI agent status.
-2. **Permission explanation.** Before any system permission prompt fires, NotchFlow explains in plain language what it is about to ask for and why (see `09-security-privacy-permissions.md` for the entitlements and prompts this maps to) — no permission is requested without this context screen appearing first.
-3. **Agent detection and hook offer.** NotchFlow runs the same detection step described in `07-ai-integration.md`'s hook installer, and if it finds a configuration file for Claude Code, Codex CLI, or OpenCode, it offers to install the corresponding hook right there, using the same consent flow (show the exact snippet, get explicit approval) the installer uses when invoked later from Settings.
+2. **Permission explanation.** Before any system permission prompt fires, KerNotch explains in plain language what it is about to ask for and why (see `09-security-privacy-permissions.md` for the entitlements and prompts this maps to) — no permission is requested without this context screen appearing first.
+3. **Agent detection and hook offer.** KerNotch runs the same detection step described in `07-ai-integration.md`'s hook installer, and if it finds a configuration file for Claude Code, Codex CLI, or OpenCode, it offers to install the corresponding hook right there, using the same consent flow (show the exact snippet, get explicit approval) the installer uses when invoked later from Settings.
 4. **Done.** A closing screen confirming setup is complete, with a button that opens Settings directly, so a user who wants to review or change anything from Welcome through Agent Detection can do so immediately.
 
 Declining a step (skipping the hook offer, for example) does not block progress to the next step or re-prompt on every launch — every onboarding decision is revisitable later from Settings, and onboarding itself never runs a second time once `hasCompletedOnboarding` is set.
@@ -81,7 +81,7 @@ Declining a step (skipping the hook offer, for example) does not block progress 
 
 ### Mechanism
 
-String Catalogs (`.xcstrings`) are the single localization mechanism NotchFlow uses — no `.strings` files, no `NSLocalizedString` call sites, no third-party localization library. Every user-visible string is written with `String(localized:)` (or the SwiftUI `Text` initializer that resolves through the same mechanism), which reads from the catalog at the call site's declared key.
+String Catalogs (`.xcstrings`) are the single localization mechanism KerNotch uses — no `.strings` files, no `NSLocalizedString` call sites, no third-party localization library. Every user-visible string is written with `String(localized:)` (or the SwiftUI `Text` initializer that resolves through the same mechanism), which reads from the catalog at the call site's declared key.
 
 ### No hardcoded strings rule
 
@@ -93,7 +93,7 @@ Pluralization uses String Catalog's built-in variation support (`.xcstrings` plu
 
 ### Dates and durations
 
-Any absolute date or time shown anywhere in the UI uses `Date.FormatStyle`, letting the system apply the user's locale and calendar preferences rather than a fixed format string. Durations (elapsed time on an in-progress AI activity, a running stopwatch, a countdown timer) use `Duration.TimeFormatStyle`, which likewise adapts separator and unit-label conventions per locale without NotchFlow special-casing any language.
+Any absolute date or time shown anywhere in the UI uses `Date.FormatStyle`, letting the system apply the user's locale and calendar preferences rather than a fixed format string. Durations (elapsed time on an in-progress AI activity, a running stopwatch, a countdown timer) use `Duration.TimeFormatStyle`, which likewise adapts separator and unit-label conventions per locale without KerNotch special-casing any language.
 
 ### Right-to-left readiness
 

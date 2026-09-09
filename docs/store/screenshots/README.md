@@ -14,7 +14,7 @@ Upload the five `2560 × 1600` PNG files in `en-US/` in filename order. This is 
 
 - Regenerate the deterministic set with `swift scripts/generate-app-store-screenshots.swift`.
 - Keep every image at exactly `2560 × 1600` pixels.
-- Show only NotchFlow and neutral desktop content. Remove notifications, personal files, usernames, terminal text, and third-party account data.
+- Show only KerNotch and neutral desktop content. Remove notifications, personal files, usernames, terminal text, and third-party account data.
 - Use synthetic track, timer, agent, and recording content. Do not include real transcripts or media artwork without redistribution rights.
 - Keep the illustrated Mac screen and notch visible in activity captures so placement is clear.
 - Do not add device frames or claims that are absent from the metadata.

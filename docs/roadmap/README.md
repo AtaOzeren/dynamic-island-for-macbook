@@ -1,6 +1,6 @@
 # Roadmap
 
-This folder breaks the implementation plan (`.omo/plans/notchflow-v1.md`) into phases, so progress and scope are readable without opening the raw todo list. It tracks **code work only** — Wave 0 (the 15 `docs/` specification files + this index) is already complete and is not repeated here.
+This folder breaks the implementation plan (`.omo/plans/kernotch-v1.md`) into phases, so progress and scope are readable without opening the raw todo list. It tracks **code work only** — Wave 0 (the 15 `docs/` specification files + this index) is already complete and is not repeated here.
 
 Each phase file states: what it delivers, which todos it covers, what it depends on, what it unblocks, and its exact verification commands, taken directly from the plan's Acceptance/QA criteria. Nothing here invents new scope — every line is traceable to a todo in the plan.
 
@@ -54,4 +54,4 @@ Phases 3, 4, and 5 have no ordering constraint between each other once Phase 2 i
 
 ## Source of truth
 
-Every phase file quotes the plan's own Acceptance/QA/Commit lines rather than paraphrasing them, so a phase file going stale relative to the plan is a git-diffable event. If `.omo/plans/notchflow-v1.md` changes, re-derive the affected phase file from it — do not let the two drift.
+Every phase file quotes the plan's own Acceptance/QA/Commit lines rather than paraphrasing them, so a phase file going stale relative to the plan is a git-diffable event. If `.omo/plans/kernotch-v1.md` changes, re-derive the affected phase file from it — do not let the two drift.

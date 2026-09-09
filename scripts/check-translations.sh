@@ -2,13 +2,13 @@
 set -euo pipefail
 
 # Every catalog must carry every language every other catalog carries: a key
-# translated in NotchFlowUI but missed in NotchFlowCore is a settings window
+# translated in KerNotchUI but missed in KerNotchCore is a settings window
 # with two languages in it, and the app never fails loudly for a missing
 # translation — it falls back to the key, which reads as correct English.
 CATALOGS=(
-    "Sources/NotchFlowCore/Resources/Localizable.xcstrings"
-    "Sources/NotchFlowUI/Resources/Localizable.xcstrings"
-    "NotchFlow/Localizable.xcstrings"
+    "Sources/KerNotchCore/Resources/Localizable.xcstrings"
+    "Sources/KerNotchUI/Resources/Localizable.xcstrings"
+    "KerNotch/Localizable.xcstrings"
 )
 
 python3 - "${CATALOGS[@]}" <<'PYTHON'
@@ -44,7 +44,7 @@ for path, catalog in catalogs.items():
                 gaps.append(f"{path}: [{language}] empty — {key!r}")
             elif language != source and len(values) == 1 and values[0] == key and len(key.split()) > 1:
                 # A single-word key can legitimately be identical across
-                # languages ("NotchFlow"); a whole phrase that is byte-identical
+                # languages ("KerNotch"); a whole phrase that is byte-identical
                 # to its English is an untranslated entry someone pasted through.
                 gaps.append(f"{path}: [{language}] untranslated — {key!r}")
 

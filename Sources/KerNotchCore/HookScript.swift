@@ -1,0 +1,254 @@
+import Foundation
+
+/// The Python the generated hooks run, and the shell wrappers that invoke it.
+///
+/// Split from `HookSnippetGenerator` because the two answer different
+/// questions: this is *what the hook does*, the generator is *what file the
+/// hook lives in*. Keeping the script text here also stops one long embedded
+/// program from dominating the type that assembles JSON and TOML around it.
+enum HookScript {
+
+    /// Where the running island publishes its loopback port.
+    ///
+    /// Expressed here rather than imported from `LoopbackHTTPListenerConfiguration`
+    /// because the hook is a text artefact that outlives any one build: the path
+    /// has to be literal inside the generated script.
+    static let discoveryFilePath = "~/Library/Application Support/KerNotch/ipc-port"
+
+    /// The functions every generated hook shares.
+    ///
+    /// Written as real multi-line Python rather than a `;`-joined one-liner
+    /// because `try`/`except` is a compound statement and cannot appear in a
+    /// simple-statement list. JSON and TOML both carry the newlines, and a shell
+    /// single-quoted string preserves them — so the script stays one `-c`
+    /// argument with no quoting of its own to get wrong.
+    ///
+    /// Contains no apostrophe anywhere, which is what lets the whole body sit
+    /// inside `'…'` in a shell command without escaping.
+    /// The agent's own identifier, substituted into `preambleTemplate`.
+    private static let agentPlaceholder = "__KERNOTCH_AGENT_ID__"
+
+    static func pythonPreamble(agentID: String) -> String {
+        preambleTemplate.replacingOccurrences(of: agentPlaceholder, with: agentID)
+    }
+
+    /// Stored rather than built inside the function so the embedded program is
+    /// a constant, not a hundred-line function body.
+    private static let preambleTemplate = """
+        import datetime, json, os, sys, urllib.request, uuid
+
+        KERNOTCH_AGENT = "\(agentPlaceholder)"
+        \(HookSnippetGenerator.managedHookMarker) = True
+
+        # A CLI launched by OpenCode reports as OpenCode, not as itself: the user
+        # started one agent and expects one icon. OpenCode marks every child it
+        # spawns, so the check is on the environment rather than on a process walk.
+        if os.environ.get("OPENCODE") or os.environ.get("OPENCODE_PID"):
+            sys.exit(0)
+
+
+        def kernotch_load(raw):
+            try:
+                return json.loads(raw) if raw else json.load(sys.stdin)
+            except Exception:
+                sys.exit(0)
+
+
+        def kernotch_session(raw_session):
+            if not raw_session:
+                sys.exit(0)
+            return str(
+                uuid.uuid5(uuid.NAMESPACE_URL, KERNOTCH_AGENT + ":" + str(raw_session))
+            )
+
+
+        def kernotch_payload(
+            session,
+            state,
+            detail,
+            tool_name=None,
+            root_session=None,
+            session_name=None,
+            workspace=None,
+            reason=None,
+        ):
+            payload = {
+                "schemaVersion": "1.0",
+                "agentId": KERNOTCH_AGENT,
+                "sessionId": session,
+                "state": state,
+                "detail": detail,
+                "timestamp": datetime.datetime.now(datetime.timezone.utc)
+                .isoformat(timespec="milliseconds")
+                .replace("+00:00", "Z"),
+            }
+            if state == "usingTool" and tool_name:
+                payload["toolName"] = tool_name
+            if root_session:
+                payload["rootSessionId"] = root_session
+            if session_name:
+                payload["sessionName"] = session_name
+            if workspace:
+                payload["workspace"] = workspace
+            if state == "error" and reason:
+                payload["reason"] = reason
+            return json.dumps(payload, separators=(",", ":"))
+
+
+        # Claude Code names the cause in a closed set of its own. Mapped here
+        # rather than passed through, because the island localises what it draws
+        # and the validator refuses the punctuation a raw provider message is
+        # full of.
+        KERNOTCH_REASONS = {
+            "rate_limit": "quotaExhausted",
+            "account_on_hold": "quotaExhausted",
+            "billing_error": "quotaExhausted",
+            "authentication_failed": "authFailed",
+            "oauth_org_not_allowed": "authFailed",
+            "overloaded": "providerUnavailable",
+            "server_error": "providerUnavailable",
+            "invalid_request": "requestRejected",
+            "model_not_found": "requestRejected",
+            "max_output_tokens": "requestRejected",
+        }
+
+
+        def kernotch_reason(event):
+            return KERNOTCH_REASONS.get(str(event.get("error") or ""), "unknown")
+
+
+        def kernotch_tool_name(event):
+            raw = str(event.get("tool_name") or "")
+            cleaned = "".join(c for c in raw if c.isalnum() or c in " ._-")[:80]
+            return cleaned or None
+
+
+        # Deliver only to a running island. Missing or stale discovery data is
+        # expected when KerNotch is not running, so failed events are dropped.
+        def kernotch_send(body):
+            try:
+                port = open(os.path.expanduser("\(discoveryFilePath)")).read().strip()
+                if port:
+                    urllib.request.urlopen(
+                        urllib.request.Request(
+                            "http://127.0.0.1:" + port + "/ai-status",
+                            data=body.encode("utf-8"),
+                            headers={"Content-Type": "application/json"},
+                        ),
+                        timeout=2,
+                    )
+            except Exception:
+                pass
+
+
+        """
+
+    /// Claude Code delivers the event as JSON on stdin.
+    ///
+    /// The JSON is read by the script itself rather than interpolated into the
+    /// command line. An earlier form passed it as an unquoted shell word, which
+    /// word-split every event carrying a space — a submitted prompt, a path with
+    /// a space — and silently dropped it under `sh` and `bash`.
+    static func claudeCodeHookCommand(
+        state: String,
+        detail: String,
+        carriesToolName: Bool,
+        carriesSubagentIdentity: Bool,
+        carriesFailureReason: Bool = false
+    ) -> String {
+        let toolExpression = carriesToolName ? "kernotch_tool_name(event)" : "None"
+        let sessionExpression =
+            carriesSubagentIdentity
+            ? "kernotch_session(event.get(\"agent_id\"))"
+            : "kernotch_session(event.get(\"session_id\"))"
+        let rootSessionExpression =
+            carriesSubagentIdentity
+            ? "kernotch_session(event.get(\"session_id\"))"
+            : "None"
+        let sessionNameExpression =
+            carriesSubagentIdentity
+            ? "event.get(\"agent_type\")"
+            : "None"
+        let script =
+            pythonPreamble(agentID: "claude-code")
+                + """
+                event = kernotch_load("")
+                kernotch_send(
+                    kernotch_payload(
+                        \(sessionExpression),
+                        \(HookTextEncoding.pythonStringLiteral(state)),
+                        \(HookTextEncoding.pythonStringLiteral(detail)),
+                        \(toolExpression),
+                        \(rootSessionExpression),
+                        \(sessionNameExpression),
+                        event.get("cwd"),
+                        \(carriesFailureReason ? "kernotch_reason(event)" : "None"),
+                    )
+                )
+                """
+        // Backgrounded as a whole so no hook ever adds its own latency to a tool
+        // call. Reading stdin happens first, in the foreground, because the pipe
+        // Claude Code opened is closed as soon as the hook process returns.
+        return interpreterResolution
+            + "EVENT=$(cat); { printf %s \"$EVENT\" | \"$KERNOTCH_PY\" -c "
+            + HookTextEncoding.shellSingleQuoted(script)
+            + "; } >/dev/null 2>&1 &"
+    }
+
+    /// Shell that picks a Python and leaves it in `$KERNOTCH_PY`, or exits.
+    ///
+    /// `/usr/bin/python3` is not an interpreter — it is a stub that forwards to
+    /// the one inside Xcode. On a Mac with no developer tools installed, running
+    /// it pops the "install command line developer tools" panel and the hook
+    /// fails, so it is tried last and only once `xcode-select` confirms there is
+    /// something behind it. Finding nothing at all exits quietly: a missing
+    /// interpreter should cost the user a missing island, not a system dialog on
+    /// every keystroke.
+    private static let interpreterResolution = """
+        KERNOTCH_PY=""
+        for c in /opt/homebrew/bin/python3 /usr/local/bin/python3 "$(command -v python3 2>/dev/null)"; do
+        case "$c" in ""|/usr/bin/python3) continue;; esac
+        [ -x "$c" ] && KERNOTCH_PY="$c" && break
+        done
+        [ -n "$KERNOTCH_PY" ] || { [ -d "$(xcode-select -p 2>/dev/null)" ] && KERNOTCH_PY=/usr/bin/python3; }
+        [ -n "$KERNOTCH_PY" ] || exit 0
+
+        """
+
+    static func codexLifecycleHookCommand() -> String {
+        let states = HookSnippetGenerator.codexLifecycleEvents
+            .map { event in
+                "    \(HookTextEncoding.pythonStringLiteral(event.event)): ("
+                    + "\(HookTextEncoding.pythonStringLiteral(event.state)), "
+                    + "\(HookTextEncoding.pythonStringLiteral(event.detail)), "
+                    + "\(event.carriesToolName ? "True" : "False"))"
+            }
+            .joined(separator: ",\n")
+        let script =
+            pythonPreamble(agentID: "codex")
+                + """
+                \(HookSnippetGenerator.codexLifecycleHookMarker) = True
+
+                STATES = {
+                \(states),
+                }
+
+                event = kernotch_load("")
+                resolved = STATES.get(str(event.get("hook_event_name")))
+                if resolved is None:
+                    sys.exit(0)
+                state, detail, carries_tool_name = resolved
+                kernotch_send(
+                    kernotch_payload(
+                        kernotch_session(event.get("session_id")),
+                        state,
+                        detail,
+                        kernotch_tool_name(event) if carries_tool_name else None,
+                        workspace=event.get("cwd"),
+                    )
+                )
+                """
+        return interpreterResolution
+            + "\"$KERNOTCH_PY\" -c \(HookTextEncoding.shellSingleQuoted(script))"
+    }
+}

@@ -1,6 +1,6 @@
 # Performance Contract
 
-NotchFlow lives on the notch permanently. If it is not free while idle, it fails at the one job that matters more than any feature: staying invisible in Activity Monitor. This document is the numeric contract every build must satisfy. It is not a goal; it is a gate. Todo 66 turns every row below into an automated script, and a regression on any row is a build failure, not a follow-up ticket.
+KerNotch lives on the notch permanently. If it is not free while idle, it fails at the one job that matters more than any feature: staying invisible in Activity Monitor. This document is the numeric contract every build must satisfy. It is not a goal; it is a gate. Todo 66 turns every row below into an automated script, and a regression on any row is a build failure, not a follow-up ticket.
 
 ## The budget
 
@@ -46,7 +46,7 @@ Run every measurement after the app has been idle for at least 60 seconds (no ac
 ### CPU and wakeups: `powermetrics`
 
 ```
-sudo powermetrics --samplers tasks -i 1000 -n 60 --show-process-energy | grep -A 5 "NotchFlow"
+sudo powermetrics --samplers tasks -i 1000 -n 60 --show-process-energy | grep -A 5 "KerNotch"
 ```
 
 Run for 60 samples at 1-second intervals (60 seconds total). Average the CPU% column across all 60 samples; it must be < 0.1%. The wakeups-per-second column must average < 1.
@@ -54,7 +54,7 @@ Run for 60 samples at 1-second intervals (60 seconds total). Average the CPU% co
 ### Resident memory: `ps`
 
 ```
-ps -o rss= -p $(pgrep -x NotchFlow)
+ps -o rss= -p $(pgrep -x KerNotch)
 ```
 
 `rss` is reported in KB; divide by 1024 for MB. Must read < 60 MB while idle. Sample three times, 20 seconds apart, and use the median to avoid catching a transient allocation spike.

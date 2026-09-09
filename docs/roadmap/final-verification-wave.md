@@ -17,61 +17,61 @@ The plan's verification strategy collects every `HW`-tier item into this wave an
 
 Clone into a clean directory, build `AppStore` and `Direct`, and run all guards and lints. Assert zero warnings in the app targets.
 
-- **Evidence:** `.omo/evidence/final-F1-notchflow-v1.log`
+- **Evidence:** `.omo/evidence/final-F1-kernotch-v1.log`
 
 ### F2. Complete automated test suite with coverage
 
-Run every test target; assert all pass and that `NotchFlowCore` line coverage meets the threshold set in [docs/11](../11-testing-strategy.md) (near 100%, per the TDD boundary).
+Run every test target; assert all pass and that `KerNotchCore` line coverage meets the threshold set in [docs/11](../11-testing-strategy.md) (near 100%, per the TDD boundary).
 
-- **Evidence:** `.omo/evidence/final-F2-notchflow-v1.log`
+- **Evidence:** `.omo/evidence/final-F2-kernotch-v1.log`
 
 ### F3. Hardware matrix: single built-in display
 
 The numbered checklist from [docs/11](../11-testing-strategy.md) on the notched MacBook alone: notch alignment, all three states, click-through, every provider, all seven AI states, light and dark, Reduce Motion, Reduce Transparency. One screenshot per step.
 
-- **Evidence:** `.omo/evidence/final-F3-notchflow-v1/`
+- **Evidence:** `.omo/evidence/final-F3-kernotch-v1/`
 
 ### F4. Hardware matrix: multi-monitor and display transitions
 
 With one external monitor: island stays on the built-in display by default; explicit external selection works; unplugging the selected display falls back correctly; resolution change repositions correctly; mirroring behaves sanely.
 
-- **Evidence:** `.omo/evidence/final-F4-notchflow-v1/`
+- **Evidence:** `.omo/evidence/final-F4-kernotch-v1/`
 
 ### F5. Hardware matrix: power and lifecycle transitions
 
 Sleep and wake, lid close and open, clamshell with an external display, user switch, and charging connect/disconnect. Assert the island recovers correctly and no duplicate or orphaned activity remains after each.
 
-- **Evidence:** `.omo/evidence/final-F5-notchflow-v1/`
+- **Evidence:** `.omo/evidence/final-F5-kernotch-v1/`
 
 ### F6. Hardware matrix: full-screen and Spaces behaviour
 
 Island visibility and behaviour over a full-screen app, across multiple Spaces, and during Mission Control.
 
-- **Evidence:** `.omo/evidence/final-F6-notchflow-v1/`
+- **Evidence:** `.omo/evidence/final-F6-kernotch-v1/`
 
 ### F7. End-to-end AI round-trip for all three agents
 
 Install each hook, run a real session per agent, observe every reachable state in the island, click through to the originating app, then uninstall and confirm each config file is byte-identical to its backup.
 
-- **Evidence:** `.omo/evidence/final-F7-notchflow-v1/`
+- **Evidence:** `.omo/evidence/final-F7-kernotch-v1/`
 
 ### F8. Idle performance verification
 
 Run the todo 66 script with every provider enabled and no activity, for the full documented duration, and assert every [docs/02](../02-performance-contract.md) threshold.
 
-- **Evidence:** `.omo/evidence/final-F8-notchflow-v1/`
+- **Evidence:** `.omo/evidence/final-F8-kernotch-v1/`
 
 ### F9. Privacy and entitlement audit
 
 Inspect the effective entitlements of both built binaries; assert they match [docs/09](../09-security-privacy-permissions.md) exactly with nothing extra. Confirm no network connection other than the loopback listener occurs during a full session, using a network monitor.
 
-- **Evidence:** `.omo/evidence/final-F9-notchflow-v1/`
+- **Evidence:** `.omo/evidence/final-F9-kernotch-v1/`
 
 ### F10. Scope and guardrail audit
 
 Confirm every Must-have is present and every Must-NOT-have is absent: no MediaRemote symbol in the App Store build, no polling loop, no screen scraping, no third-party runtime dependency, no deferred feature partially implemented, no undocumented setting.
 
-- **Evidence:** `.omo/evidence/final-F10-notchflow-v1.txt`
+- **Evidence:** `.omo/evidence/final-F10-kernotch-v1.txt`
 
 ## Verification notes
 

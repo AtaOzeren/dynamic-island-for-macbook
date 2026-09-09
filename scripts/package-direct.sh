@@ -5,12 +5,12 @@ PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUTPUT_DIR=${OUTPUT_DIR:-"$PROJECT_ROOT/dist"}
 # Spotlight skips any path whose component ends in `.noindex`, so the app
 # bundles a packaging run produces never surface beside the installed app in
-# Spotlight and Launchpad. Every stray "NotchFlow.app" a user finds there is a
+# Spotlight and Launchpad. Every stray "KerNotch.app" a user finds there is a
 # build product, and each one is a copy they can launch by mistake.
 DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData.noindex/DirectPackage"}
 PACKAGE_STAGE_PATH=${PACKAGE_STAGE_PATH:-"$DERIVED_DATA_PATH/PackageStage"}
-APP_PATH="$DERIVED_DATA_PATH/Build/Products/Direct/NotchFlow.app"
-ENTITLEMENTS_PATH="$PROJECT_ROOT/NotchFlow-Direct.entitlements"
+APP_PATH="$DERIVED_DATA_PATH/Build/Products/Direct/KerNotch.app"
+ENTITLEMENTS_PATH="$PROJECT_ROOT/KerNotch-Direct.entitlements"
 DEVELOPER_ID_APPLICATION=${DEVELOPER_ID_APPLICATION:-}
 NOTARYTOOL_KEYCHAIN_PROFILE=${NOTARYTOOL_KEYCHAIN_PROFILE:-}
 NOTARYTOOL_KEYCHAIN=${NOTARYTOOL_KEYCHAIN:-}
@@ -22,7 +22,7 @@ if { [ -n "$DEVELOPER_ID_APPLICATION" ] && [ -z "$NOTARYTOOL_KEYCHAIN_PROFILE" ]
 fi
 
 # xcodebuild registers every product it builds with LaunchServices, which is
-# how a packaging run leaves a second "NotchFlow.app" in Spotlight and
+# how a packaging run leaves a second "KerNotch.app" in Spotlight and
 # Launchpad beside the one the user installed — a copy they can launch by
 # mistake, and one that never updates again. The `.noindex` derived-data path
 # keeps Spotlight out; LaunchServices ignores that convention, so the
@@ -41,10 +41,10 @@ unregister_from_launch_services() {
 rm -rf "$DERIVED_DATA_PATH" "$PACKAGE_STAGE_PATH"
 mkdir -p "$OUTPUT_DIR"
 
-echo "==> Building NotchFlow (Direct)"
+echo "==> Building KerNotch (Direct)"
 xcodebuild \
-    -project "$PROJECT_ROOT/NotchFlow.xcodeproj" \
-    -scheme "NotchFlow (Direct)" \
+    -project "$PROJECT_ROOT/KerNotch.xcodeproj" \
+    -scheme "KerNotch (Direct)" \
     -configuration Direct \
     -destination "platform=macOS" \
     -derivedDataPath "$DERIVED_DATA_PATH" \
@@ -95,7 +95,7 @@ if [ -n "$NOTARYTOOL_KEYCHAIN_PROFILE" ]; then
     if [ -n "$NOTARYTOOL_KEYCHAIN" ]; then
         NOTARYTOOL_ARGUMENTS+=(--keychain "$NOTARYTOOL_KEYCHAIN")
     fi
-    APP_ARCHIVE="$DERIVED_DATA_PATH/NotchFlow.zip"
+    APP_ARCHIVE="$DERIVED_DATA_PATH/KerNotch.zip"
     ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$APP_ARCHIVE"
     echo "==> Notarizing app"
     xcrun notarytool submit \
@@ -110,15 +110,15 @@ else
     echo "SKIPPED: stapling"
 fi
 
-DISK_IMAGE="$OUTPUT_DIR/NotchFlow-$VERSION-direct.dmg"
+DISK_IMAGE="$OUTPUT_DIR/KerNotch-$VERSION-direct.dmg"
 rm -f "$DISK_IMAGE" "$DISK_IMAGE.sha256"
 mkdir -p "$PACKAGE_STAGE_PATH"
-ditto "$APP_PATH" "$PACKAGE_STAGE_PATH/NotchFlow.app"
+ditto "$APP_PATH" "$PACKAGE_STAGE_PATH/KerNotch.app"
 ln -s /Applications "$PACKAGE_STAGE_PATH/Applications"
 
 echo "==> Creating $DISK_IMAGE"
 hdiutil create \
-    -volname NotchFlow \
+    -volname KerNotch \
     -format UDZO \
     -srcfolder "$PACKAGE_STAGE_PATH" \
     -ov \
@@ -140,7 +140,7 @@ fi
     shasum -a 256 "$(basename "$DISK_IMAGE")" > "$(basename "$DISK_IMAGE").sha256"
 )
 
-unregister_from_launch_services "$APP_PATH" "$PACKAGE_STAGE_PATH/NotchFlow.app"
+unregister_from_launch_services "$APP_PATH" "$PACKAGE_STAGE_PATH/KerNotch.app"
 
 echo "==> Packaged $DISK_IMAGE"
 echo "==> Checksum $DISK_IMAGE.sha256"

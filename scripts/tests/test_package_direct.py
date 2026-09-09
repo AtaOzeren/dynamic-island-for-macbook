@@ -27,26 +27,26 @@ class DirectPackagingTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = self.command_log.read_text(encoding="utf-8")
-        self.assertIn('-scheme NotchFlow (Direct)', commands)
+        self.assertIn('-scheme KerNotch (Direct)', commands)
         self.assertIn("-configuration Direct", commands)
         self.assertIn("-derivedDataPath", commands)
         self.assertIn("CODE_SIGNING_ALLOWED=NO clean build", commands)
         self.assertIn(
             "codesign --force --deep --options runtime --entitlements ", commands
         )
-        self.assertIn("NotchFlow-Direct.entitlements --sign -", commands)
-        self.assertIn("hdiutil create -volname NotchFlow -format UDZO", commands)
+        self.assertIn("KerNotch-Direct.entitlements --sign -", commands)
+        self.assertIn("hdiutil create -volname KerNotch -format UDZO", commands)
         self.assertIn("SKIPPED (no membership): Developer ID signing", result.stdout)
         self.assertIn("SKIPPED: notarization", result.stdout)
         self.assertIn("SKIPPED: stapling", result.stdout)
 
         stage_directory = self.root / "stage-capture"
-        self.assertTrue((stage_directory / "NotchFlow.app").is_dir())
+        self.assertTrue((stage_directory / "KerNotch.app").is_dir())
         self.assertTrue((stage_directory / "Applications").is_symlink())
         self.assertEqual(os.readlink(stage_directory / "Applications"), "/Applications")
 
-        disk_image = self.root / "dist" / "NotchFlow-1.2.3-direct.dmg"
-        checksum = self.root / "dist" / "NotchFlow-1.2.3-direct.dmg.sha256"
+        disk_image = self.root / "dist" / "KerNotch-1.2.3-direct.dmg"
+        checksum = self.root / "dist" / "KerNotch-1.2.3-direct.dmg.sha256"
         self.assertTrue(disk_image.is_file())
         self.assertIn(disk_image.name, checksum.read_text(encoding="utf-8"))
 
@@ -54,7 +54,7 @@ class DirectPackagingTests(unittest.TestCase):
         result = self._run_script(
             {
                 "DEVELOPER_ID_APPLICATION": "Developer ID Application: Example (TEAMID)",
-                "NOTARYTOOL_KEYCHAIN_PROFILE": "notchflow-notary",
+                "NOTARYTOOL_KEYCHAIN_PROFILE": "kernotch-notary",
             }
         )
 
@@ -65,13 +65,13 @@ class DirectPackagingTests(unittest.TestCase):
             commands,
         )
         self.assertIn(
-            "NotchFlow-Direct.entitlements --timestamp --sign "
+            "KerNotch-Direct.entitlements --timestamp --sign "
             "Developer ID Application: Example (TEAMID)",
             commands,
         )
         self.assertEqual(commands.count("notarytool submit"), 2)
         self.assertIn("notarytool submit", commands)
-        self.assertIn("--keychain-profile notchflow-notary --wait", commands)
+        self.assertIn("--keychain-profile kernotch-notary --wait", commands)
         self.assertIn("stapler staple", commands)
         self.assertIn("stapler validate", commands)
         self.assertNotIn("SKIPPED", result.stdout)
@@ -91,10 +91,10 @@ class DirectPackagingTests(unittest.TestCase):
     def test_project_declares_the_version_fields_used_for_artifact_naming(self):
         project_root = SCRIPT_PATH.parents[1]
         info_plist = plistlib.loads(
-            (project_root / "NotchFlow" / "Info.plist").read_bytes()
+            (project_root / "KerNotch" / "Info.plist").read_bytes()
         )
         project_settings = (
-            project_root / "NotchFlow.xcodeproj" / "project.pbxproj"
+            project_root / "KerNotch.xcodeproj" / "project.pbxproj"
         ).read_text(encoding="utf-8")
 
         self.assertEqual(
@@ -112,8 +112,8 @@ class DirectPackagingTests(unittest.TestCase):
         self.assertIn("run: ./scripts/package-direct.sh", workflow)
         self.assertIn("security import", workflow)
         self.assertIn("xcrun notarytool store-credentials", workflow)
-        self.assertIn("NotchFlow-*-direct.dmg", workflow)
-        self.assertNotIn("NotchFlow-$RELEASE_TAG-direct.zip", workflow)
+        self.assertIn("KerNotch-*-direct.dmg", workflow)
+        self.assertNotIn("KerNotch-$RELEASE_TAG-direct.zip", workflow)
 
     def test_ci_ad_hoc_mode_does_not_require_membership_secrets(self):
         result = self._run_script(
@@ -174,18 +174,18 @@ class DirectPackagingTests(unittest.TestCase):
                 fi
                 shift
             done
-            app="$derived_data/Build/Products/Direct/NotchFlow.app"
+            app="$derived_data/Build/Products/Direct/KerNotch.app"
             mkdir -p "$app/Contents/MacOS"
-            printf '#!/bin/bash\n' > "$app/Contents/MacOS/NotchFlow"
-            chmod +x "$app/Contents/MacOS/NotchFlow"
+            printf '#!/bin/bash\n' > "$app/Contents/MacOS/KerNotch"
+            chmod +x "$app/Contents/MacOS/KerNotch"
             /usr/bin/python3 - "$app/Contents/Info.plist" <<'PYTHON'
             import plistlib
             import sys
 
             with open(sys.argv[1], 'wb') as plist:
                 plistlib.dump({
-                    'CFBundleExecutable': 'NotchFlow',
-                    'CFBundleIdentifier': 'com.notchflow.app',
+                    'CFBundleExecutable': 'KerNotch',
+                    'CFBundleIdentifier': 'com.kernotch.app',
                     'CFBundleShortVersionString': '1.2.3',
                 }, plist)
             PYTHON

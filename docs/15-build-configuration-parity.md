@@ -1,6 +1,6 @@
 # Build Configuration Parity
 
-NotchFlow ships in two configurations — `AppStore` (sandboxed, distributed through the Mac App Store) and `Direct` (unsandboxed, distributed as a `.dmg` and a Homebrew Cask). `docs/10-build-and-distribution.md` describes how the two are built. This document describes what a user actually gets in each, which capabilities are unavailable in the sandboxed build, and for each gap, what would have to become true to close it.
+KerNotch ships in two configurations — `AppStore` (sandboxed, distributed through the Mac App Store) and `Direct` (unsandboxed, distributed as a `.dmg` and a Homebrew Cask). `docs/10-build-and-distribution.md` describes how the two are built. This document describes what a user actually gets in each, which capabilities are unavailable in the sandboxed build, and for each gap, what would have to become true to close it.
 
 It exists because the differences are not obvious from the entitlements file. Two of them — the process table and the home directory — are silent: the API returns an empty result rather than an error, so a feature built against it degrades into doing nothing without any code path reporting a failure.
 
@@ -8,7 +8,7 @@ It exists because the differences are not obvious from the entitlements file. Tw
 
 ## How the measurements in this document were taken
 
-Every claim marked **measured** was produced by running the same binary twice: once ad-hoc signed with no entitlements, and once inside an `.app` bundle ad-hoc signed with `com.apple.security.app-sandbox`, `com.apple.security.network.server` and `com.apple.security.automation.apple-events` — the entitlement set in `NotchFlow-AppStore.entitlements`. Claims marked **reasoned** follow from Apple's documented sandbox rules and were not executed.
+Every claim marked **measured** was produced by running the same binary twice: once ad-hoc signed with no entitlements, and once inside an `.app` bundle ad-hoc signed with `com.apple.security.app-sandbox`, `com.apple.security.network.server` and `com.apple.security.automation.apple-events` — the entitlement set in `KerNotch-AppStore.entitlements`. Claims marked **reasoned** follow from Apple's documented sandbox rules and were not executed.
 
 Re-running these takes minutes and is worth doing whenever a macOS major release lands, because two of the results below are the kind Apple changes between releases.
 
@@ -19,13 +19,13 @@ The whole AI agent status pipeline, once the hooks are installed:
 | Capability | Result |
 |---|---|
 | Loopback HTTP listener binds a socket | **Measured:** works in both. The sandboxed build declares `com.apple.security.network.server`; without it the socket would not bind at all |
-| `notchflow://` URL scheme delivery | **Reasoned:** needs no entitlement in either build |
-| Every agent state — `thinking`, `working`, `usingTool`, `waitingForUser`, `completed`, `error`, `idle` | Identical. This is `NotchFlowCore` logic with no system API underneath it |
+| `kernotch://` URL scheme delivery | **Reasoned:** needs no entitlement in either build |
+| Every agent state — `thinking`, `working`, `usingTool`, `waitingForUser`, `completed`, `error`, `idle` | Identical. This is `KerNotchCore` logic with no system API underneath it |
 | Compact session grouping and its count badge, per-session expanded cards, ordering, the completed tick and its timer | Identical |
 | `NSWorkspace` running-application list, bundle identifiers, frontmost application | **Measured:** identical — 91 applications and 74 bundle identifiers in both, same frontmost |
 | Resolving which application handles a URL scheme | **Measured:** identical — `vscode://` resolved to `com.microsoft.VSCode` in both |
 | Opening a URL to focus an editor window | **Measured:** the sandboxed build opened `vscode://file/<folder>` and the editor's window for that folder came forward |
-| The island itself — geometry, animation, timers, hover, expansion | Identical. `NotchFlowCore` and `NotchFlowUI` touch no platform-privileged API |
+| The island itself — geometry, animation, timers, hover, expansion | Identical. `KerNotchCore` and `KerNotchUI` touch no platform-privileged API |
 
 The last two rows matter more than they look: they mean the *acting* half of "open the agent's editor" is fully available to the sandboxed build. What it loses is only the *knowing* half. See the gap below.
 
@@ -33,7 +33,7 @@ The last two rows matter more than they look: they mean the *acting* half of "op
 
 ### 1. Writing the agent hook files
 
-**What it is:** Enabling an agent in Settings writes its hook into `~/.claude/settings.json`, `~/.codex/config.toml` and `~/.codex/hooks.json`, or `~/.config/opencode/plugins/notchflow.ts`.
+**What it is:** Enabling an agent in Settings writes its hook into `~/.claude/settings.json`, `~/.codex/config.toml` and `~/.codex/hooks.json`, or `~/.config/opencode/plugins/kernotch.ts`.
 
 **Status in `AppStore`:** Blocked. **Measured:**
 
@@ -53,7 +53,7 @@ The sandboxed build does not merely lack write permission — its home directory
 
 - **A user-selected file grant.** Adding `com.apple.security.files.user-selected.read-write` plus an `NSOpenPanel` pointed at `~/.claude` would let the user grant access once, after which the installer writes normally and a security-scoped bookmark keeps the grant across launches. This is sanctioned and reviewable; the cost is one file-picker step instead of one paste, which is better but still not invisible.
 - **The agents adopting a discovery directory.** If Claude Code, Codex and OpenCode read hooks from a directory a sandboxed app can write — an app group container, or a per-agent "plugins" path under `~/Library/Application Support` — the installer writes there with no prompt at all. This is the clean answer and it is not ours to decide alone; it is worth raising with each agent's maintainers.
-- **A companion CLI.** Shipping a small unsandboxed helper the user runs once (`brew install notchflow-hooks`, or a `curl | sh` line) reduces the manual step to one command. It trades a paste for a terminal command, which is not obviously better for the audience.
+- **A companion CLI.** Shipping a small unsandboxed helper the user runs once (`brew install kernotch-hooks`, or a `curl | sh` line) reduces the manual step to one command. It trades a paste for a terminal command, which is not obviously better for the audience.
 
 **Work estimate:** Small for the user-selected grant — one entitlement, one panel, and bookmark persistence in `SettingsStore`. The installers and their tests need no change.
 
@@ -89,7 +89,7 @@ The sandbox hides the process table completely. `AgentHostApplicationResolver.ho
 
 **Status in `AppStore`:** Not built. `makeAppleClockMirror(timerProvider:)` returns `nil` outside `DIRECT_BUILD`, deliberately — reading another application's accessibility tree is not available to a sandboxed app. **Reasoned**, and already documented at the call site.
 
-**Consequence for the user:** in the App Store build, only timers started inside NotchFlow appear. The feature is absent rather than broken, and nothing in the UI offers it.
+**Consequence for the user:** in the App Store build, only timers started inside KerNotch appear. The feature is absent rather than broken, and nothing in the UI offers it.
 
 **What would have to become true:** Apple would need a sandbox-compatible way to observe another app's timers. There is no current route: the Accessibility permission itself is not the obstacle — the sandbox is.
 

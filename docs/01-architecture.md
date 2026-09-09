@@ -6,13 +6,13 @@ This document specifies the module graph, the dependency rule that keeps it enfo
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                      NotchFlow (app)                     │
+│                      KerNotch (app)                     │
 │              composition root — wires everything          │
 └───────────────┬───────────────┬───────────────┬─────────┘
                 │               │               │
                 ▼               ▼               ▼
       ┌─────────────────┐ ┌───────────┐ ┌──────────────────┐
-      │ NotchFlowUI      │ │ Notch-    │ │ NotchFlowProviders│
+      │ KerNotchUI      │ │ Notch-    │ │ KerNotchProviders│
       │ (SwiftUI views + │ │ FlowCore  │ │ (system framework │
       │  NSPanel ctrl)   │ │           │ │  integrations)     │
       └────────┬─────────┘ └─────┬─────┘ └─────────┬─────────┘
@@ -23,20 +23,20 @@ This document specifies the module graph, the dependency rule that keeps it enfo
 
 | Module | Imports | Owns |
 |---|---|---|
-| `NotchFlowCore` | Foundation and CoreGraphics only | `Activity` protocol, `ActivityManager`, `ActivityPriority`, notch geometry math (pure functions), the AI agent state machine, IPC message types |
-| `NotchFlowProviders` | `NotchFlowCore` + system frameworks (MediaRemote/ScriptingBridge, ScreenCaptureKit, AVFoundation, IOKit, etc.) | One provider per activity source; translates OS/IPC events into `Activity` updates |
-| `NotchFlowUI` | `NotchFlowCore` | SwiftUI compact/expanded views, the `NSPanel` controller that positions and orders the overlay window |
-| `NotchFlow` (app target) | All three | Composition root only — wires providers to the manager and the manager to the UI; contains no business logic |
+| `KerNotchCore` | Foundation and CoreGraphics only | `Activity` protocol, `ActivityManager`, `ActivityPriority`, notch geometry math (pure functions), the AI agent state machine, IPC message types |
+| `KerNotchProviders` | `KerNotchCore` + system frameworks (MediaRemote/ScriptingBridge, ScreenCaptureKit, AVFoundation, IOKit, etc.) | One provider per activity source; translates OS/IPC events into `Activity` updates |
+| `KerNotchUI` | `KerNotchCore` | SwiftUI compact/expanded views, the `NSPanel` controller that positions and orders the overlay window |
+| `KerNotch` (app target) | All three | Composition root only — wires providers to the manager and the manager to the UI; contains no business logic |
 
 ## The dependency rule
 
-Dependencies point inward, toward `NotchFlowCore`. `NotchFlowCore` **imports nothing but Foundation** — no AppKit, no SwiftUI, no provider module, no app-target code. `NotchFlowProviders` and `NotchFlowUI` may depend on `NotchFlowCore`, but `NotchFlowCore` never depends on them.
+Dependencies point inward, toward `KerNotchCore`. `KerNotchCore` **imports nothing but Foundation** — no AppKit, no SwiftUI, no provider module, no app-target code. `KerNotchProviders` and `KerNotchUI` may depend on `KerNotchCore`, but `KerNotchCore` never depends on them.
 
-This is an enforceable invariant, not a convention: **the architecture guard script (todo 20) fails the build if any `NotchFlowCore` source imports AppKit, SwiftUI, or a provider module.** The guard runs in CI on every change.
+This is an enforceable invariant, not a convention: **the architecture guard script (todo 20) fails the build if any `KerNotchCore` source imports AppKit, SwiftUI, or a provider module.** The guard runs in CI on every change.
 
 Why this shape:
-- **Testability in headless CI.** `NotchFlowCore` has no UI or system-framework dependency, so its state machine, priority resolution, and geometry math run as fast, deterministic unit tests with no window server, no display, no permissions.
-- **Provider swap per build configuration.** Because `NotchFlowProviders` depends on `NotchFlowCore` and not the reverse, the App Store build and the Homebrew build can link different music providers (see `docs/06-activity-providers.md`) without touching `NotchFlowCore` or `NotchFlowUI` at all.
+- **Testability in headless CI.** `KerNotchCore` has no UI or system-framework dependency, so its state machine, priority resolution, and geometry math run as fast, deterministic unit tests with no window server, no display, no permissions.
+- **Provider swap per build configuration.** Because `KerNotchProviders` depends on `KerNotchCore` and not the reverse, the App Store build and the Homebrew build can link different music providers (see `docs/06-activity-providers.md`) without touching `KerNotchCore` or `KerNotchUI` at all.
 
 ## End-to-end event flow
 
@@ -44,19 +44,19 @@ Why this shape:
 OS event or IPC message
         │
         ▼
-    Provider                (NotchFlowProviders)
+    Provider                (KerNotchProviders)
         │  translates raw event → Activity update
         ▼
-  ActivityManager           (NotchFlowCore, @MainActor)
+  ActivityManager           (KerNotchCore, @MainActor)
         │  register / update / end
         ▼
-  Priority resolution       (NotchFlowCore)
+  Priority resolution       (KerNotchCore)
         │  decides what is visible and in what order
         ▼
-  Panel state change        (NotchFlowUI)
+  Panel state change        (KerNotchUI)
         │
         ▼
-      Render                (NotchFlowUI)
+      Render                (KerNotchUI)
         │
         ▼
    Activity ends
@@ -73,7 +73,7 @@ The compact island remains visible while the app is running. When the active-act
 ### Sequence diagram: track change while a timer is running
 
 ```
-MusicProvider          TimerActivity        ActivityManager        NotchFlowUI
+MusicProvider          TimerActivity        ActivityManager        KerNotchUI
      │                       │                     │                    │
      │                       │  (timer already running, panel visible)  │
      │                       │                     │                    │

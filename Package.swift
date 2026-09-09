@@ -2,58 +2,58 @@
 import PackageDescription
 
 let package = Package(
-    name: "NotchFlow",
+    name: "KerNotch",
     defaultLocalization: "en",
     platforms: [
         .macOS(.v14)
     ],
     products: [
-        .executable(name: "NotchFlow", targets: ["NotchFlow"]),
-        .library(name: "NotchFlowCore", targets: ["NotchFlowCore"]),
-        .library(name: "NotchFlowProviders", targets: ["NotchFlowProviders"]),
-        .library(name: "NotchFlowUI", targets: ["NotchFlowUI"]),
+        .executable(name: "KerNotch", targets: ["KerNotch"]),
+        .library(name: "KerNotchCore", targets: ["KerNotchCore"]),
+        .library(name: "KerNotchProviders", targets: ["KerNotchProviders"]),
+        .library(name: "KerNotchUI", targets: ["KerNotchUI"]),
     ],
     targets: [
         .target(
-            name: "NotchFlowCore",
+            name: "KerNotchCore",
             dependencies: [],
-            path: "Sources/NotchFlowCore",
+            path: "Sources/KerNotchCore",
             resources: [.process("Resources")]
         ),
         .testTarget(
-            name: "NotchFlowCoreTests",
-            dependencies: ["NotchFlowCore"],
-            path: "Tests/NotchFlowCoreTests"
+            name: "KerNotchCoreTests",
+            dependencies: ["KerNotchCore"],
+            path: "Tests/KerNotchCoreTests"
         ),
         .target(
-            name: "NotchFlowProviders",
-            dependencies: ["NotchFlowCore"],
-            path: "Sources/NotchFlowProviders"
+            name: "KerNotchProviders",
+            dependencies: ["KerNotchCore"],
+            path: "Sources/KerNotchProviders"
         ),
         .testTarget(
-            name: "NotchFlowProvidersTests",
-            dependencies: ["NotchFlowProviders"],
-            path: "Tests/NotchFlowProvidersTests"
+            name: "KerNotchProvidersTests",
+            dependencies: ["KerNotchProviders"],
+            path: "Tests/KerNotchProvidersTests"
         ),
         .target(
-            name: "NotchFlowUI",
-            dependencies: ["NotchFlowCore"],
-            path: "Sources/NotchFlowUI",
+            name: "KerNotchUI",
+            dependencies: ["KerNotchCore"],
+            path: "Sources/KerNotchUI",
             resources: [.process("Resources")]
         ),
         .testTarget(
-            name: "NotchFlowUITests",
-            dependencies: ["NotchFlowUI"],
-            path: "Tests/NotchFlowUITests"
+            name: "KerNotchUITests",
+            dependencies: ["KerNotchUI"],
+            path: "Tests/KerNotchUITests"
         ),
         .executableTarget(
-            name: "NotchFlow",
+            name: "KerNotch",
             dependencies: [
-                "NotchFlowCore",
-                "NotchFlowProviders",
-                "NotchFlowUI",
+                "KerNotchCore",
+                "KerNotchProviders",
+                "KerNotchUI",
             ],
-            path: "NotchFlow",
+            path: "KerNotch",
             exclude: [
                 "Assets.xcassets",
                 "Info.plist",
@@ -61,9 +61,9 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "NotchFlowTests",
-            dependencies: ["NotchFlow"],
-            path: "Tests/NotchFlowTests"
+            name: "KerNotchTests",
+            dependencies: ["KerNotch"],
+            path: "Tests/KerNotchTests"
         ),
     ],
     swiftLanguageModes: [.v6]

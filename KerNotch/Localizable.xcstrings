@@ -1,0 +1,258 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Agent sessions are not carried across a restart. Each one reappears on its next event.": {
+      "comment": "Post-launch alert detail: why the island shows no agent sessions yet.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent sessions are not carried across a restart. Each one reappears on its next event."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aracı oturumları yeniden başlatma sırasında taşınmaz. Her biri bir sonraki olayında yeniden görünür."
+          }
+        }
+      }
+    },
+    "Last time, KerNotch quit itself because CPU stayed high after three restarts. Report: %@": {
+      "comment": "Post-launch alert after the watchdog quit the app.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Last time, KerNotch quit itself because CPU stayed high after three restarts. Report: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch son çalışmasında üç yeniden başlatmaya rağmen CPU yüksek kaldığı için kendini kapattı. Rapor: %@"
+          }
+        }
+      }
+    },
+    "KerNotch is restarting because CPU stayed high despite protective measures. A diagnostic report was saved.": {
+      "comment": "Tier 2 watchdog notification: the app is relaunching itself.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch is restarting because CPU stayed high despite protective measures. A diagnostic report was saved."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch koruyucu önlemlere rağmen CPU yüksek kaldığı için yeniden başlatılıyor. Tanı raporu kaydedildi."
+          }
+        }
+      }
+    },
+    "KerNotch is using more CPU than expected. Animations are paused while it recovers.": {
+      "comment": "Tier 1 watchdog notification: the island paused its motion to shed CPU.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch is using more CPU than expected. Animations are paused while it recovers."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch beklenenden fazla CPU kullanıyor. Toparlanana kadar animasyonlar duraklatıldı."
+          }
+        }
+      }
+    },
+    "KerNotch quit itself: CPU stayed high after 3 restarts within an hour. Diagnostic report: %@": {
+      "comment": "Watchdog notification: the restart budget is spent, so the app quits instead of relaunching.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch quit itself: CPU stayed high after 3 restarts within an hour. Diagnostic report: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch kendini kapattı: bir saat içinde 3 yeniden başlatmaya rağmen CPU yüksek kaldı. Tanı raporu: %@"
+          }
+        }
+      }
+    },
+    "KerNotch restarted itself after sustained high CPU use. Report: %@": {
+      "comment": "Post-launch alert after the watchdog restarted the app.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch restarted itself after sustained high CPU use. Report: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch sürekli yüksek CPU kullanımı sonrası kendini yeniden başlattı. Rapor: %@"
+          }
+        }
+      }
+    },
+    "Quit KerNotch": {
+      "comment": "Status item menu: terminates the app.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit KerNotch"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch'dan Çık"
+          }
+        }
+      }
+    },
+    "Settings…": {
+      "comment": "Status item menu: opens the settings window.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Settings…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ayarlar…"
+          }
+        }
+      }
+    },
+    "Start 10-Minute Timer": {
+      "comment": "Status item menu: starts a ten-minute countdown.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start 10-Minute Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10 Dakikalık Zamanlayıcı Başlat"
+          }
+        }
+      }
+    },
+    "Start 25-Minute Timer": {
+      "comment": "Status item menu: starts a twenty-five-minute countdown.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start 25-Minute Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "25 Dakikalık Zamanlayıcı Başlat"
+          }
+        }
+      }
+    },
+    "Start 5-Minute Timer": {
+      "comment": "Status item menu: starts a five-minute countdown.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start 5-Minute Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5 Dakikalık Zamanlayıcı Başlat"
+          }
+        }
+      }
+    },
+    "Stop Timer": {
+      "comment": "Status item menu: stops and clears the running timer.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stop Timer"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamanlayıcıyı Durdur"
+          }
+        }
+      }
+    },
+    "Welcome to KerNotch": {
+      "comment": "The onboarding window's title bar. Lives in the app target's catalog rather than KerNotchUI's because the window is built by the composition root, which resolves against the main bundle.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welcome to KerNotch"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch'a hoş geldiniz"
+          }
+        }
+      }
+    },
+    "not saved": {
+      "comment": "Stands in for the report path when the diagnostics report could not be written.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "not saved"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "kaydedilmedi"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

@@ -45,7 +45,7 @@ jobs:
           : "${NOTARYTOOL_KEYCHAIN_PROFILE:?Missing notary keychain profile name}"
           : "${SIGNING_KEYCHAIN_PASSWORD:?Missing signing keychain password}"
           certificate_path="$RUNNER_TEMP/developer-id.p12"
-          keychain_path="$RUNNER_TEMP/notchflow-signing.keychain-db"
+          keychain_path="$RUNNER_TEMP/kernotch-signing.keychain-db"
           printf '%s' "$DEVELOPER_ID_CERTIFICATE_BASE64" | base64 --decode > "$certificate_path"
           security create-keychain -p "$SIGNING_KEYCHAIN_PASSWORD" "$keychain_path"
           security set-keychain-settings -lut 21600 "$keychain_path"
@@ -75,23 +75,23 @@ jobs:
       - name: Package Direct App
         env:
           OUTPUT_DIR: ${{ runner.temp }}/release
-          DERIVED_DATA_PATH: ${{ runner.temp }}/NotchFlow-Release-DerivedData
+          DERIVED_DATA_PATH: ${{ runner.temp }}/KerNotch-Release-DerivedData
           NOTARYTOOL_KEYCHAIN: ${{ env.NOTARYTOOL_KEYCHAIN }}
         run: ./scripts/package-direct.sh
 
       - name: Assert Direct Music Backend Is Present
         run: |
           ./scripts/check-forbidden-symbols.sh \
-            "$RUNNER_TEMP/NotchFlow-Release-DerivedData/Build/Products/Direct/NotchFlow.app/Contents/MacOS/NotchFlow" \
+            "$RUNNER_TEMP/KerNotch-Release-DerivedData/Build/Products/Direct/KerNotch.app/Contents/MacOS/KerNotch" \
             --present
 
       - name: Upload Direct Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: NotchFlow-${{ github.ref_name }}-direct
+          name: KerNotch-${{ github.ref_name }}-direct
           path: |
-            ${{ runner.temp }}/release/NotchFlow-*-direct.dmg
-            ${{ runner.temp }}/release/NotchFlow-*-direct.dmg.sha256
+            ${{ runner.temp }}/release/KerNotch-*-direct.dmg
+            ${{ runner.temp }}/release/KerNotch-*-direct.dmg.sha256
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -100,8 +100,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           gh release create "$RELEASE_TAG" \
-            "$RUNNER_TEMP"/release/NotchFlow-*-direct.dmg \
-            "$RUNNER_TEMP"/release/NotchFlow-*-direct.dmg.sha256 \
-            --title "NotchFlow $RELEASE_TAG" \
+            "$RUNNER_TEMP"/release/KerNotch-*-direct.dmg \
+            "$RUNNER_TEMP"/release/KerNotch-*-direct.dmg.sha256 \
+            --title "KerNotch $RELEASE_TAG" \
             --generate-notes \
             --verify-tag

@@ -1,6 +1,6 @@
 # Deferred Backlog
 
-This document is the standing note for everything NotchFlow recognizes as valuable but does not build in V1. Every item here is postponed, not cancelled — each has a reason tied to a specific API gap or a deliberate sequencing choice, and each will be revisited when its trigger fires. It is a design specification — nothing in this folder is code.
+This document is the standing note for everything KerNotch recognizes as valuable but does not build in V1. Every item here is postponed, not cancelled — each has a reason tied to a specific API gap or a deliberate sequencing choice, and each will be revisited when its trigger fires. It is a design specification — nothing in this folder is code.
 
 Anything listed here must also appear in the "What V1 Deliberately Excludes" section of `docs/00-product-overview.md`, and the two documents must never disagree. If an item is added to or removed from this backlog, update that section in the same change.
 
@@ -28,23 +28,23 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 ### Generic third-party download and file-transfer progress
 
-**What it is:** A live-activity card showing download or transfer progress from arbitrary third-party apps — a browser download, a large file copy, a cloud-sync upload — without those apps doing anything special to support NotchFlow.
+**What it is:** A live-activity card showing download or transfer progress from arbitrary third-party apps — a browser download, a large file copy, a cloud-sync upload — without those apps doing anything special to support KerNotch.
 
 **Why it is not in V1:** Showing another app's download progress would require inspecting that app's internals, which is not available through public APIs and conflicts with the App Sandbox model. `NSProgress` file-progress publishing exists but is opt-in per publishing app; Finder and Safari do not expose it to third-party subscribers today, so there is no general mechanism that covers "any app's download" without that app's cooperation.
 
-**What would have to become true:** Either (a) more system and third-party apps voluntarily publish `NSProgress` for their transfers and NotchFlow subscribes to whichever ones do, or (b) Apple introduces a general transfer-progress observation API analogous to `MediaRemote` for media.
+**What would have to become true:** Either (a) more system and third-party apps voluntarily publish `NSProgress` for their transfers and KerNotch subscribes to whichever ones do, or (b) Apple introduces a general transfer-progress observation API analogous to `MediaRemote` for media.
 
 **Work estimate once feasible:** Medium. Unlike the single-source items above, this would need a provider capable of handling multiple concurrent, differently-labeled sources and de-duplicating or prioritizing among them — closer in complexity to the multi-activity overflow handling in `docs/05-activity-model.md` than to a single new provider.
 
-### NotchFlow-owned drop shelf (partial substitute)
+### KerNotch-owned drop shelf (partial substitute)
 
-**What it is:** Instead of observing other apps' transfers, NotchFlow could offer its own drag-and-drop shelf: the user drags a file onto the island, NotchFlow itself manages a local copy, share-sheet hand-off, or AirDrop send, and shows progress because it is the one doing the work rather than trying to observe someone else's process.
+**What it is:** Instead of observing other apps' transfers, KerNotch could offer its own drag-and-drop shelf: the user drags a file onto the island, KerNotch itself manages a local copy, share-sheet hand-off, or AirDrop send, and shows progress because it is the one doing the work rather than trying to observe someone else's process.
 
-**Why it is not in V1:** This is a meaningfully different feature — a new activity source that NotchFlow originates rather than observes — and was not part of the V1 feature list committed to in `docs/00-product-overview.md`. It is recorded here as the most viable path to delivering transfer-progress value without a new public API, not as a workaround being built now.
+**Why it is not in V1:** This is a meaningfully different feature — a new activity source that KerNotch originates rather than observes — and was not part of the V1 feature list committed to in `docs/00-product-overview.md`. It is recorded here as the most viable path to delivering transfer-progress value without a new public API, not as a workaround being built now.
 
-**What would have to become true:** A product decision to add NotchFlow-originated file handling as a feature, plus the standard AirDrop/share-sheet integration work, both public and available in V1's target macOS range.
+**What would have to become true:** A product decision to add KerNotch-originated file handling as a feature, plus the standard AirDrop/share-sheet integration work, both public and available in V1's target macOS range.
 
-**Work estimate once feasible:** Medium. NotchFlow would own the entire lifecycle (drop target, transfer mechanism, progress reporting) rather than subscribing to an external source, which is more code than any provider in V1 but does not depend on an API that does not yet exist.
+**Work estimate once feasible:** Medium. KerNotch would own the entire lifecycle (drop target, transfer mechanism, progress reporting) rather than subscribing to an external source, which is more code than any provider in V1 but does not depend on an API that does not yet exist.
 
 ## V1.5: sequenced after the core system is stable
 
@@ -54,7 +54,7 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 **Why it is not in V1:** Each depends on a third-party data integration (a maps provider, a delivery service's API, a carrier tracking API, a sports-data feed) that is a separate, larger effort from the core notch system. `draft.md` section 16 places this set in V1.5, after the core activity system ships.
 
-**What would have to become true:** The core activity model, provider architecture, and overflow handling need to be stable and proven in daily use first, since these sources will be the first fully external, network-dependent activities NotchFlow hosts.
+**What would have to become true:** The core activity model, provider architecture, and overflow handling need to be stable and proven in daily use first, since these sources will be the first fully external, network-dependent activities KerNotch hosts.
 
 **Work estimate once feasible:** Large, and variable per integration — each data source is its own provider with its own auth, polling-or-push tradeoff, and view design. Expect one release cycle per integration rather than one combined effort.
 
@@ -76,7 +76,7 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 **Why it is not in V1:** A distinct integration surface (HomeKit and third-party ecosystems) that deserves its own design pass rather than being folded into the V1 activity model as an afterthought.
 
-**What would have to become true:** A dedicated design pass covering which smart-home ecosystems to support, how HomeKit permissions and entitlements interact with NotchFlow's sandboxed build, and how third-party (non-HomeKit) ecosystems would be integrated at all.
+**What would have to become true:** A dedicated design pass covering which smart-home ecosystems to support, how HomeKit permissions and entitlements interact with KerNotch's sandboxed build, and how third-party (non-HomeKit) ecosystems would be integrated at all.
 
 **Work estimate once feasible:** Large. This is a new integration category, not a new provider — comparable in scope to adding AI agent integration was for V1.
 
@@ -86,13 +86,13 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 **Why it is not in V1:** V1 focuses on validating the AI-status architecture with three agents before widening the list. No public status hook was found for Claude Desktop, ChatGPT desktop, Cursor, or Copilot during feasibility research (see `docs/12-api-feasibility-matrix.md`); `draft.md` section 17 places broader AI app support after the initial three.
 
-**What would have to become true:** The V1 IPC protocol and hook-installer model need to prove out with real daily use across the first three agents. For each additional app, either a documented hook or extension point needs to exist, or NotchFlow needs a supported way to integrate with that app's own extension mechanism.
+**What would have to become true:** The V1 IPC protocol and hook-installer model need to prove out with real daily use across the first three agents. For each additional app, either a documented hook or extension point needs to exist, or KerNotch needs a supported way to integrate with that app's own extension mechanism.
 
 **Work estimate once feasible:** Small per agent, once the app in question exposes an integration point — the IPC protocol and UI are already generalized across agents; adding one is mostly a new hook script and a config entry.
 
 ### Third-party developer API, public API, and developer SDK
 
-**What it is:** A `NotchFlow.show(...)`-style public interface letting any third-party app or script publish its own activity into the notch, plus the accompanying SDK and documentation.
+**What it is:** A `KerNotch.show(...)`-style public interface letting any third-party app or script publish its own activity into the notch, plus the accompanying SDK and documentation.
 
 **Why it is not in V1:** Opening the platform to outside developers is a governance and stability commitment — API stability guarantees, abuse prevention, review of what third parties can push into a user's notch — that comes after the core product has shipped and settled, not before.
 
@@ -102,7 +102,7 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 ### User-defined activities
 
-**What it is:** Letting a user configure their own custom activity — its trigger, its data source, and its appearance — without NotchFlow or a third-party developer having built it in advance.
+**What it is:** Letting a user configure their own custom activity — its trigger, its data source, and its appearance — without KerNotch or a third-party developer having built it in advance.
 
 **Why it is not in V1:** This depends on the third-party developer API above existing first, or on a separate no-code configuration system that was not part of the V1 scope committed to in `docs/00-product-overview.md`.
 

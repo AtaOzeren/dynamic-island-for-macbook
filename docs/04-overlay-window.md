@@ -4,7 +4,7 @@ This document specifies the `NSPanel` that draws the island: every property that
 
 ## The `NSPanel` property table
 
-NotchFlowUI owns a single `NSPanel` subclass, created once at launch and never deallocated. Every property below is set once at creation unless the "Changes at runtime" column says otherwise.
+KerNotchUI owns a single `NSPanel` subclass, created once at launch and never deallocated. Every property below is set once at creation unless the "Changes at runtime" column says otherwise.
 
 | Property | Value | Changes at runtime | What breaks if it is wrong |
 |---|---|---|---|
@@ -14,11 +14,11 @@ NotchFlowUI owns a single `NSPanel` subclass, created once at launch and never d
 | `isOpaque` | `false` | No | If `true`, AppKit paints an opaque backing rectangle behind the SwiftUI content, producing a visible box around the intended notch-shaped cutout instead of a seamless blend with the black notch. |
 | `backgroundColor` | `.clear` | No | If any non-clear color is set, the same visible-box artifact appears even with `isOpaque = false`; the two properties must agree. |
 | `hasShadow` | `false` in compact state; `true` in expanded state | Yes, per visual state | A shadow on the compact pill draws a soft grey halo around the notch at all times, which reads as a rendering glitch since the notch itself casts no shadow. A missing shadow on the expanded panel makes it look pasted onto the desktop instead of floating above it. |
-| `hidesOnDeactivate` | `false` | No | If `true`, the panel disappears the moment NotchFlow itself loses focus to any other app — which is effectively always, since NotchFlow is never the active app during normal use. This would make the island invisible except while clicking on NotchFlow's own (nonexistent) windows. |
+| `hidesOnDeactivate` | `false` | No | If `true`, the panel disappears the moment KerNotch itself loses focus to any other app — which is effectively always, since KerNotch is never the active app during normal use. This would make the island invisible except while clicking on KerNotch's own (nonexistent) windows. |
 | `isMovable` | `false` | No | If `true`, an accidental drag on the panel — even though it is non-activating — repositions the island away from the notch it is supposed to be anchored to, with no way for the user to reset it short of relaunching. |
 | `collectionBehavior` | `[.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]` | No | Without `.canJoinAllSpaces`, the island vanishes the moment the user switches to a different Space. Without `.fullScreenAuxiliary`, the panel cannot appear at all over an app running in full-screen/Space-per-display mode. Without `.stationary`, the panel scrolls along with Mission Control / Space-switching gesture animations instead of staying pinned to the notch. |
 | `canBecomeKey` | `false` | No | If `true`, a click anywhere on the panel (even in the non-activating case) can still make it the key window, which redirects keyboard input intended for the previously-focused app into a window that has no text fields to receive it. |
-| `canBecomeMain` | `false` | No | Same failure mode as `canBecomeKey`, at the main-window level: it would make NotchFlow's panel eligible to become the app's main window, which has no meaning for an accessory-style overlay and can confuse window-cycling shortcuts. |
+| `canBecomeMain` | `false` | No | Same failure mode as `canBecomeKey`, at the main-window level: it would make KerNotch's panel eligible to become the app's main window, which has no meaning for an accessory-style overlay and can confuse window-cycling shortcuts. |
 | `ignoresMouseEvents` | `true` while collapsed (hidden or compact-idle); `false` while hovered, expanded, or mid-animation into either | Yes, per interaction state | If always `true`, the island can never be clicked to expand. If always `false`, the panel's full bounding rectangle — which is larger than the visible pill so it can grow into the expanded shape — intercepts clicks meant for the menu bar or desktop underneath it, even where nothing is visibly drawn. |
 
 ## Visual states and geometry

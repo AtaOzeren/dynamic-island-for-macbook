@@ -5,18 +5,18 @@ PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 OUTPUT_DIR=${OUTPUT_DIR:-"$PROJECT_ROOT/dist/app-store"}
 # Spotlight skips any path whose component ends in `.noindex`, so the app
 # bundles a packaging run produces never surface beside the installed app in
-# Spotlight and Launchpad. Every stray "NotchFlow.app" a user finds there is a
+# Spotlight and Launchpad. Every stray "KerNotch.app" a user finds there is a
 # build product, and each one is a copy they can launch by mistake.
 DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData.noindex/AppStoreSubmission"}
-ARCHIVE_PATH="$OUTPUT_DIR/NotchFlow.xcarchive"
-APP_PATH="$ARCHIVE_PATH/Products/Applications/NotchFlow.app"
-APP_BINARY="$APP_PATH/Contents/MacOS/NotchFlow"
+ARCHIVE_PATH="$OUTPUT_DIR/KerNotch.xcarchive"
+APP_PATH="$ARCHIVE_PATH/Products/Applications/KerNotch.app"
+APP_BINARY="$APP_PATH/Contents/MacOS/KerNotch"
 APPLE_TEAM_ID=${APPLE_TEAM_ID:-}
 ASSET_CHECK_PATH=${ASSET_CHECK_PATH:-"$PROJECT_ROOT/scripts/check-assets.sh"}
 FORBIDDEN_SYMBOL_CHECK_PATH=${FORBIDDEN_SYMBOL_CHECK_PATH:-"$PROJECT_ROOT/scripts/check-forbidden-symbols.sh"}
 
 # xcodebuild registers every product it builds with LaunchServices, which is
-# how a packaging run leaves a second "NotchFlow.app" in Spotlight and
+# how a packaging run leaves a second "KerNotch.app" in Spotlight and
 # Launchpad beside the one the user installed — a copy they can launch by
 # mistake, and one that never updates again. The `.noindex` derived-data path
 # keeps Spotlight out; LaunchServices ignores that convention, so the
@@ -35,10 +35,10 @@ unregister_from_launch_services() {
 rm -rf "$DERIVED_DATA_PATH" "$ARCHIVE_PATH"
 mkdir -p "$OUTPUT_DIR"
 
-echo "==> Archiving NotchFlow (App Store)"
+echo "==> Archiving KerNotch (App Store)"
 ARCHIVE_ARGUMENTS=(
-    -project "$PROJECT_ROOT/NotchFlow.xcodeproj"
-    -scheme "NotchFlow (App Store)"
+    -project "$PROJECT_ROOT/KerNotch.xcodeproj"
+    -scheme "KerNotch (App Store)"
     -configuration AppStore
     -destination "generic/platform=macOS"
     -derivedDataPath "$DERIVED_DATA_PATH"
@@ -52,20 +52,20 @@ else
 fi
 
 if [ ! -d "$APP_PATH" ] || [ ! -f "$APP_BINARY" ]; then
-    echo "Error: archive did not contain NotchFlow.app" >&2
+    echo "Error: archive did not contain KerNotch.app" >&2
     exit 1
 fi
 
 echo "==> Running local App Store validation"
 plutil -lint \
     "$APP_PATH/Contents/Info.plist" \
-    "$PROJECT_ROOT/NotchFlow-AppStore.entitlements" \
+    "$PROJECT_ROOT/KerNotch-AppStore.entitlements" \
     "$PROJECT_ROOT/AppStore-ExportOptions.plist"
 "$ASSET_CHECK_PATH"
 "$FORBIDDEN_SYMBOL_CHECK_PATH" "$APP_BINARY"
 
 ARCHIVED_BUNDLE_ID=$(defaults read "$APP_PATH/Contents/Info" CFBundleIdentifier)
-if [ "$ARCHIVED_BUNDLE_ID" != "com.notchflow.NotchFlow" ]; then
+if [ "$ARCHIVED_BUNDLE_ID" != "com.kernotch.KerNotch" ]; then
     echo "Error: unexpected archived bundle identifier: $ARCHIVED_BUNDLE_ID" >&2
     exit 1
 fi
