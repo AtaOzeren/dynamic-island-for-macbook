@@ -120,6 +120,7 @@ public enum ExpandedItemRenderer: Equatable, Sendable {
     case aiAgent
     case charging
     case recording
+    case discordCall
     case genericRow
 }
 
@@ -130,6 +131,7 @@ public func expandedItemRenderer(for activity: any Activity) -> ExpandedItemRend
     case is AIAgentActivity: .aiAgent
     case is ChargingActivity: .charging
     case is RecordingActivity: .recording
+    case is DiscordCallActivity: .discordCall
     default: .genericRow
     }
 }
@@ -181,7 +183,7 @@ public func expandedItemHeight(
             metrics: metrics.aiAgent,
             panelMetrics: panelMetrics
         ).height
-    case .charging, .recording, .genericRow:
+    case .charging, .recording, .discordCall, .genericRow:
         return metrics.panel.rowHeight
     }
 }
@@ -386,7 +388,7 @@ func expandedItemWidth(
         timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).width
     case .aiAgent:
         aiAgentExpandedSize(hasProgress: false, metrics: metrics.aiAgent, panelMetrics: panelMetrics).width
-    case .charging, .recording, .genericRow:
+    case .charging, .recording, .discordCall, .genericRow:
         metrics.panel.width
     }
 }
@@ -677,6 +679,16 @@ public struct ExpandedActivityView: View {
         case .recording:
             if let recording = activity as? RecordingActivity {
                 RecordingActivityView(activity: recording, metrics: metrics.panel)
+            } else {
+                genericRow(for: activity)
+            }
+        case .discordCall:
+            if let call = activity as? DiscordCallActivity {
+                DiscordCallActivityView(
+                    activity: call,
+                    metrics: metrics.panel,
+                    onLeave: { onPrimaryAction(activity.identity) }
+                )
             } else {
                 genericRow(for: activity)
             }
