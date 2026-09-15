@@ -16,6 +16,18 @@ private final class DisplayInventory: ObservableObject {
     }
 }
 
+/// What the Integrations pane shows about Discord that only the running
+/// integration knows, published so the settings window follows it live.
+@MainActor
+private final class DiscordSettingsModel: ObservableObject {
+    @Published var status: DiscordConnectionStatus
+    @Published var isDiscordInstalled = false
+
+    init(status: DiscordConnectionStatus) {
+        self.status = status
+    }
+}
+
 @main
 struct KerNotchApp: App {
     private static let isUITesting = CommandLine.arguments.contains("--ui-testing")
@@ -51,6 +63,10 @@ struct KerNotchApp: App {
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
     private let islandPresenter: IslandPresenter
 
+    /// `nil` in the App Store build: the integration reaches Discord's socket
+    /// outside the sandbox, so that build has no tab for it and no connection.
+    private let discordIntegration: DiscordIntegration?
+
     /// Watches the process's own CPU and degrades, restarts, or quits the app
     /// when it runs away. Held for the app's lifetime for the plainest reason:
     /// a supervisor that deallocates takes its sampler's timer with it, which is
@@ -63,6 +79,14 @@ struct KerNotchApp: App {
     private let automationGate: MusicAutomationGate
     private let appliedLanguageOverride: String?
 
+    /// False when the settings file exists but could not be read. The session
+    /// then runs on defaults that are not the user's choices, so nothing is
+    /// applied on the user's behalf outside KerNotch itself: not Launch at
+    /// Login, not the app language, not the agents' hook files, not onboarding.
+    /// Otherwise a file made unreadable by a restore or an ownership change
+    /// would cost the user their login item and their installed hooks.
+    private let isSettingsFileUsable: Bool
+
     @State private var aiPreferences: AIIntegrationPreferences
     @State private var generalPreferences: GeneralPreferences
     @State private var enabledIdentifiers: Set<ActivityProviderIdentifier>
@@ -71,7 +95,9 @@ struct KerNotchApp: App {
     @State private var musicAutomationRequestsInProgress: Set<MusicPlayerTarget>
     @State private var hookStates: [IPCAgentID: HookInstallationState]
     @State private var launchAtLoginNeedsApproval: Bool
+    @State private var discordPreferences: DiscordIntegrationPreferences
     @StateObject private var displayInventory: DisplayInventory
+    @StateObject private var discordSettings: DiscordSettingsModel
 
     init() {
         let automationGate = MusicAutomationGate()
@@ -103,7 +129,16 @@ struct KerNotchApp: App {
         let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
         let displayInventory = DisplayInventory(displays: currentDisplays)
         _displayInventory = StateObject(wrappedValue: displayInventory)
-        let settingsStore = SettingsStore()
+        // Only a bundled app has a preferences domain of its own to import
+        // from; an unbundled `swift run` would read the installed app's domain
+        // and could never remove from it.
+        let settingsStorage = FileSettingsStorage()
+        if let bundleIdentifier = Bundle.main.bundleIdentifier {
+            settingsStorage.importPreferences(from: .standard, domain: bundleIdentifier)
+        }
+        let settingsStore = SettingsStore(storage: settingsStorage, migrations: [.removingRetiredKeys])
+        let isSettingsFileUsable = settingsStorage.isSavingEnabled
+        self.isSettingsFileUsable = isSettingsFileUsable
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
         _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)
@@ -113,20 +148,29 @@ struct KerNotchApp: App {
             availableDisplayCount: currentDisplays.count
         )
         initialGeneralPreferences.appearance = .dark
+        if isSettingsFileUsable == false {
+            // Shows what macOS actually has, rather than a default that would
+            // read as the login item having been switched off.
+            initialGeneralPreferences.launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
         _generalPreferences = State(initialValue: initialGeneralPreferences)
         _launchAtLoginNeedsApproval = State(
             initialValue: SMAppService.mainApp.status == .requiresApproval
         )
-        do {
-            try Self.applyLaunchAtLogin(initialGeneralPreferences.launchAtLogin)
-        } catch {
-            Self.present(error)
+        if isSettingsFileUsable {
+            do {
+                try Self.applyLaunchAtLogin(initialGeneralPreferences.launchAtLogin)
+            } catch {
+                Self.present(error)
+            }
         }
         _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
         let appliedLanguageOverride = settingsStore[.languageOverride]
         self.appliedLanguageOverride = appliedLanguageOverride
         _languageOverride = State(initialValue: appliedLanguageOverride)
-        Self.applyLanguageOverride(appliedLanguageOverride)
+        if isSettingsFileUsable {
+            Self.applyLanguageOverride(appliedLanguageOverride)
+        }
 
         // Held rather than constructed inline: the menu bar's timer control and
         // the expanded island's pause/resume have to reach the same provider
@@ -141,9 +185,12 @@ struct KerNotchApp: App {
         )
         self.statusItemPresenter = statusItemPresenter
 
+        let microphoneMonitor = MicrophoneActivityMonitor()
+        let microphoneRecording = SystemAudioRecordingObserver(monitor: microphoneMonitor)
         let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
             timerProvider: timerProvider,
+            microphoneRecording: microphoneRecording,
             enabledIdentifiers: settingsStore.enabledProviderIdentifiers
         )
         self.registry = registry
@@ -154,6 +201,28 @@ struct KerNotchApp: App {
         registry.startObserving(into: manager)
         appleClockMirror?.start()
 
+        // Applied before the island draws anything, so a Discord call already in
+        // progress at launch appears as the call rather than flashing as the
+        // microphone indicator first.
+        #if APPSTORE_BUILD
+            let discordIntegration: DiscordIntegration? = nil
+        #else
+            let discordIntegration: DiscordIntegration? = DiscordIntegration(
+                manager: manager,
+                microphoneMonitor: microphoneMonitor,
+                microphoneRecording: microphoneRecording,
+                clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)
+            )
+        #endif
+        self.discordIntegration = discordIntegration
+        let discordSettings = DiscordSettingsModel(status: discordIntegration?.status ?? .inactive)
+        _discordSettings = StateObject(wrappedValue: discordSettings)
+        _discordPreferences = State(initialValue: settingsStore.discordIntegrationPreferences)
+        discordIntegration?.onStatusChange = { status in
+            discordSettings.status = status
+        }
+        discordIntegration?.apply(settingsStore.discordIntegrationPreferences)
+
         // The providers are handed in so a press inside the expanded island
         // reaches the backend that owns the state it is about. The presenter
         // holds no provider logic of its own — it routes.
@@ -162,6 +231,7 @@ struct KerNotchApp: App {
             settingsStore: settingsStore,
             musicProvider: musicProvider,
             timerProvider: timerProvider,
+            discordVoice: discordIntegration?.voiceChannelLeaving,
             screenConfigurationSettled: { displays in
                 statusItemPresenter.screenConfigurationDidChange()
                 displayInventory.displays = displays
@@ -295,23 +365,27 @@ struct KerNotchApp: App {
             )
             watchdogLaunch.presentNoticeIfNeeded()
 
-            Self.repairEnabledHooks(
-                preferences: settingsStore.aiIntegrationPreferences,
-                manualSetupPresenter: manualSetupPresenter
-            )
-
-            presenter.presentIfNeeded(
-                hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding] || Self.isUITesting,
-                detectedAgents: Self.detectedAgents()
-            ) { outcome in
-                settingsStore[.hasCompletedOnboarding] = true
-                Self.applyHookOffers(
-                    outcome.acceptedHookOffers,
-                    to: settingsStore,
-                    receiver: receiver,
-                    listener: loopbackListener,
+            if isSettingsFileUsable {
+                Self.repairEnabledHooks(
+                    preferences: settingsStore.aiIntegrationPreferences,
                     manualSetupPresenter: manualSetupPresenter
                 )
+
+                presenter.presentIfNeeded(
+                    hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding] || Self.isUITesting,
+                    detectedAgents: Self.detectedAgents()
+                ) { outcome in
+                    settingsStore[.hasCompletedOnboarding] = true
+                    Self.applyHookOffers(
+                        outcome.acceptedHookOffers,
+                        to: settingsStore,
+                        receiver: receiver,
+                        listener: loopbackListener,
+                        manualSetupPresenter: manualSetupPresenter
+                    )
+                }
+            } else {
+                Self.presentUnreadableSettingsNotice()
             }
 
             if CommandLine.arguments.contains(Self.reopenSettingsArgument) {
@@ -524,10 +598,22 @@ struct KerNotchApp: App {
             onPreviewAttentionGlow: islandPresenter.previewAttentionGlow,
             launchAtLoginNeedsApproval: launchAtLoginNeedsApproval,
             restartRequired: languageOverride != appliedLanguageOverride,
-            onRestart: restartApplication
+            onRestart: restartApplication,
+            discordPreferences: $discordPreferences,
+            discordSettings: discordIntegration.map { integration in
+                DiscordSettingsState(
+                    isDiscordInstalled: discordSettings.isDiscordInstalled,
+                    isConnectionAvailable: integration.isConnectionAvailable,
+                    status: discordSettings.status
+                )
+            },
+            onDiscordPreferencesChange: applyDiscordPreferences,
+            onDiscordAction: handleDiscordAction
         )
         .onAppear {
             aiPreferences = settingsStore.aiIntegrationPreferences
+            discordPreferences = settingsStore.discordIntegrationPreferences
+            refreshDiscordInstallation()
             hookStates = Self.currentHookStates()
             refreshLaunchAtLoginApprovalState()
             refreshAvailableDisplays()
@@ -539,6 +625,7 @@ struct KerNotchApp: App {
             )
         ) { _ in
             reloadMusicAutomationState()
+            refreshDiscordInstallation()
         }
         .onReceive(
             DistributedNotificationCenter.default().publisher(
@@ -547,11 +634,15 @@ struct KerNotchApp: App {
         ) { _ in
             refreshMusicAutomationState()
         }
-        .onChange(of: generalPreferences, initial: true) { _, preferences in
-            do {
-                try Self.applyLaunchAtLogin(preferences.launchAtLogin)
-            } catch {
-                Self.present(error)
+        .onChange(of: generalPreferences, initial: true) { previous, preferences in
+            // With an unreadable settings file, only a switch the user actually
+            // flips reaches macOS; the window echoing its values back does not.
+            if isSettingsFileUsable || previous.launchAtLogin != preferences.launchAtLogin {
+                do {
+                    try Self.applyLaunchAtLogin(preferences.launchAtLogin)
+                } catch {
+                    Self.present(error)
+                }
             }
             refreshLaunchAtLoginApprovalState()
             settingsStore.generalPreferences = preferences
@@ -633,6 +724,29 @@ struct KerNotchApp: App {
                 Self.presentListenerFailure()
             }
         }
+    }
+
+    private func applyDiscordPreferences(_ preferences: DiscordIntegrationPreferences) {
+        settingsStore.discordIntegrationPreferences = preferences
+        discordIntegration?.apply(preferences)
+    }
+
+    private func handleDiscordAction(_ action: DiscordSettingsAction) {
+        switch action {
+        case .connect:
+            discordIntegration?.authorize()
+        case .disconnect:
+            discordIntegration?.forgetAuthorization()
+        case .reconnect:
+            discordIntegration?.reconnect()
+        }
+    }
+
+    /// Read when the settings window is shown or the app comes forward, never on
+    /// a timer: the answer only changes when the user installs or removes
+    /// Discord, and both happen outside KerNotch.
+    private func refreshDiscordInstallation() {
+        discordSettings.isDiscordInstalled = discordIntegration?.isDiscordInstalled ?? false
     }
 
     private func handleHookAction(_ agentID: IPCAgentID, _ action: AIHookAction) {
@@ -738,6 +852,17 @@ struct KerNotchApp: App {
 
     private static func present(_ error: Error) {
         NSAlert(error: error).runModal()
+    }
+
+    private static func presentUnreadableSettingsNotice() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "KerNotch could not read its settings.")
+        alert.informativeText = String(
+            localized:
+                "KerNotch is using default settings for now and will not save changes. Launch at Login, the app language and agent hooks are left exactly as they are. Check that this file belongs to you, then restart KerNotch: \(FileSettingsStorage.defaultFileURL.path)"
+        )
+        alert.runModal()
     }
 
     /// Says what a failed loopback start means for the user, in their language.

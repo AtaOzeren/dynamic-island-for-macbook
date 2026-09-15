@@ -2202,6 +2202,438 @@
           }
         }
       }
+    },
+    "Discord call": {
+      "comment": "Island accessibility label and fallback title for a Discord voice call.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord call"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord görüşmesi"
+          }
+        }
+      }
+    },
+    "In a Discord call": {
+      "comment": "Island, Discord call row title while the voice channel is unknown (Discord's RPC is not connected).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In a Discord call"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord görüşmesinde"
+          }
+        }
+      }
+    },
+    "Private call": {
+      "comment": "Island, Discord call row title for a direct message or group call, which has no channel name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Private call"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Özel görüşme"
+          }
+        }
+      }
+    },
+    "Muted: %@": {
+      "comment": "VoiceOver prefix for a Discord call while the user is muted. Placeholder is the channel and server.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muted: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sessizde: %@"
+          }
+        }
+      }
+    },
+    "Integrations": {
+      "comment": "Settings window tab for integrations with other applications, such as Discord.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integrations"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entegrasyonlar"
+          }
+        }
+      }
+    },
+    "Discord": {
+      "comment": "Integrations pane, Discord section title. The product name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord"
+          }
+        }
+      }
+    },
+    "Shows Discord voice calls on the island in place of the microphone indicator.": {
+      "comment": "Integrations pane, Discord section caption.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows Discord voice calls on the island in place of the microphone indicator."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord sesli görüşmelerini adada mikrofon göstergesinin yerine gösterir."
+          }
+        }
+      }
+    },
+    "Show Discord calls": {
+      "comment": "Integrations pane switch that enables the Discord integration.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Discord calls"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord görüşmelerini göster"
+          }
+        }
+      }
+    },
+    "Discord is not installed on this Mac.": {
+      "comment": "Integrations pane notice when no Discord client is installed.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord is not installed on this Mac."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bu Mac'te Discord yüklü değil."
+          }
+        }
+      }
+    },
+    "Get Discord": {
+      "comment": "Integrations pane link to Discord's download page.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get Discord"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord'u indir"
+          }
+        }
+      }
+    },
+    "Voice channel": {
+      "comment": "Integrations pane, section title for the optional Discord connection that names the voice channel.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voice channel"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ses kanalı"
+          }
+        }
+      }
+    },
+    "Connect": {
+      "comment": "Integrations pane button that asks Discord to authorize KerNotch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlan"
+          }
+        }
+      }
+    },
+    "Disconnect": {
+      "comment": "Integrations pane button that forgets KerNotch's Discord authorization.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnect"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlantıyı kes"
+          }
+        }
+      }
+    },
+    "Waiting for Discord to open.": {
+      "comment": "Integrations pane status while Discord is not running.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Waiting for Discord to open."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord'un açılması bekleniyor."
+          }
+        }
+      }
+    },
+    "Connecting to Discord…": {
+      "comment": "Integrations pane status while connecting to the local Discord client.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecting to Discord…"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord'a bağlanılıyor…"
+          }
+        }
+      }
+    },
+    "Ready to connect.": {
+      "comment": "Integrations pane status when Discord is reachable but KerNotch is not authorized yet.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ready to connect."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlanmaya hazır."
+          }
+        }
+      }
+    },
+    "Approve KerNotch in Discord.": {
+      "comment": "Integrations pane status while Discord shows its authorization prompt.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approve KerNotch in Discord."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord'da KerNotch'u onaylayın."
+          }
+        }
+      }
+    },
+    "Connected as %@.": {
+      "comment": "Integrations pane status once connected. Placeholder is the Discord username.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected as %@."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ olarak bağlandı."
+          }
+        }
+      }
+    },
+    "Connected.": {
+      "comment": "Integrations pane status once connected, when Discord did not report a username.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlandı."
+          }
+        }
+      }
+    },
+    "The request was declined in Discord.": {
+      "comment": "Integrations pane status after the user declined the prompt in Discord.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The request was declined in Discord."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "İstek Discord'da reddedildi."
+          }
+        }
+      }
+    },
+    "Try Again": {
+      "comment": "Integrations pane button that starts the Discord connection over when it is waiting on Discord.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Try Again"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tekrar dene"
+          }
+        }
+      }
+    },
+    "Connect Discord to see the channel name and leave the channel from the island. Discord asks you to approve KerNotch once.": {
+      "comment": "Integrations pane, caption of the Discord connection section.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Discord to see the channel name and leave the channel from the island. Discord asks you to approve KerNotch once."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal adını görmek ve adadan kanaldan çıkmak için Discord'u bağlayın. Discord, KerNotch'u bir kez onaylamanızı ister."
+          }
+        }
+      }
+    },
+    "Discord did not recognize KerNotch.": {
+      "comment": "Integrations pane status when Discord rejects the build's Discord application.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord did not recognize KerNotch."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord KerNotch'u tanımadı."
+          }
+        }
+      }
+    },
+    "Discord did not complete the connection. KerNotch's Discord connection may not be available for your account yet; the microphone badge still works.": {
+      "comment": "Integrations pane status when Discord does not complete authorization — before KerNotch's Discord application is approved, accounts that are not its testers see this.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord did not complete the connection. KerNotch's Discord connection may not be available for your account yet; the microphone badge still works."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord bağlantıyı tamamlamadı. KerNotch'un Discord bağlantısı hesabınız için henüz kullanılamıyor olabilir; mikrofon rozeti yine çalışır."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

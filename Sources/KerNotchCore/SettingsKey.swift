@@ -13,7 +13,7 @@ public struct SettingsKey<Value: Equatable & Sendable>: Equatable, Hashable, Sen
         decode: @escaping @Sendable (Any) -> Value?,
         encode: @escaping @Sendable (Value) -> Any?
     ) {
-        name = "com.kernotch.settings.\(path)"
+        name = SettingsKeys.namePrefix + path
         self.defaultValue = defaultValue
         decodeValue = decode
         encodeValue = encode
@@ -131,6 +131,9 @@ extension SettingsKey where Value == Bool {
     public static var hasCompletedOnboarding: Self {
         boolKey(path: "general.hasCompletedOnboarding", defaultValue: false)
     }
+    public static var enableDiscord: Self {
+        boolKey(path: "integrations.discord.enabled", defaultValue: false)
+    }
 }
 
 extension SettingsKey where Value == Bool? {
@@ -156,6 +159,17 @@ extension SettingsKey where Value == String? {
 }
 
 public enum SettingsKeys {
+    /// What every setting's stored name begins with, so KerNotch's settings can
+    /// be told apart from anything else in a shared store.
+    public static let namePrefix = "com.kernotch.settings."
+
+    /// Keys a released build no longer reads, removed by migration so they do
+    /// not linger in the user's preferences.
+    public static let retiredKeyNames = [
+        // A Client ID the user typed in; the connection now uses the build's own.
+        "com.kernotch.settings.integrations.discord.clientID"
+    ]
+
     public static var registeredDefaults: [String: Any] {
         var defaults: [String: Any] = [:]
         register(.displayTarget, in: &defaults)
@@ -178,6 +192,7 @@ public enum SettingsKeys {
         register(.showAIAttentionGlow, in: &defaults)
         register(.hasCompletedOnboarding, in: &defaults)
         register(.cpuWatchdogDisabled, in: &defaults)
+        register(.enableDiscord, in: &defaults)
         return defaults
     }
 

@@ -30,6 +30,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     public let isPlayingMusic: Bool
     public let musicSourceIdentity: MusicSourceIdentity?
     public let recordingSource: RecordingSource?
+    public let discordCall: DiscordCallPresentation?
     let aiAgentPresentation: CompactAIAgentSlotPresentation?
     public var aiAgentID: IPCAgentID? { aiAgentPresentation?.agentID }
 
@@ -42,6 +43,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         isPlayingMusic = false
         musicSourceIdentity = nil
         recordingSource = nil
+        discordCall = nil
         aiAgentPresentation = nil
     }
 
@@ -65,6 +67,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         isPlayingMusic = musicPresentation?.isPlaying ?? false
         musicSourceIdentity = musicPresentation?.sourceIdentity
         recordingSource = nil
+        discordCall = nil
         self.aiAgentPresentation = aiAgentPresentation
     }
 
@@ -80,6 +83,23 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         isPlayingMusic = false
         musicSourceIdentity = nil
         recordingSource = activity.source
+        discordCall = nil
+        aiAgentPresentation = nil
+    }
+
+    init(
+        discordCall activity: DiscordCallActivity,
+        presentation: DiscordCallPresentation
+    ) {
+        id = activity.identity.rawValue
+        symbolName = presentation.microphoneSymbolName
+        label = nil
+        overflowCount = nil
+        accessibilityLabel = presentation.accessibilityLabel
+        isPlayingMusic = false
+        musicSourceIdentity = nil
+        recordingSource = nil
+        discordCall = presentation
         aiAgentPresentation = nil
     }
 
@@ -92,6 +112,7 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         isPlayingMusic = false
         musicSourceIdentity = nil
         recordingSource = nil
+        discordCall = nil
         aiAgentPresentation = nil
     }
 
@@ -207,6 +228,7 @@ private func compactSlot(for activity: any Activity, groupSize: Int) -> CompactS
     switch activity {
     case let music as MusicActivity: musicCompactSlot(for: music)
     case let recording as RecordingActivity: recordingCompactSlot(for: recording)
+    case let call as DiscordCallActivity: discordCallCompactSlot(for: call)
     case let charging as ChargingActivity: chargingCompactSlot(for: charging)
     case let aiAgent as AIAgentActivity:
         aiAgentCompactSlot(for: aiAgent, sessionCount: groupSize)
@@ -411,6 +433,7 @@ public func compactSymbolName(_ kind: ActivityKind) -> String {
     case .aiAgent: "sparkles"
     case .fileTransfer: "arrow.down.circle"
     case .watchdogNotice: "exclamationmark.triangle.fill"
+    case .discordCall: "mic.fill"
     }
 }
 
@@ -423,6 +446,7 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
     case .aiAgent: localized("AI agent")
     case .fileTransfer: localized("Transfer")
     case .watchdogNotice: localized("High CPU recovery")
+    case .discordCall: localized("Discord call")
     }
 }
 
@@ -540,6 +564,8 @@ public struct CompactActivityView: View {
                 AnimatedScreenRecordingIcon(size: metrics.symbolSize * 0.84)
             } else if slot.recordingSource == .audio {
                 AnimatedMicrophoneRecordingIcon(size: metrics.symbolSize * 0.84)
+            } else if let discordCall = slot.discordCall {
+                DiscordCallIcon(isMuted: discordCall.isMuted, size: metrics.symbolSize * 0.84, animatesArrival: true)
             } else if let aiAgentPresentation = slot.aiAgentPresentation {
                 CompactAIAgentIcon(
                     presentation: aiAgentPresentation,

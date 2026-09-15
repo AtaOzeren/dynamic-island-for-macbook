@@ -276,6 +276,7 @@ final class IslandPresenter {
     private let screenChanges: any ScreenChangeObserving
     private let musicProvider: (any MusicProvider)?
     private let timerProvider: TimerProvider?
+    private let discordVoice: (any DiscordVoiceChannelLeaving)?
     private let primaryActions: any PrimaryActionDispatching
     private let screenConfigurationSettled: @MainActor ([DisplayDescription]) -> Void
     private let hoverCoordinator = SynchronizedHoverCoordinator()
@@ -294,6 +295,7 @@ final class IslandPresenter {
         screenChanges: any ScreenChangeObserving = SystemScreenChangeObserver(),
         musicProvider: (any MusicProvider)? = nil,
         timerProvider: TimerProvider? = nil,
+        discordVoice: (any DiscordVoiceChannelLeaving)? = nil,
         primaryActions: any PrimaryActionDispatching = WorkspacePrimaryActionDispatcher(),
         screenConfigurationSettled: @escaping @MainActor ([DisplayDescription]) -> Void = { _ in }
     ) {
@@ -303,6 +305,7 @@ final class IslandPresenter {
         self.screenChanges = screenChanges
         self.musicProvider = musicProvider
         self.timerProvider = timerProvider
+        self.discordVoice = discordVoice
         self.primaryActions = primaryActions
         self.screenConfigurationSettled = screenConfigurationSettled
 
@@ -421,7 +424,9 @@ final class IslandPresenter {
     ///
     /// Timer intents go to `TimerProvider`, not to the workspace dispatcher:
     /// they are routing, not system calls, and they must take the same path
-    /// the expanded view's own pause/resume controls take.
+    /// the expanded view's own pause/resume controls take. Leaving a Discord
+    /// channel is routing for the same reason: it is a command to the RPC
+    /// connection that reported the channel.
     private func performPrimaryAction(for identity: ActivityIdentity) {
         guard
             let activity = manager.activeActivities.first(where: { $0.identity == identity }),
@@ -437,6 +442,8 @@ final class IslandPresenter {
             timerProvider?.handle(.resume)
         case .stopTimer:
             timerProvider?.handle(.stop)
+        case .leaveDiscordVoiceChannel:
+            discordVoice?.leaveVoiceChannel()
         case .openApplicationNamed, .openAgentApplication:
             primaryActions.perform(intent)
         }

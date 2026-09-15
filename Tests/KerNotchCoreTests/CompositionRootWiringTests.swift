@@ -478,4 +478,64 @@ struct CompositionRootWiringTests {
         #expect(presenter.contains("secondary.isMotionSuspended = isDegraded"))
         #expect(secondary.contains("set { model.isMotionSuspended = newValue }"))
     }
+
+    /// The Discord integration only works end to end when the same microphone
+    /// observer is both drawn by the registry and told to step aside, and when
+    /// the island's leave press reaches the session.
+    ///
+    /// Each half compiles alone — a second `SystemAudioRecordingObserver`, or a
+    /// presenter left at its `nil` default, still builds and still draws — so a
+    /// Discord call would show twice, or its button would do nothing.
+    @Test("the Discord integration shares the microphone observer and receives leave presses")
+    func discordIntegrationIsWired() throws {
+        let source = try Self.appSource("KerNotch/KerNotchApp.swift")
+
+        #expect(source.contains("microphoneRecording: microphoneRecording,\n            enabledIdentifiers:"))
+        let integrationArguments =
+            "microphoneMonitor: microphoneMonitor,\n" + "                microphoneRecording: microphoneRecording"
+        let builtInClientID = "clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)"
+        #expect(source.contains(integrationArguments))
+        #expect(source.contains(builtInClientID))
+        #expect(source.contains("let settingsStorage = FileSettingsStorage()"))
+        #expect(source.contains("settingsStorage.importPreferences(from: .standard, domain: bundleIdentifier)"))
+        #expect(source.contains("SettingsStore(storage: settingsStorage, migrations: [.removingRetiredKeys])"))
+        #expect(source.contains("discordVoice: discordIntegration?.voiceChannelLeaving"))
+        #expect(source.contains("discordIntegration?.apply(settingsStore.discordIntegrationPreferences)"))
+        #expect(source.contains("discordIntegration?.apply(preferences)"))
+        #expect(source.contains("#if APPSTORE_BUILD\n            let discordIntegration: DiscordIntegration? = nil"))
+    }
+
+    /// With a settings file that exists but cannot be read, the session runs on
+    /// defaults. Applying those defaults would switch off Launch at Login, drop
+    /// the chosen language and — because every agent defaults to off — remove
+    /// the user's installed hooks from Claude Code, Codex and OpenCode.
+    @Test("an unreadable settings file leaves the system and the agents' files untouched")
+    func unreadableSettingsTouchNothing() throws {
+        let source = try Self.appSource("KerNotch/KerNotchApp.swift")
+
+        #expect(source.contains("let isSettingsFileUsable = settingsStorage.isSavingEnabled"))
+        let launchAtLoginGuard =
+            "if isSettingsFileUsable {\n" + "            do {\n" + "                try Self.applyLaunchAtLogin"
+        #expect(source.contains(launchAtLoginGuard))
+        #expect(source.contains("if isSettingsFileUsable {\n            Self.applyLanguageOverride"))
+        #expect(source.contains("if isSettingsFileUsable {\n                Self.repairEnabledHooks("))
+        #expect(source.contains("} else {\n                Self.presentUnreadableSettingsNotice()"))
+        let flippedByUser = "if isSettingsFileUsable || previous.launchAtLogin != preferences.launchAtLogin"
+        #expect(source.contains(flippedByUser))
+    }
+
+    /// The Client ID travels xcconfig → build setting → Info.plist → app. A
+    /// break anywhere along it still builds, and silently ships an app whose
+    /// Integrations pane has no connection to offer.
+    @Test("the build's Discord Client ID reaches the app's Info.plist")
+    func discordClientIDIsConfigured() throws {
+        let config = try Self.appSource("Config/Discord.xcconfig")
+        let infoPlist = try Self.appSource("KerNotch/Info.plist")
+        let project = try Self.appSource("KerNotch.xcodeproj/project.pbxproj")
+
+        #expect(config.contains("KERNOTCH_DISCORD_CLIENT_ID = "))
+        let infoPlistEntry = "<key>KerNotchDiscordClientID</key>\n\t<string>$(KERNOTCH_DISCORD_CLIENT_ID)</string>"
+        #expect(infoPlist.contains(infoPlistEntry))
+        #expect(project.components(separatedBy: "baseConfigurationReference = D15C0001A0000000000000A1").count - 1 == 4)
+    }
 }

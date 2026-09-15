@@ -163,6 +163,30 @@ struct SettingsStoreTests {
         #expect(store.aiIntegrationPreferences == preferences)
     }
 
+    @Test("persists Discord integration preferences")
+    func roundTripsDiscordIntegrationPreferences() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+
+        #expect(store.discordIntegrationPreferences == .default)
+
+        store.discordIntegrationPreferences = DiscordIntegrationPreferences(isEnabled: true)
+        #expect(store.discordIntegrationPreferences.isEnabled)
+        #expect(store[.enableDiscord])
+    }
+
+    @Test("removes retired keys, and leaves everything else alone")
+    func removesRetiredKeys() {
+        let storage = DictionarySettingsStorage()
+        let retired = "com.kernotch.settings.integrations.discord.clientID"
+        storage.set("1549389234912239636", forKey: retired)
+        storage.set(true, forKey: SettingsKey<Bool>.enableDiscord.name)
+
+        let store = SettingsStore(storage: storage, migrations: [.removingRetiredKeys])
+
+        #expect(storage.object(forKey: retired) == nil)
+        #expect(store[.enableDiscord])
+    }
+
     @Test("persists general preferences through their value seam")
     func roundTripsGeneralPreferences() {
         let store = SettingsStore(storage: DictionarySettingsStorage())

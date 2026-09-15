@@ -9,8 +9,6 @@ public protocol SettingsStorage: AnyObject {
     func removeObject(forKey defaultName: String)
 }
 
-extension UserDefaults: SettingsStorage {}
-
 public struct SettingsChange<Value: Equatable & Sendable>: Equatable, Sendable {
     public let key: SettingsKey<Value>
     public let value: Value
@@ -34,6 +32,16 @@ public struct SettingsMigration {
     }
 }
 
+extension SettingsMigration {
+    /// Removes the keys in `SettingsKeys.retiredKeyNames`. Safe to run on every
+    /// launch: removing a key that is already gone does nothing.
+    public static let removingRetiredKeys = SettingsMigration { storage in
+        for name in SettingsKeys.retiredKeyNames {
+            storage.removeObject(forKey: name)
+        }
+    }
+}
+
 @MainActor
 public final class SettingsStore {
     public typealias ObserverID = UUID
@@ -47,7 +55,7 @@ public final class SettingsStore {
     private var observers: [ObserverID: Observer] = [:]
 
     public init(
-        storage: any SettingsStorage = UserDefaults.standard,
+        storage: any SettingsStorage,
         migrations: [SettingsMigration] = []
     ) {
         self.storage = storage
@@ -125,6 +133,15 @@ public final class SettingsStore {
             self[.showMenuBarIcon] = newValue.showMenuBarIcon
             self[.appearance] = newValue.appearance
             self[.reducedMotionOverride] = newValue.reducedMotionOverride
+        }
+    }
+
+    public var discordIntegrationPreferences: DiscordIntegrationPreferences {
+        get {
+            DiscordIntegrationPreferences(isEnabled: self[.enableDiscord])
+        }
+        set {
+            self[.enableDiscord] = newValue.isEnabled
         }
     }
 

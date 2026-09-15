@@ -101,6 +101,16 @@ Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on 
 - **CI-vs-hardware verifiability:** Same constraint as screen recording — the permission-gated system query needs real hardware with Microphone permission granted; the activity and teardown logic is unit-testable in CI against a fake in-use signal.
 - **Honest statement of detectability:** Like screen recording, KerNotch shows *that* the microphone is in use, not *which app* is using it, unless the chosen API path happens to expose the consuming process reliably.
 
+## Discord Call
+
+- **Event source:** Two, and either is enough. The per-process microphone state CoreAudio has published since macOS 14.2 (`kAudioHardwarePropertyProcessObjectList`, `kAudioProcessPropertyIsRunningInput`), matched against the `com.hnc.Discord` bundle-identifier prefix — the input is opened by Discord's `helper.Renderer` process, not the application. Changes are heard through `kAudioProcessPropertyDevices`: on macOS 26 the documented `kAudioProcessPropertyIsRunningInput` listener was measured never to fire, while the device list changed on every join and leave. And, once the user has pressed Connect, Discord's local RPC over its IPC socket (`$TMPDIR/discord-ipc-N`): `GET_SELECTED_VOICE_CHANNEL` plus the `VOICE_CHANNEL_SELECT` and `VOICE_SETTINGS_UPDATE` subscriptions.
+- **Permission or entitlement:** None for the microphone half. The RPC half needs Discord's `rpc` and `rpc.voice.read` scopes, which Discord grants only to approved applications — and, before approval, to the application's owner and its listed testers. Every user connects through KerNotch's own application, whose Client ID is a build setting (`Config/Discord.xcconfig`, see `16-discord-application.md`), authorized with PKCE and no client secret. There is no user-facing field for another application. Unsandboxed builds only: the socket lives outside the App Sandbox container.
+- **Priority:** `high`, `pinned` band, like the microphone indicator it stands in for.
+- **Update cadence:** Event-driven on both halves. Process listeners are attached only while the integration is on *and* an input device is running. `VOICE_CONNECTION_STATUS` and `SPEAKING_START`/`STOP` are never subscribed: the first re-sends ping statistics every few seconds for a whole call, the second fires on every syllable. Server names are fetched once per server. Reconnection after Discord quits is a five-step backoff (2–32 s) that then waits for `NSWorkspace.didLaunchApplicationNotification`.
+- **Interaction with Audio Recording:** while the integration is on, `SystemAudioRecordingObserver` leaves Discord out; its session ends only when every microphone client is known and excluded, so another application sharing the microphone keeps the ordinary indicator on screen beside the call.
+- **Teardown:** `end()` when Discord releases the microphone and the RPC connection reports no channel, or when the integration is switched off.
+- **CI-vs-hardware verifiability:** CoreAudio attribution and the real socket need hardware and a running Discord; the monitor's listener gating, the exclusion rule, the frame codec, the RPC session (authorization, renewal, reconnection, leave) and the activity are unit-tested against fakes.
+
 ## Charging
 
 - **Event source:** IOKit power-source change notifications — the same mechanism the menu bar battery indicator itself is built on.
@@ -139,6 +149,7 @@ AI status is not documented in depth here — see `07-ai-integration.md` for the
 | Timer / Stopwatch | Available | Available |
 | Screen recording | Available | Available |
 | Audio recording | Available | Available |
+| Discord call | Not built | Available — microphone attribution needs macOS 14.2; channel name and leave need KerNotch's Discord application to be approved, or the user to be one of its testers |
 | Charging | Available | Available |
 | AI status | Available (IPC only) | Available (IPC, plus optional agent session log reading per `10-build-and-distribution.md`) |
 

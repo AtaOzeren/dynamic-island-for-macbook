@@ -4,7 +4,7 @@ This document specifies KerNotch's privacy stance, the entitlements each build c
 
 ## Privacy stance
 
-KerNotch collects nothing, sends nothing off-device, and has no analytics. There is no telemetry SDK, no crash reporter that phones home, and no update-check ping beyond what the App Store or Homebrew Cask does on its own. The only network socket KerNotch ever opens is the loopback HTTP listener described in `07-ai-integration.md`, and that socket is unreachable from outside the local machine. KerNotch never reads the screen, never records audio or video itself, and never inspects another app's windows or file contents beyond the narrow, named cases below.
+KerNotch collects nothing, sends nothing off-device, and has no analytics. There is no telemetry SDK, no crash reporter that phones home, and no update-check ping beyond what the App Store or Homebrew Cask does on its own. The only listening socket KerNotch ever opens is the loopback HTTP listener described in `07-ai-integration.md`, and that socket is unreachable from outside the local machine. The one outbound connection belongs to the opt-in Discord integration in unsandboxed builds: a local IPC connection to the Discord client, and HTTPS requests to `discord.com/api/oauth2/token` made only when the user connects or a stored token is renewed. No activity content travels over it. KerNotch never reads the screen, never records audio or video itself, and never inspects another app's windows or file contents beyond the narrow, named cases below.
 
 ## Entitlements
 
@@ -79,7 +79,7 @@ The hook installer (see `07-ai-integration.md`) modifies configuration files bel
 
 ## Data at rest
 
-KerNotch persists only user preferences (see `08-settings-and-localization.md`): which providers are enabled, which AI agents are enabled, window and display choices, and language selection. It keeps no history of past activities and no log of AI agent content — once an `AIActivity` reaches `completed` or `error` and is dismissed, nothing about its detail text or tool names is retained anywhere on disk.
+KerNotch persists only user preferences, in an owner-only `settings.json` under `~/Library/Application Support/KerNotch` (see `08-settings-and-localization.md`): which providers are enabled, which AI agents are enabled, window and display choices, and language selection. The Discord integration additionally stores its OAuth2 access and refresh tokens in one JSON file per Client ID (`~/Library/Application Support/KerNotch/discord-credentials-<client id>.json`, mode `0600` in a `0700` directory), deleted when the user disconnects or Discord refuses to renew them. A file rather than the Keychain on purpose: the legacy Keychain trusts an app by its code signature, an ad-hoc signature changes with every build, and each update would ask for the user's login password. The token carries only the local RPC scopes of KerNotch's own Discord application, and anything able to read the file already runs as the user. KerNotch keeps no history of past activities, no record of Discord channels, and no log of AI agent content — once an `AIActivity` reaches `completed` or `error` and is dismissed, nothing about its detail text or tool names is retained anywhere on disk.
 
 ## Privacy policy source of truth
 

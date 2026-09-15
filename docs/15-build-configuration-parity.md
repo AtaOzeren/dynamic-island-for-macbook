@@ -95,7 +95,17 @@ The sandbox hides the process table completely. `AgentHostApplicationResolver.ho
 
 **Work estimate:** None; the code exists and is already behind the compile-time branch.
 
-### 4. Music source coverage
+### 4. Discord integration
+
+**What it is:** showing a Discord voice call on the island in place of the microphone indicator, and — once the user connects through KerNotch's Discord application — naming the channel and leaving it.
+
+**Status in `AppStore`:** Not built. `KerNotchApp` constructs `DiscordIntegration` only outside `APPSTORE_BUILD`, and the Integrations tab is hidden when there is none. **Reasoned:** Discord's IPC socket lives in the user's real temporary directory, which a sandboxed process cannot reach without a temporary-exception entitlement, and the token exchange needs `com.apple.security.network.client`, which the App Store build does not declare.
+
+**Consequence for the user:** in the App Store build a Discord call is the ordinary microphone indicator, as it was before the integration existed.
+
+**Work estimate:** None; the branch is already at the composition root.
+
+### 5. Music source coverage
 
 **What it is:** which media applications the now-playing card can observe.
 
