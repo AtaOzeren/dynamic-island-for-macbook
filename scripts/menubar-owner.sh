@@ -1,15 +1,15 @@
 #!/bin/zsh
-# Shows which applications Control Center believes own NotchFlow's menu bar
+# Shows which applications Control Center believes own KerNotch's menu bar
 # item on macOS 26, and repairs the record. Control Center attributes the item
 # to every application that launched the process and hides it while any of
-# them has "Allow in the Menu Bar" off; launching NotchFlow from an agent or
+# them has "Allow in the Menu Bar" off; launching KerNotch from an agent or
 # IDE terminal is how that happens. Needs a Full-Disk-Access terminal.
-#   --detach  leave NotchFlow owned only by itself
+#   --detach  leave KerNotch owned only by itself
 #   --clean   also drop rows left by bare dev binaries and probe bundles
 # Writes through cfprefsd (a plain copy is overwritten from its cache) and
 # restarts Control Center with SIGKILL so it cannot persist stale memory.
 set -euo pipefail
-BUNDLE_ID="${NOTCHFLOW_BUNDLE_ID:-com.notchflow.NotchFlow}"
+BUNDLE_ID="${KERNOTCH_BUNDLE_ID:-com.kernotch.KerNotch}"
 STORE="$HOME/Library/Group Containers/group.com.apple.controlcenter/Library/Preferences/group.com.apple.controlcenter"
 WORK="$(mktemp -d)"
 cp "$STORE.plist" "$WORK/live.plist" 2>/dev/null || { echo "cannot read Control Center store — give this terminal Full Disk Access (System Settings › Privacy & Security)"; exit 1; }
@@ -40,7 +40,7 @@ if mode == '--clean':
         if isinstance(val, dict):
             before = val.get('menuItemLocations', [])
             keep = [m for m in before if not (isinstance(m, dict) and 'bundle' in m and
-                    (m['bundle']['_0'].startswith('com.notchflow.') and m['bundle']['_0'] != bid or m['bundle']['_0'].startswith('com.probe.')))]
+                    (m['bundle']['_0'].startswith('com.kernotch.') and m['bundle']['_0'] != bid or m['bundle']['_0'].startswith('com.probe.')))]
             junk_items += [m['bundle']['_0'] for m in before if m not in keep]
             val['menuItemLocations'] = keep
             if not is_target(key):
@@ -62,7 +62,7 @@ if [[ "${1:-}" == "--detach" || "${1:-}" == "--clean" ]]; then
   defaults import "$STORE" "$WORK/fixed.plist"
   killall -KILL ControlCenter 2>/dev/null || true
   sleep 3
-  osascript -e 'quit app "NotchFlow"' 2>/dev/null || true; sleep 2
+  osascript -e 'quit app "KerNotch"' 2>/dev/null || true; sleep 2
   open -b "$BUNDLE_ID" 2>/dev/null || true
   echo "detached and relaunched; original store kept at $WORK/live.plist"
 fi

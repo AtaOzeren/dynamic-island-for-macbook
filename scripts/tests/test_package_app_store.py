@@ -26,7 +26,7 @@ class AppStorePackagingTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = self.command_log.read_text(encoding="utf-8")
-        self.assertIn('-scheme NotchFlow (App Store)', commands)
+        self.assertIn('-scheme KerNotch (App Store)', commands)
         self.assertIn("-configuration AppStore", commands)
         self.assertIn("CODE_SIGNING_ALLOWED=NO archive", commands)
         self.assertIn("check-assets", commands)
@@ -78,16 +78,16 @@ class AppStorePackagingTests(unittest.TestCase):
                 if [ "$previous" = "-archivePath" ]; then archive_path="$argument"; fi
                 previous="$argument"
             done
-            mkdir -p "$archive_path/Products/Applications/NotchFlow.app/Contents/MacOS"
-            touch "$archive_path/Products/Applications/NotchFlow.app/Contents/MacOS/NotchFlow"
-            touch "$archive_path/Products/Applications/NotchFlow.app/Contents/Info.plist"
+            mkdir -p "$archive_path/Products/Applications/KerNotch.app/Contents/MacOS"
+            touch "$archive_path/Products/Applications/KerNotch.app/Contents/MacOS/KerNotch"
+            touch "$archive_path/Products/Applications/KerNotch.app/Contents/Info.plist"
             printf 'xcodebuild %s\n' "$*" >> "$COMMAND_LOG"
             """,
         )
         self._write_tool("plutil", "printf 'plutil %s\n' \"$*\" >> \"$COMMAND_LOG\"")
         self._write_tool(
             "defaults",
-            "printf 'defaults %s\n' \"$*\" >> \"$COMMAND_LOG\"; printf 'com.notchflow.NotchFlow\n'",
+            "printf 'defaults %s\n' \"$*\" >> \"$COMMAND_LOG\"; printf 'com.kernotch.KerNotch\n'",
         )
         self._write_tool("codesign", "printf 'codesign %s\n' \"$*\" >> \"$COMMAND_LOG\"")
         self._write_tool("spctl", "printf 'spctl %s\n' \"$*\" >> \"$COMMAND_LOG\"")

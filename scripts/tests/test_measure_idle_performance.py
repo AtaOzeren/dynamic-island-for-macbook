@@ -31,7 +31,7 @@ class IdlePerformanceTests(unittest.TestCase):
                 "tasks": [
                     {
                         "pid": 42,
-                        "name": "NotchFlow",
+                        "name": "KerNotch",
                         "cputime_ms_per_s": 0.5,
                         "idle_wakeups_per_s": 0.25,
                     },
@@ -47,7 +47,7 @@ class IdlePerformanceTests(unittest.TestCase):
                 "tasks": [
                     {
                         "pid": 42,
-                        "name": "NotchFlow",
+                        "name": "KerNotch",
                         "cputime_ms_per_s": 1.5,
                         "idle_wakeups_per_s": 0.75,
                     }

@@ -13,10 +13,10 @@ The actual notch window on screen: the borderless `NSPanel` positioned under the
 
 ### 33. Implement the screen observer
 
-A `NotchFlowProviders` type wrapping `NSApplication.didChangeScreenParametersNotification`, display reconfiguration, and sleep/wake notifications behind the protocol the core tests already fake. Emits a screen-set description into the core's display-selection policy.
+A `KerNotchProviders` type wrapping `NSApplication.didChangeScreenParametersNotification`, display reconfiguration, and sleep/wake notifications behind the protocol the core tests already fake. Emits a screen-set description into the core's display-selection policy.
 
 - **Acceptance:** Subscribes on start, fully unsubscribes on stop, and emits on every relevant system event.
-- **QA (HW):** Plug and unplug an external monitor, change resolution, sleep and wake; assert one emission per event in a debug log. Evidence: `.omo/evidence/task-33-notchflow-v1.log`.
+- **QA (HW):** Plug and unplug an external monitor, change resolution, sleep and wake; assert one emission per event in a debug log. Evidence: `.omo/evidence/task-33-kernotch-v1.log`.
 - **Commit:** `feat(display): observe screen configuration events`
 
 ### 34. Implement the `NotchPanel` window
@@ -24,7 +24,7 @@ A `NotchFlowProviders` type wrapping `NSApplication.didChangeScreenParametersNot
 The `NSPanel` subclass with every property from `docs/04`, positioned by the core geometry functions on the selected screen.
 
 - **Acceptance:** The panel appears exactly under the notch on the built-in display, never on an external display unless explicitly selected.
-- **QA (HW):** Screenshot on the notched MacBook with the panel visible; measure alignment against the notch edges. Evidence: `.omo/evidence/task-34-notchflow-v1/`.
+- **QA (HW):** Screenshot on the notched MacBook with the panel visible; measure alignment against the notch edges. Evidence: `.omo/evidence/task-34-kernotch-v1/`.
 - **Commit:** `feat(ui): add the notch panel window`
 
 ### 35. Implement the three-state presentation controller
@@ -32,7 +32,7 @@ The `NSPanel` subclass with every property from `docs/04`, positioned by the cor
 Hidden, compact, expanded. Hidden means `orderOut(nil)` and is reserved for suspension, teardown, or a missing screen. The controller subscribes to the manager's activity set, keeps the panel compact while idle, and collapses expanded content when the set empties.
 
 - **Acceptance:** With no activity the compact window remains visible; ending the final activity collapses expanded content without ordering the panel out.
-- **QA (HW):** Start an activity, expand it, end it, and assert `isVisible` remains true with compact state. Evidence: `.omo/evidence/task-35-notchflow-v1.log`.
+- **QA (HW):** Start an activity, expand it, end it, and assert `isVisible` remains true with compact state. Evidence: `.omo/evidence/task-35-kernotch-v1.log`.
 - **Commit:** `feat(ui): add hidden/compact/expanded presentation states`
 
 ### 36. Implement click-through and hit-testing
@@ -40,7 +40,7 @@ Hidden, compact, expanded. Hidden means `orderOut(nil)` and is reserved for susp
 `ignoresMouseEvents` true whenever collapsed or hidden; false only while expanded. Hover detection via a passive global monitor with a bounds check, not a polling loop.
 
 - **Acceptance:** Menu-bar clicks near the notch reach the menu bar while collapsed; the panel receives clicks while expanded.
-- **QA (HW):** Click a menu-bar item adjacent to the notch while an activity is compact; confirm the menu opens. Then expand and confirm the panel handles a click. Evidence: screen recording at `.omo/evidence/task-36-notchflow-v1/`.
+- **QA (HW):** Click a menu-bar item adjacent to the notch while an activity is compact; confirm the menu opens. Then expand and confirm the panel handles a click. Evidence: screen recording at `.omo/evidence/task-36-kernotch-v1/`.
 - **Commit:** `feat(ui): add click-through and hover handling`
 
 ### 37. Implement the compact view container
@@ -48,7 +48,7 @@ Hidden, compact, expanded. Hidden means `orderOut(nil)` and is reserved for susp
 Renders the ordered activity set as icons/pills hugging the notch, with the overflow indicator when the slot limit is exceeded.
 
 - **Acceptance:** Matches the layout described in `docs/05` for the three-activity worked example.
-- **QA (HW):** Drive three simultaneous fake activities; screenshot and compare to the documented layout. Evidence: `.omo/evidence/task-37-notchflow-v1/`.
+- **QA (HW):** Drive three simultaneous fake activities; screenshot and compare to the documented layout. Evidence: `.omo/evidence/task-37-kernotch-v1/`.
 - **Commit:** `feat(ui): add compact activity view`
 
 ### 38. Implement the expanded view container
@@ -56,7 +56,7 @@ Renders the ordered activity set as icons/pills hugging the notch, with the over
 Renders every active activity's expanded view in priority order, with the documented spacing and the primary-action affordance.
 
 - **Acceptance:** All active activities are visible and ordered correctly.
-- **QA (HW):** Same three-activity scenario, expanded; screenshot compared to `docs/05`. Evidence: `.omo/evidence/task-38-notchflow-v1/`.
+- **QA (HW):** Same three-activity scenario, expanded; screenshot compared to `docs/05`. Evidence: `.omo/evidence/task-38-kernotch-v1/`.
 - **Commit:** `feat(ui): add expanded activity view`
 
 ### 39. Implement transitions and animation
@@ -64,7 +64,7 @@ Renders every active activity's expanded view in priority order, with the docume
 Spring animations for hidden↔compact↔expanded using the parameters in `docs/04`, honouring Reduce Motion, and running no animation while hidden.
 
 - **Acceptance:** With Reduce Motion enabled, transitions are instant; no animation timer exists while hidden.
-- **QA (HW):** Toggle Reduce Motion and record both behaviours; sample the process during the hidden state and assert no animation work. Evidence: `.omo/evidence/task-39-notchflow-v1/`.
+- **QA (HW):** Toggle Reduce Motion and record both behaviours; sample the process during the hidden state and assert no animation work. Evidence: `.omo/evidence/task-39-kernotch-v1/`.
 - **Commit:** `feat(ui): add island state transitions`
 
 ### 40. Implement appearance handling
@@ -72,13 +72,13 @@ Spring animations for hidden↔compact↔expanded using the parameters in `docs/
 Light/dark mode, Reduce Transparency, and the appearance setting from `docs/08`.
 
 - **Acceptance:** The island is legible in both appearances and with Reduce Transparency enabled.
-- **QA (HW):** Screenshot in all four combinations. Evidence: `.omo/evidence/task-40-notchflow-v1/`.
+- **QA (HW):** Screenshot in all four combinations. Evidence: `.omo/evidence/task-40-kernotch-v1/`.
 - **Commit:** `feat(ui): honour system appearance and accessibility settings`
 
 ## Verification notes
 
-Every todo in this phase is tagged `HW` in the plan — it needs the physical notched MacBook, since there's no way to fake an `NSPanel` positioned under a real notch on a headless CI runner. Per the plan's Final Verification Wave, these get collected into a scripted checklist with screenshot/recording evidence rather than run one-off. See the plan's [Verification strategy](../../.omo/plans/notchflow-v1.md#verification-strategy) for the anti-fake-pass rules that apply to all of them.
+Every todo in this phase is tagged `HW` in the plan — it needs the physical notched MacBook, since there's no way to fake an `NSPanel` positioned under a real notch on a headless CI runner. Per the plan's Final Verification Wave, these get collected into a scripted checklist with screenshot/recording evidence rather than run one-off. See the plan's [Verification strategy](../../.omo/plans/kernotch-v1.md#verification-strategy) for the anti-fake-pass rules that apply to all of them.
 
 ## Source of truth
 
-This file quotes todos 33-40 verbatim from `.omo/plans/notchflow-v1.md`. If the plan changes, re-derive this file from it — do not let the two drift.
+This file quotes todos 33-40 verbatim from `.omo/plans/kernotch-v1.md`. If the plan changes, re-derive this file from it — do not let the two drift.

@@ -1,18 +1,18 @@
 # Glossary and Conventions
 
-This document fixes the vocabulary the codebase and the rest of `docs/` share, the naming rules that keep NotchFlow out of trademark trouble, and the code, git, and documentation conventions every todo in this plan follows. It is a design specification — nothing in this folder is code.
+This document fixes the vocabulary the codebase and the rest of `docs/` share, the naming rules that keep KerNotch out of trademark trouble, and the code, git, and documentation conventions every todo in this plan follows. It is a design specification — nothing in this folder is code.
 
 ## Glossary
 
 | Term | Meaning |
 |---|---|
-| Island | The overlay window NotchFlow draws around and over the notch. The user-facing name for the whole feature. |
+| Island | The overlay window KerNotch draws around and over the notch. The user-facing name for the whole feature. |
 | Notch | The physical camera housing cut into the top of a built-in display, detected via `NSScreen.safeAreaInsets.top`. |
 | Compact state | The island's default, minimal footprint: it hugs the notch rectangle and shows only what fits without expanding. |
 | Expanded state | The island's enlarged footprint, shown on hover or interaction, revealing full activity detail and controls. |
-| Activity | A single unit of live information a provider publishes: now-playing, a timer, a recording indicator, charging state, or an AI agent's status. Modeled by the `Activity` protocol in `NotchFlowCore`. |
-| Provider | A `NotchFlowProviders` type that watches one system or IPC source and translates its events into `Activity` updates. One provider per activity source. |
-| Agent | An AI coding agent (Claude Code, Codex, OpenCode) whose state NotchFlow surfaces via the IPC protocol. Not to be confused with the app itself. |
+| Activity | A single unit of live information a provider publishes: now-playing, a timer, a recording indicator, charging state, or an AI agent's status. Modeled by the `Activity` protocol in `KerNotchCore`. |
+| Provider | A `KerNotchProviders` type that watches one system or IPC source and translates its events into `Activity` updates. One provider per activity source. |
+| Agent | An AI coding agent (Claude Code, Codex, OpenCode) whose state KerNotch surfaces via the IPC protocol. Not to be confused with the app itself. |
 | Session | One conversation an agent is running, identified by the session id in the IPC message envelope. Either an instance or a sub-agent. |
 | Instance | One thing the *user* started — a terminal, an editor window, a conversation. What the compact badge counts and what the expanded panel draws a card for. |
 | Sub-agent | A session the *agent* started to delegate work, naming its instance through `rootSessionId`. Listed under its instance's card, never counted as another agent running. |
@@ -21,17 +21,17 @@ This document fixes the vocabulary the codebase and the rest of `docs/` share, t
 
 ## Naming rules
 
-NotchFlow is the product name everywhere: in code, in commit messages, in the App Store listing, and in prose. Apple's "Dynamic Island" and "MacBook" are trademarks and must not appear in the product name, the bundle identifier, or any App Store metadata field.
+KerNotch is the product name everywhere: in code, in commit messages, in the App Store listing, and in prose. Apple's "Dynamic Island" and "MacBook" are trademarks and must not appear in the product name, the bundle identifier, or any App Store metadata field.
 
-In prose, refer to the concept generically, for example "the notch on modern MacBook models" when describing the hardware, or "a Dynamic-Island-style live activity surface" only in an explanatory, comparative sentence aimed at readers who already know the iPhone feature, never as part of NotchFlow's own name or marketing copy. When in doubt, prefer "the island" or "the notch," both defined above.
+In prose, refer to the concept generically, for example "the notch on modern MacBook models" when describing the hardware, or "a Dynamic-Island-style live activity surface" only in an explanatory, comparative sentence aimed at readers who already know the iPhone feature, never as part of KerNotch's own name or marketing copy. When in doubt, prefer "the island" or "the notch," both defined above.
 
 ## Code conventions
 
-NotchFlow follows the [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/) throughout. `swiftlint` and `swift-format` run at build time with the project's checked-in configuration as the single source of truth for style; a PR that fails either is not mergeable.
+KerNotch follows the [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/) throughout. `swiftlint` and `swift-format` run at build time with the project's checked-in configuration as the single source of truth for style; a PR that fails either is not mergeable.
 
 - **One type per file.** The file name matches the type name exactly (`ActivityManager.swift` defines `ActivityManager` and nothing else at top level).
 - **File length.** A file that grows past roughly 400 lines is a signal to split it along a natural seam (extension, sub-type, or protocol conformance), not a hint to write smaller comments.
-- **Access control.** `internal` is the default for every declaration. `public` is reserved for the boundary between `NotchFlowCore`, `NotchFlowProviders`, and `NotchFlowUI` as described in `01-architecture.md`; nothing inside the app target needs to be `public`.
+- **Access control.** `internal` is the default for every declaration. `public` is reserved for the boundary between `KerNotchCore`, `KerNotchProviders`, and `KerNotchUI` as described in `01-architecture.md`; nothing inside the app target needs to be `public`.
 - **Comments explain why, never what or when.** A comment restating the next line in English is deleted, not fixed. No change-tracking comments (`// added`, `// changed 2024-01-01`, `// TODO(name): remove after v2`) — that history belongs in git, not in source.
 - **Swift 6 concurrency.** The codebase builds under strict concurrency checking. System callbacks that arrive off the main actor (delegate methods, completion handlers from `MediaRemote`, `ScreenCaptureKit`, IOKit notifications, and the IPC listener) follow one standard pattern to hop onto `@MainActor`:
 

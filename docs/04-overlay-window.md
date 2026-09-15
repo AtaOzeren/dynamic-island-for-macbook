@@ -4,7 +4,7 @@ This document specifies the `NSPanel` that draws the island: every property that
 
 ## The `NSPanel` property table
 
-NotchFlowUI owns a single `NSPanel` subclass, created once at launch and never deallocated. Every property below is set once at creation unless the "Changes at runtime" column says otherwise.
+KerNotchUI owns a single `NSPanel` subclass, created once at launch and never deallocated. Every property below is set once at creation unless the "Changes at runtime" column says otherwise.
 
 | Property | Value | Changes at runtime | What breaks if it is wrong |
 |---|---|---|---|
@@ -14,11 +14,11 @@ NotchFlowUI owns a single `NSPanel` subclass, created once at launch and never d
 | `isOpaque` | `false` | No | If `true`, AppKit paints an opaque backing rectangle behind the SwiftUI content, producing a visible box around the intended notch-shaped cutout instead of a seamless blend with the black notch. |
 | `backgroundColor` | `.clear` | No | If any non-clear color is set, the same visible-box artifact appears even with `isOpaque = false`; the two properties must agree. |
 | `hasShadow` | `false` in compact state; `true` in expanded state | Yes, per visual state | A shadow on the compact pill draws a soft grey halo around the notch at all times, which reads as a rendering glitch since the notch itself casts no shadow. A missing shadow on the expanded panel makes it look pasted onto the desktop instead of floating above it. |
-| `hidesOnDeactivate` | `false` | No | If `true`, the panel disappears the moment NotchFlow itself loses focus to any other app — which is effectively always, since NotchFlow is never the active app during normal use. This would make the island invisible except while clicking on NotchFlow's own (nonexistent) windows. |
+| `hidesOnDeactivate` | `false` | No | If `true`, the panel disappears the moment KerNotch itself loses focus to any other app — which is effectively always, since KerNotch is never the active app during normal use. This would make the island invisible except while clicking on KerNotch's own (nonexistent) windows. |
 | `isMovable` | `false` | No | If `true`, an accidental drag on the panel — even though it is non-activating — repositions the island away from the notch it is supposed to be anchored to, with no way for the user to reset it short of relaunching. |
 | `collectionBehavior` | `[.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]` | No | Without `.canJoinAllSpaces`, the island vanishes the moment the user switches to a different Space. Without `.fullScreenAuxiliary`, the panel cannot appear at all over an app running in full-screen/Space-per-display mode. Without `.stationary`, the panel scrolls along with Mission Control / Space-switching gesture animations instead of staying pinned to the notch. |
 | `canBecomeKey` | `false` | No | If `true`, a click anywhere on the panel (even in the non-activating case) can still make it the key window, which redirects keyboard input intended for the previously-focused app into a window that has no text fields to receive it. |
-| `canBecomeMain` | `false` | No | Same failure mode as `canBecomeKey`, at the main-window level: it would make NotchFlow's panel eligible to become the app's main window, which has no meaning for an accessory-style overlay and can confuse window-cycling shortcuts. |
+| `canBecomeMain` | `false` | No | Same failure mode as `canBecomeKey`, at the main-window level: it would make KerNotch's panel eligible to become the app's main window, which has no meaning for an accessory-style overlay and can confuse window-cycling shortcuts. |
 | `ignoresMouseEvents` | `true` while collapsed (hidden or compact-idle); `false` while hovered, expanded, or mid-animation into either | Yes, per interaction state | If always `true`, the island can never be clicked to expand. If always `false`, the panel's full bounding rectangle — which is larger than the visible pill so it can grow into the expanded shape — intercepts clicks meant for the menu bar or desktop underneath it, even where nothing is visibly drawn. |
 
 ## Visual states and geometry
@@ -42,7 +42,7 @@ The reason: resizing an `NSWindow`'s frame is a compositor-level operation — i
 
 | Trigger | Effect |
 |---|---|
-| Mouse enters the compact pill's hit area | Peek: content grows slightly beyond the pure compact size, previewing that more detail is available, without committing to the full expanded layout |
+| Mouse enters the compact pill's hit area | Peek: content grows slightly beyond the pure compact size, previewing that more detail is available, without committing to the full expanded layout. Scale is the only change — the island stays fully opaque notch black, since dimming it let the desktop show through beside the hardware cutout |
 | Click on the compact pill (or the peeked state) | Expand: content animates to the expanded geometry; `ignoresMouseEvents` becomes `false` for the whole active area |
 | Click anywhere outside the expanded panel's bounds | Collapse: content animates back to compact; `ignoresMouseEvents` reverts to `true` outside the compact pill's hit area |
 | Escape key, while expanded | Collapse, identical to click-outside |
@@ -53,7 +53,11 @@ The reason: resizing an `NSWindow`'s frame is a compositor-level operation — i
 
 An agent stopped by a standing condition — an exhausted quota, rejected credentials, an unreachable provider — is announced once and then kept, rather than repeated. The compact pill draws it red for about a minute and then stops drawing it at all: the pill is an announcement surface, and an agent retrying every forty seconds for six hours would otherwise announce the same news forever. The expanded panel keeps the fact at its foot, below a hairline, in the smallest text the island draws — one line for however many sessions and agents share the cause, plus the reset time where the condition lifts on its own. Opening the island therefore still answers "why is nothing happening?" hours after the pill went quiet.
 
-Everything the island draws is clipped to the island's own silhouette. A view leaving through a transition keeps its full layout size while it fades, so without the clip a collapse drew the expanded cards at their old size for a few frames after the black surface had already shrunk past them — the panel appeared to close and leave its contents hanging outside it. The click-anywhere-outside collapse target is deliberately *not* clipped: it covers the whole window, which is the only way a click past the island's edge can close it.
+While a track plays, the pill's music slot shows moving equaliser bars for as long as playback continues — the motion is the playback status. When the track pauses, the slot shows a still note for twenty seconds and then leaves the pill, which narrows its surface and its hover target with it; resuming brings the bars back. The countdown lives in the presenter rather than in the compact view, because that view is rebuilt on every expand and collapse.
+
+When an agent session enters `completed` (a top-level session only), `waitingForUser` or `error`, a light travels around the compact island in the status badge's own colour — green, yellow or red: a thin rim with a soft halo, crossing left to right in 2 seconds and resting 3 seconds after the light leaves before the next crossing, five times (22 seconds in all). The glow can be switched off in AI Integrations, where a test button plays a single crossing so the user can see what the switch controls; the badges are unaffected. It stops as soon as the session that started it moves on (the question answered, the next turn begun, the session gone); a more urgent moment replaces a running glow, an equally urgent one restarts it for the newer session, and a less urgent one waits for it to end and then gets its own light if it still stands. It is drawn on every display's compact island, never on the expanded one, behind the black surface and outside its clip, following the silhouette's sides and bottom but never its top edge along the menu bar.
+
+Everything the island draws is clipped to the island's own silhouette, apart from the attention glow described above. A view leaving through a transition keeps its full layout size while it fades, so without the clip a collapse drew the expanded cards at their old size for a few frames after the black surface had already shrunk past them — the panel appeared to close and leave its contents hanging outside it. The click-anywhere-outside collapse target is deliberately *not* clipped: it covers the whole window, which is the only way a click past the island's edge can close it.
 
 `ignoresMouseEvents` is `true` for the entire panel whenever the visual state is collapsed (hidden or plain compact), so that the invisible portion of the fixed window frame described above never steals a menu-bar click. It only becomes `false` for the region under the pointer during peek, and for the whole expanded area once expanded.
 
@@ -66,6 +70,8 @@ Everything the island draws is clipped to the island's own silhouette. A view le
 | Expand/collapse transition duration | ~0.35s spring (see curve above) | Matches the primary spring so expand and collapse feel symmetric |
 | Hover expansion delay | ~0.25s | Crossing the pill on the way somewhere else must not open the island |
 | Collapse grace period | ~0.5s | The panel is a target the pointer travels to, and the path from the notch to a row crosses the island's own edge. Collapsing the instant the pointer slipped off made a hand that overshot start the hover again from scratch |
+| Attention glow pass | 2s left to right, then a 3s rest; 5 passes (22s) | One Core Animation keyframe animation on a gradient mask; resumes at its elapsed point if the island collapses back mid-glow |
+| Music equaliser stroke | 0.42s, autoreversing, staggered per bar | Runs only while a track plays, as a Core Animation layer animation |
 | Idle-state animation budget | Zero | No animation, timer-driven or otherwise, runs while the empty compact island is idle; this is part of the idle-cost contract from `docs/02-performance-contract.md` |
 
 No animation is ever started while the window is ordered out. Returning from suspension orders the window in at resting compact geometry first; only a later user-triggered transition animates.
@@ -79,5 +85,5 @@ No animation is ever started while the window is ordered out. Returning from sus
 ## Appearance: light/dark mode and accessibility
 
 - **Light/dark mode.** The panel's SwiftUI content observes `NSApplication.effectiveAppearance` (or the SwiftUI `colorScheme` environment value it maps to) and switches its rendering — text, icon tint, and any background material — without requiring the panel itself to be recreated or reordered.
-- **Reduced motion.** When `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion` is `true`, the spring animations in the table above are replaced with an instant or near-instant cross-fade; no transition is skipped outright, since the state still needs to visually change, but the motion component of it is removed.
+- **Reduced motion.** When `NSWorkspace.shared.accessibilityDisplayShouldReduceMotion` is `true`, the spring animations in the table above are replaced with an instant or near-instant cross-fade; no transition is skipped outright, since the state still needs to visually change, but the motion component of it is removed. The attention glow fades in place on the same beat instead of travelling, and the music slot shows its still note while a track plays. While the CPU watchdog has suspended motion, on every display, the glow is a still rim and nothing animates.
 - **Reduced transparency.** When `NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency` is `true`, any translucent SwiftUI material backing the expanded panel is replaced with a solid, high-contrast background rather than a blurred/vibrant one, while `backgroundColor = .clear` at the `NSPanel` level is unaffected — the opacity change happens in the SwiftUI content, not the window itself.

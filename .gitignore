@@ -11,3 +11,4 @@ dist/
 # Local agent & memory state
 .omo
 .serena
+.claude

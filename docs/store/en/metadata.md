@@ -7,7 +7,7 @@ This file contains all App Store Connect text fields for the English (United Sta
 ## App Name
 
 ```
-NotchFlow
+KerNotch
 ```
 
 ## Subtitle (30 chars max)
@@ -30,7 +30,7 @@ Live activities in your notch
 ## Description (4000 chars max)
 
 ```
-NotchFlow turns the notch on your MacBook into a live-activity surface — a glanceable status and control strip that shows what's happening right now and collapses away the moment there's nothing to show.
+KerNotch turns the notch on your MacBook into a live-activity surface — a glanceable status and control strip that shows what's happening right now and collapses away the moment there's nothing to show.
 
 WHAT IT SHOWS
 
@@ -42,17 +42,17 @@ WHAT IT SHOWS
 
 HOW IT WORKS
 
-NotchFlow is event-driven. It wakes up when something happens, shows the relevant card, and goes back to sleep the moment that activity ends. When idle, it uses close to zero CPU.
+KerNotch is event-driven. It wakes up when something happens, shows the relevant card, and goes back to sleep the moment that activity ends. When idle, it uses close to zero CPU.
 
-AI agent status works through small hook scripts NotchFlow installs for you — with your explicit approval, one agent at a time. The hooks push a status event to NotchFlow over a local connection that never leaves your Mac. NotchFlow never reads your screen, never inspects terminal output, and never guesses.
+AI agent status works through small hook scripts KerNotch installs for you — with your explicit approval, one agent at a time. The hooks push a status event to KerNotch over a local connection that never leaves your Mac. KerNotch never reads your screen, never inspects terminal output, and never guesses.
 
 PRIVACY
 
-NotchFlow collects nothing. No analytics, no telemetry, no crash reports sent off-device, no account required. The only network connection it ever makes is a local loopback listener for AI agent hooks — unreachable from outside your machine. Everything stays on your Mac.
+KerNotch collects nothing. No analytics, no telemetry, no crash reports sent off-device, no account required. The only network connection it ever makes is a local loopback listener for AI agent hooks — unreachable from outside your machine. Everything stays on your Mac.
 
 PERMISSIONS
 
-NotchFlow asks for permissions only when you turn on the feature that needs them — never at first launch.
+KerNotch asks for permissions only when you turn on the feature that needs them — never at first launch.
 
 • Apple Events: used to query and control Spotify and Apple Music for the music card.
 • File access: used by the hook installer to write the agent hook scripts you approve.
@@ -110,16 +110,16 @@ Paste the following into the "Notes" field in App Store Connect under App Review
 ```
 Hello App Review,
 
-Thank you for reviewing NotchFlow.
+Thank you for reviewing KerNotch.
 
 WHAT THE APP DOES
-NotchFlow is a macOS utility that displays live-activity cards (music, timers, recording indicators, charging status, and AI coding agent status) in the notch area of MacBook models that have a notch. It is event-driven: it shows a card when an activity starts and hides it when the activity ends.
+KerNotch is a macOS utility that displays live-activity cards (music, timers, recording indicators, charging status, and AI coding agent status) in the notch area of MacBook models that have a notch. It is event-driven: it shows a card when an activity starts and hides it when the activity ends.
 
 THE OVERLAY WINDOW
-NotchFlow uses an NSWindow positioned at the top of the screen, set to NSWindow.Level.screenSaver, with a transparent background and a non-rectangular click-through region. This is the standard technique for drawing in the notch area on macOS. The window does not cover any interactive UI outside the notch region. It does not intercept clicks intended for other apps. It does not use any private API.
+KerNotch uses an NSWindow positioned at the top of the screen, set to NSWindow.Level.screenSaver, with a transparent background and a non-rectangular click-through region. This is the standard technique for drawing in the notch area on macOS. The window does not cover any interactive UI outside the notch region. It does not intercept clicks intended for other apps. It does not use any private API.
 
 NO PRIVATE API
-NotchFlow does not use any private framework or private API in the App Store build. The music provider in the App Store build uses AppleScript (Apple Events) to communicate with Spotify and Apple Music — a fully public, documented mechanism. The MediaRemote framework used in the direct/Homebrew build is excluded from the App Store build at compile time via a build flag.
+KerNotch does not use any private framework or private API in the App Store build. The music provider in the App Store build uses AppleScript (Apple Events) to communicate with Spotify and Apple Music — a fully public, documented mechanism. The MediaRemote framework used in the direct/Homebrew build is excluded from the App Store build at compile time via a build flag.
 
 PERMISSIONS
 • Apple Events (NSAppleEventsUsageDescription): used to query now-playing state and send playback commands to Spotify and Apple Music.
@@ -127,7 +127,7 @@ PERMISSIONS
 
 TESTING THE APP
 To see the music card: open Spotify or Apple Music and play a track. Grant Apple Events permission when prompted.
-To see the timer card: open NotchFlow settings and start a timer.
+To see the timer card: open KerNotch settings and start a timer.
 To see the recording card: start a screen recording with QuickTime or the system screenshot tool.
 To see the charging card: connect or disconnect a power adapter.
 To see the AI agent card: the hook installer in settings can be demonstrated without a live agent by sending a test IPC event via curl to the loopback listener address shown in settings.
@@ -145,7 +145,7 @@ Fill in App Store Connect > App Privacy as follows. Every data type not listed h
 
 ### Data Not Collected
 
-NotchFlow does not collect any data. Select **"No, we do not collect data from this app"** on the App Privacy page.
+KerNotch does not collect any data. Select **"No, we do not collect data from this app"** on the App Privacy page.
 
 If App Store Connect requires you to enumerate types anyway, set every category to **Not Collected**:
 

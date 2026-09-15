@@ -4,7 +4,7 @@ This document specifies the `Activity` protocol, the `ActivityPriority` enum and
 
 ## The `Activity` protocol
 
-Every feature in NotchFlow — music, timers, recording indicators, charging state, AI status — is an `Activity`. `NotchFlowCore` owns this protocol and knows nothing about any specific activity's implementation; `NotchFlowProviders` supplies the concrete types (see `06-activity-providers.md`).
+Every feature in KerNotch — music, timers, recording indicators, charging state, AI status — is an `Activity`. `KerNotchCore` owns this protocol and knows nothing about any specific activity's implementation; `KerNotchProviders` supplies the concrete types (see `06-activity-providers.md`).
 
 | Member | Kind | Purpose |
 |---|---|---|
@@ -20,7 +20,7 @@ Every feature in NotchFlow — music, timers, recording indicators, charging sta
 
 `identity`, `kind`, and `priority` are required on every activity. Compact grouping properties have defaults that keep an activity ungrouped in the standard region. `autoDismiss` and `primaryAction` are optional with `nil` defaults — the `ActivityManager` can manage any activity without them.
 
-Lifecycle management (`register`, `update`, `end`) lives on `ActivityManager`, not on the `Activity` protocol. Providers call the manager's methods; the manager owns the active set and the auto-dismiss timers. View rendering is handled in `NotchFlowUI` by type-switching on `ActivityKind`, not by view-builder methods on the protocol.
+Lifecycle management (`register`, `update`, `end`) lives on `ActivityManager`, not on the `Activity` protocol. Providers call the manager's methods; the manager owns the active set and the auto-dismiss timers. View rendering is handled in `KerNotchUI` by type-switching on `ActivityKind`, not by view-builder methods on the protocol.
 
 ## `ActivityPriority`
 
@@ -51,7 +51,7 @@ This table is the single source of truth for ordering. A provider that introduce
 
 ## The `ActivityManager` contract
 
-The `ActivityManager` lives in `NotchFlowCore` and is the only component that providers and the UI both talk to — providers push activities in, the UI reads the active set out. Neither side talks to the other directly.
+The `ActivityManager` lives in `KerNotchCore` and is the only component that providers and the UI both talk to — providers push activities in, the UI reads the active set out. Neither side talks to the other directly.
 
 | Responsibility | Behaviour |
 |---|---|
@@ -97,11 +97,11 @@ An instance ending ends the sub-agents under it, since the process that would ha
 
 ## Extension guide: adding a new activity type
 
-A contributor adding a new activity kind in a later version touches only `NotchFlowProviders` and this document — never `ActivityManager` itself:
+A contributor adding a new activity kind in a later version touches only `KerNotchProviders` and this document — never `ActivityManager` itself:
 
-1. Define a new type conforming to `Activity` in `NotchFlowProviders` (or a new provider module), implementing `identity`, `kind`, `priority`, and the optional `autoDismiss` and `primaryAction` as needed. Add the corresponding compact and expanded SwiftUI views in `NotchFlowUI`, keyed by the new `ActivityKind` case.
+1. Define a new type conforming to `Activity` in `KerNotchProviders` (or a new provider module), implementing `identity`, `kind`, `priority`, and the optional `autoDismiss` and `primaryAction` as needed. Add the corresponding compact and expanded SwiftUI views in `KerNotchUI`, keyed by the new `ActivityKind` case.
 2. Add a row to the V1 (or later) priority assignment table above so ordering is unambiguous and reviewable.
-3. Register the new provider with the `ActivityManager` at the composition root (`NotchFlow` app target) — the manager requires no code changes to accept a new `kind`, since it operates only on the protocol, not on concrete types.
+3. Register the new provider with the `ActivityManager` at the composition root (`KerNotch` app target) — the manager requires no code changes to accept a new `kind`, since it operates only on the protocol, not on concrete types.
 4. Document the provider's event source and permission needs in `06-activity-providers.md`.
 
 Because the manager only ever depends on the `Activity` protocol and never on any concrete activity type, this is the entire surface a new feature needs to touch — the ordering rule, the panel visibility rule, and the compact/expanded rendering all keep working unmodified.

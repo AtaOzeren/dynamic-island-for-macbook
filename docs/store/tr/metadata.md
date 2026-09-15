@@ -7,7 +7,7 @@ Bu dosya, Türkçe (Türkiye) yerel ayarı için tüm App Store Connect metin al
 ## Uygulama Adı
 
 ```
-NotchFlow
+KerNotch
 ```
 
 ## Alt Başlık (maks. 30 karakter)
@@ -30,7 +30,7 @@ NotchFlow
 ## Açıklama (maks. 4000 karakter)
 
 ```
-NotchFlow, MacBook'unuzun çentiğini canlı bir aktivite yüzeyine dönüştürür. Şu an ne olduğunu gösteren, bakışta anlaşılan bir durum şeridi — gösterecek bir şey kalmadığında kendiliğinden kapanır.
+KerNotch, MacBook'unuzun çentiğini canlı bir aktivite yüzeyine dönüştürür. Şu an ne olduğunu gösteren, bakışta anlaşılan bir durum şeridi — gösterecek bir şey kalmadığında kendiliğinden kapanır.
 
 NE GÖSTERIR
 
@@ -42,17 +42,17 @@ NE GÖSTERIR
 
 NASIL ÇALIŞIR
 
-NotchFlow olay güdümlüdür. Bir şey olduğunda uyanır, ilgili kartı gösterir ve aktivite sona erdiği anda tekrar uyur. Boştayken neredeyse sıfır CPU kullanır.
+KerNotch olay güdümlüdür. Bir şey olduğunda uyanır, ilgili kartı gösterir ve aktivite sona erdiği anda tekrar uyur. Boştayken neredeyse sıfır CPU kullanır.
 
-Yapay zeka ajan durumu, NotchFlow'un sizin için kurduğu küçük kanca betikleri aracılığıyla çalışır — açık onayınızla, ajan başına tek tek. Kancalar, Mac'inizden dışarı çıkmayan yerel bir bağlantı üzerinden NotchFlow'a durum olayı gönderir. NotchFlow ekranınızı okumaz, terminal çıktısını incelemez ve tahmin yürütmez.
+Yapay zeka ajan durumu, KerNotch'un sizin için kurduğu küçük kanca betikleri aracılığıyla çalışır — açık onayınızla, ajan başına tek tek. Kancalar, Mac'inizden dışarı çıkmayan yerel bir bağlantı üzerinden KerNotch'a durum olayı gönderir. KerNotch ekranınızı okumaz, terminal çıktısını incelemez ve tahmin yürütmez.
 
 GİZLİLİK
 
-NotchFlow hiçbir şey toplamaz. Analitik yok, telemetri yok, cihaz dışına gönderilen kilitlenme raporu yok, hesap gerekmez. Yaptığı tek ağ bağlantısı, yapay zeka ajan kancaları için yerel bir geri döngü dinleyicisidir — makinenizin dışından erişilemez. Her şey Mac'inizde kalır.
+KerNotch hiçbir şey toplamaz. Analitik yok, telemetri yok, cihaz dışına gönderilen kilitlenme raporu yok, hesap gerekmez. Yaptığı tek ağ bağlantısı, yapay zeka ajan kancaları için yerel bir geri döngü dinleyicisidir — makinenizin dışından erişilemez. Her şey Mac'inizde kalır.
 
 İZİNLER
 
-NotchFlow, izinleri yalnızca o özelliği etkinleştirdiğinizde ister — ilk açılışta asla.
+KerNotch, izinleri yalnızca o özelliği etkinleştirdiğinizde ister — ilk açılışta asla.
 
 • Apple Events: Müzik kartı için Spotify ve Apple Music'i sorgulamak ve kontrol etmek amacıyla kullanılır.
 
@@ -108,7 +108,7 @@ Türkçe yerel ayarı için ayrı inceleme notu gerekmez. İngilizce `en/metadat
 
 ## Gizlilik Beslenme Etiketi
 
-İngilizce `en/metadata.md` dosyasındaki gizlilik etiketi tablosu tüm yerel ayarlar için geçerlidir. NotchFlow hiçbir veri toplamaz.
+İngilizce `en/metadata.md` dosyasındaki gizlilik etiketi tablosu tüm yerel ayarlar için geçerlidir. KerNotch hiçbir veri toplamaz.
 
 ---
 

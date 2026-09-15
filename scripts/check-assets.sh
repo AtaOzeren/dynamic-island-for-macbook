@@ -6,7 +6,7 @@ set -euo pipefail
 # release rather than as a red build. This asserts every size the catalog
 # promises is present, is a real PNG, and is exactly the pixel dimensions its
 # size-and-scale pair implies.
-CATALOG="NotchFlow/Assets.xcassets"
+CATALOG="KerNotch/Assets.xcassets"
 
 python3 - "$CATALOG" <<'PYTHON'
 import json

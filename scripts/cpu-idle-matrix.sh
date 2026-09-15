@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Measures one row (A-F) of the idle CPU cost matrix from the 2026-09-06
 # CPU-runaway plan (Task 0.2), using powermetrics' tasks sampler for 60 one-
-# second samples, filtered to the running NotchFlow process. Appends a result
+# second samples, filtered to the running KerNotch process. Appends a result
 # line to .omo/evidence/cpu-runaway/idle-matrix-baseline.md and keeps the raw
 # powermetrics capture next to it.
 #
@@ -22,27 +22,27 @@ case "${1:-}" in
     C) condition="As A, displayTarget = .allDisplays with an external display attached" ;;
     D) condition="As A, one agent working (synthetic session posted to the loopback port)" ;;
     E) condition="As A, expanded island open" ;;
-    F) condition="As A with Accessibility permission revoked for NotchFlow, then granted (run this row twice)" ;;
+    F) condition="As A with Accessibility permission revoked for KerNotch, then granted (run this row twice)" ;;
     *)
         echo "usage: Scripts/cpu-idle-matrix.sh <A|B|C|D|E|F>" >&2
         exit 2
         ;;
 esac
 
-pid="$(pgrep -x NotchFlow | head -n 1 || true)"
+pid="$(pgrep -x KerNotch | head -n 1 || true)"
 if [[ -z "$pid" ]]; then
-    echo "NotchFlow is not running — launch the build under test first." >&2
+    echo "KerNotch is not running — launch the build under test first." >&2
     exit 1
 fi
-if (( $(pgrep -x NotchFlow | wc -l) > 1 )); then
-    echo "note: multiple NotchFlow processes found; measuring pid $pid" >&2
+if (( $(pgrep -x KerNotch | wc -l) > 1 )); then
+    echo "note: multiple KerNotch processes found; measuring pid $pid" >&2
 fi
 
 if ! sudo -n true 2>/dev/null; then
     cat >&2 <<EOF
 passwordless sudo is unavailable, so powermetrics cannot run. Either:
   1. run 'sudo -v' to cache your credentials, then re-run this script, or
-  2. measure manually: Activity Monitor › NotchFlow › Realtime CPU, 30 s
+  2. measure manually: Activity Monitor › KerNotch › Realtime CPU, 30 s
      average, and append the row yourself in $EVIDENCE_DIR/idle-matrix-baseline.md
 EOF
     exit 1
@@ -50,7 +50,7 @@ fi
 
 echo "row $row — $condition"
 if [[ "$row" == D ]]; then
-    port_file="$HOME/Library/Application Support/NotchFlow/ipc-port"
+    port_file="$HOME/Library/Application Support/KerNotch/ipc-port"
     if [[ -f "$port_file" ]]; then
         port="$(<"$port_file")"
         echo "post the synthetic working session now, e.g.:"
@@ -72,12 +72,12 @@ sudo powermetrics --samplers tasks -i 1000 -n 60 > "$RAW"
 # powermetrics prints one task table per sample: "Name  PID  CPU_ms/s ...".
 # 1000 CPU_ms/s is one full core, so % of one core = avg CPU_ms/s / 10.
 readonly SUMMARY="$(awk -v pid="$pid" '
-    $1 == "NotchFlow" { total += $3; samples += 1 }
+    $1 == "KerNotch" { total += $3; samples += 1 }
     END {
         if (samples > 0)
             printf "%.2f%% of one core over %d samples", total / samples / 10, samples
         else
-            print "no NotchFlow rows parsed — read the raw capture"
+            print "no KerNotch rows parsed — read the raw capture"
     }' "$RAW")"
 
 readonly LINE="| $row | $(date '+%Y-%m-%d %H:%M') | $SUMMARY | $(basename "$RAW") |"

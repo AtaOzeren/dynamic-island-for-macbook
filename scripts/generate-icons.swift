@@ -1,6 +1,6 @@
 #!/usr/bin/env swift
 
-// Renders every NotchFlow image asset from vector drawing code.
+// Renders every KerNotch image asset from vector drawing code.
 //
 // The icons are generated rather than hand-exported so the design is reviewable
 // as source: a change to the palette or the notch proportions below is a diff,
@@ -12,7 +12,7 @@ import Foundation
 
 // MARK: - Design tokens
 
-/// The island's own palette, mirroring `IslandSurface` in `NotchFlowUI`: the
+/// The island's own palette, mirroring `IslandSurface` in `KerNotchUI`: the
 /// notch reads as the physical cutout's black, and the activity accent is the
 /// one saturated colour the product uses to say "something is happening".
 private enum Palette {
@@ -235,7 +235,7 @@ private let menuBarPixelSizes = [18, 36, 54]
 let repositoryRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()
     .deletingLastPathComponent()
-let catalog = repositoryRoot.appending(path: "NotchFlow/Assets.xcassets")
+let catalog = repositoryRoot.appending(path: "KerNotch/Assets.xcassets")
 let appIconSet = catalog.appending(path: "AppIcon.appiconset")
 let menuBarSet = catalog.appending(path: "MenuBarIcon.imageset")
 

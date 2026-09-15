@@ -17,8 +17,8 @@ from pathlib import Path
 from typing import Sequence
 
 
-PROCESS_NAME = "NotchFlow"
-DEFAULT_APP_PATH = Path(".build/debug/NotchFlow")
+PROCESS_NAME = "KerNotch"
+DEFAULT_APP_PATH = Path(".build/debug/KerNotch")
 IDLE_WAIT_SECONDS = 60
 SAMPLE_COUNT = 60
 SAMPLE_INTERVAL_MILLISECONDS = 1_000
@@ -72,7 +72,7 @@ class ProcessDetails:
 
 def parse_arguments(arguments: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Measure NotchFlow's idle CPU, wakeups, and resident memory budgets."
+        description="Measure KerNotch's idle CPU, wakeups, and resident memory budgets."
     )
     parser.add_argument(
         "--app",
@@ -84,7 +84,7 @@ def parse_arguments(arguments: Sequence[str] | None = None) -> argparse.Namespac
     parser.add_argument(
         "--skip-launch",
         action="store_true",
-        help="do not launch the app; requires --pid or one running NotchFlow process",
+        help="do not launch the app; requires --pid or one running KerNotch process",
     )
     parser.add_argument(
         "--idle-wait",
@@ -309,7 +309,7 @@ def build_json_report(
 
 
 def print_human_summary(report: EvaluationReport) -> None:
-    print("NotchFlow idle performance: " + ("PASS" if report.passed else "FAIL"), file=sys.stderr)
+    print("KerNotch idle performance: " + ("PASS" if report.passed else "FAIL"), file=sys.stderr)
     for metric in report.metrics.values():
         status = "PASS" if metric.passed else "FAIL"
         print(

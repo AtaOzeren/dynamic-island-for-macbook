@@ -7,7 +7,7 @@ set -euo pipefail
 PROJECT_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 DOC="$PROJECT_ROOT/docs/07-ai-integration.md"
 DUMP_DIR=$(mktemp -d)
-DUMP_TEST="$PROJECT_ROOT/Tests/NotchFlowCoreTests/HookSnippetDocRegeneration.swift"
+DUMP_TEST="$PROJECT_ROOT/Tests/KerNotchCoreTests/HookSnippetDocRegeneration.swift"
 
 cleanup() {
     rm -rf "$DUMP_DIR"
@@ -19,10 +19,10 @@ cat > "$DUMP_TEST" <<SWIFT
 import Foundation
 import Testing
 
-@testable import NotchFlowCore
+@testable import KerNotchCore
 
 /// Written and removed by scripts/regenerate-hook-docs.sh. The generator is
-/// only reachable from a target that links NotchFlowCore, and the test target
+/// only reachable from a target that links KerNotchCore, and the test target
 /// is the one that already does.
 @Suite("HookSnippetDocRegeneration")
 struct HookSnippetDocRegenerationTests {
@@ -55,7 +55,7 @@ doc = doc_path.read_text()
 
 for marker in ("claude-code", "codex", "opencode"):
     body = (dump_dir / f"{marker}.txt").read_text().rstrip("\n")
-    pattern = r"(<!-- notchflow-snippet: %s -->\n```[a-zA-Z]*\n)(.*?)(\n```)" % re.escape(marker)
+    pattern = r"(<!-- kernotch-snippet: %s -->\n```[a-zA-Z]*\n)(.*?)(\n```)" % re.escape(marker)
     match = re.search(pattern, doc, re.S)
     if match is None:
         raise SystemExit(f"no snippet block for {marker} in {doc_path}")

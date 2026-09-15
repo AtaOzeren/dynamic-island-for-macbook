@@ -18,7 +18,7 @@ fi
 cd "$REPOSITORY_ROOT"
 
 product() {
-    echo "$DERIVED_DATA/Build/Products/$1/NotchFlow.app/Contents/MacOS/NotchFlow"
+    echo "$DERIVED_DATA/Build/Products/$1/KerNotch.app/Contents/MacOS/KerNotch"
 }
 
 APPSTORE_PRODUCT=$(product AppStore)
@@ -26,7 +26,7 @@ DIRECT_PRODUCT=$(product Direct)
 
 build() {
     xcodebuild \
-        -project NotchFlow.xcodeproj \
+        -project KerNotch.xcodeproj \
         -scheme "$1" \
         -configuration "$2" \
         -derivedDataPath "$DERIVED_DATA" \
@@ -38,8 +38,8 @@ build() {
 }
 
 if [ "$FORCE" = true ] || [ ! -x "$APPSTORE_PRODUCT" ] || [ ! -x "$DIRECT_PRODUCT" ]; then
-    build "NotchFlow (App Store)" AppStore
-    build "NotchFlow (Direct)" Direct
+    build "KerNotch (App Store)" AppStore
+    build "KerNotch (Direct)" Direct
 fi
 
 APPSTORE_BACKEND=$("$APPSTORE_PRODUCT" --print-music-backend)

@@ -66,7 +66,7 @@ let specifications = [
         headline: "Choose what appears. Keep everything else quiet.",
         detail: "Control activities, appearance, display placement, and AI integrations.",
         symbol: "gearshape.fill",
-        islandTitle: "NotchFlow Settings",
+        islandTitle: "KerNotch Settings",
         islandDetail: "General  •  Activities  •  AI Integrations  •  About",
         accent: NSColor(red: 0.38, green: 0.68, blue: 1, alpha: 1),
         progress: nil
@@ -139,7 +139,7 @@ func drawScreenshot(_ specification: ScreenshotSpecification) throws {
         drawText("Live • On this Mac", in: NSRect(x: panel.minX + 42, y: panel.minY + 62, width: 400, height: 40), font: .systemFont(ofSize: 24, weight: .medium), color: specification.accent)
     }
 
-    drawText("NotchFlow", in: NSRect(x: 180, y: 120, width: 400, height: 70), font: .systemFont(ofSize: 38, weight: .semibold), color: NSColor.white.withAlphaComponent(0.85))
+    drawText("KerNotch", in: NSRect(x: 180, y: 120, width: 400, height: 70), font: .systemFont(ofSize: 38, weight: .semibold), color: NSColor.white.withAlphaComponent(0.85))
 
     image.unlockFocus()
     guard

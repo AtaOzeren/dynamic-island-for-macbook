@@ -1,8 +1,8 @@
 # Activity Providers
 
-This document specifies every `NotchFlowProviders` type shipping in V1: its event source, the exact API it uses, the permission or entitlement it needs, the `Activity` it produces, that activity's priority and update cadence, how it tears itself down, and how it can be verified in CI versus only on real hardware. It is a design specification — nothing in this folder is code.
+This document specifies every `KerNotchProviders` type shipping in V1: its event source, the exact API it uses, the permission or entitlement it needs, the `Activity` it produces, that activity's priority and update cadence, how it tears itself down, and how it can be verified in CI versus only on real hardware. It is a design specification — nothing in this folder is code.
 
-Each provider is a single type implementing the `Activity` protocol (`05-activity-model.md`) that watches exactly one system or IPC source and translates its events into `Activity` registrations, updates, and ends on the `ActivityManager`. No provider talks to another provider, and no provider talks to `NotchFlowUI` — see the module graph and dependency rule in `01-architecture.md`.
+Each provider is a single type implementing the `Activity` protocol (`05-activity-model.md`) that watches exactly one system or IPC source and translates its events into `Activity` registrations, updates, and ends on the `ActivityManager`. No provider talks to another provider, and no provider talks to `KerNotchUI` — see the module graph and dependency rule in `01-architecture.md`.
 
 ## Music
 
@@ -10,7 +10,7 @@ Music is the longest section here because it is the one provider that does not e
 
 ### The `MusicProvider` protocol
 
-`NotchFlowProviders` defines a `MusicProvider` protocol independent of the `Activity` protocol itself — it is the seam between "however we learn about now-playing" and "how we turn that into a `MusicActivity`". Exactly one concrete conformance is compiled into any given build:
+`KerNotchProviders` defines a `MusicProvider` protocol independent of the `Activity` protocol itself — it is the seam between "however we learn about now-playing" and "how we turn that into a `MusicActivity`". Exactly one concrete conformance is compiled into any given build:
 
 | Conformance | Build | Mechanism |
 |---|---|---|
@@ -21,7 +21,7 @@ Music is the longest section here because it is the one provider that does not e
 
 - **Event source:** Distributed notifications that Spotify and Music.app post on track change and play-state change (`com.spotify.client.PlaybackStateChanged`, `com.apple.Music.playerInfo`), observed via `DistributedNotificationCenter`. The notification payload carries enough to know *something* changed but not always the full up-to-date state, so the provider treats it as a wake-up signal.
 - **Exact API:** On receiving a distributed notification, the provider queries the app's current state through ScriptingBridge-generated interfaces (`SpotifyApplication`, `MusicApplication` from each app's `.sdef`) for track name, artist, and player state. Transport control (play/pause, next/previous) is sent back the same way, as an AppleScript/ScriptingBridge call against the active app.
-- **Permission or entitlement:** `com.apple.security.scripting-targets` entitlement, scoped to `com.spotify.client` and `com.apple.Music`, declared in `NotchFlow-AppStore.entitlements`. The user sees a one-time Apple Events automation prompt per target app on first control attempt; no separate NotchFlow-specific permission screen is needed.
+- **Permission or entitlement:** `com.apple.security.scripting-targets` entitlement, scoped to `com.spotify.client` and `com.apple.Music`, declared in `KerNotch-AppStore.entitlements`. The user sees a one-time Apple Events automation prompt per target app on first control attempt; no separate KerNotch-specific permission screen is needed.
 - **Activity produced:** `MusicActivity` with track title, artist, and play/pause state; `kind = .music`.
 - **Priority:** `low` (see the V1 priority table in `05-activity-model.md`) — music never forces the panel visible on its own account and stays visible only as long as something is playing.
 - **Update cadence:** Purely event-driven, bounded by how often Spotify/Music post their distributed notifications (on track change and play/pause, not on a timer). No polling of player state at any interval.
@@ -34,15 +34,15 @@ Music is the longest section here because it is the one provider that does not e
 - **Event source:** The system's private `MediaRemote` framework, which aggregates now-playing state across every app that participates in Control Center / media-key routing — Spotify, Apple Music, YouTube Music (web or app), browser tabs, anything.
 - **Exact API:** `MediaRemote`'s now-playing notification callback (`MRMediaRemoteRegisterForNowPlayingNotifications`) delivered on a `MediaRemote`-owned queue, and its info dictionary getter (`MRMediaRemoteGetNowPlayingInfo`) for track metadata. Because `MediaRemote` is a private framework, every symbol is resolved dynamically at runtime via `dlopen`/`dlsym` against the framework path — **the symbol table is never linked at compile time**, so no `MediaRemote` or `MRMediaRemote` string appears in the binary's import table even in the Direct build. Transport control uses the corresponding `MediaRemote` command-sending function.
 - **Permission or entitlement:** None. `MediaRemote` now-playing observation requires no user-facing permission prompt and no entitlement; the Direct build is unsandboxed, so there is no App Sandbox restriction to satisfy either.
-- **Activity produced:** The same `MusicActivity` shape as `AppleScriptMusicProvider` — track title, artist, play/pause state, `kind = .music`. `NotchFlowUI` renders one music view regardless of which provider is behind it.
-- **Priority:** `low`, identical to the App Store conformance — the `Activity` protocol and the priority table make provider identity invisible above `NotchFlowProviders`.
+- **Activity produced:** The same `MusicActivity` shape as `AppleScriptMusicProvider` — track title, artist, play/pause state, `kind = .music`. `KerNotchUI` renders one music view regardless of which provider is behind it.
+- **Priority:** `low`, identical to the App Store conformance — the `Activity` protocol and the priority table make provider identity invisible above `KerNotchProviders`.
 - **Update cadence:** Purely event-driven — `MediaRemote` calls back only on an actual now-playing state change, no polling.
 - **Teardown:** The provider calls `end()` on the current `MusicActivity` when `MediaRemote` reports an empty now-playing state (nothing playing anywhere on the system).
 - **CI-vs-hardware verifiability:** The `dlopen`/`dlsym` resolution and the now-playing callback wiring can only be exercised on real hardware running the Direct build; CI can unit-test the `MusicActivity` construction logic against a fake `MediaRemote` info dictionary, but not the dynamic symbol resolution itself.
 
 ### The compile-time selection mechanism
 
-`NotchFlowProviders` selects the conformance with a Swift compilation condition, matching the two build configurations described in `10-build-and-distribution.md`:
+`KerNotchProviders` selects the conformance with a Swift compilation condition, matching the two build configurations described in `10-build-and-distribution.md`:
 
 ```swift
 #if APPSTORE_BUILD
@@ -64,30 +64,30 @@ This prohibition is enforced two ways:
 
 ### Communicating reduced capability to App Store users
 
-Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on the App Store build who plays audio from YouTube Music or a browser tab sees no music activity at all — NotchFlow does not show a broken or stale card, it shows nothing, which is the correct and honest behavior for a source it genuinely cannot observe. The Settings screen (`08-settings-and-localization.md`) states this limitation plainly next to the music section — "Supports Spotify and Apple Music. For all other players, install the Homebrew/Direct build." — rather than leaving the user to guess why their music never appears. This is a capability difference disclosed up front, not a bug to be worked around silently.
+Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on the App Store build who plays audio from YouTube Music or a browser tab sees no music activity at all — KerNotch does not show a broken or stale card, it shows nothing, which is the correct and honest behavior for a source it genuinely cannot observe. The Settings screen (`08-settings-and-localization.md`) states this limitation plainly next to the music section — "Supports Spotify and Apple Music. For all other players, install the Homebrew/Direct build." — rather than leaving the user to guess why their music never appears. This is a capability difference disclosed up front, not a bug to be worked around silently.
 
 ## Timer / Stopwatch
 
-- **Event source:** None — this is the one V1 provider with no external system to observe. NotchFlow owns the entire lifecycle of a countdown or stopwatch: the user starts it from the panel, and the provider is both the origin and the consumer of its own ticks.
+- **Event source:** None — this is the one V1 provider with no external system to observe. KerNotch owns the entire lifecycle of a countdown or stopwatch: the user starts it from the panel, and the provider is both the origin and the consumer of its own ticks.
 - **Exact API:** `DispatchSourceTimer` configured with generous leeway (per the performance contract in `02-performance-contract.md`), so the OS can coalesce this wakeup with others already scheduled rather than firing a precise one-shot every second. This is the only provider in V1 permitted to own a repeating tick at all — every other provider is purely reactive to an external event.
 - **Permission or entitlement:** None.
 - **Activity produced:** `TimerActivity` with mode (countdown or stopwatch), remaining or elapsed duration, and a running/paused flag; `kind = .timer`.
 - **Priority:** `high` while the timer is expiring or has just expired and needs acknowledgment (the V1 priority table's "Timer expiring" row); a running, non-expiring timer that the user is actively watching is not itself a forcing condition beyond having registered an activity at all.
-- **Update cadence:** The `DispatchSourceTimer` fires only while the timer's `TimerActivity` is part of the currently visible panel — a countdown running with the panel closed or the notch not visible does not tick NotchFlow's own timer at the interval a visible one would; the underlying duration is still tracked (typically via a start timestamp and elapsed-time computation rather than tick-accumulation, so no ticks are ever "lost" while not visible), but the moment-to-moment display refresh only runs when there is a display to refresh. This is the concrete instance of the performance contract's "active only while a time-based activity is visible" rule.
+- **Update cadence:** The `DispatchSourceTimer` fires only while the timer's `TimerActivity` is part of the currently visible panel — a countdown running with the panel closed or the notch not visible does not tick KerNotch's own timer at the interval a visible one would; the underlying duration is still tracked (typically via a start timestamp and elapsed-time computation rather than tick-accumulation, so no ticks are ever "lost" while not visible), but the moment-to-moment display refresh only runs when there is a display to refresh. This is the concrete instance of the performance contract's "active only while a time-based activity is visible" rule.
 - **Teardown:** `end()` fires when the countdown reaches zero and the auto-dismiss window (if any) elapses, when the user manually stops the timer, or when the user acknowledges an expired timer's notification.
-- **CI-vs-hardware verifiability:** Fully verifiable in CI. Because NotchFlow is both source and consumer, the state machine (start → tick → expire → acknowledge) is pure logic over a clock abstraction and needs no live hardware, no permission, and no external app — this is one of the `NotchFlowCore`-adjacent pieces suited to the TDD approach in `11-testing-strategy.md`.
+- **CI-vs-hardware verifiability:** Fully verifiable in CI. Because KerNotch is both source and consumer, the state machine (start → tick → expire → acknowledge) is pure logic over a clock abstraction and needs no live hardware, no permission, and no external app — this is one of the `KerNotchCore`-adjacent pieces suited to the TDD approach in `11-testing-strategy.md`.
 
 ## Screen Recording
 
 - **Event source:** `CGWindowListCreateImage`/`ScreenCaptureKit`-adjacent recording-session state, or, at minimum, the system-level indicator macOS itself surfaces when the screen is being recorded via `ScreenCaptureKit` (macOS 12.3+) or the older `CGDisplayStream`/`AVCaptureScreenInput` paths.
-- **Exact API:** `SCShareableContent`/`SCStream` session-state observation where the recording session is one NotchFlow itself might not initiate (a third-party screen recorder or the system's own screenshot toolbar recording) — what is publicly observable is whether *the system* currently has an active screen-recording session via the Screen Recording privacy category, not which specific app started it. NotchFlow observes the same system-level "is anything recording the screen right now" signal that macOS itself exposes in its own menu bar indicator, rather than instrumenting every possible recording app individually.
+- **Exact API:** `SCShareableContent`/`SCStream` session-state observation where the recording session is one KerNotch itself might not initiate (a third-party screen recorder or the system's own screenshot toolbar recording) — what is publicly observable is whether *the system* currently has an active screen-recording session via the Screen Recording privacy category, not which specific app started it. KerNotch observes the same system-level "is anything recording the screen right now" signal that macOS itself exposes in its own menu bar indicator, rather than instrumenting every possible recording app individually.
 - **Permission or entitlement:** Screen Recording permission (`kTCCServiceScreenCapture`), requested via the standard system prompt the first time the provider attempts to query recording state; declared in `NSCameraUsageDescription`-adjacent `Info.plist` usage-description keys as applicable to the exact API chosen.
 - **Activity produced:** `RecordingActivity` with source = screen, an elapsed-time counter since recording started; `kind = .recording`.
 - **Priority:** `high`, per the V1 priority table — a recording indicator stays visible for the duration of the recording and does not auto-dismiss, since silently missing that the screen is being recorded is a worse failure mode than an extra always-on indicator.
 - **Update cadence:** Event-driven off the recording-session-started/-stopped notification; the elapsed-time counter within the activity increments while visible, following the same "ticks only while shown" discipline as the timer provider.
 - **Teardown:** `end()` fires when the system reports the recording session has ended.
 - **CI-vs-hardware verifiability:** The permission-gated system query can only be exercised on real hardware with Screen Recording permission actually granted (CI runners are typically headless and cannot grant or exercise TCC permissions); the `RecordingActivity` construction and priority/teardown logic around it is unit-testable in CI against a fake session-state source.
-- **Honest statement of detectability:** NotchFlow shows *that* the screen is being recorded, not *by which app* — the public API surface tells you a recording session is active, not the identity of every possible recorder, so the indicator is deliberately generic ("Recording") rather than naming a specific app unless the API path chosen happens to expose that detail reliably.
+- **Honest statement of detectability:** KerNotch shows *that* the screen is being recorded, not *by which app* — the public API surface tells you a recording session is active, not the identity of every possible recorder, so the indicator is deliberately generic ("Recording") rather than naming a specific app unless the API path chosen happens to expose that detail reliably.
 
 ## Audio Recording
 
@@ -99,7 +99,7 @@ Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on 
 - **Update cadence:** Event-driven off the microphone-in-use-changed signal; elapsed-time counter ticks only while visible.
 - **Teardown:** `end()` fires when the system reports no app is using the microphone.
 - **CI-vs-hardware verifiability:** Same constraint as screen recording — the permission-gated system query needs real hardware with Microphone permission granted; the activity and teardown logic is unit-testable in CI against a fake in-use signal.
-- **Honest statement of detectability:** Like screen recording, NotchFlow shows *that* the microphone is in use, not *which app* is using it, unless the chosen API path happens to expose the consuming process reliably.
+- **Honest statement of detectability:** Like screen recording, KerNotch shows *that* the microphone is in use, not *which app* is using it, unless the chosen API path happens to expose the consuming process reliably.
 
 ## Charging
 
