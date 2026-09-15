@@ -78,24 +78,7 @@ public struct HookSnippetGenerator: Sendable {
     public func claudeCodeSettingsFragment() -> String {
         let hooks = Dictionary(
             uniqueKeysWithValues: Self.claudeCodeLifecycle.map { event in
-                (
-                    event.event,
-                    [
-                        [
-                            "hooks": [
-                                [
-                                    "type": "command",
-                                    "command": HookScript.claudeCodeHookCommand(
-                                        state: event.state,
-                                        detail: event.detail,
-                                        carriesToolName: event.carriesToolName,
-                                        carriesSubagentIdentity: event.carriesSubagentIdentity
-                                    ),
-                                ]
-                            ]
-                        ]
-                    ]
-                )
+                (event.event, [Self.claudeCodeHookGroup(for: event)])
             })
         let fragment: [String: Any] = [
             "hooks": hooks
@@ -110,6 +93,23 @@ public struct HookSnippetGenerator: Sendable {
             preconditionFailure("The fixed Claude Code hook fragment must encode as JSON")
         }
         return String(decoding: data, as: UTF8.self) + "\n"
+    }
+
+    /// One settings group: the command, and the matcher narrowing it when the
+    /// event has one. A group without a matcher runs for every occurrence.
+    private static func claudeCodeHookGroup(for event: LifecycleEvent) -> [String: Any] {
+        var group: [String: Any] = [
+            "hooks": [
+                [
+                    "type": "command",
+                    "command": HookScript.claudeCodeHookCommand(for: event),
+                ]
+            ]
+        ]
+        if let matcher = event.matcher {
+            group["matcher"] = matcher
+        }
+        return group
     }
 
     public func codexNotifyFragment(forwarding existingArguments: [String] = []) -> String {
@@ -428,6 +428,19 @@ public struct HookSnippetGenerator: Sendable {
                 case "permission.asked":
                   await notify("waitingForUser", event.properties.sessionID, "Needs attention")
                   break
+                // The question tool stops the turn exactly like a permission
+                // prompt does, but reports through its own event; without it a
+                // question showed nothing more than a tool in flight.
+                case "question.asked":
+                  await notify("waitingForUser", event.properties.sessionID, "Question asked")
+                  break
+                // Answered, declined, or granted, the turn carries on, so the
+                // island stops asking for the user before the next tool runs.
+                case "permission.replied":
+                case "question.replied":
+                case "question.rejected":
+                  await notify("working", event.properties.sessionID, "Working…")
+                  break
               }
             },
             "chat.message": async (input, output) => {
@@ -456,17 +469,56 @@ public struct HookSnippetGenerator: Sendable {
         let event: String
         let state: String
         let detail: String
+        /// Narrows the hook to some occurrences of the event. Claude Code
+        /// compares a matcher made only of names as an exact list.
+        var matcher: String?
         var carriesToolName = false
         var carriesSubagentIdentity = false
         var carriesFailureReason = false
+        /// Tools that stop the turn to ask the user something. When one of them
+        /// is the tool in question, the hook reports `waitingForUser` with the
+        /// tool's own detail instead of the event's state.
+        var userInputTools: [UserInputTool] = []
     }
+
+    /// A tool whose use means the agent is waiting on the user rather than
+    /// working.
+    struct UserInputTool {
+        let toolName: String
+        let detail: String
+    }
+
+    /// The notification types that mean Claude Code cannot continue without the
+    /// user.
+    ///
+    /// Everything else Claude Code notifies about is status, not a request:
+    /// `idle_prompt` fires a minute after every finished turn, `auth_success`
+    /// after a login. Unfiltered, each of those turned into a yellow "needs your
+    /// input" card that stayed for half an hour on an agent that needed nothing.
+    static let claudeCodeNeedsInputNotificationTypes = [
+        "permission_prompt",
+        "elicitation_dialog",
+        "elicitation_url_dialog",
+        "agent_needs_input",
+        "worker_permission_prompt",
+    ]
+
+    /// Claude Code's tools that ask the user rather than act.
+    ///
+    /// Their `PreToolUse` used to report `usingTool`, which the default event
+    /// switches drop, so a question or a plan waiting for approval never showed
+    /// on the island at all.
+    static let claudeCodeUserInputTools = [
+        UserInputTool(toolName: "AskUserQuestion", detail: "Question asked"),
+        UserInputTool(toolName: "ExitPlanMode", detail: "Plan approval needed"),
+    ]
 
     /// The Claude Code hook events KerNotch subscribes to.
     ///
     /// Only names Claude Code actually emits appear here — an event that does
     /// not exist is a hook that never fires, which reads on screen exactly like
-    /// a broken island. `Stop` is the single end-of-turn event; failures arrive
-    /// through `Notification`, not through a separate failure hook.
+    /// a broken island. `Stop` is the single end-of-turn event; a turn that
+    /// ends on an API error arrives through `StopFailure` instead.
     /// Deliberately no `SessionStart`.
     ///
     /// Opening a session is not work. Registering one on `SessionStart` put the
@@ -483,10 +535,28 @@ public struct HookSnippetGenerator: Sendable {
             event: "PreToolUse",
             state: "usingTool",
             detail: "Using tool",
-            carriesToolName: true
+            carriesToolName: true,
+            userInputTools: claudeCodeUserInputTools
         ),
         LifecycleEvent(event: "PostToolUse", state: "working", detail: "Tool completed"),
-        LifecycleEvent(event: "Notification", state: "waitingForUser", detail: "Needs attention"),
+        // A tool that failed or was interrupted leaves the turn running just as
+        // a finished one does, so the island returns to working instead of
+        // holding whatever the tool started with — a question's yellow included.
+        LifecycleEvent(event: "PostToolUseFailure", state: "working", detail: "Tool failed"),
+        // Fires as the permission dialog appears, which is also how the question
+        // and plan-approval tools reach the user, so it shares their details.
+        LifecycleEvent(
+            event: "PermissionRequest",
+            state: "waitingForUser",
+            detail: "Needs attention",
+            userInputTools: claudeCodeUserInputTools
+        ),
+        LifecycleEvent(
+            event: "Notification",
+            state: "waitingForUser",
+            detail: "Needs attention",
+            matcher: claudeCodeNeedsInputNotificationTypes.joined(separator: "|")
+        ),
         LifecycleEvent(event: "Stop", state: "completed", detail: "Task completed"),
         // `Stop` fires when Claude finishes responding; `StopFailure` when the
         // turn ends on an API error instead. Without this the island had no

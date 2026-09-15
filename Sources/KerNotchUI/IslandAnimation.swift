@@ -37,6 +37,12 @@ public struct IslandMotion: Equatable, Sendable {
     /// the collapse — the island never closes, so there is nothing to reopen and
     /// nothing to flicker.
     public let hoverCollapseGrace: Double
+    /// How much the pill grows under the pointer.
+    ///
+    /// Scale is the peek's only signal. The pill used to dim to 94% as well,
+    /// which let the desktop show through what has to read as the notch's own
+    /// black — so hovering made the island visibly grey beside the hardware.
+    public let peekScale: CGFloat
 
     public init(
         springResponse: Double = 0.35,
@@ -44,7 +50,8 @@ public struct IslandMotion: Equatable, Sendable {
         peekDuration: Double = 0.15,
         reducedMotionCrossFadeDuration: Double = 0.1,
         hoverExpansionDelay: Double = 0.25,
-        hoverCollapseGrace: Double = 0.5
+        hoverCollapseGrace: Double = 0.5,
+        peekScale: CGFloat = 1.03
     ) {
         self.springResponse = springResponse
         self.springDamping = springDamping
@@ -52,6 +59,7 @@ public struct IslandMotion: Equatable, Sendable {
         self.reducedMotionCrossFadeDuration = reducedMotionCrossFadeDuration
         self.hoverExpansionDelay = hoverExpansionDelay
         self.hoverCollapseGrace = hoverCollapseGrace
+        self.peekScale = peekScale
     }
 }
 

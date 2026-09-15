@@ -58,7 +58,7 @@ struct CompositionRootWiringTests {
     /// The pill's icons, the black bar behind them, and the hover target must
     /// all be sized from the same set of visible slots.
     ///
-    /// A music icon leaves after a few seconds. While that timer lived as
+    /// A paused note leaves after twenty seconds. While that timer lived as
     /// private state inside `CompactActivityView`, only the icons shrank: the
     /// bar kept the width of a slot that was no longer drawn, and the hover
     /// target kept reporting the pointer as over an island that had moved out
@@ -67,21 +67,50 @@ struct CompositionRootWiringTests {
     @Test("the pill, its surface and its hover target share one visible slot set")
     func compactPillFollowsHiddenMusicIcons() throws {
         let presenter = try Self.appSource("KerNotch/IslandPresenter.swift")
+        let secondary = try Self.appSource("KerNotch/SecondaryIslandPresentation.swift")
+        let compactView = try Self.appSource("Sources/KerNotchUI/CompactActivityView.swift")
 
-        // One owner, read by the surface and bound into the view.
+        // One owner, read by the surface and handed to the view as a value.
         #expect(presenter.contains("@Published var hiddenMusicSlotIDs"))
-        #expect(presenter.contains("hiddenMusicSlotIDs: $model.hiddenMusicSlotIDs"))
+        #expect(presenter.contains("hiddenMusicSlotIDs: model.hiddenMusicSlotIDs"))
+        #expect(!presenter.contains("$model.hiddenMusicSlotIDs"))
         #expect(
             presenter.contains(
                 "compactSlotLayout(for: model.compact, hiding: model.hiddenMusicSlotIDs)"
             )
         )
-        // And handed to the controller, which owns the hover target.
+        // And handed to the controller, which owns the hover target — on every
+        // display, and re-read whenever an icon leaves on a clock.
         #expect(presenter.contains("hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }"))
+        #expect(secondary.contains("hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }"))
+        #expect(presenter.contains("controller.compactLayoutDidChange()"))
+        #expect(secondary.contains("controller.compactLayoutDidChange()"))
+
+        // The view keeps no countdown of its own: it is rebuilt on every
+        // expand and collapse, which restarted the timer on every hover.
+        #expect(!compactView.contains(".task(id:"))
+        #expect(!compactView.contains("Task.sleep("))
 
         // Nothing may size the compact pill from the unfiltered presentation.
         #expect(!presenter.contains("compactPillGeometry(for: model.compact,"))
         #expect(!presenter.contains("balancedCompactPillSize(\n            for: model.compact,"))
+    }
+
+    /// The island has to stay the notch's own black on every display, hovered
+    /// or not. The peek used to dim the whole island to 94%, which let the
+    /// desktop through and turned the pill grey beside the hardware cutout —
+    /// nothing about the surface types can catch a modifier applied above them.
+    @Test("hovering never makes the island translucent")
+    func hoverKeepsTheIslandOpaque() throws {
+        for presenter in ["KerNotch/IslandPresenter.swift", "KerNotch/SecondaryIslandPresentation.swift"] {
+            let source = try Self.appSource(presenter)
+            #expect(!source.contains("hoverOpacity"), "\(presenter) still dims the island on hover")
+            #expect(source.contains("model.hoverScale ="), "\(presenter) lost its hover peek")
+        }
+
+        let primary = try Self.appSource("KerNotch/IslandPresenter.swift")
+        #expect(!primary.contains(".opacity(model.state"))
+        #expect(primary.contains(".fill(.black)"))
     }
 
     @Test("both IPC transports are handed the same message sink")
@@ -106,6 +135,14 @@ struct CompositionRootWiringTests {
         #expect(source.contains("private func applyAIPreferences("))
         #expect(source.contains("settingsStore.aiIntegrationPreferences = preferences"))
         #expect(source.contains("urlSchemeReceiver.preferences = preferences"))
+        // The glow switch is presentation only, so the island has to be told
+        // directly — no receiver would ever carry it there.
+        #expect(source.contains("islandPresenter.applyAttentionGlowPreference(preferences.showsAttentionGlow)"))
+
+        // The Settings test button reaches the island through the window view.
+        let settingsWindow = try Self.appSource("Sources/KerNotchUI/SettingsWindowView.swift")
+        #expect(source.contains("onPreviewAttentionGlow: islandPresenter.previewAttentionGlow"))
+        #expect(settingsWindow.contains("onPreviewAttentionGlow: onPreviewAttentionGlow"))
         #expect(!source.contains(".onChange(of: aiPreferences"))
     }
 
@@ -376,18 +413,69 @@ struct CompositionRootWiringTests {
     /// compact presentation and the pill would stay red for the activity's
     /// whole lifetime. The deadline function is pure and unit-tested; only the
     /// wiring can catch a presenter that never asks it for one.
-    @Test("the island wakes itself when an announcement window runs out")
-    func islandWakesForAnnouncementDeadlines() throws {
+    @Test("the island wakes itself when a clock-driven change is due")
+    func islandWakesForPresentationDeadlines() throws {
         let source = try Self.appSource("KerNotch/IslandPresenter.swift")
+        let clocks = try Self.appSource("Sources/KerNotchUI/IslandPresentationClocks.swift")
 
-        #expect(source.contains("nextAnnouncementDeadline("))
-        #expect(source.contains("private var announcementRefreshTask"))
+        #expect(clocks.contains("nextAnnouncementDeadline("))
+        #expect(source.contains("clocks.nextDeadline"))
+        #expect(source.contains("private var presentationRefreshTask"))
         #expect(
-            source.contains("scheduleAnnouncementRefresh(after: now)"),
+            source.contains("schedulePresentationRefresh(after: now)"),
             "the refresh never arms the next wake-up"
         )
         // Cancelled before each rearm, or a quiet agent accumulates one timer
         // per refresh for as long as it stays blocked.
-        #expect(source.contains("announcementRefreshTask?.cancel()"))
+        #expect(source.contains("presentationRefreshTask?.cancel()"))
+    }
+
+    /// The glow has to reach past the island's edge, so it cannot sit inside
+    /// the mask that clips everything else — and it has to sit behind the
+    /// surface, so the pill itself stays black.
+    @Test("the attention glow is drawn behind the surface and outside its clip")
+    func attentionGlowSitsOutsideTheClip() throws {
+        let source = try Self.appSource("KerNotch/IslandPresenter.swift")
+
+        #expect(source.contains("@Published var attentionGlow"))
+        #expect(source.contains("model.attentionGlow = reading.attentionGlow"))
+
+        let body = try #require(source.range(of: "var body: some View {"))
+        let glow = try #require(
+            source.range(of: "            attentionGlow\n", range: body.upperBound..<source.endIndex)
+        )
+        let maskedStack = try #require(
+            source.range(of: "ZStack(alignment: .top) {", range: glow.upperBound..<source.endIndex)
+        )
+        let mask = try #require(source.range(of: ".mask(alignment: .top) { surfaceMask }"))
+        #expect(glow.upperBound <= maskedStack.lowerBound, "the glow must come before the surface it sits behind")
+        #expect(!source[maskedStack.lowerBound..<mask.lowerBound].contains("attentionGlow"))
+        #expect(source.contains("if model.state == .compact, let glow = model.attentionGlow"))
+    }
+
+    /// Every display ends a glow, an announcement and a paused note at the same
+    /// moment, because only the primary presenter keeps the clocks.
+    @Test("secondary displays follow the primary presenter's clocks")
+    func secondaryDisplaysFollowThePrimaryClocks() throws {
+        let presenter = try Self.appSource("KerNotch/IslandPresenter.swift")
+        let secondary = try Self.appSource("KerNotch/SecondaryIslandPresentation.swift")
+
+        #expect(presenter.contains("secondary.follow(reading)"))
+        #expect(secondary.contains("func follow(_ reading: IslandPresentationClocks.Reading)"))
+        #expect(secondary.contains("announcementStarts: reading.announcementStarts"))
+        #expect(!secondary.contains("advancedAnnouncementStarts("))
+    }
+
+    /// The watchdog's degrade stands every island's motion still, not only the
+    /// primary display's.
+    @Test("degrading stills the islands on every display")
+    func degradingStillsEveryDisplay() throws {
+        let presenter = try Self.appSource("KerNotch/IslandPresenter.swift")
+        let secondary = try Self.appSource("KerNotch/SecondaryIslandPresentation.swift")
+
+        #expect(presenter.contains("secondary.isMotionSuspended = true"))
+        #expect(presenter.contains("secondary.isMotionSuspended = false"))
+        #expect(presenter.contains("secondary.isMotionSuspended = isDegraded"))
+        #expect(secondary.contains("set { model.isMotionSuspended = newValue }"))
     }
 }

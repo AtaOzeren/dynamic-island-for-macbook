@@ -195,6 +195,21 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
     /// changes character as it opens, and the capsule's ends had the same gap
     /// against the bar that the expanded shape was built to close.
     private static func flaredPath(in bounds: CGRect) -> Path {
+        var path = flaredEdge(in: bounds)
+        // Closing the edge draws the top of the shape, along the menu bar.
+        path.closeSubpath()
+        return path
+    }
+
+    /// The silhouette's visible outline: down the left flare and side, along
+    /// the bottom, and up the right side and flare — everything but the top.
+    ///
+    /// The top edge runs along the very top of the screen, so anything traced
+    /// along it would draw a line across the menu bar. The attention glow
+    /// follows this open path instead of the closed shape for that reason.
+    static func flaredEdge(in bounds: CGRect) -> Path {
+        guard bounds.width > 0, bounds.height > 0 else { return Path() }
+
         let flare = min(
             topFlareRadius,
             bounds.width / 4,
@@ -215,30 +230,28 @@ public struct ConnectedIslandGeometry: Equatable, Sendable {
 
         var path = Path()
         path.move(to: CGPoint(x: bounds.minX, y: bounds.minY))
-        path.addLine(to: CGPoint(x: bounds.maxX, y: bounds.minY))
-        // Top-right, turning outwards: the control point sits at the body's
+        // Top-left, turning outwards: the control point sits at the body's
         // edge, which pulls the curve inside the chord and leaves the shape
         // widest along the top.
         path.addQuadCurve(
-            to: CGPoint(x: bodyMaxX, y: bounds.minY + flare),
-            control: CGPoint(x: bodyMaxX, y: bounds.minY)
-        )
-        path.addLine(to: CGPoint(x: bodyMaxX, y: bounds.maxY - bottomRadius))
-        path.addQuadCurve(
-            to: CGPoint(x: bodyMaxX - bottomRadius, y: bounds.maxY),
-            control: CGPoint(x: bodyMaxX, y: bounds.maxY)
-        )
-        path.addLine(to: CGPoint(x: bodyMinX + bottomRadius, y: bounds.maxY))
-        path.addQuadCurve(
-            to: CGPoint(x: bodyMinX, y: bounds.maxY - bottomRadius),
-            control: CGPoint(x: bodyMinX, y: bounds.maxY)
-        )
-        path.addLine(to: CGPoint(x: bodyMinX, y: bounds.minY + flare))
-        path.addQuadCurve(
-            to: CGPoint(x: bounds.minX, y: bounds.minY),
+            to: CGPoint(x: bodyMinX, y: bounds.minY + flare),
             control: CGPoint(x: bodyMinX, y: bounds.minY)
         )
-        path.closeSubpath()
+        path.addLine(to: CGPoint(x: bodyMinX, y: bounds.maxY - bottomRadius))
+        path.addQuadCurve(
+            to: CGPoint(x: bodyMinX + bottomRadius, y: bounds.maxY),
+            control: CGPoint(x: bodyMinX, y: bounds.maxY)
+        )
+        path.addLine(to: CGPoint(x: bodyMaxX - bottomRadius, y: bounds.maxY))
+        path.addQuadCurve(
+            to: CGPoint(x: bodyMaxX, y: bounds.maxY - bottomRadius),
+            control: CGPoint(x: bodyMaxX, y: bounds.maxY)
+        )
+        path.addLine(to: CGPoint(x: bodyMaxX, y: bounds.minY + flare))
+        path.addQuadCurve(
+            to: CGPoint(x: bounds.maxX, y: bounds.minY),
+            control: CGPoint(x: bodyMaxX, y: bounds.minY)
+        )
         return path
     }
 }

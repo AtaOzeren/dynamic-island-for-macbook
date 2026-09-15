@@ -149,43 +149,17 @@ enum HookScript {
     /// command line. An earlier form passed it as an unquoted shell word, which
     /// word-split every event carrying a space — a submitted prompt, a path with
     /// a space — and silently dropped it under `sh` and `bash`.
-    static func claudeCodeHookCommand(
-        state: String,
-        detail: String,
-        carriesToolName: Bool,
-        carriesSubagentIdentity: Bool,
-        carriesFailureReason: Bool = false
-    ) -> String {
-        let toolExpression = carriesToolName ? "kernotch_tool_name(event)" : "None"
-        let sessionExpression =
-            carriesSubagentIdentity
-            ? "kernotch_session(event.get(\"agent_id\"))"
-            : "kernotch_session(event.get(\"session_id\"))"
-        let rootSessionExpression =
-            carriesSubagentIdentity
-            ? "kernotch_session(event.get(\"session_id\"))"
-            : "None"
-        let sessionNameExpression =
-            carriesSubagentIdentity
-            ? "event.get(\"agent_type\")"
-            : "None"
+    ///
+    /// Takes the whole lifecycle entry rather than its fields one by one. The
+    /// field-by-field form had a failure-reason flag nobody passed, so the
+    /// installed `StopFailure` hook reported every failure without its cause.
+    static func claudeCodeHookCommand(for event: HookSnippetGenerator.LifecycleEvent) -> String {
         let script =
             pythonPreamble(agentID: "claude-code")
-                + """
-                event = kernotch_load("")
-                kernotch_send(
-                    kernotch_payload(
-                        \(sessionExpression),
-                        \(HookTextEncoding.pythonStringLiteral(state)),
-                        \(HookTextEncoding.pythonStringLiteral(detail)),
-                        \(toolExpression),
-                        \(rootSessionExpression),
-                        \(sessionNameExpression),
-                        event.get("cwd"),
-                        \(carriesFailureReason ? "kernotch_reason(event)" : "None"),
-                    )
-                )
-                """
+            + userInputToolTable(event.userInputTools)
+            + "event = kernotch_load(\"\")\n"
+            + userInputToolLookup(event.userInputTools)
+            + claudeCodePayloadCall(for: event)
         // Backgrounded as a whole so no hook ever adds its own latency to a tool
         // call. Reading stdin happens first, in the foreground, because the pipe
         // Claude Code opened is closed as soon as the hook process returns.
@@ -193,6 +167,82 @@ enum HookScript {
             + "EVENT=$(cat); { printf %s \"$EVENT\" | \"$KERNOTCH_PY\" -c "
             + HookTextEncoding.shellSingleQuoted(script)
             + "; } >/dev/null 2>&1 &"
+    }
+
+    /// The tools that mean "waiting on the user", as a Python dictionary from
+    /// tool name to detail. Written after the shared preamble rather than into
+    /// it, because the Codex scripts carry the same preamble and their installer
+    /// recognises its own notify command by marker, not by text — a preamble
+    /// change there would never be rewritten.
+    private static func userInputToolTable(_ tools: [HookSnippetGenerator.UserInputTool]) -> String {
+        guard tools.isEmpty == false else { return "" }
+        let entries = tools.map { tool in
+            "    \(HookTextEncoding.pythonStringLiteral(tool.toolName)): "
+                + "\(HookTextEncoding.pythonStringLiteral(tool.detail)),\n"
+        }
+        return "\(userInputToolTableName) = {\n" + entries.joined() + "}\n\n"
+    }
+
+    private static func userInputToolLookup(_ tools: [HookSnippetGenerator.UserInputTool]) -> String {
+        guard tools.isEmpty == false else { return "" }
+        return "\(userInputDetailName) = \(userInputToolTableName).get(str(event.get(\"tool_name\") or \"\"))\n"
+    }
+
+    private static let userInputToolTableName = "KERNOTCH_USER_INPUT_TOOLS"
+    private static let userInputDetailName = "user_input_detail"
+
+    private static func claudeCodePayloadCall(for event: HookSnippetGenerator.LifecycleEvent) -> String {
+        let identity = ClaudeCodeSessionExpressions(for: event)
+        return """
+            kernotch_send(
+                kernotch_payload(
+                    \(identity.session),
+                    \(stateExpression(for: event)),
+                    \(detailExpression(for: event)),
+                    \(event.carriesToolName ? "kernotch_tool_name(event)" : "None"),
+                    \(identity.rootSession),
+                    \(identity.sessionName),
+                    event.get("cwd"),
+                    \(event.carriesFailureReason ? "kernotch_reason(event)" : "None"),
+                )
+            )
+            """
+    }
+
+    /// The event's own state, unless the tool in question asks the user
+    /// something — then `waitingForUser`, whatever the event would have said.
+    private static func stateExpression(for event: HookSnippetGenerator.LifecycleEvent) -> String {
+        let ownState = HookTextEncoding.pythonStringLiteral(event.state)
+        let waiting = AIAgentState.waitingForUser.rawValue
+        guard event.userInputTools.isEmpty == false, event.state != waiting else { return ownState }
+        return "\(HookTextEncoding.pythonStringLiteral(waiting)) if \(userInputDetailName) else \(ownState)"
+    }
+
+    private static func detailExpression(for event: HookSnippetGenerator.LifecycleEvent) -> String {
+        let ownDetail = HookTextEncoding.pythonStringLiteral(event.detail)
+        guard event.userInputTools.isEmpty == false else { return ownDetail }
+        return "\(userInputDetailName) or \(ownDetail)"
+    }
+
+    /// Where a session's identity comes from. A sub-agent hook names the child
+    /// by `agent_id` and its parent by `session_id`; every other hook names the
+    /// session itself by `session_id`.
+    private struct ClaudeCodeSessionExpressions {
+        let session: String
+        let rootSession: String
+        let sessionName: String
+
+        init(for event: HookSnippetGenerator.LifecycleEvent) {
+            guard event.carriesSubagentIdentity else {
+                session = "kernotch_session(event.get(\"session_id\"))"
+                rootSession = "None"
+                sessionName = "None"
+                return
+            }
+            session = "kernotch_session(event.get(\"agent_id\"))"
+            rootSession = "kernotch_session(event.get(\"session_id\"))"
+            sessionName = "event.get(\"agent_type\")"
+        }
     }
 
     /// Shell that picks a Python and leaves it in `$KERNOTCH_PY`, or exits.

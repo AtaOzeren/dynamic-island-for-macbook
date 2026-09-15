@@ -1,4 +1,5 @@
 import CoreGraphics
+import SwiftUI
 import Testing
 
 @testable import KerNotchUI
@@ -202,5 +203,37 @@ struct ConnectedIslandSurfaceTests {
                 )
             )
         }
+    }
+
+    /// The glow traces this outline. Its top is the top of the screen, so a
+    /// closed outline would draw a coloured line across the menu bar.
+    @Test("the visible edge leaves the top of the silhouette open")
+    func visibleEdgeLeavesTheTopOpen() {
+        let bounds = CGRect(x: 0, y: 0, width: 300, height: 32)
+        var elements: [(type: CGPathElementType, end: CGPoint)] = []
+        ConnectedIslandGeometry.flaredEdge(in: bounds).cgPath.applyWithBlock { element in
+            let pointIndex = element.pointee.type == .addQuadCurveToPoint ? 1 : 0
+            let end = element.pointee.type == .closeSubpath ? .zero : element.pointee.points[pointIndex]
+            elements.append((element.pointee.type, end))
+        }
+
+        #expect(elements.first?.type == .moveToPoint)
+        #expect(elements.first?.end == CGPoint(x: bounds.minX, y: bounds.minY))
+        #expect(elements.last?.type == .addQuadCurveToPoint, "the edge must finish on the right flare")
+        #expect(elements.last?.end == CGPoint(x: bounds.maxX, y: bounds.minY))
+        #expect(elements.contains { $0.type == .closeSubpath } == false)
+        for element in elements where element.type == .addLineToPoint {
+            #expect(element.end.y > bounds.minY, "no straight segment may run along the top")
+        }
+    }
+
+    @Test("the closed silhouette still covers the pill once its edge is shared")
+    func closedSilhouetteStillCoversThePill() {
+        let bounds = CGRect(x: 0, y: 0, width: 300, height: 32)
+        let geometry = ConnectedIslandGeometry(compactSize: bounds.size, expandedContentSize: .zero)
+
+        #expect(geometry.contains(CGPoint(x: bounds.midX, y: bounds.midY), in: bounds))
+        #expect(geometry.contains(CGPoint(x: bounds.midX, y: 1), in: bounds))
+        #expect(!geometry.contains(CGPoint(x: bounds.midX, y: bounds.maxY + 1), in: bounds))
     }
 }

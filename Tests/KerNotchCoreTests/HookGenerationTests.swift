@@ -83,6 +83,8 @@ struct HookGenerationTests {
                 "UserPromptSubmit",
                 "PreToolUse",
                 "PostToolUse",
+                "PostToolUseFailure",
+                "PermissionRequest",
                 "Notification",
                 "Stop",
                 "StopFailure",
@@ -132,6 +134,158 @@ struct HookGenerationTests {
             #expect(payload["sessionName"] as? String == "Explore")
             #expect(payload["state"] as? String == expectedState)
         }
+    }
+
+    /// One scenario for the end-to-end hook runs below: what Claude Code sends
+    /// the hook, and what the island must receive.
+    struct ClaudeCodeHookScenario: Sendable, CustomTestStringConvertible {
+        let event: String
+        let toolName: String?
+        let state: String
+        let detail: String
+        let forwardedToolName: String?
+
+        var testDescription: String { "\(event) \(toolName ?? "") → \(state)" }
+    }
+
+    /// Terminal `claude` and Claude Desktop run these same hooks. What they have
+    /// to get right is which moments mean the user is needed: a question or a
+    /// plan waiting for approval used to arrive as `usingTool`, which the
+    /// default switches drop, so the island never said anything was being asked.
+    @Test(
+        "Claude Code hooks send the state each moment means",
+        arguments: [
+            ClaudeCodeHookScenario(
+                event: "PreToolUse", toolName: "AskUserQuestion",
+                state: "waitingForUser", detail: "Question asked", forwardedToolName: nil
+            ),
+            ClaudeCodeHookScenario(
+                event: "PreToolUse", toolName: "ExitPlanMode",
+                state: "waitingForUser", detail: "Plan approval needed", forwardedToolName: nil
+            ),
+            ClaudeCodeHookScenario(
+                event: "PreToolUse", toolName: "Bash",
+                state: "usingTool", detail: "Using tool", forwardedToolName: "Bash"
+            ),
+            ClaudeCodeHookScenario(
+                event: "PermissionRequest", toolName: "Bash",
+                state: "waitingForUser", detail: "Needs attention", forwardedToolName: nil
+            ),
+            ClaudeCodeHookScenario(
+                event: "PermissionRequest", toolName: "AskUserQuestion",
+                state: "waitingForUser", detail: "Question asked", forwardedToolName: nil
+            ),
+            ClaudeCodeHookScenario(
+                event: "PostToolUseFailure", toolName: "Bash",
+                state: "working", detail: "Tool failed", forwardedToolName: nil
+            ),
+        ]
+    )
+    func claudeCodeHookSendsTheStateItsMomentMeans(_ scenario: ClaudeCodeHookScenario) throws {
+        let command = try hookCommand(for: scenario.event, in: Self.claudeCodeHooks())
+        var input: [String: Any] = [
+            "session_id": "abc123",
+            "cwd": "/tmp/project",
+            "hook_event_name": scenario.event,
+        ]
+        if let toolName = scenario.toolName {
+            input["tool_name"] = toolName
+        }
+
+        let payload = try Self.runHook(command: command, input: input)
+
+        #expect(payload["state"] as? String == scenario.state)
+        #expect(payload["detail"] as? String == scenario.detail)
+        #expect(payload["toolName"] as? String == scenario.forwardedToolName)
+    }
+
+    @Test("a Claude Code turn that fails on an API error names its cause")
+    func claudeCodeStopFailureNamesItsCause() throws {
+        let command = try hookCommand(for: "StopFailure", in: Self.claudeCodeHooks())
+
+        let payload = try Self.runHook(
+            command: command,
+            input: [
+                "session_id": "abc123",
+                "cwd": "/tmp/project",
+                "hook_event_name": "StopFailure",
+                "error": "rate_limit",
+            ]
+        )
+
+        #expect(payload["state"] as? String == "error")
+        #expect(payload["reason"] as? String == AIAgentFailureReason.quotaExhausted.rawValue)
+    }
+
+    /// `idle_prompt` fires a minute after every finished turn and `auth_success`
+    /// after a login. Unfiltered, each became a yellow card for half an hour.
+    @Test("Claude Code notifications reach the island only when the user is needed")
+    func claudeCodeNotificationsAreLimitedToRequests() throws {
+        let hooks = try Self.claudeCodeHooks()
+        let groups = try #require(hooks["Notification"] as? [[String: Any]])
+        let matcher = try #require(groups.first?["matcher"] as? String)
+
+        #expect(
+            Set(matcher.split(separator: "|").map(String.init)) == [
+                "permission_prompt",
+                "elicitation_dialog",
+                "elicitation_url_dialog",
+                "agent_needs_input",
+                "worker_permission_prompt",
+            ]
+        )
+        #expect(!matcher.contains("idle_prompt"))
+        #expect(!matcher.contains("auth_success"))
+        // Claude Code compares a matcher of bare names as an exact list; any
+        // other character would turn it into an unanchored regular expression.
+        #expect(matcher.allSatisfy { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "|" })
+    }
+
+    @Test("only the notification hook narrows the events it runs for")
+    func onlyNotificationHookHasAMatcher() throws {
+        let hooks = try Self.claudeCodeHooks()
+
+        for (event, value) in hooks where event != "Notification" {
+            let groups = try #require(value as? [[String: Any]])
+            #expect(groups.allSatisfy { $0["matcher"] == nil }, "\(event) would miss occurrences")
+        }
+    }
+
+    /// A detail the validator refuses drops the whole message, which on screen is
+    /// indistinguishable from a hook that never fired.
+    @Test("every detail a Claude Code hook can send passes the validator")
+    func claudeCodeDetailsPassTheValidator() throws {
+        let details =
+            HookSnippetGenerator.claudeCodeUserInputTools.map(\.detail)
+            + ["Needs attention", "Tool failed", "Using tool"]
+
+        for detail in details {
+            let envelope = try JSONSerialization.data(
+                withJSONObject: [
+                    "schemaVersion": IPCMessageValidator.supportedSchemaVersion,
+                    "agentId": IPCAgentID.claudeCode.rawValue,
+                    "sessionId": UUID().uuidString,
+                    "state": AIAgentState.waitingForUser.rawValue,
+                    "detail": detail,
+                    "timestamp": "2026-09-15T00:00:00Z",
+                ]
+            )
+            #expect(throws: Never.self, "\(detail) is refused") {
+                try IPCMessageValidator().decode(envelope)
+            }
+        }
+    }
+
+    /// The Codex installer recognises its own notify command by marker, not by
+    /// text, so anything added to the shared preamble would never reach an
+    /// installed Codex hook. The question table belongs to Claude Code alone.
+    @Test("the user-input tool table stays out of the Codex scripts")
+    func userInputToolsStayOutOfCodexScripts() {
+        let generator = HookSnippetGenerator()
+
+        #expect(!HookScript.pythonPreamble(agentID: "codex").contains("KERNOTCH_USER_INPUT_TOOLS"))
+        #expect(!generator.codexNotifyFragment().contains("KERNOTCH_USER_INPUT_TOOLS"))
+        #expect(!generator.codexLifecycleHooksFragment().contains("KERNOTCH_USER_INPUT_TOOLS"))
     }
 
     @Test("generates a direct Codex Python notify fragment")
@@ -234,6 +388,31 @@ struct HookGenerationTests {
         #expect(plugin.contains(#""permission.asked""#))
     }
 
+    /// OpenCode's question tool stops the turn just as a permission prompt does,
+    /// but reports through `question.asked`. Unhandled, a question showed as
+    /// nothing more than a tool in flight.
+    @Test("the OpenCode plugin reports a question as needing the user")
+    func openCodeQuestionNeedsTheUser() throws {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+        let pattern = try Regex(
+            #"case "question\.asked":\s*await notify\("waitingForUser", event\.properties\.sessionID, "Question asked"\)"#
+        )
+
+        #expect(plugin.contains(pattern))
+    }
+
+    /// Once the user answers, declines, or grants, the agent carries on — and
+    /// the island has to stop asking for them before the next tool event.
+    @Test("the OpenCode plugin resumes work once a prompt is answered")
+    func openCodeAnsweredPromptResumesWork() throws {
+        let plugin = HookSnippetGenerator().openCodePluginFile()
+        let pattern = try Regex(
+            #"case "permission\.replied":\s*case "question\.replied":\s*case "question\.rejected":\s*await notify\("working", event\.properties\.sessionID"#
+        )
+
+        #expect(plugin.contains(pattern))
+    }
+
     /// `session.idle` means the session stopped, not that it succeeded. A turn
     /// that died on a rate limit goes idle exactly like one that finished, and
     /// opencode emits no event for the failure itself, so the only way to tell
@@ -290,7 +469,10 @@ struct HookGenerationTests {
             #expect(command.contains(name), "\(name) is unmapped")
         }
         #expect(command.contains(#""error""#))
-        #expect(command.contains("kernotch_reason(event)"))
+        // The call site, not merely the helper: the helper lives in the shared
+        // preamble of every script, so its presence proved nothing while the
+        // payload call passed `None` and every failure arrived without a cause.
+        #expect(command.contains("        kernotch_reason(event),"))
     }
 
     /// Quitting opencode is neither the end of a turn nor the deletion of a
