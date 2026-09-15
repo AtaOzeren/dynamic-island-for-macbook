@@ -16,16 +16,21 @@ public final class DiscordIntegration {
     private let callProvider: DiscordCallProvider
     private let session: DiscordVoiceSession
     private let workspace: any DiscordWorkspaceObserving
+    private let clientID: DiscordClientID?
 
     private var preferences = DiscordIntegrationPreferences.default
 
+    /// `clientID` is the build's own Discord application. Without one the
+    /// integration still shows calls from the microphone, and never connects.
     public init(
         manager: ActivityManager,
         microphoneMonitor: MicrophoneActivityMonitor,
         microphoneRecording: SystemAudioRecordingObserver,
+        clientID: DiscordClientID?,
         session: DiscordVoiceSession = DiscordVoiceSession(),
         workspace: any DiscordWorkspaceObserving = NSWorkspaceDiscordObserver()
     ) {
+        self.clientID = clientID
         self.manager = manager
         self.microphoneRecording = microphoneRecording
         self.session = session
@@ -47,6 +52,9 @@ public final class DiscordIntegration {
 
     public var isDiscordInstalled: Bool { workspace.isDiscordInstalled }
 
+    /// Whether this build can connect to Discord at all.
+    public var isConnectionAvailable: Bool { clientID != nil }
+
     /// Where the island's "Leave channel" press goes.
     public var voiceChannelLeaving: any DiscordVoiceChannelLeaving { session }
 
@@ -64,10 +72,8 @@ public final class DiscordIntegration {
         if wasEnabled == false {
             enable()
         }
-        if let clientID = preferences.clientID {
+        if let clientID {
             session.start(clientID: clientID)
-        } else {
-            session.stop()
         }
     }
 

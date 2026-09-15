@@ -97,7 +97,7 @@ The sandbox hides the process table completely. `AgentHostApplicationResolver.ho
 
 ### 4. Discord integration
 
-**What it is:** showing a Discord voice call on the island in place of the microphone indicator, and — once the user connects a Discord application they own — naming the channel and leaving it.
+**What it is:** showing a Discord voice call on the island in place of the microphone indicator, and — once the user connects through KerNotch's Discord application — naming the channel and leaving it.
 
 **Status in `AppStore`:** Not built. `KerNotchApp` constructs `DiscordIntegration` only outside `APPSTORE_BUILD`, and the Integrations tab is hidden when there is none. **Reasoned:** Discord's IPC socket lives in the user's real temporary directory, which a sandboxed process cannot reach without a temporary-exception entitlement, and the token exchange needs `com.apple.security.network.client`, which the App Store build does not declare.
 

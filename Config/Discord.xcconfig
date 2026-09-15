@@ -1,0 +1,10 @@
+// KerNotch's Discord application, used for the Discord integration's local RPC
+// connection (voice channel name and leaving the channel from the island).
+//
+// A Client ID is a public identifier, not a secret: authorization uses PKCE, so
+// no client secret exists anywhere in this repository or the app.
+//
+// Forks and redistributed builds: replace this with the Client ID of a Discord
+// application you own, or leave it empty. An empty value builds an app that
+// still shows Discord calls from the microphone but offers no connection.
+KERNOTCH_DISCORD_CLIENT_ID = 1549389234912239636

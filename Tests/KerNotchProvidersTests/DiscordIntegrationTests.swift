@@ -39,6 +39,7 @@ struct DiscordIntegrationTests {
         let reconnect = FakeDiscordReconnectScheduler()
         var capturing: Set<AudioObjectID> = []
         var inVoiceChannel = false
+        var builtInClientID: DiscordClientID? = .testApplication
 
         lazy var monitor = MicrophoneActivityMonitor(
             hardware: MicrophoneHardware(
@@ -74,6 +75,7 @@ struct DiscordIntegrationTests {
             manager: manager,
             microphoneMonitor: monitor,
             microphoneRecording: recordingObserver,
+            clientID: builtInClientID,
             session: session,
             workspace: workspace
         )
@@ -114,7 +116,7 @@ struct DiscordIntegrationTests {
         }
     }
 
-    private static let enabled = DiscordIntegrationPreferences(isEnabled: true, clientID: .testApplication)
+    private static let enabled = DiscordIntegrationPreferences(isEnabled: true)
 
     @Test("while off, a Discord call is the ordinary microphone indicator")
     func offShowsMicrophone() {
@@ -195,18 +197,33 @@ struct DiscordIntegrationTests {
         #expect(fixture.call?.primaryAction?.intent == .leaveDiscordVoiceChannel)
     }
 
-    /// Enabling without a Client ID is the no-setup layer: the call is shown
-    /// from the microphone alone, and nothing connects to Discord.
-    @Test("without a Client ID nothing connects, and the microphone still reports the call")
-    func noClientIDStaysPassive() {
+    /// A build without KerNotch's Discord application — a fork, or a SwiftPM
+    /// build — still shows the call from the microphone, and never connects.
+    @Test("a build without a Client ID never connects, and the microphone still reports the call")
+    func buildWithoutClientIDStaysPassive() {
         let fixture = Fixture()
-        fixture.integration.apply(DiscordIntegrationPreferences(isEnabled: true, clientID: nil))
+        fixture.builtInClientID = nil
+        fixture.integration.apply(Self.enabled)
 
         fixture.capture(by: [discordHelper])
 
+        #expect(fixture.integration.isConnectionAvailable == false)
         #expect(fixture.transport.openedPaths.isEmpty)
         #expect(fixture.session.status == .inactive)
         #expect(fixture.activeKinds == [.discordCall])
+    }
+
+    @Test("connects with the build's own Client ID when switched on")
+    func connectsWithBuiltInClientID() async throws {
+        let fixture = Fixture()
+
+        fixture.integration.apply(Self.enabled)
+        await settleDiscordTasks()
+
+        let handshake = try #require(fixture.transport.sentFrames.first { $0.opcode == .handshake })
+        let object = try JSONSerialization.jsonObject(with: handshake.payload) as? [String: Any]
+        #expect(object?["client_id"] as? String == DiscordClientID.testApplication.rawValue)
+        #expect(fixture.integration.isConnectionAvailable)
     }
 
     @Test("a Discord launch wakes a session that had given up")

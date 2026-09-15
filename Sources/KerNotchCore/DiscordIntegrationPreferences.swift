@@ -1,11 +1,11 @@
 import Foundation
 
-/// The application ID of the Discord application the user created for KerNotch.
+/// The application ID of KerNotch's Discord application.
 ///
-/// Discord grants its local RPC scopes only to approved partners, or to the
-/// owner of an unapproved application. Each user therefore connects through an
-/// application they own, and this is its public identifier — never a secret:
-/// authorization uses PKCE, so no client secret is stored or asked for.
+/// A public identifier, never a secret: authorization uses PKCE, so there is no
+/// client secret to store, ship, or ask for. Discord grants the local RPC scopes
+/// it is used with only to approved applications — and, before approval, to the
+/// application's owner and its listed testers.
 public struct DiscordClientID: Hashable, Sendable, RawRepresentable {
     /// A snowflake is an unsigned 64-bit integer. Anything shorter than the
     /// oldest application IDs is a paste that lost digits, not an ID.
@@ -30,17 +30,19 @@ public struct DiscordClientID: Hashable, Sendable, RawRepresentable {
 
 /// The user's Discord integration choices, as one value the settings pane edits
 /// and the composition root applies.
+///
+/// Which Discord application KerNotch connects through is deliberately not one
+/// of them: the connection is KerNotch's, configured per build, so the prompt
+/// the user approves always names the application Discord reviewed.
 public struct DiscordIntegrationPreferences: Equatable, Sendable {
     public static let `default` = DiscordIntegrationPreferences()
 
     /// Off by default: turning it on changes what the microphone indicator
     /// reports, which is a choice the user makes rather than one made for them.
     public var isEnabled: Bool
-    public var clientID: DiscordClientID?
 
-    public init(isEnabled: Bool = false, clientID: DiscordClientID? = nil) {
+    public init(isEnabled: Bool = false) {
         self.isEnabled = isEnabled
-        self.clientID = clientID
     }
 }
 
@@ -63,6 +65,17 @@ public enum DiscordApplication {
     }
 
     private static let bundleIdentifierPrefix = "com.hnc.Discord"
+
+    /// The `Info.plist` key the build writes KerNotch's Client ID into, from
+    /// `KERNOTCH_DISCORD_CLIENT_ID` in `Config/Discord.xcconfig`.
+    public static let clientIDInfoKey = "KerNotchDiscordClientID"
+
+    /// The Client ID this build connects with, or `nil` for a build that has
+    /// none — a SwiftPM build reads no `Info.plist`, and a fork may clear it. An
+    /// unexpanded `$(…)` placeholder is not an ID and reads as none.
+    public static func builtInClientID(infoDictionary: [String: Any]?) -> DiscordClientID? {
+        (infoDictionary?[clientIDInfoKey] as? String).flatMap(DiscordClientID.init(rawValue:))
+    }
 }
 
 extension Character {

@@ -491,10 +491,30 @@ struct CompositionRootWiringTests {
         let source = try Self.appSource("KerNotch/KerNotchApp.swift")
 
         #expect(source.contains("microphoneRecording: microphoneRecording,\n            enabledIdentifiers:"))
-        #expect(source.contains("microphoneMonitor: microphoneMonitor,\n                microphoneRecording: microphoneRecording"))
+        let integrationArguments =
+            "microphoneMonitor: microphoneMonitor,\n" + "                microphoneRecording: microphoneRecording"
+        let builtInClientID = "clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)"
+        #expect(source.contains(integrationArguments))
+        #expect(source.contains(builtInClientID))
+        #expect(source.contains("SettingsStore(migrations: [.removingRetiredKeys])"))
         #expect(source.contains("discordVoice: discordIntegration?.voiceChannelLeaving"))
         #expect(source.contains("discordIntegration?.apply(settingsStore.discordIntegrationPreferences)"))
         #expect(source.contains("discordIntegration?.apply(preferences)"))
         #expect(source.contains("#if APPSTORE_BUILD\n            let discordIntegration: DiscordIntegration? = nil"))
+    }
+
+    /// The Client ID travels xcconfig → build setting → Info.plist → app. A
+    /// break anywhere along it still builds, and silently ships an app whose
+    /// Integrations pane has no connection to offer.
+    @Test("the build's Discord Client ID reaches the app's Info.plist")
+    func discordClientIDIsConfigured() throws {
+        let config = try Self.appSource("Config/Discord.xcconfig")
+        let infoPlist = try Self.appSource("KerNotch/Info.plist")
+        let project = try Self.appSource("KerNotch.xcodeproj/project.pbxproj")
+
+        #expect(config.contains("KERNOTCH_DISCORD_CLIENT_ID = "))
+        let infoPlistEntry = "<key>KerNotchDiscordClientID</key>\n\t<string>$(KERNOTCH_DISCORD_CLIENT_ID)</string>"
+        #expect(infoPlist.contains(infoPlistEntry))
+        #expect(project.components(separatedBy: "baseConfigurationReference = D15C0001A0000000000000A1").count - 1 == 4)
     }
 }

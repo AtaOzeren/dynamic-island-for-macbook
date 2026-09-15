@@ -4,10 +4,9 @@ import Testing
 
 @Suite("Discord integration preferences")
 struct DiscordIntegrationPreferencesTests {
-    @Test("the integration is off and unconfigured by default")
+    @Test("the integration is off by default")
     func defaultsAreOff() {
         #expect(DiscordIntegrationPreferences.default.isEnabled == false)
-        #expect(DiscordIntegrationPreferences.default.clientID == nil)
     }
 
     @Test("accepts an application ID copied with surrounding whitespace")
@@ -42,15 +41,35 @@ struct DiscordIntegrationPreferencesTests {
         #expect(DiscordClientID(rawValue: "18446744073709551615") != nil)
     }
 
-    @Test("a stored ID round-trips through its settings key")
-    func clientIDKeyRoundTrips() {
-        let key = SettingsKey<DiscordClientID?>.discordClientID
-        let clientID = DiscordClientID(rawValue: "1549389234912239636")
+    @Test("reads the build's Client ID from its Info.plist")
+    func readsBuiltInClientID() {
+        let info: [String: Any] = [DiscordApplication.clientIDInfoKey: "1549389234912239636"]
 
-        #expect(key.decode(key.encode(clientID)) == clientID)
-        #expect(key.decode(nil) == nil)
-        #expect(key.decode("not an id") == nil)
-        #expect(key.encode(nil) == nil)
+        #expect(DiscordApplication.builtInClientID(infoDictionary: info)?.rawValue == "1549389234912239636")
+    }
+
+    /// A SwiftPM build has no Info.plist, a fork may clear the setting, and a
+    /// project that lost its xcconfig leaves the placeholder unexpanded.
+    @Test("a build without a usable Client ID has none")
+    func missingBuiltInClientID() {
+        let key = DiscordApplication.clientIDInfoKey
+        let unusable: [[String: Any]?] = [
+            nil,
+            [:],
+            [key: ""],
+            [key: "$(KERNOTCH_DISCORD_CLIENT_ID)"],
+            [key: 1_549_389_234_912_239_636],
+        ]
+
+        for info in unusable {
+            #expect(DiscordApplication.builtInClientID(infoDictionary: info) == nil)
+        }
+    }
+
+    @Test("the retired user Client ID key is listed for removal")
+    func retiresUserClientIDKey() {
+        #expect(SettingsKeys.retiredKeyNames.contains("com.kernotch.settings.integrations.discord.clientID"))
+        #expect(SettingsKeys.registeredDefaults.keys.contains { SettingsKeys.retiredKeyNames.contains($0) } == false)
     }
 
     @Test("recognises every Discord client and its helper processes")

@@ -36,11 +36,11 @@ public enum DiscordConnectionStatus: Equatable, Sendable {
 }
 
 public enum DiscordConnectionFailure: Equatable, Sendable {
-    /// Discord refused the handshake: the Client ID names no application.
+    /// Discord refused the handshake: the build's Client ID names no application.
     case invalidClientID
     /// The user declined the prompt inside Discord.
     case authorizationDenied
-    /// The prompt was approved but the token could not be obtained — most often
-    /// an application whose Public Client switch is off.
+    /// Discord did not complete the connection. Before KerNotch's application is
+    /// approved, this is what an account that is not one of its testers sees.
     case authorizationFailed
 }
