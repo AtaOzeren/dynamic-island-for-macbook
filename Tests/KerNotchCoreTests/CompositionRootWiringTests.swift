@@ -496,7 +496,9 @@ struct CompositionRootWiringTests {
         let builtInClientID = "clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)"
         #expect(source.contains(integrationArguments))
         #expect(source.contains(builtInClientID))
-        #expect(source.contains("SettingsStore(migrations: [.removingRetiredKeys])"))
+        #expect(source.contains("let settingsStorage = FileSettingsStorage()"))
+        #expect(source.contains("settingsStorage.importPreferences(from: .standard, domain: bundleIdentifier)"))
+        #expect(source.contains("SettingsStore(storage: settingsStorage, migrations: [.removingRetiredKeys])"))
         #expect(source.contains("discordVoice: discordIntegration?.voiceChannelLeaving"))
         #expect(source.contains("discordIntegration?.apply(settingsStore.discordIntegrationPreferences)"))
         #expect(source.contains("discordIntegration?.apply(preferences)"))

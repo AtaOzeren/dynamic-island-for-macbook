@@ -1,78 +1,83 @@
 import Foundation
 import KerNotchCore
-import Security
 import os
 
 /// Where the integration keeps its tokens between launches.
 ///
-/// Asynchronous so the store can do its work away from the main actor: a
-/// Keychain call can block on an access prompt for as long as the user takes.
+/// Asynchronous so a store can do its work away from the main actor.
 public protocol DiscordCredentialStoring: Sendable {
     func credentials(for clientID: DiscordClientID) async -> DiscordCredentials?
     func save(_ credentials: DiscordCredentials, for clientID: DiscordClientID) async
     func deleteCredentials(for clientID: DiscordClientID) async
 }
 
-/// The production store: one generic-password Keychain item per Client ID.
+/// The production store: one owner-only JSON file per Client ID in KerNotch's
+/// Application Support directory.
 ///
-/// The Keychain rather than `UserDefaults` because an access token is a
-/// credential for the user's Discord account, and a preferences plist is
-/// readable by anything running as the user.
-///
-/// Holds no state, and its methods are nonisolated `async`, so every Keychain
-/// call runs on the global executor rather than the main actor.
-public final class KeychainDiscordCredentialStore: DiscordCredentialStoring {
-    private static let service = "com.kernotch.KerNotch.discord"
+/// A file rather than the Keychain, deliberately. The legacy Keychain trusts
+/// the app by its code signature, and an ad-hoc signature changes with every
+/// build, so every update asked the user for their login password — several
+/// times per launch. The token is worth less than that friction: it carries
+/// only the local RPC scopes for KerNotch's own Discord application, and a
+/// process able to read a `0600` file in a `0700` directory under the user's
+/// home is already running as the user. The directory permission is the
+/// protection that matters; the file permission is kept for defence in depth.
+public final class FileDiscordCredentialStore: DiscordCredentialStoring {
+    private static let ownerOnlyFilePermissions = 0o600
+    private static let ownerOnlyDirectoryPermissions = 0o700
     private static let logger = Logger(subsystem: "com.kernotch.KerNotch", category: "discord-credentials")
 
-    public init() {}
+    private let directory: URL
+
+    public convenience init() {
+        self.init(directory: ApplicationDirectories.applicationSupport)
+    }
+
+    init(directory: URL) {
+        self.directory = directory
+    }
 
     public func credentials(for clientID: DiscordClientID) async -> DiscordCredentials? {
-        var query = Self.itemQuery(for: clientID)
-        query[kSecReturnData as String] = true
-        query[kSecMatchLimit as String] = kSecMatchLimitOne
-
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let data = result as? Data else {
-            if status != errSecItemNotFound {
-                Self.logger.error("Reading Discord credentials failed with status \(status, privacy: .public)")
-            }
-            return nil
-        }
+        guard let data = try? Data(contentsOf: fileURL(for: clientID)) else { return nil }
         return try? JSONDecoder().decode(DiscordCredentials.self, from: data)
     }
 
     public func save(_ credentials: DiscordCredentials, for clientID: DiscordClientID) async {
-        guard let data = try? JSONEncoder().encode(credentials) else { return }
-
-        let query = Self.itemQuery(for: clientID)
-        let update: [String: Any] = [kSecValueData as String: data]
-        var status = SecItemUpdate(query as CFDictionary, update as CFDictionary)
-
-        if status == errSecItemNotFound {
-            var item = query
-            item[kSecValueData as String] = data
-            item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            status = SecItemAdd(item as CFDictionary, nil)
-        }
-        if status != errSecSuccess {
-            Self.logger.error("Saving Discord credentials failed with status \(status, privacy: .public)")
+        let fileManager = FileManager.default
+        let url = fileURL(for: clientID)
+        do {
+            try fileManager.createDirectory(
+                at: directory,
+                withIntermediateDirectories: true,
+                attributes: [.posixPermissions: Self.ownerOnlyDirectoryPermissions]
+            )
+            // Applied even when the directory already existed, since it is the
+            // permission that keeps other accounts out.
+            try fileManager.setAttributes(
+                [.posixPermissions: Self.ownerOnlyDirectoryPermissions],
+                ofItemAtPath: directory.path
+            )
+            try JSONEncoder().encode(credentials).write(to: url, options: .atomic)
+            try fileManager.setAttributes(
+                [.posixPermissions: Self.ownerOnlyFilePermissions],
+                ofItemAtPath: url.path
+            )
+        } catch {
+            Self.logger.error("Saving Discord credentials failed: \(String(describing: error), privacy: .public)")
         }
     }
 
     public func deleteCredentials(for clientID: DiscordClientID) async {
-        let status = SecItemDelete(Self.itemQuery(for: clientID) as CFDictionary)
-        if status != errSecSuccess, status != errSecItemNotFound {
-            Self.logger.error("Deleting Discord credentials failed with status \(status, privacy: .public)")
+        do {
+            try FileManager.default.removeItem(at: fileURL(for: clientID))
+        } catch CocoaError.fileNoSuchFile {
+            return
+        } catch {
+            Self.logger.error("Deleting Discord credentials failed: \(String(describing: error), privacy: .public)")
         }
     }
 
-    private static func itemQuery(for clientID: DiscordClientID) -> [String: Any] {
-        [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: clientID.rawValue,
-        ]
+    func fileURL(for clientID: DiscordClientID) -> URL {
+        directory.appendingPathComponent("discord-credentials-\(clientID.rawValue).json", isDirectory: false)
     }
 }

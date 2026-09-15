@@ -13,7 +13,7 @@ public struct SettingsKey<Value: Equatable & Sendable>: Equatable, Hashable, Sen
         decode: @escaping @Sendable (Any) -> Value?,
         encode: @escaping @Sendable (Value) -> Any?
     ) {
-        name = "com.kernotch.settings.\(path)"
+        name = SettingsKeys.namePrefix + path
         self.defaultValue = defaultValue
         decodeValue = decode
         encodeValue = encode
@@ -159,6 +159,10 @@ extension SettingsKey where Value == String? {
 }
 
 public enum SettingsKeys {
+    /// What every setting's stored name begins with, so KerNotch's settings can
+    /// be told apart from anything else in a shared store.
+    public static let namePrefix = "com.kernotch.settings."
+
     /// Keys a released build no longer reads, removed by migration so they do
     /// not linger in the user's preferences.
     public static let retiredKeyNames = [

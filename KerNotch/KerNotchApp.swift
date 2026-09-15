@@ -121,7 +121,14 @@ struct KerNotchApp: App {
         let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
         let displayInventory = DisplayInventory(displays: currentDisplays)
         _displayInventory = StateObject(wrappedValue: displayInventory)
-        let settingsStore = SettingsStore(migrations: [.removingRetiredKeys])
+        // Only a bundled app has a preferences domain of its own to import
+        // from; an unbundled `swift run` would read the installed app's domain
+        // and could never remove from it.
+        let settingsStorage = FileSettingsStorage()
+        if let bundleIdentifier = Bundle.main.bundleIdentifier {
+            settingsStorage.importPreferences(from: .standard, domain: bundleIdentifier)
+        }
+        let settingsStore = SettingsStore(storage: settingsStorage, migrations: [.removingRetiredKeys])
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
         _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)

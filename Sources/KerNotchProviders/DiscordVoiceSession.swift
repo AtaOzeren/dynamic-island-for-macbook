@@ -109,7 +109,7 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
                 transport: UnixSocketDiscordIPCTransport(),
                 socketPaths: { DiscordIPCSocketLocator.existingSocketPaths() },
                 tokens: URLSessionDiscordTokenExchange(),
-                credentials: KeychainDiscordCredentialStore(),
+                credentials: FileDiscordCredentialStore(),
                 reconnect: TaskDiscordReconnectScheduler(),
                 now: Date.init
             )
@@ -285,8 +285,8 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
 
     // MARK: - Authorization
 
-    /// The Keychain read is awaited off the main actor: an access prompt for a
-    /// rebuilt app would otherwise hold the island still until it is answered.
+    /// The stored credentials are read off the main actor, so file I/O never
+    /// holds the island still.
     private func authenticateWithStoredCredentials() {
         guard let clientID else { return }
 

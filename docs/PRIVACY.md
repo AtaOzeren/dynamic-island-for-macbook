@@ -47,8 +47,9 @@ The screen-recording and microphone-recording indicators in KerNotch observe tha
 
 Everything KerNotch knows stays on your Mac:
 
-- **Settings** are stored in `UserDefaults` in the app's sandbox container.
-- **No persistent data** is written outside the sandbox container, except the Discord authorization token, which is kept in your Keychain and deleted when you disconnect.
+- **Settings** are stored in one file, `settings.json`, in KerNotch's Application Support folder: inside the app's sandbox container in the App Store build, and at `~/Library/Application Support/KerNotch` in the Direct build. Only your user account can read it.
+- **The Discord authorization token** (Direct build only, and only once you connect Discord) is kept in a file in that same folder, readable only by your user account, and deleted when you disconnect.
+- **No other persistent data** is written, apart from the app language macOS keeps in KerNotch's preferences and CPU diagnostic reports under `~/Library/Logs/KerNotch`.
 
 ---
 

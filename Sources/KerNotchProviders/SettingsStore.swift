@@ -9,8 +9,6 @@ public protocol SettingsStorage: AnyObject {
     func removeObject(forKey defaultName: String)
 }
 
-extension UserDefaults: SettingsStorage {}
-
 public struct SettingsChange<Value: Equatable & Sendable>: Equatable, Sendable {
     public let key: SettingsKey<Value>
     public let value: Value
@@ -57,7 +55,7 @@ public final class SettingsStore {
     private var observers: [ObserverID: Observer] = [:]
 
     public init(
-        storage: any SettingsStorage = UserDefaults.standard,
+        storage: any SettingsStorage,
         migrations: [SettingsMigration] = []
     ) {
         self.storage = storage
