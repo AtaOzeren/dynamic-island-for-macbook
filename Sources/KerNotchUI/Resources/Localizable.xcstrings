@@ -2130,6 +2130,78 @@
           }
         }
       }
+    },
+    "Island glow": {
+      "comment": "AI Integrations pane, attention glow section title.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Island glow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ada ışığı"
+          }
+        }
+      }
+    },
+    "A soft light runs around the small island when an agent finishes, asks for input, or fails.": {
+      "comment": "AI Integrations pane, attention glow section caption.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A soft light runs around the small island when an agent finishes, asks for input, or fails."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bir aracı görevi bitirdiğinde, girdi beklediğinde ya da hata aldığında küçük adanın etrafında yumuşak bir ışık geçer."
+          }
+        }
+      }
+    },
+    "Show glow": {
+      "comment": "AI Integrations pane, attention glow switch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show glow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Işığı göster"
+          }
+        }
+      }
+    },
+    "Test glow": {
+      "comment": "AI Integrations pane, button that plays the attention glow once on the island.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Test glow"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Işığı test et"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

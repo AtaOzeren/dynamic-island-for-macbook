@@ -65,6 +65,8 @@ public struct OpenCodePluginInstaller: Sendable {
     private static let backupSuffix = ".kernotch-backup"
     private static let legacyBackupSuffix = ".notchflow-backup"
     private static let removableParentCount = 3
+    private static let generatedExportNames = ["KerNotchPlugin", "NotchFlowPlugin"]
+    private static let discoveryDirectoryNames = ["KerNotch", "NotchFlow"]
 
     private let fileSystem: any OpenCodePluginFileSystem
     private let pluginURL: URL
@@ -129,26 +131,42 @@ public struct OpenCodePluginInstaller: Sendable {
     }
 
     public func install() throws {
+        try discardGeneratedBackups()
         let generated = try generatedPlugin()
         let existingData = try fileSystem.readFile(at: pluginURL)
         guard existingData != generated.data else {
+            // Already current, but a pre-rename plugin can still sit beside it.
+            try removeLegacyPlugin()
             return
         }
 
         try fileSystem.createDirectory(at: pluginURL.deletingLastPathComponent())
-        if let existingData, try existingBackup() == nil {
+        if let existingData, isGeneratedPlugin(existingData) == false, try existingBackup() == nil {
             try fileSystem.writeFileAtomically(existingData, to: backupURL)
         }
         try fileSystem.writeFileAtomically(generated.data, to: pluginURL)
         try removeLegacyPlugin()
     }
 
+    /// Backups exist to give the user's own file back.
+    ///
+    /// Earlier versions backed up whatever sat at the path, an earlier
+    /// generation of the plugin included. Restoring one of those would put back
+    /// a plugin that launches the island through the retired URL scheme on
+    /// every event, and its mere presence stopped the user's real file from
+    /// being backed up. They are discarded before anything decides whether to
+    /// back up or restore.
+    private func discardGeneratedBackups() throws {
+        for url in [backupURL, legacyBackupURL] {
+            guard let data = try fileSystem.readFile(at: url), isGeneratedPlugin(data) else { continue }
+            try fileSystem.removeFile(at: url)
+        }
+    }
+
     /// Deletes a plugin a pre-rename version installed, so the two do not both
     /// fire. A file under the old name that is not ours is left untouched.
     private func removeLegacyPlugin() throws {
-        guard let data = try fileSystem.readFile(at: legacyPluginURL),
-            isLegacyManagedPlugin(data)
-        else {
+        guard let data = try fileSystem.readFile(at: legacyPluginURL), isGeneratedPlugin(data) else {
             return
         }
         if let backupData = try fileSystem.readFile(at: legacyBackupURL) {
@@ -160,6 +178,7 @@ public struct OpenCodePluginInstaller: Sendable {
     }
 
     public func uninstall() throws {
+        try discardGeneratedBackups()
         try removeLegacyPlugin()
         if let (restoredFrom, backupData) = try existingBackup() {
             guard let pluginData = try fileSystem.readFile(at: pluginURL),
@@ -177,8 +196,15 @@ public struct OpenCodePluginInstaller: Sendable {
         guard let pluginData = try fileSystem.readFile(at: pluginURL) else {
             return
         }
+        // With no backup there is nothing of the user's to protect, so an
+        // earlier generation of our own plugin is removed as well — otherwise
+        // turning OpenCode off after an update would leave the old one firing.
         let generatedData = try generatedPlugin().data
-        guard pluginData == generatedData || isLegacyManagedPlugin(pluginData) else {
+        guard
+            pluginData == generatedData
+                || isLegacyManagedPlugin(pluginData)
+                || isLoopbackGeneratedPlugin(pluginData)
+        else {
             return
         }
         try fileSystem.removeFile(at: pluginURL)
@@ -201,19 +227,47 @@ public struct OpenCodePluginInstaller: Sendable {
     // OpenCode has no version marker by design; structural markers plus the
     // retired transport distinguish legacy generated plugins during uninstall.
     private func isLegacyManagedPlugin(_ data: Data) -> Bool {
-        guard let text = String(data: data, encoding: .utf8) else { return false }
-        // Export name and scheme both changed with the rename, so each is matched
-        // against this version's spelling or the pre-rename one.
-        let carriesExport =
-            text.contains("export const KerNotchPlugin: Plugin")
-            || text.contains("export const NotchFlowPlugin: Plugin")
-        return carriesExport
+        guard let text = String(data: data, encoding: .utf8), carriesGeneratedStructure(text) else {
+            return false
+        }
+        return
+            (text.contains("\(HookSnippetGenerator.urlScheme)://ai-status")
+            || text.contains("\(HookSnippetGenerator.legacyURLScheme)://ai-status"))
+            && text.contains(#"spawn("open""#)
+    }
+
+    /// Whether KerNotch or NotchFlow generated this plugin, in any transport era.
+    private func isGeneratedPlugin(_ data: Data) -> Bool {
+        isLegacyManagedPlugin(data) || isLoopbackGeneratedPlugin(data)
+    }
+
+    /// Whether this is a generated plugin from the loopback era, the current
+    /// generation's predecessors included.
+    ///
+    /// Recognised by structure plus transport, never by file name: the plugin
+    /// reads the island's port file and posts to its loopback route, which a
+    /// plugin someone wrote for themselves has no reason to do in exactly this
+    /// form. The pre-rename spelling posts to NotchFlow's port file, which no
+    /// running island publishes any more — so left in place, it fires on every
+    /// event and reaches nothing.
+    private func isLoopbackGeneratedPlugin(_ data: Data) -> Bool {
+        guard let text = String(data: data, encoding: .utf8), carriesGeneratedStructure(text) else {
+            return false
+        }
+        let readsDiscoveryFile = Self.discoveryDirectoryNames.contains { directory in
+            text.contains(#""Application Support", "\#(directory)", "ipc-port""#)
+        }
+        return readsDiscoveryFile && text.contains("fetch(`http://127.0.0.1:${port}/ai-status`")
+    }
+
+    /// The shape every generated plugin has carried, whichever transport it
+    /// used. Export name and scheme both changed with the rename, so each is
+    /// matched against this version's spelling or the pre-rename one.
+    private func carriesGeneratedStructure(_ text: String) -> Bool {
+        Self.generatedExportNames.contains { text.contains("export const \($0): Plugin") }
             && text.contains("agentId: \"opencode\"")
             && text.contains("session.created")
             && text.contains("tool.execute.before")
-            && (text.contains("\(HookSnippetGenerator.urlScheme)://ai-status")
-                || text.contains("\(HookSnippetGenerator.legacyURLScheme)://ai-status"))
-            && text.contains(#"spawn("open""#)
     }
 
     private func removeEmptyParents() throws {

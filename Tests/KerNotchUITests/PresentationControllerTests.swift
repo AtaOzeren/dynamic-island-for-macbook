@@ -248,6 +248,56 @@ struct PresentationControllerTests {
         #expect(harness.panel.ignoresMouseEvents == false)
     }
 
+    /// A paused note leaves on a clock, with no activity or screen change to
+    /// rebuild the hover target. Without the explicit re-read, the pointer kept
+    /// counting as over an island that had already narrowed away from it.
+    @Test("the hover target narrows when the presenter hides a music icon")
+    func hoverTargetFollowsAHiddenMusicIcon() throws {
+        let hidden = HiddenMusicSlots()
+        let manager = ActivityManager()
+        let mouse = FakeMouseLocationObserver()
+        let controller = PresentationController(
+            panel: NotchPanel(metrics: Self.metrics, content: Color.clear),
+            manager: manager,
+            metrics: Self.metrics,
+            mouse: mouse,
+            reduceMotion: FakeReduceMotion(prefersReducedMotion: false),
+            screen: { Self.notchedScreen },
+            hiddenMusicSlotIDs: { hidden.slotIDs }
+        )
+        controller.start()
+        manager.register(
+            MusicActivity(nowPlaying: NowPlaying(title: "Windowlicker", artist: "Aphex Twin", playbackState: .paused))
+        )
+        manager.register(Self.activity("timer.focus"))
+
+        let wide = compactHitRect(
+            for: Self.notchedScreen,
+            leadingSlotCount: 1,
+            trailingSlotCount: 1,
+            metrics: Self.metrics
+        )
+        let narrow = compactHitRect(
+            for: Self.notchedScreen,
+            leadingSlotCount: 1,
+            trailingSlotCount: 0,
+            metrics: Self.metrics
+        )
+        let besideTheNarrowPill = CGPoint(x: wide.maxX - 1, y: wide.midY)
+        try #require(narrow.contains(besideTheNarrowPill) == false)
+
+        mouse.move(to: besideTheNarrowPill)
+        #expect(controller.isHovered)
+
+        hidden.slotIDs = [MusicActivity.identity.rawValue]
+        controller.compactLayoutDidChange()
+
+        // Without the pointer moving: it no longer rests on the island.
+        #expect(controller.isHovered == false)
+        mouse.move(to: besideTheNarrowPill)
+        #expect(controller.isHovered == false)
+    }
+
     @Test("returns to click-through when the pointer leaves the pill without clicking")
     func leavingRevertsToClickThrough() {
         let harness = Self.makeHarness()
@@ -559,4 +609,10 @@ private struct StubPresentedActivity: Activity {
     let identity: ActivityIdentity
     let kind: ActivityKind
     let priority: ActivityPriority
+}
+
+/// The presenter's hidden music icons, as the controller reads them.
+@MainActor
+private final class HiddenMusicSlots {
+    var slotIDs: Set<String> = []
 }

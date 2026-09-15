@@ -466,7 +466,7 @@ struct KerNotchApp: App {
             do {
                 _ = try await listener.updatePreferences(preferences)
             } catch {
-                present(error)
+                presentListenerFailure()
             }
         }
     }
@@ -521,6 +521,7 @@ struct KerNotchApp: App {
             onRequestAutomation: requestAutomation,
             onAIPreferencesChange: applyAIPreferences,
             onHookAction: handleHookAction,
+            onPreviewAttentionGlow: islandPresenter.previewAttentionGlow,
             launchAtLoginNeedsApproval: launchAtLoginNeedsApproval,
             restartRequired: languageOverride != appliedLanguageOverride,
             onRestart: restartApplication
@@ -624,11 +625,12 @@ struct KerNotchApp: App {
     private func applyAIPreferences(_ preferences: AIIntegrationPreferences) {
         settingsStore.aiIntegrationPreferences = preferences
         urlSchemeReceiver.preferences = preferences
+        islandPresenter.applyAttentionGlowPreference(preferences.showsAttentionGlow)
         Task {
             do {
                 _ = try await loopbackListener.updatePreferences(preferences)
             } catch {
-                Self.present(error)
+                Self.presentListenerFailure()
             }
         }
     }
@@ -736,6 +738,22 @@ struct KerNotchApp: App {
 
     private static func present(_ error: Error) {
         NSAlert(error: error).runModal()
+    }
+
+    /// Says what a failed loopback start means for the user, in their language.
+    ///
+    /// `NSAlert(error:)` rendered the listener's error as "The operation couldn't
+    /// be completed (… error 0.)", which names neither what broke nor what to do.
+    /// The underlying cause is a diagnostic, so the listener logs it instead.
+    private static func presentListenerFailure() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "KerNotch could not start listening for agent updates.")
+        alert.informativeText = String(
+            localized:
+                "Agent status will not appear in the notch until listening starts. Turn the agent off and on again, or restart KerNotch."
+        )
+        alert.runModal()
     }
 
 }

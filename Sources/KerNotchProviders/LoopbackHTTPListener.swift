@@ -27,11 +27,18 @@ public struct LoopbackHTTPListenerConfiguration: Sendable {
 public enum LoopbackHTTPListenerError: Error, Equatable, Sendable {
     case missingBoundPort
     case failedToStart(String)
+    case startupTimedOut
 }
 
 public actor LoopbackHTTPListener {
     private static let ownerOnlyFilePermissions = 0o600
     private static let ownerOnlyDirectoryPermissions = 0o700
+
+    /// How long a listener may take to become ready before startup gives up.
+    /// Binding loopback is immediate in practice; the bound exists so a listener
+    /// that never reports ready cannot hold every later preference change
+    /// queued behind it.
+    private static let startupTimeout: DispatchTimeInterval = .seconds(5)
     private static let logger = Logger(
         subsystem: "com.kernotch.KerNotch",
         category: "loopback-listener"
@@ -43,8 +50,15 @@ public actor LoopbackHTTPListener {
     private var policy: LoopbackListenerPolicy
     private var listener: NWListener?
     private var boundPort: UInt16?
-    private var preferences: AIIntegrationPreferences = .default
     private var connections: [ObjectIdentifier: NWConnection] = [:]
+
+    /// The most recently requested preference update, which the next request
+    /// waits behind.
+    private var latestUpdate: Task<UInt16?, any Error>?
+
+    /// How many updates have been requested, so an update can tell whether a
+    /// newer one is queued behind it.
+    private var requestedUpdateCount = 0
 
     public init(
         configuration: LoopbackHTTPListenerConfiguration = .init(),
@@ -61,10 +75,36 @@ public actor LoopbackHTTPListener {
     /// switches change what the policy accepts, never whether the port exists:
     /// a user who silences every event class still has agents enabled, and
     /// tearing the socket down under them would break the hooks they installed.
+    ///
+    /// Updates run one at a time, in the order they were requested. Starting a
+    /// listener suspends the actor until the socket is ready, and turning an
+    /// agent on in Settings requests two updates at once — one for the switch,
+    /// one for the hook it installs. Interleaved, the second started a second
+    /// listener, the first then cancelled it while failing its own ownership
+    /// check, both reported an error, and nothing was left listening.
+    ///
+    /// The policy follows the newest preferences immediately, so a message that
+    /// arrives while an update waits its turn is judged by what the user chose
+    /// last rather than by what the socket is still catching up to.
     @discardableResult
     public func updatePreferences(_ preferences: AIIntegrationPreferences) async throws -> UInt16? {
-        self.preferences = preferences
         policy.updatePreferences(preferences)
+        requestedUpdateCount += 1
+
+        let request = requestedUpdateCount
+        let previousUpdate = latestUpdate
+        let update = Task {
+            _ = await previousUpdate?.result
+            return try await apply(preferences, request: request)
+        }
+        latestUpdate = update
+        return try await update.value
+    }
+
+    /// A startup failure is only worth reporting when no newer update is queued:
+    /// the newer one either stops the socket or tries to start it again, so the
+    /// failure it supersedes describes a state the user has already left.
+    private func apply(_ preferences: AIIntegrationPreferences, request: Int) async throws -> UInt16? {
         guard !preferences.enabledAgentIDs.isEmpty else {
             await stop()
             return nil
@@ -72,7 +112,12 @@ public actor LoopbackHTTPListener {
         if let boundPort {
             return boundPort
         }
-        return try await start()
+        do {
+            return try await start()
+        } catch {
+            guard request == requestedUpdateCount else { return nil }
+            throw error
+        }
     }
 
     public func stop() async {
@@ -131,7 +176,33 @@ public actor LoopbackHTTPListener {
         }
     }
 
+    /// Every failure is logged here, the listener's own creation included: the
+    /// launch path discards the error, and the alert the Settings path shows
+    /// deliberately names no cause, so the log is the only place a reason lands.
     private func start() async throws -> UInt16 {
+        do {
+            let listener = try makeListener()
+            let port = try await waitUntilReady(listener)
+            // Updates are serialised, so only `stop()` — termination or a
+            // watchdog restart — can have replaced the listener meanwhile.
+            guard self.listener === listener else {
+                throw LoopbackHTTPListenerError.failedToStart(
+                    "Listener was stopped before startup completed"
+                )
+            }
+            try publish(port)
+            boundPort = port
+            return port
+        } catch {
+            Self.logger.error(
+                "Loopback listener failed to start: \(String(describing: error), privacy: .public)"
+            )
+            await stop()
+            throw error
+        }
+    }
+
+    private func makeListener() throws -> NWListener {
         let parameters = NWParameters.tcp
         parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
         let listener = try NWListener(using: parameters)
@@ -140,21 +211,7 @@ public actor LoopbackHTTPListener {
         listener.newConnectionHandler = { [weak self] connection in
             Task { await self?.accept(connection) }
         }
-
-        do {
-            let port = try await waitUntilReady(listener)
-            guard !preferences.enabledAgentIDs.isEmpty, self.listener === listener else {
-                throw LoopbackHTTPListenerError.failedToStart(
-                    "Listener was disabled before startup completed"
-                )
-            }
-            try publish(port)
-            boundPort = port
-            return port
-        } catch {
-            await stop()
-            throw error
-        }
+        return listener
     }
 
     private func waitUntilReady(_ listener: NWListener) async throws -> UInt16 {
@@ -172,11 +229,20 @@ public actor LoopbackHTTPListener {
                     startup.fail(.failedToStart(error.localizedDescription))
                 case .cancelled:
                     startup.fail(.failedToStart("Listener was cancelled before becoming ready"))
+                case .waiting(let error):
+                    // Network documents waiting as recoverable, so it is logged
+                    // and left to either become ready or run into the timeout.
+                    Self.logger.notice(
+                        "Loopback listener is waiting: \(error.localizedDescription, privacy: .public)"
+                    )
                 default:
                     break
                 }
             }
             listener.start(queue: queue)
+            queue.asyncAfter(deadline: .now() + Self.startupTimeout) {
+                startup.fail(.startupTimedOut)
+            }
         }
     }
 

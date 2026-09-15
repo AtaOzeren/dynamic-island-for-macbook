@@ -169,14 +169,11 @@ struct MusicActivityViewTests {
         #expect(slot.accessibilityLabel == "Paused: Windowlicker — Aphex Twin")
     }
 
-    @Test("track or playback changes restart the compact announcement animation")
-    func compactAnimationIdentityTracksPlayback() {
-        let playing = musicCompactSlot(for: Self.activity())
-        let paused = musicCompactSlot(for: Self.activity(state: .paused))
-        let nextTrack = musicCompactSlot(for: Self.activity(title: "Nannou"))
-
-        #expect(playing.animationIdentity != paused.animationIdentity)
-        #expect(playing.animationIdentity != nextTrack.animationIdentity)
+    @Test("the compact slot animates only while the track plays")
+    func compactSlotAnimatesOnlyWhilePlaying() {
+        #expect(musicCompactSlot(for: Self.activity()).isPlayingMusic)
+        #expect(musicCompactSlot(for: Self.activity(title: "Nannou")).isPlayingMusic)
+        #expect(musicCompactSlot(for: Self.activity(state: .paused)).isPlayingMusic == false)
     }
 
     // MARK: - The backend-independence rule

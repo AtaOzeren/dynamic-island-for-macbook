@@ -252,6 +252,42 @@
           }
         }
       }
+    },
+    "KerNotch could not start listening for agent updates.": {
+      "comment": "Alert title shown when the loopback listener for agent hooks fails to start.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch could not start listening for agent updates."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch, aracı güncellemelerini dinlemeye başlayamadı."
+          }
+        }
+      }
+    },
+    "Agent status will not appear in the notch until listening starts. Turn the agent off and on again, or restart KerNotch.": {
+      "comment": "Alert detail shown when the loopback listener for agent hooks fails to start.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent status will not appear in the notch until listening starts. Turn the agent off and on again, or restart KerNotch."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dinleme başlayana kadar aracı durumu çentikte görünmez. Aracıyı kapatıp yeniden açın ya da KerNotch'u yeniden başlatın."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

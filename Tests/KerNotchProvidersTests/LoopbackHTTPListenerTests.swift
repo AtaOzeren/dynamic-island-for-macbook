@@ -36,6 +36,70 @@ struct LoopbackHTTPListenerTests {
         await fixture.listener.stop()
     }
 
+    /// Turning an agent on in Settings requests two updates at once — the switch
+    /// and the hook it installs. Interleaved inside the actor they started two
+    /// listeners that cancelled each other, raised two error alerts, and left
+    /// nothing listening.
+    @Test("two simultaneous enables share one listener and report no error")
+    func simultaneousEnablesShareOneListener() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        let enabled = AIIntegrationPreferences(enabledAgentIDs: [.claudeCode])
+        let listener = fixture.listener
+
+        async let first = listener.updatePreferences(enabled)
+        async let second = listener.updatePreferences(enabled)
+        let ports = try await [first, second]
+
+        let port = try #require(ports[0])
+        #expect(ports[1] == port)
+        let publishedPort = try String(contentsOf: fixture.discoveryFile, encoding: .utf8)
+        #expect(publishedPort.trimmingCharacters(in: .whitespacesAndNewlines) == String(port))
+        let response = try await Self.post(Request(body: Self.payload(), path: "/ai-status", port: port))
+        #expect(response.statusCode == 204)
+
+        await fixture.listener.stop()
+    }
+
+    @Test("flipping an agent on, off and on again quickly raises no error and ends listening")
+    func quickToggleEndsListening() async throws {
+        let fixture = Self.makeFixture()
+        defer { fixture.removeDirectory() }
+        let enabled = AIIntegrationPreferences(enabledAgentIDs: [.claudeCode])
+        let listener = fixture.listener
+
+        let updates = [enabled, .default, enabled].map { preferences in
+            Task { try await listener.updatePreferences(preferences) }
+        }
+        for update in updates {
+            _ = try await update.value
+        }
+
+        let port = try #require(await fixture.listener.updatePreferences(enabled))
+        let response = try await Self.post(Request(body: Self.payload(), path: "/ai-status", port: port))
+        #expect(response.statusCode == 204)
+
+        await fixture.listener.stop()
+    }
+
+    /// Serialising updates must not swallow a failure nobody superseded.
+    @Test("a startup failure with no newer update queued is still reported")
+    func unsupersededStartupFailureIsReported() async throws {
+        let blocker = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+        try Data().write(to: blocker)
+        defer { try? FileManager.default.removeItem(at: blocker) }
+        let listener = LoopbackHTTPListener(
+            configuration: LoopbackHTTPListenerConfiguration(
+                discoveryFileURL: blocker.appendingPathComponent("ipc-port")
+            )
+        ) { _ in }
+
+        await #expect(throws: (any Error).self) {
+            try await listener.updatePreferences(.init(enabledAgentIDs: [.claudeCode]))
+        }
+    }
+
     @Test("Codex PreToolUse carries Claude Code tool metadata through loopback")
     func codexPreToolUseToolNameMatchesClaudeCode() async throws {
         let fixture = Self.makeFixture()

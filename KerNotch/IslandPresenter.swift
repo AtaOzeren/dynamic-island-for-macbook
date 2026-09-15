@@ -25,25 +25,21 @@ final class IslandViewModel: ObservableObject {
     /// surface is sized from this model: an open list the surface cannot see is
     /// a list drawn outside it.
     @Published var disclosedInstances: Set<ActivityIdentity> = []
-    /// Music icons that have finished their few seconds on screen.
+    /// Music icons taken off the pill: paused notes whose time on screen is up.
     ///
     /// Held here rather than inside the view because it decides how wide the
     /// pill is, and the pill's black surface and its hover target are sized from
     /// this model. While the view owned it privately, the icon vanished and the
     /// bar behind it stayed at full width.
     @Published var hiddenMusicSlotIDs: Set<String> = []
-    /// When each activity started claiming the pill under an announcement
-    /// window.
+    /// The light around the compact island while an agent has news.
     ///
-    /// Held here rather than in `ActivityManager` for a blunt reason: adding any
-    /// stored property to that class makes the whole test suite abort inside
-    /// `swift_task_dealloc`, reproducibly, with a single unused line. The
-    /// bookkeeping is presentation state either way, and this is the model the
-    /// pill is already drawn from.
-    @Published var announcementStarts: [ActivityIdentity: Date] = [:]
+    /// Published rather than derived in the view because it is anchored to the
+    /// moment the news was first seen, which no view outlives: the compact view
+    /// is rebuilt every time the island expands and collapses.
+    @Published var attentionGlow: IslandAttentionGlow?
     @Published var notchSize: CGSize
     @Published var hoverScale: CGFloat = 1
-    @Published var hoverOpacity: Double = 1
     @Published var transitionMovesGeometry = true
     /// Set only by the CPU watchdog's degrade action, to stand the island's
     /// continuous motion still while the process is over budget.
@@ -87,6 +83,8 @@ struct IslandRootView: View {
                     .onTapGesture(perform: model.onCollapse)
             }
 
+            attentionGlow
+
             ZStack(alignment: .top) {
                 if model.state != .hidden {
                     connectedSurface
@@ -98,7 +96,6 @@ struct IslandRootView: View {
         .offset(x: compactDrawingOffset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
-        .opacity(model.state == .compact ? model.hoverOpacity : 1)
         .environment(\.colorScheme, .dark)
         .environment(\.islandMotionSuspended, model.isMotionSuspended)
     }
@@ -158,6 +155,21 @@ struct IslandRootView: View {
             : ConnectedIslandGeometry.compactSurfaceSize(forPillSize: compactPill.size)
     }
 
+    /// Outside the mask, which would clip the halo to the island, and behind the
+    /// surface, which hides the rim's inner half so the pill stays black.
+    private var attentionGlow: some View {
+        ZStack(alignment: .top) {
+            if model.state == .compact, let glow = model.attentionGlow {
+                IslandAttentionGlowView(
+                    glow: glow,
+                    surfaceSize: ConnectedIslandGeometry.compactSurfaceSize(forPillSize: compactPill.size)
+                )
+                .transition(.opacity)
+            }
+        }
+        .animation(.easeOut(duration: IslandAttentionGlowTiming.fadeDuration), value: model.attentionGlow)
+    }
+
     private var connectedSurface: some View {
         ConnectedIslandShape(geometry: geometry)
             .fill(.black)
@@ -189,7 +201,7 @@ struct IslandRootView: View {
             CompactActivityView(
                 presentation: model.compact,
                 notchSize: model.notchSize,
-                hiddenMusicSlotIDs: $model.hiddenMusicSlotIDs
+                hiddenMusicSlotIDs: model.hiddenMusicSlotIDs
             )
             .sharingIslandSurface()
             .contentShape(Rectangle())
@@ -267,7 +279,8 @@ final class IslandPresenter {
     private let primaryActions: any PrimaryActionDispatching
     private let screenConfigurationSettled: @MainActor ([DisplayDescription]) -> Void
     private let hoverCoordinator = SynchronizedHoverCoordinator()
-    private var announcementRefreshTask: Task<Void, Never>?
+    private var clocks = IslandPresentationClocks()
+    private var presentationRefreshTask: Task<Void, Never>?
     private var isDegraded = false
     /// The user's own motion preference, held for the length of one watchdog
     /// episode because degrading overwrites the same override it is stored in.
@@ -331,6 +344,7 @@ final class IslandPresenter {
             hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }
         )
         controller.automaticallyExpandsOnHover = false
+        clocks.showsAttentionGlow = settingsStore.aiIntegrationPreferences.showsAttentionGlow
     }
 
     func start() {
@@ -360,8 +374,7 @@ final class IslandPresenter {
             guard let self else { return }
             let curve = controller.peek
             withAnimation(curve.animation) {
-                model.hoverScale = isHovered && curve.movesGeometry ? 1.03 : 1
-                model.hoverOpacity = isHovered ? 0.94 : 1
+                model.hoverScale = isHovered && curve.movesGeometry ? IslandMotion.default.peekScale : 1
             }
             hoverCoordinator.setHovered(
                 isHovered,
@@ -467,6 +480,20 @@ final class IslandPresenter {
         reduceMotion.updateOverride(preferenceOverride)
     }
 
+    /// Plays the glow once around the island, for the Settings test button.
+    func previewAttentionGlow() {
+        clocks.previewAttentionGlow(at: Date())
+        refreshContent()
+    }
+
+    /// Takes the AI Integrations glow switch into effect at once, on every
+    /// display — a glow running when it is switched off disappears.
+    func applyAttentionGlowPreference(_ showsAttentionGlow: Bool) {
+        guard clocks.showsAttentionGlow != showsAttentionGlow else { return }
+        clocks.showsAttentionGlow = showsAttentionGlow
+        refreshContent()
+    }
+
     /// What degrading did, as one value the watchdog's tests can compare.
     ///
     /// `presentationState` is in here because the pointer is only observed while
@@ -504,6 +531,9 @@ final class IslandPresenter {
         preDegradeReducedMotionOverride = reduceMotion.preferenceOverride
 
         model.isMotionSuspended = true
+        for secondary in secondaryPresentations.values {
+            secondary.isMotionSuspended = true
+        }
         applyReducedMotion(true)
         hoverCoordinator.collapseNow()
     }
@@ -517,6 +547,9 @@ final class IslandPresenter {
         isDegraded = false
 
         model.isMotionSuspended = false
+        for secondary in secondaryPresentations.values {
+            secondary.isMotionSuspended = false
+        }
         applyReducedMotion(preDegradeReducedMotionOverride)
         preDegradeReducedMotionOverride = nil
     }
@@ -538,31 +571,24 @@ final class IslandPresenter {
         refreshContent()
     }
 
-    /// Wakes the island when the next announcement window runs out.
+    /// Wakes the island when the next clock-driven change is due.
     ///
     /// `refreshContent` is driven by events — an activity registering, the
     /// pointer moving, the panel changing state. A blocked agent that failed
-    /// once and went quiet produces none of those, so without a deadline to
-    /// sleep on its announcement would never end and the pill would stay red
-    /// until the activity itself timed out.
+    /// once and went quiet, a track left paused, or a glow running its course
+    /// produce none of those, so without a deadline to sleep on the pill would
+    /// stay red, keep the note, or keep glowing until something unrelated
+    /// happened.
     ///
-    /// Self-limiting: once the deadline passes the window is elapsed, so the
-    /// refresh it triggers finds nothing pending and schedules nothing more.
-    private func scheduleAnnouncementRefresh(after now: Date) {
-        announcementRefreshTask?.cancel()
-        announcementRefreshTask = nil
+    /// Self-limiting: once a deadline passes, the refresh it triggers finds it
+    /// elapsed and schedules only what remains.
+    private func schedulePresentationRefresh(after now: Date) {
+        presentationRefreshTask?.cancel()
+        presentationRefreshTask = nil
 
-        guard
-            let deadline = nextAnnouncementDeadline(
-                for: manager.expandedActivities,
-                announcementStarts: model.announcementStarts,
-                after: now
-            )
-        else {
-            return
-        }
+        guard let deadline = clocks.nextDeadline else { return }
 
-        announcementRefreshTask = Task { @MainActor [weak self] in
+        presentationRefreshTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(deadline.timeIntervalSince(now)))
             guard Task.isCancelled == false else { return }
             self?.refreshContent()
@@ -571,31 +597,42 @@ final class IslandPresenter {
 
     private func refreshContent() {
         let now = Date()
-        model.announcementStarts = advancedAnnouncementStarts(
-            previous: model.announcementStarts,
+        clocks.advance(
             activities: manager.expandedActivities,
-            now: now
-        )
-        model.compact = compactPresentation(
-            manager.compactPresentation,
-            reconciledWith: manager.expandedActivities,
-            announcementStarts: model.announcementStarts,
             registrationTimes: manager.registrationTimes,
             now: now
         )
+        let reading = clocks.reading
+        model.compact = compactPresentation(
+            manager.compactPresentation,
+            reconciledWith: manager.expandedActivities,
+            announcementStarts: reading.announcementStarts,
+            registrationTimes: manager.registrationTimes,
+            now: now
+        )
+        hideMusicIcons(reading.hiddenMusicSlotIDs)
+        model.attentionGlow = reading.attentionGlow
         model.expanded = manager.expandedActivities
         model.registrationTimes = manager.registrationTimes
         model.notchSize = Self.notchSize(
             metrics: metrics,
             preference: settingsStore.generalPreferences.displayTarget
         )
-        scheduleAnnouncementRefresh(after: now)
+        schedulePresentationRefresh(after: now)
         for secondary in secondaryPresentations.values {
-            secondary.refreshContent()
+            secondary.follow(reading)
         }
         hoverCoordinator.updateExpansionAvailability(
             manager.activeActivities.isEmpty == false
         )
+    }
+
+    /// Narrowing the pill has to narrow its hover target too, and nothing else
+    /// tells the controller when an icon leaves on a clock.
+    private func hideMusicIcons(_ hiddenSlotIDs: Set<String>) {
+        guard model.hiddenMusicSlotIDs != hiddenSlotIDs else { return }
+        model.hiddenMusicSlotIDs = hiddenSlotIDs
+        controller.compactLayoutDidChange()
     }
 
     private func reconcileSecondaryPresentations() {
@@ -649,6 +686,7 @@ final class IslandPresenter {
                 self?.hoverCoordinator.collapseNow()
             }
             secondaryPresentations[identifier] = secondary
+            secondary.isMotionSuspended = isDegraded
             secondary.start()
             if hoverCoordinator.isExpanded {
                 secondary.expand()

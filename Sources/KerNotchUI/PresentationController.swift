@@ -121,7 +121,7 @@ public final class PresentationController {
     /// how tall the panel is.
     private let registrationTimes: @MainActor () -> [ActivityIdentity: Date]
 
-    /// Music icons whose few seconds on screen have elapsed.
+    /// Music icons taken off the pill — paused notes whose time on screen is up.
     ///
     /// A closure rather than a stored value because they live in the view model
     /// this controller does not own — and they change how wide the pill is
@@ -208,6 +208,23 @@ public final class PresentationController {
         } else {
             panel.reposition(on: targetScreen)
             updateHitRect(on: targetScreen)
+        }
+    }
+
+    /// Re-reads the pill's width into the hover target without moving the window.
+    ///
+    /// The target is otherwise rebuilt only when the activities or the screens
+    /// change, and before the presenter has refreshed what the pill hides. A
+    /// paused note leaves on a clock, with neither happening, so without this the
+    /// pointer kept counting as over an island that had narrowed away from it.
+    ///
+    /// The hover state is re-read too while compact, so a pointer resting where
+    /// the icon used to be stops holding the panel open to clicks.
+    public func compactLayoutDidChange() {
+        guard state != .hidden, let targetScreen = screen() else { return }
+        updateHitRect(on: targetScreen)
+        if state == .compact {
+            refreshHoverFromLastPointerLocation()
         }
     }
 
