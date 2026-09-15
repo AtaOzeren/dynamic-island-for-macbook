@@ -478,4 +478,23 @@ struct CompositionRootWiringTests {
         #expect(presenter.contains("secondary.isMotionSuspended = isDegraded"))
         #expect(secondary.contains("set { model.isMotionSuspended = newValue }"))
     }
+
+    /// The Discord integration only works end to end when the same microphone
+    /// observer is both drawn by the registry and told to step aside, and when
+    /// the island's leave press reaches the session.
+    ///
+    /// Each half compiles alone — a second `SystemAudioRecordingObserver`, or a
+    /// presenter left at its `nil` default, still builds and still draws — so a
+    /// Discord call would show twice, or its button would do nothing.
+    @Test("the Discord integration shares the microphone observer and receives leave presses")
+    func discordIntegrationIsWired() throws {
+        let source = try Self.appSource("KerNotch/KerNotchApp.swift")
+
+        #expect(source.contains("microphoneRecording: microphoneRecording,\n            enabledIdentifiers:"))
+        #expect(source.contains("microphoneMonitor: microphoneMonitor,\n                microphoneRecording: microphoneRecording"))
+        #expect(source.contains("discordVoice: discordIntegration?.voiceChannelLeaving"))
+        #expect(source.contains("discordIntegration?.apply(settingsStore.discordIntegrationPreferences)"))
+        #expect(source.contains("discordIntegration?.apply(preferences)"))
+        #expect(source.contains("#if APPSTORE_BUILD\n            let discordIntegration: DiscordIntegration? = nil"))
+    }
 }
