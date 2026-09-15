@@ -1,12 +1,13 @@
 import KerNotchCore
 import SwiftUI
 
-/// The four tabs of the settings window, in the order
+/// The tabs of the settings window, in the order
 /// `docs/08-settings-and-localization.md` lists them.
 public enum SettingsTab: String, CaseIterable, Equatable, Hashable, Sendable {
     case general
     case activities
     case aiIntegrations
+    case integrations
     case about
 
     public var displayName: String {
@@ -14,6 +15,7 @@ public enum SettingsTab: String, CaseIterable, Equatable, Hashable, Sendable {
         case .general: localized("General")
         case .activities: localized("Activities")
         case .aiIntegrations: localized("AI Integrations")
+        case .integrations: localized("Integrations")
         case .about: localized("About")
         }
     }
@@ -23,12 +25,13 @@ public enum SettingsTab: String, CaseIterable, Equatable, Hashable, Sendable {
         case .general: "gearshape"
         case .activities: "square.stack"
         case .aiIntegrations: "sparkles"
+        case .integrations: "puzzlepiece.extension"
         case .about: "info.circle"
         }
     }
 }
 
-/// The settings window's content: the four panes behind a `TabView`.
+/// The settings window's content: the panes behind a `TabView`.
 ///
 /// It holds no preference state of its own — every pane binds straight through
 /// to the composition root's values, so the window is a layout decision and the
@@ -40,6 +43,7 @@ public struct SettingsWindowView: View {
     @Binding private var aiPreferences: AIIntegrationPreferences
     @Binding private var languageOverride: String?
     @Binding private var musicAutomation: [MusicAutomationAccess]
+    @Binding private var discordPreferences: DiscordIntegrationPreferences
 
     private let availableDisplays: [DisplayDescription]
     private let information: AboutInformation
@@ -54,6 +58,10 @@ public struct SettingsWindowView: View {
     private let launchAtLoginNeedsApproval: Bool
     private let restartRequired: Bool
     private let onRestart: () -> Void
+    /// `nil` in a build without the Discord integration, which hides its tab.
+    private let discordSettings: DiscordSettingsState?
+    private let onDiscordPreferencesChange: (DiscordIntegrationPreferences) -> Void
+    private let onDiscordAction: (DiscordSettingsAction) -> Void
 
     @State private var selectedTab: SettingsTab = .general
 
@@ -75,7 +83,11 @@ public struct SettingsWindowView: View {
         onPreviewAttentionGlow: @escaping () -> Void = {},
         launchAtLoginNeedsApproval: Bool = false,
         restartRequired: Bool = false,
-        onRestart: @escaping () -> Void = {}
+        onRestart: @escaping () -> Void = {},
+        discordPreferences: Binding<DiscordIntegrationPreferences> = .constant(.default),
+        discordSettings: DiscordSettingsState? = nil,
+        onDiscordPreferencesChange: @escaping (DiscordIntegrationPreferences) -> Void = { _ in },
+        onDiscordAction: @escaping (DiscordSettingsAction) -> Void = { _ in }
     ) {
         self._general = general
         self._enabledIdentifiers = enabledIdentifiers
@@ -95,11 +107,20 @@ public struct SettingsWindowView: View {
         self.launchAtLoginNeedsApproval = launchAtLoginNeedsApproval
         self.restartRequired = restartRequired
         self.onRestart = onRestart
+        self._discordPreferences = discordPreferences
+        self.discordSettings = discordSettings
+        self.onDiscordPreferencesChange = onDiscordPreferencesChange
+        self.onDiscordAction = onDiscordAction
+    }
+
+    /// Every tab this build has something to show in.
+    public var visibleTabs: [SettingsTab] {
+        SettingsTab.allCases.filter { $0 != .integrations || discordSettings != nil }
     }
 
     public var body: some View {
         TabView(selection: $selectedTab) {
-            ForEach(SettingsTab.allCases, id: \.self) { tab in
+            ForEach(visibleTabs, id: \.self) { tab in
                 ScrollView {
                     pane(for: tab)
                 }
@@ -141,6 +162,16 @@ public struct SettingsWindowView: View {
                 onHookAction: onHookAction,
                 onPreviewAttentionGlow: onPreviewAttentionGlow
             )
+        case .integrations:
+            if let discordSettings {
+                IntegrationsSettingsView(
+                    preferences: $discordPreferences,
+                    discord: discordSettings,
+                    metrics: metrics,
+                    onPreferencesChange: onDiscordPreferencesChange,
+                    onAction: onDiscordAction
+                )
+            }
         case .about:
             AboutSettingsView(
                 information: information,

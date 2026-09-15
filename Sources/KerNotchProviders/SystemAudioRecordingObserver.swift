@@ -1,7 +1,8 @@
 import CoreAudio
 import Foundation
 
-/// The microphone-in-use signal KerNotch is actually allowed to see.
+/// The microphone-in-use signal KerNotch is actually allowed to see, as a
+/// recording session.
 ///
 /// `docs/12-api-feasibility-matrix.md` row 15 is blunt about this: there is no
 /// documented Apple API whose stated purpose is "is any process using the
@@ -10,253 +11,120 @@ import Foundation
 /// `kTCCServiceMicrophone` — governs *KerNotch's own* capture, and
 /// `docs/09-security-privacy-permissions.md` forbids the recording indicators
 /// from requiring it: an indicator that demands the capability it reports on is
-/// a worse trade than a narrower indicator.
+/// a worse trade than a narrower indicator. `MicrophoneActivityMonitor` reads
+/// the permission-free CoreAudio state this observer is built on.
 ///
-/// What remains public, documented, permission-free and prompt-free is
-/// CoreAudio's own account of its hardware:
-/// `kAudioDevicePropertyDeviceIsRunningSomewhere` reports whether a device's IO
-/// is running for *any* process on the machine. Read against the devices that
-/// have input streams, that is "someone is running the microphone" — the
-/// boolean, and nothing about who or what is being said. KerNotch opens no
-/// stream of its own and reads no audio content, so no microphone prompt is
-/// ever triggered.
-///
-/// Its limits are recorded honestly in
-/// `.omo/evidence/task-47-kernotch-v1/detection-limits.md` rather than papered
-/// over with a guess.
-///
-/// Nothing here polls. Every read is driven by a CoreAudio property listener,
-/// and the device list itself is listened to as well, so a microphone plugged
-/// in mid-session is picked up on the edge rather than discovered by a sweep.
+/// An integration with its own activity — Discord, while it is enabled — takes
+/// its application out of this indicator, so a Discord call is not reported
+/// twice. The exclusion is conservative by construction: the session ends only
+/// when every client of the microphone is known and excluded. A microphone
+/// nobody can attribute is still a microphone in use, and an extra indicator is
+/// the cheaper failure than a missed recording.
 @MainActor
 public final class SystemAudioRecordingObserver: RecordingObserving {
-    private static let systemObject = AudioObjectID(kAudioObjectSystemObject)
-
-    private let inputDeviceIdentifiers: @Sendable () -> [AudioObjectID]
-    private let isDeviceRunning: @Sendable (AudioObjectID) -> Bool
-    private let listeners: any AudioPropertyListening
+    private let monitor: MicrophoneActivityMonitor
     private let now: () -> Date
 
     private var latch = RecordingSessionLatch()
     private var observer: RecordingSessionObserver?
+    private var observation: MicrophoneActivityMonitor.Observation?
+    private var isExcluded: (@Sendable (String) -> Bool)?
 
-    /// The input devices currently carrying a running-somewhere listener, so a
-    /// device-list change touches only the devices that actually came or went.
-    private var watchedInputDevices: Set<AudioObjectID> = []
-
-    public convenience init() {
-        self.init(
-            inputDeviceIdentifiers: { CoreAudioSystem.inputDeviceIdentifiers() },
-            isDeviceRunning: { CoreAudioSystem.isRunningSomewhere($0) },
-            listeners: CoreAudioPropertyListeners()
-        )
+    public init(monitor: MicrophoneActivityMonitor, now: @escaping () -> Date = Date.init) {
+        self.monitor = monitor
+        self.now = now
     }
 
-    init(
+    convenience init(
         inputDeviceIdentifiers: @escaping @Sendable () -> [AudioObjectID],
         isDeviceRunning: @escaping @Sendable (AudioObjectID) -> Bool,
         listeners: any AudioPropertyListening,
         now: @escaping () -> Date = Date.init
     ) {
-        self.inputDeviceIdentifiers = inputDeviceIdentifiers
-        self.isDeviceRunning = isDeviceRunning
-        self.listeners = listeners
-        self.now = now
+        let hardware = MicrophoneHardware(
+            inputDeviceIdentifiers: inputDeviceIdentifiers,
+            isDeviceRunning: isDeviceRunning,
+            processIdentifiers: { nil },
+            processBundleIdentifier: { _ in nil },
+            isProcessRunningInput: { _ in false }
+        )
+        self.init(
+            monitor: MicrophoneActivityMonitor(hardware: hardware, listeners: listeners),
+            now: now
+        )
     }
 
     public func startObserving(_ observer: @escaping RecordingSessionObserver) {
         stopObserving()
         self.observer = observer
-
-        listenForDeviceListChanges()
-        watchInputDevices()
-
-        // A recording already in progress when KerNotch launches is a real
-        // state, not an edge we missed, so it is read once here rather than
-        // waited for.
-        emitCurrentState()
+        subscribe()
     }
 
     public func stopObserving() {
-        listeners.removeAll()
-        watchedInputDevices = []
+        if let observation {
+            monitor.removeObservation(observation)
+        }
+        observation = nil
         latch.reset()
         observer = nil
     }
 
-    /// Registered once per observation, never from inside its own callback.
-    ///
-    /// Re-registering it on every change is what turned a display change or a
-    /// wake — each a burst of device-list notifications — into a runaway: any
-    /// listener that failed to come off doubled on the next notification.
-    private func listenForDeviceListChanges() {
-        listeners.listen(to: .deviceList, on: Self.systemObject) { [weak self] in
-            self?.deviceListDidChange()
+    /// Leaves the applications `isExcluded` matches out of this indicator.
+    public func excludeApplications(where isExcluded: @escaping @Sendable (String) -> Bool) {
+        self.isExcluded = isExcluded
+        resubscribe()
+    }
+
+    /// Reports every client of the microphone again.
+    public func includeAllApplications() {
+        guard isExcluded != nil else { return }
+        isExcluded = nil
+        resubscribe()
+    }
+
+    /// Only an observer that excludes someone asks the monitor who is using the
+    /// microphone, so without an exclusion this costs what it always did.
+    private func subscribe() {
+        let deliver: MicrophoneActivityMonitor.Observer = { [weak self] activity in
+            self?.apply(activity)
+        }
+        observation =
+            isExcluded == nil
+            ? monitor.observeRunningState(deliver)
+            : monitor.observeClients(deliver)
+    }
+
+    /// The new observation is taken before the old one is released, so the
+    /// monitor never sees zero observers and never tears down the device
+    /// listeners in between.
+    private func resubscribe() {
+        guard observer != nil else { return }
+
+        let previous = observation
+        subscribe()
+        if let previous {
+            monitor.removeObservation(previous)
         }
     }
 
-    private func deviceListDidChange() {
-        watchInputDevices()
-        emitCurrentState()
-    }
-
-    /// Brings the per-device listeners in line with the input devices as they
-    /// now stand: devices that left lose theirs, devices that arrived gain one,
-    /// and devices that stayed are not touched. A microphone that appears
-    /// mid-session is therefore observed on the same terms as one present at
-    /// launch, without re-registering everything else.
-    ///
-    /// Only a device whose listener actually registered counts as watched. A
-    /// registration can fail while the HAL is still settling after a wake, and a
-    /// device recorded as watched anyway would never be tried again.
-    private func watchInputDevices() {
-        let currentDevices = Set(inputDeviceIdentifiers())
-
-        for device in watchedInputDevices.subtracting(currentDevices) {
-            listeners.stopListening(to: .isRunningSomewhere, on: device)
-        }
-
-        var watched = watchedInputDevices.intersection(currentDevices)
-        for device in currentDevices.subtracting(watchedInputDevices) where watchRunningState(of: device) {
-            watched.insert(device)
-        }
-        watchedInputDevices = watched
-    }
-
-    private func watchRunningState(of device: AudioObjectID) -> Bool {
-        listeners.listen(to: .isRunningSomewhere, on: device) { [weak self] in
-            self?.emitCurrentState()
-        }
-    }
-
-    private func emitCurrentState() {
+    private func apply(_ activity: MicrophoneActivity) {
         guard let observer else { return }
-
-        let isRecording = inputDeviceIdentifiers().contains(where: isDeviceRunning)
-
-        guard latch.update(isRecording: isRecording, at: now) else { return }
+        guard latch.update(isRecording: isReportable(activity), at: now) else { return }
 
         observer(latch.session)
     }
-}
 
-/// The CoreAudio properties this observer subscribes to, named so the call site
-/// reads as intent rather than as four-character codes.
-enum AudioProperty: Hashable {
-    case deviceList
-    case isRunningSomewhere
-
-    var address: AudioObjectPropertyAddress {
-        switch self {
-        case .deviceList:
-            AudioObjectPropertyAddress(
-                mSelector: kAudioHardwarePropertyDevices,
-                mScope: kAudioObjectPropertyScopeGlobal,
-                mElement: kAudioObjectPropertyElementMain
-            )
-        case .isRunningSomewhere:
-            AudioObjectPropertyAddress(
-                mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere,
-                mScope: kAudioObjectPropertyScopeGlobal,
-                mElement: kAudioObjectPropertyElementMain
-            )
-        }
-    }
-}
-
-/// The subscription half of CoreAudio, behind a protocol for the reason
-/// `docs/11-testing-strategy.md` gives for every hardware seam: the observer's
-/// resubscribe-and-emit logic is CI-testable, the driver behind it is not.
-///
-/// A listener is identified by its property and object. Listening again to the
-/// same pair replaces the earlier listener, so no call sequence can stack
-/// duplicates on one property. `listen` reports whether the listener is in
-/// place, so a caller never counts a property as watched when it is not.
-@MainActor
-protocol AudioPropertyListening: AnyObject {
-    @discardableResult
-    func listen(to property: AudioProperty, on object: AudioObjectID, changed: @escaping @MainActor () -> Void) -> Bool
-    func stopListening(to property: AudioProperty, on object: AudioObjectID)
-    func removeAll()
-}
-
-/// The query half of CoreAudio: the two reads this observer needs, with the
-/// `AudioObjectGetPropertyData` ceremony kept in one place.
-enum CoreAudioSystem {
-    /// Every audio device that has at least one input stream — the set a
-    /// microphone can be running on.
-    static func inputDeviceIdentifiers() -> [AudioObjectID] {
-        allDeviceIdentifiers().filter(hasInputStreams)
-    }
-
-    static func isRunningSomewhere(_ device: AudioObjectID) -> Bool {
-        var address = AudioProperty.isRunningSomewhere.address
-        var isRunning: UInt32 = 0
-        var size = UInt32(MemoryLayout<UInt32>.size)
-
-        let status = AudioObjectGetPropertyData(device, &address, 0, nil, &size, &isRunning)
-
-        return status == noErr && isRunning != 0
-    }
-
-    private static func allDeviceIdentifiers() -> [AudioObjectID] {
-        var address = AudioProperty.deviceList.address
-        var size: UInt32 = 0
-
-        guard
-            AudioObjectGetPropertyDataSize(
-                AudioObjectID(kAudioObjectSystemObject),
-                &address,
-                0,
-                nil,
-                &size
-            ) == noErr
-        else { return [] }
-
-        let count = Int(size) / MemoryLayout<AudioObjectID>.size
-
-        guard count > 0 else { return [] }
-
-        var devices = [AudioObjectID](repeating: 0, count: count)
-        let status = AudioObjectGetPropertyData(
-            AudioObjectID(kAudioObjectSystemObject),
-            &address,
-            0,
-            nil,
-            &size,
-            &devices
-        )
-
-        return status == noErr ? devices : []
-    }
-
-    /// A device counts as an input when its input-scoped stream configuration
-    /// carries at least one buffer. The configuration is a variable-length
-    /// `AudioBufferList`, so it is read into raw storage sized by CoreAudio
-    /// rather than into a fixed struct.
-    private static func hasInputStreams(_ device: AudioObjectID) -> Bool {
-        var address = AudioObjectPropertyAddress(
-            mSelector: kAudioDevicePropertyStreamConfiguration,
-            mScope: kAudioObjectPropertyScopeInput,
-            mElement: kAudioObjectPropertyElementMain
-        )
-        var size: UInt32 = 0
-
-        guard
-            AudioObjectGetPropertyDataSize(device, &address, 0, nil, &size) == noErr,
-            size >= UInt32(MemoryLayout<AudioBufferList>.size)
-        else { return false }
-
-        let storage = UnsafeMutableRawPointer.allocate(
-            byteCount: Int(size),
-            alignment: MemoryLayout<AudioBufferList>.alignment
-        )
-        defer { storage.deallocate() }
-
-        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, storage) == noErr else {
-            return false
+    private func isReportable(_ activity: MicrophoneActivity) -> Bool {
+        guard activity.isRunning else { return false }
+        guard let isExcluded, let clients = activity.clients, clients.isEmpty == false else {
+            return true
         }
 
-        return storage.assumingMemoryBound(to: AudioBufferList.self).pointee.mNumberBuffers > 0
+        return clients.contains { client in
+            switch client {
+            case .application(let bundleIdentifier): isExcluded(bundleIdentifier) == false
+            case .unidentifiedProcess: true
+            }
+        }
     }
 }

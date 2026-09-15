@@ -157,10 +157,11 @@ struct TurkishLocalizationTests {
 
     /// A key whose Turkish is byte-identical to its English is the shape an
     /// untranslated placeholder takes: present, resolvable, and still English.
-    /// The exceptions are the brand name and format-only strings, which have no
+    /// The exceptions are brand names and format-only strings, which have no
     /// words to translate.
     private static let untranslatableKeys: Set<String> = [
         "KerNotch",
+        "Discord",
         "activity.accessibility.headlineAndDetail",
         "activity.ai.blockedFootnote",
         "activity.ai.compactTitle",

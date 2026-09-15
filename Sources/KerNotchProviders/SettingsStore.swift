@@ -128,6 +128,19 @@ public final class SettingsStore {
         }
     }
 
+    public var discordIntegrationPreferences: DiscordIntegrationPreferences {
+        get {
+            DiscordIntegrationPreferences(
+                isEnabled: self[.enableDiscord],
+                clientID: self[.discordClientID]
+            )
+        }
+        set {
+            self[.enableDiscord] = newValue.isEnabled
+            self[.discordClientID] = newValue.clientID
+        }
+    }
+
     /// Written as a whole set rather than one switch at a time so the pane and
     /// the registry cannot disagree mid-edit: every absent identifier is off,
     /// which is the same rule `enabledProviderIdentifiers` reads back.

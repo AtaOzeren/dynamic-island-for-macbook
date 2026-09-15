@@ -163,6 +163,23 @@ struct SettingsStoreTests {
         #expect(store.aiIntegrationPreferences == preferences)
     }
 
+    @Test("persists Discord integration preferences and clears a removed client ID")
+    func roundTripsDiscordIntegrationPreferences() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+        let preferences = DiscordIntegrationPreferences(
+            isEnabled: true,
+            clientID: DiscordClientID(rawValue: "1549389234912239636")
+        )
+
+        #expect(store.discordIntegrationPreferences == .default)
+
+        store.discordIntegrationPreferences = preferences
+        #expect(store.discordIntegrationPreferences == preferences)
+
+        store.discordIntegrationPreferences = DiscordIntegrationPreferences(isEnabled: true, clientID: nil)
+        #expect(store[.discordClientID] == nil)
+    }
+
     @Test("persists general preferences through their value seam")
     func roundTripsGeneralPreferences() {
         let store = SettingsStore(storage: DictionarySettingsStorage())

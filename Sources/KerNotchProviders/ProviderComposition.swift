@@ -8,12 +8,15 @@ import KerNotchCore
 /// invariant rather than five call sites that must agree. The music backend
 /// arrives as a parameter because only the app target can choose it — see
 /// `MusicBackend.swift` — and the system observers are constructed here because
-/// nothing above this layer should have to name them.
+/// nothing above this layer should have to name them. The microphone observer is
+/// the exception: the Discord integration changes what it reports, so the app
+/// holds it and hands it in.
 @MainActor
 public enum ProviderComposition {
     public static func makeRegistry(
         musicProvider: any MusicProvider,
         timerProvider: TimerProvider,
+        microphoneRecording: SystemAudioRecordingObserver,
         enabledIdentifiers: Set<ActivityProviderIdentifier>
     ) -> ActivityProviderRegistry {
         ActivityProviderRegistry(
@@ -24,7 +27,7 @@ public enum ProviderComposition {
                     RecordingProvider(source: .screen, sessions: SystemScreenRecordingObserver())
                 ),
                 ActivityProviderRegistration.recording(
-                    RecordingProvider(source: .audio, sessions: SystemAudioRecordingObserver())
+                    RecordingProvider(source: .audio, sessions: microphoneRecording)
                 ),
                 ActivityProviderRegistration.charging(
                     ChargingProvider(source: SystemPowerSourceObserver())

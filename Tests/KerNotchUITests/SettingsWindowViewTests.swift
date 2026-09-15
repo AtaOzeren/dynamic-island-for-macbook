@@ -21,7 +21,7 @@ struct SettingsWindowViewTests {
 
     @Test("every documented pane is a tab")
     func everyPaneIsATab() {
-        #expect(SettingsTab.allCases == [.general, .activities, .aiIntegrations, .about])
+        #expect(SettingsTab.allCases == [.general, .activities, .aiIntegrations, .integrations, .about])
         for tab in SettingsTab.allCases {
             #expect(!tab.displayName.isEmpty)
             #expect(!tab.symbolName.isEmpty)

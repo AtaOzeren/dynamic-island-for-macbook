@@ -131,6 +131,9 @@ extension SettingsKey where Value == Bool {
     public static var hasCompletedOnboarding: Self {
         boolKey(path: "general.hasCompletedOnboarding", defaultValue: false)
     }
+    public static var enableDiscord: Self {
+        boolKey(path: "integrations.discord.enabled", defaultValue: false)
+    }
 }
 
 extension SettingsKey where Value == Bool? {
@@ -151,6 +154,19 @@ extension SettingsKey where Value == String? {
             defaultValue: nil,
             decode: { $0 as? String },
             encode: { $0 }
+        )
+    }
+}
+
+extension SettingsKey where Value == DiscordClientID? {
+    /// Stored as the plain decimal string, so a value that no longer parses —
+    /// hand-edited, or truncated — reads back as no ID rather than a bad one.
+    public static var discordClientID: Self {
+        SettingsKey(
+            path: "integrations.discord.clientID",
+            defaultValue: nil,
+            decode: { ($0 as? String).flatMap(DiscordClientID.init(rawValue:)) },
+            encode: { $0?.rawValue }
         )
     }
 }
@@ -178,6 +194,7 @@ public enum SettingsKeys {
         register(.showAIAttentionGlow, in: &defaults)
         register(.hasCompletedOnboarding, in: &defaults)
         register(.cpuWatchdogDisabled, in: &defaults)
+        register(.enableDiscord, in: &defaults)
         return defaults
     }
 

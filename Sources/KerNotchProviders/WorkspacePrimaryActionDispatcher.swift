@@ -329,7 +329,7 @@ public final class WorkspacePrimaryActionDispatcher: PrimaryActionDispatching {
             return activateApplication(named: name)
         case .openAgentApplication(let agent):
             return activateAgentApplication(agent)
-        case .stopTimer, .pauseTimer, .resumeTimer:
+        case .stopTimer, .pauseTimer, .resumeTimer, .leaveDiscordVoiceChannel:
             return false
         }
     }
