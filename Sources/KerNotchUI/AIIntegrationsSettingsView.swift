@@ -35,19 +35,22 @@ public struct AIIntegrationsSettingsView: View {
     private let metrics: SettingsPaneMetrics
     private let onPreferencesChange: (AIIntegrationPreferences) -> Void
     private let onHookAction: (IPCAgentID, AIHookAction) -> Void
+    private let onPreviewAttentionGlow: () -> Void
 
     public init(
         preferences: Binding<AIIntegrationPreferences>,
         hookStates: [IPCAgentID: HookInstallationState] = [:],
         metrics: SettingsPaneMetrics = .default,
         onPreferencesChange: @escaping (AIIntegrationPreferences) -> Void = { _ in },
-        onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in }
+        onHookAction: @escaping (IPCAgentID, AIHookAction) -> Void = { _, _ in },
+        onPreviewAttentionGlow: @escaping () -> Void = {}
     ) {
         self._preferences = preferences
         self.hookStates = hookStates
         self.metrics = metrics
         self.onPreferencesChange = onPreferencesChange
         self.onHookAction = onHookAction
+        self.onPreviewAttentionGlow = onPreviewAttentionGlow
     }
 
     /// Event switches are disabled while no agent is, because with every agent
@@ -87,6 +90,26 @@ public struct AIIntegrationsSettingsView: View {
         )
     }
 
+    /// The attention glow's switch. Presentation only, so it publishes the
+    /// same value the other rows do and nothing more.
+    public var attentionGlowBinding: Binding<Bool> {
+        Binding(
+            get: { preferences.showsAttentionGlow },
+            set: { showsAttentionGlow in
+                var updatedPreferences = preferences
+                updatedPreferences.showsAttentionGlow = showsAttentionGlow
+                preferences = updatedPreferences
+                onPreferencesChange(updatedPreferences)
+            }
+        )
+    }
+
+    /// Plays the glow once on the island. Exposed so a test can drive the same
+    /// path a press takes without rendering into a window server.
+    public func previewAttentionGlow() {
+        onPreviewAttentionGlow()
+    }
+
     public func hookAction(for agentID: IPCAgentID) -> AIHookAction {
         switch hookStates[agentID] ?? .configurationMissing {
         case .configurationMissing, .hookAbsent: .install
@@ -104,6 +127,8 @@ public struct AIIntegrationsSettingsView: View {
             agentSection
             Divider()
             eventSection
+            Divider()
+            attentionGlowSection
         }
         .settingsPaneFrame(metrics)
     }
@@ -142,5 +167,30 @@ public struct AIIntegrationsSettingsView: View {
             }
         }
         .disabled(!isEventSectionEnabled)
+    }
+
+    /// The switch is disabled with the events for the same reason: with every
+    /// agent off there is nothing that could glow. The test button is not — it
+    /// is how someone sees what the switch does before deciding to enable
+    /// anything.
+    private var attentionGlowSection: some View {
+        SettingsSection(
+            title: localized("Island glow"),
+            caption: localized(
+                "A soft light runs around the small island when an agent finishes, asks for input, or fails."
+            ),
+            metrics: metrics
+        ) {
+            HStack {
+                Toggle(localized("Show glow"), isOn: attentionGlowBinding)
+                    .disabled(!isEventSectionEnabled)
+                Spacer(minLength: metrics.rowSpacing)
+                Button(action: previewAttentionGlow) {
+                    Label(localized("Test glow"), systemImage: "sparkles")
+                }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(localized("Test glow"))
+            }
+        }
     }
 }

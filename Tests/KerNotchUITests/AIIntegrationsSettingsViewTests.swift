@@ -48,6 +48,52 @@ struct AIIntegrationsSettingsViewTests {
         #expect(published.first?.isEnabled(.codex) == true)
     }
 
+    @Test("the glow switch writes through and publishes the preference value")
+    func attentionGlowToggleWritesThrough() {
+        let store = Store()
+        var published: [AIIntegrationPreferences] = []
+        let view = AIIntegrationsSettingsView(
+            preferences: store.binding,
+            onPreferencesChange: { published.append($0) }
+        )
+        #expect(view.attentionGlowBinding.wrappedValue, "the glow is on by default")
+
+        view.attentionGlowBinding.wrappedValue = false
+
+        #expect(store.preferences.showsAttentionGlow == false)
+        #expect(published.map(\.showsAttentionGlow) == [false])
+    }
+
+    @Test("the test button plays the glow once per press")
+    func testButtonPreviewsTheGlow() {
+        var previews = 0
+        let view = AIIntegrationsSettingsView(
+            preferences: Store().binding,
+            onPreviewAttentionGlow: { previews += 1 }
+        )
+
+        view.previewAttentionGlow()
+
+        #expect(previews == 1)
+    }
+
+    /// The glow is presentation only: switching it off must not silence a single
+    /// event the receivers would otherwise let through.
+    @Test("switching the glow off never drops a message")
+    func glowSwitchLeavesEventsAlone() {
+        let preferences = AIIntegrationPreferences(enabledAgentIDs: [.claudeCode], showsAttentionGlow: false)
+        let message = IPCMessage(
+            schemaVersion: IPCMessageValidator.supportedSchemaVersion,
+            agentId: .claudeCode,
+            sessionId: UUID(),
+            state: .waitingForUser,
+            detail: "Question asked",
+            timestamp: Date()
+        )
+
+        #expect(preferences.allows(message))
+    }
+
     @Test("an event switch writes through to the preferences")
     func eventToggleWritesThrough() {
         let store = Store()

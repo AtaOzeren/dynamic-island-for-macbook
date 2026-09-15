@@ -21,7 +21,10 @@ public struct AIAgentActivity: Activity, Equatable {
     /// starts: `ActivityManager` cancels this timer on every update, so a new
     /// prompt inside the window replaces the tick with the work immediately
     /// rather than waiting it out.
-    public static let completedAutoDismissAfter: Duration = .seconds(15)
+    ///
+    /// Exactly as long as the island's attention glow runs its five passes, so
+    /// the green light is never cut off mid-sequence by its own card leaving.
+    public static let completedAutoDismissAfter: Duration = .seconds(22)
 
     public let agent: IPCAgentID
     /// One running instance of an agent, per the `Session` definition in

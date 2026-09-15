@@ -493,7 +493,7 @@ struct AIAgentActivityViewTests {
         let slot = aiAgentCompactSlot(for: Self.activity(state: .completed))
 
         #expect(slot.aiAgentPresentation?.indicator == .completed)
-        #expect(AIAgentActivity.completedAutoDismissAfter == .seconds(15))
+        #expect(AIAgentActivity.completedAutoDismissAfter == .seconds(22))
     }
 
     @Test("announces the state and detail rather than the generic kind label")

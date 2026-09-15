@@ -194,10 +194,11 @@ struct AIAgentActivityTests {
 
     /// `docs/07-ai-integration.md`: an error must not vanish on a timer the user
     /// could blink through. Bounded is not the same as brief — the silence
-    /// timeout is orders of magnitude longer than the completed one.
+    /// timeout is dozens of times longer than the completed one, which now runs
+    /// as long as the attention glow's five passes.
     @Test("a failure outlives a completion by a wide margin")
     func failuresLingerFarLongerThanCompletions() {
-        #expect(AIAgentActivity.silenceTimeout > AIAgentActivity.completedAutoDismissAfter * 100)
+        #expect(AIAgentActivity.silenceTimeout > AIAgentActivity.completedAutoDismissAfter * 50)
     }
 
     /// One identity for the whole state machine of one session, so `thinking`

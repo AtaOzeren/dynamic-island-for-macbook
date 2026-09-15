@@ -15,14 +15,25 @@ public struct AIIntegrationPreferences: Equatable, Sendable {
     public var enabledAgentIDs: Set<IPCAgentID>
     public var enabledEventClasses: Set<AIEventClass>
 
+    /// Whether the island draws its attention glow when an agent finishes,
+    /// asks, or fails.
+    ///
+    /// Presentation only: the receivers never read it, so a message the event
+    /// switches allow still becomes an activity with its badge either way. It
+    /// lives here because the AI Integrations pane edits this one value, and a
+    /// second value for one row would be a second write path to keep in step.
+    public var showsAttentionGlow: Bool
+
     public init(
         enabledAgentIDs: Set<IPCAgentID> = [],
         enabledEventClasses: Set<AIEventClass> = [
             .taskStarted, .taskCompleted, .taskError, .needsInput,
-        ]
+        ],
+        showsAttentionGlow: Bool = true
     ) {
         self.enabledAgentIDs = enabledAgentIDs
         self.enabledEventClasses = enabledEventClasses
+        self.showsAttentionGlow = showsAttentionGlow
     }
 
     public func isEnabled(_ agentID: IPCAgentID) -> Bool {

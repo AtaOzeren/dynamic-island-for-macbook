@@ -5,18 +5,12 @@ import SwiftUI
 public struct CompactMusicSlotPresentation: Equatable, Sendable {
     public let isPlaying: Bool
     public let sourceIdentity: MusicSourceIdentity
-    public let animationIdentity: String
 
     public init(activity: MusicActivity) {
         isPlaying = activity.nowPlaying.playbackState == .playing
         sourceIdentity = MusicSourceIdentity(
             applicationName: activity.nowPlaying.sourceApplicationName
         )
-        animationIdentity = [
-            activity.nowPlaying.title,
-            activity.nowPlaying.artist,
-            isPlaying ? "playing" : "paused",
-        ].joined(separator: "|")
     }
 }
 
@@ -35,7 +29,6 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     /// they animate, and only while something is actually playing.
     public let isPlayingMusic: Bool
     public let musicSourceIdentity: MusicSourceIdentity?
-    public let animationIdentity: String?
     public let recordingSource: RecordingSource?
     let aiAgentPresentation: CompactAIAgentSlotPresentation?
     public var aiAgentID: IPCAgentID? { aiAgentPresentation?.agentID }
@@ -48,7 +41,6 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         accessibilityLabel = compactAccessibilityLabel(activity.kind)
         isPlayingMusic = false
         musicSourceIdentity = nil
-        animationIdentity = nil
         recordingSource = nil
         aiAgentPresentation = nil
     }
@@ -72,7 +64,6 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         self.accessibilityLabel = accessibilityLabel
         isPlayingMusic = musicPresentation?.isPlaying ?? false
         musicSourceIdentity = musicPresentation?.sourceIdentity
-        animationIdentity = musicPresentation?.animationIdentity
         recordingSource = nil
         self.aiAgentPresentation = aiAgentPresentation
     }
@@ -88,7 +79,6 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         accessibilityLabel = presentation.accessibilityLabel
         isPlayingMusic = false
         musicSourceIdentity = nil
-        animationIdentity = nil
         recordingSource = activity.source
         aiAgentPresentation = nil
     }
@@ -101,7 +91,6 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
         accessibilityLabel = localized("\(overflowCount) more activities")
         isPlayingMusic = false
         musicSourceIdentity = nil
-        animationIdentity = nil
         recordingSource = nil
         aiAgentPresentation = nil
     }
@@ -260,45 +249,6 @@ private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
         leading: Array(slots.prefix(leadingCount)),
         trailing: Array(slots.dropFirst(leadingCount))
     )
-}
-
-/// Tracks which music slots have already started their visibility timer.
-///
-/// The *hidden* set deliberately does not live here. It decides how wide the
-/// pill is drawn, and the pill's black surface and its hover target are sized
-/// by an ancestor of the view that owns this — while the set was private view
-/// state, hiding the icon shrank the icons and left the bar and the hover
-/// target at their old width. Only this bookkeeping, which nothing outside the
-/// view needs, stayed behind.
-struct CompactMusicIconVisibility: Equatable, Sendable {
-    static let visibleDuration: Duration = .seconds(5)
-
-    private var announcedSlotIDs: Set<String> = []
-
-    init() {}
-
-    /// Prunes slots that are gone and returns the ones whose timer must start.
-    mutating func synchronize(
-        activeSlots: [CompactSlot],
-        hiddenSlotIDs: inout Set<String>
-    ) -> [String] {
-        let activeMusicSlotIDs = compactMusicSlotIDs(in: activeSlots)
-        announcedSlotIDs.formIntersection(activeMusicSlotIDs)
-        hiddenSlotIDs.formIntersection(activeMusicSlotIDs)
-
-        let newSlotIDs = activeMusicSlotIDs.subtracting(announcedSlotIDs)
-        announcedSlotIDs.formUnion(newSlotIDs)
-        return newSlotIDs.sorted()
-    }
-
-    func hasAnnounced(_ slotID: String) -> Bool {
-        announcedSlotIDs.contains(slotID)
-    }
-}
-
-/// The music slots in `slots`, by identifier.
-func compactMusicSlotIDs(in slots: [CompactSlot]) -> Set<String> {
-    Set(slots.lazy.filter { $0.musicSourceIdentity != nil }.map(\.id))
 }
 
 /// The presentation with finished announcements taken out of the pill, and the
@@ -488,19 +438,21 @@ public struct CompactActivityView: View {
     private let metrics: CompactPillMetrics
     private let motion: IslandMotion
 
-    @State private var musicIconVisibility = CompactMusicIconVisibility()
-    @Binding private var hiddenMusicSlotIDs: Set<String>
+    /// Music icons the presenter has taken off the pill. Read, never written:
+    /// the presenter's clocks own the countdown, because this view is rebuilt
+    /// every time the island expands and collapses.
+    private let hiddenMusicSlotIDs: Set<String>
 
     public init(
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
-        hiddenMusicSlotIDs: Binding<Set<String>> = .constant([]),
+        hiddenMusicSlotIDs: Set<String> = [],
         metrics: CompactPillMetrics = .default,
         motion: IslandMotion = .default
     ) {
         self.presentation = presentation
         self.notchSize = notchSize
-        _hiddenMusicSlotIDs = hiddenMusicSlotIDs
+        self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
         self.metrics = metrics
         self.motion = motion
     }
@@ -537,9 +489,6 @@ public struct CompactActivityView: View {
         }
         .environment(\.colorScheme, surface.preferredColorScheme)
         .animation(slotAnimation, value: visibleSlots)
-        .task(id: musicSlotIDs(in: slots)) {
-            await scheduleMusicIconDismissals(for: slots)
-        }
     }
 
     /// The opaque notch plus the gap owed to each occupied flank.
@@ -603,7 +552,6 @@ public struct CompactActivityView: View {
                         symbolName: slot.symbolName,
                         sourceIdentity: sourceIdentity
                     )
-                    .id(slot.animationIdentity)
                 } else {
                     Image(systemName: slot.symbolName)
                         .font(.system(size: metrics.symbolSize, weight: .medium))
@@ -617,93 +565,4 @@ public struct CompactActivityView: View {
         .frame(width: metrics.slotWidth)
         .accessibilityLabel(slot.accessibilityLabel)
     }
-
-    private func musicSlotIDs(in slots: [CompactSlot]) -> [String] {
-        slots.filter { $0.musicSourceIdentity != nil }.map(\.id).sorted()
-    }
-
-    private func scheduleMusicIconDismissals(for slots: [CompactSlot]) async {
-        let newSlotIDs = musicIconVisibility.synchronize(
-            activeSlots: slots,
-            hiddenSlotIDs: &hiddenMusicSlotIDs
-        )
-        for slotID in newSlotIDs {
-            do {
-                try await Task.sleep(for: CompactMusicIconVisibility.visibleDuration)
-            } catch {
-                return
-            }
-            guard musicIconVisibility.hasAnnounced(slotID) else { continue }
-            hiddenMusicSlotIDs.insert(slotID)
-        }
-    }
-}
-
-/// The moving equaliser drawn in the music slot while a track is playing.
-///
-/// Settles into the static glyph after `animationDuration`, so the island does
-/// not keep an animation running for the entire length of an album — the idle
-/// budget in `docs/02-performance-contract.md` is the whole reason the pill is
-/// cheap to leave on screen. The motion is announcement, not status.
-struct MusicEqualiserSlotView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var isAnimating = false
-    @State private var hasSettled = false
-
-    /// How long the bars move before settling to the glyph.
-    static let animationDuration: Duration = .seconds(3)
-
-    private static let barScales: [CGFloat] = [0.45, 1.0, 0.7]
-    private static let barPhaseOffsets: [Double] = [0, 0.18, 0.36]
-
-    let metrics: CompactPillMetrics
-    let symbolName: String
-    let sourceIdentity: MusicSourceIdentity
-
-    var body: some View {
-        content
-            .foregroundStyle(musicAccentColor(sourceIdentity))
-            .task {
-                guard reduceMotion == false else { return }
-                isAnimating = true
-                // Cancellation — the slot leaving the hierarchy before the
-                // announcement finishes — is the only error thrown, and
-                // settling straight to the static glyph is the correct
-                // response to it, so it is dropped rather than propagated.
-                try? await Task.sleep(for: Self.animationDuration)
-                isAnimating = false
-                hasSettled = true
-            }
-    }
-
-    @ViewBuilder
-    private var content: some View {
-        if reduceMotion || hasSettled {
-            Image(systemName: symbolName)
-                .font(.system(size: metrics.symbolSize, weight: .medium))
-                .transition(.opacity)
-        } else {
-            bars
-        }
-    }
-
-    private var bars: some View {
-        HStack(alignment: .center, spacing: barSpacing) {
-            ForEach(Array(Self.barScales.enumerated()), id: \.offset) { index, restingScale in
-                Capsule()
-                    .frame(width: barWidth, height: metrics.symbolSize * restingScale)
-                    .scaleEffect(y: isAnimating ? 1 : 0.35, anchor: .center)
-                    .animation(
-                        .easeInOut(duration: 0.42)
-                            .repeatForever(autoreverses: true)
-                            .delay(Self.barPhaseOffsets[index]),
-                        value: isAnimating
-                    )
-            }
-        }
-        .frame(height: metrics.symbolSize)
-    }
-
-    private var barWidth: CGFloat { metrics.symbolSize / 5 }
-    private var barSpacing: CGFloat { metrics.symbolSize / 6 }
 }

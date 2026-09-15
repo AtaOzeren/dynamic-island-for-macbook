@@ -30,6 +30,8 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Event toggle — task error | Bool | `true` | `ai.events.taskError` | AI Integrations, per agent |
 | Event toggle — needs input (`waitingForUser`) | Bool | `true` | `ai.events.needsInput` | AI Integrations, per agent |
 | Event toggle — tool activity (`usingTool`) | Bool | `false` | `ai.events.toolActivity` | AI Integrations, per agent |
+| Island glow (attention light around the compact island) | Bool | `true` | `ai.presentation.attentionGlow` | AI Integrations |
+| Island glow test button | action, not a stored setting — plays a single yellow crossing of the glow on the island, even with the switch off | — | — | AI Integrations |
 | Hook installation status (per agent) | enum: `notInstalled` \| `installed` \| `outOfDate` | computed, not stored | — (derived by reading the agent's config file, see `07-ai-integration.md`) | AI Integrations |
 | Hook install / uninstall action | action, not a stored setting | — | — | AI Integrations |
 | App language | picker, driven by system locale unless overridden | system default | `general.languageOverride` | About |

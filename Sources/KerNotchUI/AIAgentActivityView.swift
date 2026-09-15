@@ -998,21 +998,13 @@ struct CompactAIAgentIcon: View {
         tone: AIAgentCompactBadgeTone
     ) -> some View {
         Circle()
-            .fill(badgeColor(tone))
+            .fill(aiAgentBadgeColor(tone))
             .frame(width: metrics.badgeDiameter, height: metrics.badgeDiameter)
             .overlay {
                 Image(systemName: symbolName)
                     .font(.system(size: metrics.badgeSymbolSize, weight: .black))
                     .foregroundStyle(badgeForegroundColor(tone))
             }
-    }
-
-    private func badgeColor(_ tone: AIAgentCompactBadgeTone) -> Color {
-        switch tone {
-        case .yellow: .yellow
-        case .red: .red
-        case .green: .green
-        }
     }
 
     private func badgeForegroundColor(_ tone: AIAgentCompactBadgeTone) -> Color {
@@ -1111,6 +1103,16 @@ private enum AIAgentIconResolver {
             return NSWorkspace.shared.icon(forFile: applicationURL.path)
         }
         return nil
+    }
+}
+
+/// The colour of a status badge's tone. Shared by the pill's badge and the
+/// attention glow, so the light around the island is the badge's own colour.
+func aiAgentBadgeColor(_ tone: AIAgentCompactBadgeTone) -> Color {
+    switch tone {
+    case .yellow: .yellow
+    case .red: .red
+    case .green: .green
     }
 }
 

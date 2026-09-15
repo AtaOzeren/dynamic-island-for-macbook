@@ -26,7 +26,7 @@ struct ClaudeCodeHookInstallerTests {
             try jsonObject(from: Data(installed.utf8)) as NSDictionary == jsonObject(from: Data(proposal.utf8))
                 as NSDictionary)
         #expect(fileSystem.data(at: Self.backupURL) == nil)
-        #expect(try allHookCommands(in: proposal).count == 9)
+        #expect(try allHookCommands(in: proposal).count == 11)
         #expect(try allHookCommands(in: proposal).allSatisfy { $0.hasSuffix(" &") })
         let hooks = try #require(jsonObject(from: Data(proposal.utf8))["hooks"] as? [String: Any])
         #expect(hooks["SubagentStart"] != nil)
@@ -323,9 +323,42 @@ struct ClaudeCodeHookInstallerTests {
 
         let installed = try #require(fileSystem.text(at: Self.settingsURL))
         let commands = try allHookCommands(in: installed)
-        #expect(commands.count == 9)
+        #expect(commands.count == 11)
         #expect(commands.allSatisfy { $0.contains(HookSnippetGenerator.managedHookMarker) })
         #expect(!installed.contains(oldCommand))
+    }
+
+    /// The v5 hooks carried no matcher on `Notification`, so every status
+    /// notification — the idle reminder a minute after each turn among them —
+    /// became a yellow card. The upgrade has to swap that group for the narrowed
+    /// one, not leave both firing.
+    @Test("install replaces the unfiltered notification hook instead of adding a second")
+    func installReplacesUnfilteredNotificationHook() throws {
+        let generated = try jsonObject(from: Data(HookSnippetGenerator().claudeCodeSettingsFragment().utf8))
+        var hooks = try #require(generated["hooks"] as? [String: Any])
+        var notificationGroups = try #require(hooks["Notification"] as? [[String: Any]])
+        notificationGroups[0]["matcher"] = nil
+        hooks["Notification"] = notificationGroups
+        hooks["PermissionRequest"] = nil
+        hooks["PostToolUseFailure"] = nil
+        let previousSettings = try JSONSerialization.data(withJSONObject: ["hooks": hooks])
+        let fileSystem = InMemoryClaudeCodeFileSystem(files: [Self.settingsURL: previousSettings])
+        let installer = Self.makeInstaller(fileSystem: fileSystem)
+
+        #expect(installer.installationState() == .hookAbsent)
+        try installer.install()
+
+        let installed = try #require(fileSystem.text(at: Self.settingsURL))
+        let installedHooks = try #require(jsonObject(from: Data(installed.utf8))["hooks"] as? [String: Any])
+        let installedNotification = try #require(installedHooks["Notification"] as? [[String: Any]])
+        #expect(installedNotification.count == 1)
+        #expect(installedNotification.first?["matcher"] as? String != nil)
+        #expect(try allHookCommands(in: installed).count == 11)
+        #expect(installer.installationState() == .hookInstalled)
+
+        let writesAfterUpgrade = fileSystem.writeCount
+        try installer.install()
+        #expect(fileSystem.writeCount == writesAfterUpgrade)
     }
 
     @Test("install replaces v3 hooks with loopback-only hooks")
