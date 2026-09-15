@@ -95,10 +95,10 @@ by hand does nothing:
 defaults write com.kernotch.KerNotch "com.kernotch.settings.cpuWatchdog.disabled" -bool YES
 ```
 
-Relaunch KerNotch afterwards; the setting is read once, at launch. The log
+Relaunch KerNotch afterwards; the setting is read once, at launch. KerNotch keeps its settings in `~/Library/Application Support/KerNotch/settings.json`, and at launch it moves any `com.kernotch.settings.*` value found in its preferences domain into that file, so the write is honoured and then removed from the domain. The log
 line `CPU watchdog not started: cpuWatchdogDisabled is set` (subsystem
 `com.kernotch.KerNotch`, category `cpu-watchdog`) confirms it was honoured.
-Undo it with `defaults delete com.kernotch.KerNotch "com.kernotch.settings.cpuWatchdog.disabled"`.
+Undo it the same way, with `-bool NO`: by the time KerNotch has launched, the key is no longer in the domain for `defaults delete` to remove.
 
 **On a machine that has run both build flavours**, `defaults` sends the write to
 the sandbox container (`~/Library/Containers/com.kernotch.KerNotch/Data/Library/Preferences/`)
@@ -112,8 +112,8 @@ defaults write "$HOME/Library/Preferences/com.kernotch.KerNotch" "com.kernotch.s
 killall -u "$USER" cfprefsd
 ```
 
-Check which plist the app actually reads before trusting either form:
-`plutil -p ~/Library/Preferences/com.kernotch.KerNotch.plist | grep cpuWatchdog`.
+After relaunching, check that the value arrived where the app reads it:
+`grep cpuWatchdog ~/Library/Application\ Support/KerNotch/settings.json`.
 
 ## Where results go
 

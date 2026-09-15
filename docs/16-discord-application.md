@@ -18,7 +18,7 @@ A Client ID is a public identifier. Authorization uses PKCE with the application
 
 Edit the one line in `Config/Discord.xcconfig` and ship a new build. Two consequences:
 
-- **Users connect once more.** Stored tokens belong to the application that issued them (`KeychainDiscordCredentialStore` keys them by Client ID), so after the change each user presses Connect and approves again.
+- **Users connect once more.** Stored tokens belong to the application that issued them (`FileDiscordCredentialStore` keeps one file per Client ID), so after the change each user presses Connect and approves again.
 - **Approval does not move.** Discord approves an application, not a project. Switching to a different application means applying again.
 
 ## Forks and redistributed builds

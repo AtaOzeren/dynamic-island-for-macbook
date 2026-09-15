@@ -4,7 +4,7 @@ This document specifies the complete settings surface, its persistence mechanism
 
 ## Design principle
 
-Every setting KerNotch exposes has a safe, disclosed default: nothing is enabled on first run that would surprise a user who never opened the settings window. Persistence uses a single typed wrapper over `UserDefaults` so every read and write goes through one place, with one naming convention and one migration path. Every user-visible string ships through String Catalogs, never as a literal in a view — this is a lint-enforced rule, not a style preference.
+Every setting KerNotch exposes has a safe, disclosed default: nothing is enabled on first run that would surprise a user who never opened the settings window. Persistence uses a single typed wrapper over one settings file so every read and write goes through one place, with one naming convention and one migration path. Every user-visible string ships through String Catalogs, never as a literal in a view — this is a lint-enforced rule, not a style preference.
 
 ## The settings table
 
@@ -33,7 +33,7 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Island glow (attention light around the compact island) | Bool | `true` | `ai.presentation.attentionGlow` | AI Integrations |
 | Island glow test button | action, not a stored setting — plays a single yellow crossing of the glow on the island, even with the switch off | — | — | AI Integrations |
 | Discord integration enabled | Bool | `false` | `integrations.discord.enabled` | Integrations |
-| Discord connect / try again / disconnect | action, not a stored setting — the authorization token it produces lives in the Keychain, never in `UserDefaults`. The Discord application it connects through is a build setting (`KERNOTCH_DISCORD_CLIENT_ID`), not a user setting | — | — | Integrations |
+| Discord connect / try again / disconnect | action, not a stored setting — the authorization token it produces lives in an owner-only file in Application Support, never in `UserDefaults` (see `09-security-privacy-permissions.md`). The Discord application it connects through is a build setting (`KERNOTCH_DISCORD_CLIENT_ID`), not a user setting | — | — | Integrations |
 | Hook installation status (per agent) | enum: `notInstalled` \| `installed` \| `outOfDate` | computed, not stored | — (derived by reading the agent's config file, see `07-ai-integration.md`) | AI Integrations |
 | Hook install / uninstall action | action, not a stored setting | — | — | AI Integrations |
 | App language | picker, driven by system locale unless overridden | system default | `general.languageOverride` | About |
@@ -46,7 +46,19 @@ The per-agent event toggles apply uniformly across Claude Code, Codex CLI, and O
 
 ### Typed wrapper
 
-KerNotch never calls `UserDefaults.standard` directly from a view or a provider. A single typed wrapper (conceptually a property-wrapper-backed struct, one static instance) exposes every setting above as a strongly typed property. This gives three things a raw `UserDefaults` call cannot: a compile-time guarantee that a setting's type cannot drift between the reader and the writer, a single place to add a default value, and a single place to add migration logic when a key's meaning or shape changes.
+KerNotch never reads or writes its settings storage directly from a view or a provider. A single typed wrapper (conceptually a property-wrapper-backed struct, one static instance) exposes every setting above as a strongly typed property. This gives three things a raw storage call cannot: a compile-time guarantee that a setting's type cannot drift between the reader and the writer, a single place to add a default value, and a single place to add migration logic when a key's meaning or shape changes.
+
+### Storage location
+
+`SettingsStore` sits on the `SettingsStorage` seam, and the app hands it `FileSettingsStorage`: one JSON document at `~/Library/Application Support/KerNotch/settings.json` (inside the container in the App Store build), mode `0600` in a `0700` directory. It sits beside the Discord credentials, the IPC port file and the watchdog's records, so everything KerNotch owns lives in one folder — backing it up, resetting it, or removing it is one directory.
+
+The file is written only on a real change. Setting a value it already holds writes nothing, and so does setting a registered default the user never changed — the settings window writes every value back whenever it appears, and without this a default the user never chose would be frozen into the file, where a later release could no longer change it. A save writes only the keys that instance changed over what is on disk, so a second instance running for a moment (the language restart, a watchdog relaunch) does not revert the first one's changes.
+
+The file is never written over when it might still hold the user's settings. A file that exists but cannot be read turns saving off for the session; a file that cannot be parsed is moved aside as `settings.unreadable-<timestamp>-<id>.json` first, and if that move fails saving is turned off too.
+
+Two things stay outside that folder because macOS reads them elsewhere: the app language (`AppleLanguages`, in the app's preferences domain, read by `Bundle` at launch) and the CPU reports under `~/Library/Logs/KerNotch`.
+
+Earlier builds kept settings in the preferences domain. `FileSettingsStorage.importPreferences(from:domain:)` runs on every launch of a bundled app: it moves any `com.kernotch.settings.*` key found there into the file in one write, and removes the keys from the domain only once that write succeeded. A value with no JSON form is neither imported nor removed. Running it every launch keeps a hand-written `defaults write` — the CPU watchdog's kill switch in `13-cpu-runaway-capture.md` — working: it is taken in at the next launch and wins. An unbundled `swift run` has no domain of its own and imports nothing.
 
 ### Key naming convention
 
@@ -66,7 +78,7 @@ No setting in the table above defaults to a state that would show the user somet
 
 Settings is a standard SwiftUI `Settings` scene, giving KerNotch platform-native window chrome and keyboard shortcut (⌘,). It opens from the AppKit status item's menu, first-run onboarding, or by reopening the running app from Finder. Reopening remains available when the user hides the status item. Opening Settings does not change the app's activation policy — KerNotch remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open.
 
-The window is organized into the sections implied by the "Appears in" column above: **General** (display target, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), **Integrations** (the Discord switch and the connection to the local Discord client — present only in builds without the App Sandbox, see `15-build-configuration-parity.md`; the connection section only in builds that carry a Discord Client ID), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in `UserDefaults`.
+The window is organized into the sections implied by the "Appears in" column above: **General** (display target, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), **Integrations** (the Discord switch and the connection to the local Discord client — present only in builds without the App Sandbox, see `15-build-configuration-parity.md`; the connection section only in builds that carry a Discord Client ID), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in the settings file.
 
 Most settings apply live. The language override is the exception because `Bundle` resolves and caches its localization at launch. Changing it shows a restart-required warning in both About and General. General's restart action launches one replacement KerNotch instance, reopens Settings, then terminates the old instance only after launch succeeds; a launch failure leaves the current process running and presents the error. Restart requests for external AI tools remain in their hook setup guidance because restarting KerNotch cannot reload another application's configuration.
 
