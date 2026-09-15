@@ -309,6 +309,24 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Tool activity" } },
         "tr" : { "stringUnit" : { "state" : "translated", "value" : "Araç etkinliği" } }
       }
+    },
+    "Leave channel" : {
+      "comment" : "Expanded island, Discord call row: button that disconnects Discord from its voice channel.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leave channel"
+          }
+        },
+        "tr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kanaldan çık"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

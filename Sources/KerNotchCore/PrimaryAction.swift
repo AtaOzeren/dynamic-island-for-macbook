@@ -24,6 +24,8 @@ public struct PrimaryAction: Equatable, Sendable {
         case pauseTimer
         /// Resume the paused timer.
         case resumeTimer
+        /// Disconnect the Discord client from the voice channel it is in.
+        case leaveDiscordVoiceChannel
     }
 
     /// The affordance's user-visible title, e.g. "Open Spotify".

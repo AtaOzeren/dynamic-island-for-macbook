@@ -1,6 +1,6 @@
 # KerNotch Privacy Policy
 
-**Effective date:** 2026-08-30
+**Effective date:** 2026-09-15
 
 KerNotch is a macOS app that turns the notch on your MacBook into a live-activity surface. This policy describes what data KerNotch does and does not handle.
 
@@ -17,7 +17,7 @@ Specifically, KerNotch does not collect, store, or transmit:
 - Usage statistics, session lengths, or feature interaction data
 - The content of your music playback, timers, or AI agent sessions
 - Crash reports or diagnostic data sent off-device
-- Any information about other apps running on your Mac
+- Any information about other apps running on your Mac, beyond whether Discord is using the microphone when you turn on the Discord integration — a fact that is read on your Mac and never leaves it
 
 ---
 
@@ -25,7 +25,7 @@ Specifically, KerNotch does not collect, store, or transmit:
 
 The only network socket KerNotch ever opens is a loopback HTTP listener bound to `127.0.0.1`. This listener receives status events from AI coding agents (Claude Code, Codex CLI, OpenCode) running on the same machine. It is unreachable from outside your Mac. No data sent to this listener leaves your device.
 
-KerNotch does not make any outbound network connections of its own. Update checks are handled entirely by the Mac App Store or Homebrew, not by KerNotch.
+KerNotch makes no outbound network connections of its own unless you connect the Discord integration (Direct build only). Then it talks to the Discord app on your Mac through Discord's local socket to read your voice channel and mute state, and contacts `discord.com` only to obtain or renew the authorization you approved. The Discord application it connects through is one you create and own; KerNotch sends nothing else to Discord. Update checks are handled entirely by the Mac App Store or Homebrew, not by KerNotch.
 
 ---
 
@@ -39,7 +39,7 @@ The App Store build requests Apple Events permission lazily, only when you turn 
 
 KerNotch does not request and has no code path that would need: Camera, Microphone, Screen Recording, Accessibility, Full Disk Access, Contacts, or Location.
 
-The screen-recording and microphone-recording indicators in KerNotch observe that a recording is in progress through a public system notification, the same mechanism used for charging state. They never enable recording, never capture what is being recorded, and never require Screen Recording or Microphone permission.
+The screen-recording and microphone-recording indicators in KerNotch observe that a recording is in progress through a public system notification, the same mechanism used for charging state. They never enable recording, never capture what is being recorded, and never require Screen Recording or Microphone permission. The Discord integration reads which app is running the microphone through the same kind of public CoreAudio state, with the same guarantees.
 
 ---
 
@@ -48,13 +48,13 @@ The screen-recording and microphone-recording indicators in KerNotch observe tha
 Everything KerNotch knows stays on your Mac:
 
 - **Settings** are stored in `UserDefaults` in the app's sandbox container.
-- **No persistent data** is written outside the sandbox container.
+- **No persistent data** is written outside the sandbox container, except the Discord authorization token, which is kept in your Keychain and deleted when you disconnect.
 
 ---
 
 ## Third-party services
 
-KerNotch has no third-party SDKs, no advertising networks, and no analytics services. It does not integrate with any external service on your behalf.
+KerNotch has no third-party SDKs, no advertising networks, and no analytics services. It does not integrate with any external service on your behalf unless you connect Discord, as described under Network activity.
 
 ---
 

@@ -16,6 +16,18 @@ private final class DisplayInventory: ObservableObject {
     }
 }
 
+/// What the Integrations pane shows about Discord that only the running
+/// integration knows, published so the settings window follows it live.
+@MainActor
+private final class DiscordSettingsModel: ObservableObject {
+    @Published var status: DiscordConnectionStatus
+    @Published var isDiscordInstalled = false
+
+    init(status: DiscordConnectionStatus) {
+        self.status = status
+    }
+}
+
 @main
 struct KerNotchApp: App {
     private static let isUITesting = CommandLine.arguments.contains("--ui-testing")
@@ -51,6 +63,10 @@ struct KerNotchApp: App {
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
     private let islandPresenter: IslandPresenter
 
+    /// `nil` in the App Store build: the integration reaches Discord's socket
+    /// outside the sandbox, so that build has no tab for it and no connection.
+    private let discordIntegration: DiscordIntegration?
+
     /// Watches the process's own CPU and degrades, restarts, or quits the app
     /// when it runs away. Held for the app's lifetime for the plainest reason:
     /// a supervisor that deallocates takes its sampler's timer with it, which is
@@ -71,7 +87,9 @@ struct KerNotchApp: App {
     @State private var musicAutomationRequestsInProgress: Set<MusicPlayerTarget>
     @State private var hookStates: [IPCAgentID: HookInstallationState]
     @State private var launchAtLoginNeedsApproval: Bool
+    @State private var discordPreferences: DiscordIntegrationPreferences
     @StateObject private var displayInventory: DisplayInventory
+    @StateObject private var discordSettings: DiscordSettingsModel
 
     init() {
         let automationGate = MusicAutomationGate()
@@ -141,9 +159,12 @@ struct KerNotchApp: App {
         )
         self.statusItemPresenter = statusItemPresenter
 
+        let microphoneMonitor = MicrophoneActivityMonitor()
+        let microphoneRecording = SystemAudioRecordingObserver(monitor: microphoneMonitor)
         let registry = ProviderComposition.makeRegistry(
             musicProvider: musicProvider,
             timerProvider: timerProvider,
+            microphoneRecording: microphoneRecording,
             enabledIdentifiers: settingsStore.enabledProviderIdentifiers
         )
         self.registry = registry
@@ -154,6 +175,27 @@ struct KerNotchApp: App {
         registry.startObserving(into: manager)
         appleClockMirror?.start()
 
+        // Applied before the island draws anything, so a Discord call already in
+        // progress at launch appears as the call rather than flashing as the
+        // microphone indicator first.
+        #if APPSTORE_BUILD
+            let discordIntegration: DiscordIntegration? = nil
+        #else
+            let discordIntegration: DiscordIntegration? = DiscordIntegration(
+                manager: manager,
+                microphoneMonitor: microphoneMonitor,
+                microphoneRecording: microphoneRecording
+            )
+        #endif
+        self.discordIntegration = discordIntegration
+        let discordSettings = DiscordSettingsModel(status: discordIntegration?.status ?? .inactive)
+        _discordSettings = StateObject(wrappedValue: discordSettings)
+        _discordPreferences = State(initialValue: settingsStore.discordIntegrationPreferences)
+        discordIntegration?.onStatusChange = { status in
+            discordSettings.status = status
+        }
+        discordIntegration?.apply(settingsStore.discordIntegrationPreferences)
+
         // The providers are handed in so a press inside the expanded island
         // reaches the backend that owns the state it is about. The presenter
         // holds no provider logic of its own — it routes.
@@ -162,6 +204,7 @@ struct KerNotchApp: App {
             settingsStore: settingsStore,
             musicProvider: musicProvider,
             timerProvider: timerProvider,
+            discordVoice: discordIntegration?.voiceChannelLeaving,
             screenConfigurationSettled: { displays in
                 statusItemPresenter.screenConfigurationDidChange()
                 displayInventory.displays = displays
@@ -524,10 +567,21 @@ struct KerNotchApp: App {
             onPreviewAttentionGlow: islandPresenter.previewAttentionGlow,
             launchAtLoginNeedsApproval: launchAtLoginNeedsApproval,
             restartRequired: languageOverride != appliedLanguageOverride,
-            onRestart: restartApplication
+            onRestart: restartApplication,
+            discordPreferences: $discordPreferences,
+            discordSettings: discordIntegration.map { _ in
+                DiscordSettingsState(
+                    isDiscordInstalled: discordSettings.isDiscordInstalled,
+                    status: discordSettings.status
+                )
+            },
+            onDiscordPreferencesChange: applyDiscordPreferences,
+            onDiscordAction: handleDiscordAction
         )
         .onAppear {
             aiPreferences = settingsStore.aiIntegrationPreferences
+            discordPreferences = settingsStore.discordIntegrationPreferences
+            refreshDiscordInstallation()
             hookStates = Self.currentHookStates()
             refreshLaunchAtLoginApprovalState()
             refreshAvailableDisplays()
@@ -539,6 +593,7 @@ struct KerNotchApp: App {
             )
         ) { _ in
             reloadMusicAutomationState()
+            refreshDiscordInstallation()
         }
         .onReceive(
             DistributedNotificationCenter.default().publisher(
@@ -633,6 +688,29 @@ struct KerNotchApp: App {
                 Self.presentListenerFailure()
             }
         }
+    }
+
+    private func applyDiscordPreferences(_ preferences: DiscordIntegrationPreferences) {
+        settingsStore.discordIntegrationPreferences = preferences
+        discordIntegration?.apply(preferences)
+    }
+
+    private func handleDiscordAction(_ action: DiscordSettingsAction) {
+        switch action {
+        case .connect:
+            discordIntegration?.authorize()
+        case .disconnect:
+            discordIntegration?.forgetAuthorization()
+        case .reconnect:
+            discordIntegration?.reconnect()
+        }
+    }
+
+    /// Read when the settings window is shown or the app comes forward, never on
+    /// a timer: the answer only changes when the user installs or removes
+    /// Discord, and both happen outside KerNotch.
+    private func refreshDiscordInstallation() {
+        discordSettings.isDiscordInstalled = discordIntegration?.isDiscordInstalled ?? false
     }
 
     private func handleHookAction(_ agentID: IPCAgentID, _ action: AIHookAction) {
