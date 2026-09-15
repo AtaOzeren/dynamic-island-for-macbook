@@ -32,6 +32,9 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Event toggle — tool activity (`usingTool`) | Bool | `false` | `ai.events.toolActivity` | AI Integrations, per agent |
 | Island glow (attention light around the compact island) | Bool | `true` | `ai.presentation.attentionGlow` | AI Integrations |
 | Island glow test button | action, not a stored setting — plays a single yellow crossing of the glow on the island, even with the switch off | — | — | AI Integrations |
+| Discord integration enabled | Bool | `false` | `integrations.discord.enabled` | Integrations |
+| Discord Client ID | snowflake string? (nil = show calls from the microphone alone, no connection) | `nil` | `integrations.discord.clientID` | Integrations |
+| Discord connect / disconnect | action, not a stored setting — the authorization token it produces lives in the Keychain, never in `UserDefaults` | — | — | Integrations |
 | Hook installation status (per agent) | enum: `notInstalled` \| `installed` \| `outOfDate` | computed, not stored | — (derived by reading the agent's config file, see `07-ai-integration.md`) | AI Integrations |
 | Hook install / uninstall action | action, not a stored setting | — | — | AI Integrations |
 | App language | picker, driven by system locale unless overridden | system default | `general.languageOverride` | About |
@@ -48,7 +51,7 @@ KerNotch never calls `UserDefaults.standard` directly from a view or a provider.
 
 ### Key naming convention
 
-Keys are dot-separated, lower-camel-case path segments, always starting with the group they belong to (`general.`, `display.`, `providers.`, `ai.`). The group prefix exists so a future settings export or reset-to-defaults operation can filter by group without a hardcoded list of every key.
+Keys are dot-separated, lower-camel-case path segments, always starting with the group they belong to (`general.`, `display.`, `providers.`, `ai.`, `integrations.`). The group prefix exists so a future settings export or reset-to-defaults operation can filter by group without a hardcoded list of every key.
 
 ### Migration policy
 
@@ -62,7 +65,7 @@ No setting in the table above defaults to a state that would show the user somet
 
 Settings is a standard SwiftUI `Settings` scene, giving KerNotch platform-native window chrome and keyboard shortcut (⌘,). It opens from the AppKit status item's menu, first-run onboarding, or by reopening the running app from Finder. Reopening remains available when the user hides the status item. Opening Settings does not change the app's activation policy — KerNotch remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open.
 
-The window is organized into the sections implied by the "Appears in" column above: **General** (display target, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in `UserDefaults`.
+The window is organized into the sections implied by the "Appears in" column above: **General** (display target, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), **Integrations** (the Discord switch, its Client ID, and the connection to the local Discord client — present only in builds without the App Sandbox, see `15-build-configuration-parity.md`), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in `UserDefaults`.
 
 Most settings apply live. The language override is the exception because `Bundle` resolves and caches its localization at launch. Changing it shows a restart-required warning in both About and General. General's restart action launches one replacement KerNotch instance, reopens Settings, then terminates the old instance only after launch succeeds; a launch failure leaves the current process running and presents the error. Restart requests for external AI tools remain in their hook setup guidance because restarting KerNotch cannot reload another application's configuration.
 
