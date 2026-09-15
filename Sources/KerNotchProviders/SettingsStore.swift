@@ -94,7 +94,8 @@ public final class SettingsStore {
         get {
             AIIntegrationPreferences(
                 enabledAgentIDs: Set(IPCAgentID.allCases.filter(isAgentEnabled)),
-                enabledEventClasses: Set(AIEventClass.allCases.filter(isEventClassEnabled))
+                enabledEventClasses: Set(AIEventClass.allCases.filter(isEventClassEnabled)),
+                showsAttentionGlow: self[.showAIAttentionGlow]
             )
         }
         set {
@@ -104,6 +105,7 @@ public final class SettingsStore {
             for eventClass in AIEventClass.allCases {
                 self[key(for: eventClass)] = newValue.isEnabled(eventClass)
             }
+            self[.showAIAttentionGlow] = newValue.showsAttentionGlow
         }
     }
 

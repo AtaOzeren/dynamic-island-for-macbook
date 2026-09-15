@@ -125,6 +125,9 @@ extension SettingsKey where Value == Bool {
     public static var showAIToolActivity: Self {
         boolKey(path: "ai.events.toolActivity", defaultValue: false)
     }
+    public static var showAIAttentionGlow: Self {
+        boolKey(path: "ai.presentation.attentionGlow", defaultValue: true)
+    }
     public static var hasCompletedOnboarding: Self {
         boolKey(path: "general.hasCompletedOnboarding", defaultValue: false)
     }
@@ -172,6 +175,7 @@ public enum SettingsKeys {
         register(.showAITaskError, in: &defaults)
         register(.showAINeedsInput, in: &defaults)
         register(.showAIToolActivity, in: &defaults)
+        register(.showAIAttentionGlow, in: &defaults)
         register(.hasCompletedOnboarding, in: &defaults)
         register(.cpuWatchdogDisabled, in: &defaults)
         return defaults

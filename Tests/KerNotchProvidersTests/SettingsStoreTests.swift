@@ -32,6 +32,7 @@ struct SettingsStoreTests {
         #expect(store[.showAITaskError])
         #expect(store[.showAINeedsInput])
         #expect(store[.showAIToolActivity] == false)
+        #expect(store[.showAIAttentionGlow])
         #expect(store[.languageOverride] == nil)
         #expect(store[.hasCompletedOnboarding] == false)
         #expect(store[.cpuWatchdogDisabled] == false)
@@ -74,6 +75,7 @@ struct SettingsStoreTests {
         store[.showAITaskError] = false
         store[.showAINeedsInput] = false
         store[.showAIToolActivity] = true
+        store[.showAIAttentionGlow] = false
         store[.languageOverride] = "tr"
         store[.hasCompletedOnboarding] = true
         store[.cpuWatchdogDisabled] = true
@@ -96,6 +98,7 @@ struct SettingsStoreTests {
         #expect(store[.showAITaskError] == false)
         #expect(store[.showAINeedsInput] == false)
         #expect(store[.showAIToolActivity])
+        #expect(store[.showAIAttentionGlow] == false)
         #expect(store[.languageOverride] == "tr")
         #expect(store[.hasCompletedOnboarding])
         #expect(store[.cpuWatchdogDisabled])
@@ -151,7 +154,8 @@ struct SettingsStoreTests {
         let store = SettingsStore(storage: DictionarySettingsStorage())
         let preferences = AIIntegrationPreferences(
             enabledAgentIDs: [.claudeCode, .opencode],
-            enabledEventClasses: [.taskStarted, .taskError, .toolActivity]
+            enabledEventClasses: [.taskStarted, .taskError, .toolActivity],
+            showsAttentionGlow: false
         )
 
         store.aiIntegrationPreferences = preferences

@@ -30,6 +30,8 @@ import Foundation
 /// in mid-session is picked up on the edge rather than discovered by a sweep.
 @MainActor
 public final class SystemAudioRecordingObserver: RecordingObserving {
+    private static let systemObject = AudioObjectID(kAudioObjectSystemObject)
+
     private let inputDeviceIdentifiers: @Sendable () -> [AudioObjectID]
     private let isDeviceRunning: @Sendable (AudioObjectID) -> Bool
     private let listeners: any AudioPropertyListening
@@ -37,6 +39,10 @@ public final class SystemAudioRecordingObserver: RecordingObserving {
 
     private var latch = RecordingSessionLatch()
     private var observer: RecordingSessionObserver?
+
+    /// The input devices currently carrying a running-somewhere listener, so a
+    /// device-list change touches only the devices that actually came or went.
+    private var watchedInputDevices: Set<AudioObjectID> = []
 
     public convenience init() {
         self.init(
@@ -62,7 +68,8 @@ public final class SystemAudioRecordingObserver: RecordingObserving {
         stopObserving()
         self.observer = observer
 
-        subscribeToDevices()
+        listenForDeviceListChanges()
+        watchInputDevices()
 
         // A recording already in progress when KerNotch launches is a real
         // state, not an edge we missed, so it is read once here rather than
@@ -72,26 +79,53 @@ public final class SystemAudioRecordingObserver: RecordingObserving {
 
     public func stopObserving() {
         listeners.removeAll()
+        watchedInputDevices = []
         latch.reset()
         observer = nil
     }
 
-    /// The device list is itself a listened-to property: when a microphone is
-    /// attached or removed the per-device subscriptions are rebuilt against the
-    /// list as it now stands, so a device that appears mid-session is observed
-    /// on the same terms as one present at launch.
-    private func subscribeToDevices() {
-        listeners.removeAll()
+    /// Registered once per observation, never from inside its own callback.
+    ///
+    /// Re-registering it on every change is what turned a display change or a
+    /// wake — each a burst of device-list notifications — into a runaway: any
+    /// listener that failed to come off doubled on the next notification.
+    private func listenForDeviceListChanges() {
+        listeners.listen(to: .deviceList, on: Self.systemObject) { [weak self] in
+            self?.deviceListDidChange()
+        }
+    }
 
-        listeners.listen(to: .deviceList, on: AudioObjectID(kAudioObjectSystemObject)) { [weak self] in
-            self?.subscribeToDevices()
-            self?.emitCurrentState()
+    private func deviceListDidChange() {
+        watchInputDevices()
+        emitCurrentState()
+    }
+
+    /// Brings the per-device listeners in line with the input devices as they
+    /// now stand: devices that left lose theirs, devices that arrived gain one,
+    /// and devices that stayed are not touched. A microphone that appears
+    /// mid-session is therefore observed on the same terms as one present at
+    /// launch, without re-registering everything else.
+    ///
+    /// Only a device whose listener actually registered counts as watched. A
+    /// registration can fail while the HAL is still settling after a wake, and a
+    /// device recorded as watched anyway would never be tried again.
+    private func watchInputDevices() {
+        let currentDevices = Set(inputDeviceIdentifiers())
+
+        for device in watchedInputDevices.subtracting(currentDevices) {
+            listeners.stopListening(to: .isRunningSomewhere, on: device)
         }
 
-        for device in inputDeviceIdentifiers() {
-            listeners.listen(to: .isRunningSomewhere, on: device) { [weak self] in
-                self?.emitCurrentState()
-            }
+        var watched = watchedInputDevices.intersection(currentDevices)
+        for device in currentDevices.subtracting(watchedInputDevices) where watchRunningState(of: device) {
+            watched.insert(device)
+        }
+        watchedInputDevices = watched
+    }
+
+    private func watchRunningState(of device: AudioObjectID) -> Bool {
+        listeners.listen(to: .isRunningSomewhere, on: device) { [weak self] in
+            self?.emitCurrentState()
         }
     }
 
@@ -133,60 +167,17 @@ enum AudioProperty: Hashable {
 /// The subscription half of CoreAudio, behind a protocol for the reason
 /// `docs/11-testing-strategy.md` gives for every hardware seam: the observer's
 /// resubscribe-and-emit logic is CI-testable, the driver behind it is not.
+///
+/// A listener is identified by its property and object. Listening again to the
+/// same pair replaces the earlier listener, so no call sequence can stack
+/// duplicates on one property. `listen` reports whether the listener is in
+/// place, so a caller never counts a property as watched when it is not.
 @MainActor
 protocol AudioPropertyListening: AnyObject {
-    func listen(to property: AudioProperty, on object: AudioObjectID, changed: @escaping @MainActor () -> Void)
+    @discardableResult
+    func listen(to property: AudioProperty, on object: AudioObjectID, changed: @escaping @MainActor () -> Void) -> Bool
+    func stopListening(to property: AudioProperty, on object: AudioObjectID)
     func removeAll()
-}
-
-/// Real CoreAudio property listeners, registered on the main queue and torn
-/// down as a set. Each block must be handed back to CoreAudio to deregister, so
-/// the block is retained alongside the object and address it was registered
-/// for.
-@MainActor
-final class CoreAudioPropertyListeners: AudioPropertyListening {
-    private struct Registration {
-        let object: AudioObjectID
-        let address: AudioObjectPropertyAddress
-        let block: AudioObjectPropertyListenerBlock
-    }
-
-    private var registrations: [Registration] = []
-
-    func listen(
-        to property: AudioProperty,
-        on object: AudioObjectID,
-        changed: @escaping @MainActor () -> Void
-    ) {
-        var address = property.address
-        let block: AudioObjectPropertyListenerBlock = { _, _ in
-            MainActor.assumeIsolated { changed() }
-        }
-
-        let status = AudioObjectAddPropertyListenerBlock(object, &address, .main, block)
-
-        guard status == noErr else { return }
-
-        registrations.append(Registration(object: object, address: address, block: block))
-    }
-
-    func removeAll() {
-        for registration in registrations {
-            var address = registration.address
-            AudioObjectRemovePropertyListenerBlock(
-                registration.object,
-                &address,
-                .main,
-                registration.block
-            )
-        }
-
-        registrations.removeAll()
-    }
-
-    deinit {
-        MainActor.assumeIsolated { removeAll() }
-    }
 }
 
 /// The query half of CoreAudio: the two reads this observer needs, with the

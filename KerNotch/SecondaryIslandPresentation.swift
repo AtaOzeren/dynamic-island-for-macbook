@@ -13,6 +13,11 @@ final class SecondaryIslandPresentation {
     private let panel: NotchPanel
     private let controller: PresentationController
 
+    /// The primary presenter's clocks as last pushed here. The primary owns the
+    /// one wake-up, so every display ends an announcement, a paused note and a
+    /// glow at the same moment instead of each keeping a clock of its own.
+    private var reading = IslandPresentationClocks().reading
+
     var onHoverChange: ((Bool) -> Void)?
     var onExpandRequest: (() -> Void)?
     var onCollapseRequest: (() -> Void)?
@@ -51,7 +56,8 @@ final class SecondaryIslandPresentation {
             reduceMotion: reduceMotion,
             screen: screen,
             disclosedInstances: { [model] in model.disclosedInstances },
-            registrationTimes: { [model] in model.registrationTimes }
+            registrationTimes: { [model] in model.registrationTimes },
+            hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }
         )
         self.controller = controller
         controller.automaticallyExpandsOnHover = false
@@ -69,8 +75,7 @@ final class SecondaryIslandPresentation {
             guard let self, let controller, let model else { return }
             let curve = controller.peek
             withAnimation(curve.animation) {
-                model.hoverScale = isHovered && curve.movesGeometry ? 1.03 : 1
-                model.hoverOpacity = isHovered ? 0.94 : 1
+                model.hoverScale = isHovered && curve.movesGeometry ? IslandMotion.default.peekScale : 1
             }
             onHoverChange?(isHovered)
         }
@@ -114,6 +119,20 @@ final class SecondaryIslandPresentation {
         panel.applyAppearance(.dark)
     }
 
+    /// Mirrors the CPU watchdog's degrade on this display. Left to the primary
+    /// model alone, the other displays' working dots, equaliser and glow kept
+    /// moving while the process was over budget.
+    var isMotionSuspended: Bool {
+        get { model.isMotionSuspended }
+        set { model.isMotionSuspended = newValue }
+    }
+
+    /// Adopts the primary presenter's latest clock reading and redraws from it.
+    func follow(_ reading: IslandPresentationClocks.Reading) {
+        self.reading = reading
+        refreshContent()
+    }
+
     func expand() {
         controller.expand()
     }
@@ -123,19 +142,18 @@ final class SecondaryIslandPresentation {
     }
 
     func refreshContent() {
-        let now = Date()
-        model.announcementStarts = advancedAnnouncementStarts(
-            previous: model.announcementStarts,
-            activities: manager.expandedActivities,
-            now: now
-        )
         model.compact = compactPresentation(
             manager.compactPresentation,
             reconciledWith: manager.expandedActivities,
-            announcementStarts: model.announcementStarts,
+            announcementStarts: reading.announcementStarts,
             registrationTimes: manager.registrationTimes,
-            now: now
+            now: Date()
         )
+        if model.hiddenMusicSlotIDs != reading.hiddenMusicSlotIDs {
+            model.hiddenMusicSlotIDs = reading.hiddenMusicSlotIDs
+            controller.compactLayoutDidChange()
+        }
+        model.attentionGlow = reading.attentionGlow
         model.expanded = manager.expandedActivities
         model.registrationTimes = manager.registrationTimes
         model.notchSize = resolvedNotchSize(screen: screen(), metrics: metrics)
