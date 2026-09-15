@@ -163,21 +163,28 @@ struct SettingsStoreTests {
         #expect(store.aiIntegrationPreferences == preferences)
     }
 
-    @Test("persists Discord integration preferences and clears a removed client ID")
+    @Test("persists Discord integration preferences")
     func roundTripsDiscordIntegrationPreferences() {
         let store = SettingsStore(storage: DictionarySettingsStorage())
-        let preferences = DiscordIntegrationPreferences(
-            isEnabled: true,
-            clientID: DiscordClientID(rawValue: "1549389234912239636")
-        )
 
         #expect(store.discordIntegrationPreferences == .default)
 
-        store.discordIntegrationPreferences = preferences
-        #expect(store.discordIntegrationPreferences == preferences)
+        store.discordIntegrationPreferences = DiscordIntegrationPreferences(isEnabled: true)
+        #expect(store.discordIntegrationPreferences.isEnabled)
+        #expect(store[.enableDiscord])
+    }
 
-        store.discordIntegrationPreferences = DiscordIntegrationPreferences(isEnabled: true, clientID: nil)
-        #expect(store[.discordClientID] == nil)
+    @Test("removes retired keys, and leaves everything else alone")
+    func removesRetiredKeys() {
+        let storage = DictionarySettingsStorage()
+        let retired = "com.kernotch.settings.integrations.discord.clientID"
+        storage.set("1549389234912239636", forKey: retired)
+        storage.set(true, forKey: SettingsKey<Bool>.enableDiscord.name)
+
+        let store = SettingsStore(storage: storage, migrations: [.removingRetiredKeys])
+
+        #expect(storage.object(forKey: retired) == nil)
+        #expect(store[.enableDiscord])
     }
 
     @Test("persists general preferences through their value seam")

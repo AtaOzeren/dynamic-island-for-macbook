@@ -45,6 +45,10 @@ xcodebuild -scheme "KerNotch (App Store)" build
 xcodebuild -scheme "KerNotch (Direct)" build
 ```
 
+### Discord integration in forks
+
+The Discord integration connects through KerNotch's own Discord application, whose Client ID is set in [`Config/Discord.xcconfig`](Config/Discord.xcconfig). A Client ID is public, and no client secret exists in this repository. If you distribute your own build, put the Client ID of a Discord application you own there, or leave it empty to ship without the connection. See [docs/16-discord-application.md](docs/16-discord-application.md).
+
 ## License
 
 KerNotch is released under the [MIT License](LICENSE).

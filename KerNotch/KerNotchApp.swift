@@ -121,7 +121,7 @@ struct KerNotchApp: App {
         let currentDisplays = NSScreen.screens.map(DisplayDescription.init)
         let displayInventory = DisplayInventory(displays: currentDisplays)
         _displayInventory = StateObject(wrappedValue: displayInventory)
-        let settingsStore = SettingsStore()
+        let settingsStore = SettingsStore(migrations: [.removingRetiredKeys])
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
         _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)
@@ -184,7 +184,8 @@ struct KerNotchApp: App {
             let discordIntegration: DiscordIntegration? = DiscordIntegration(
                 manager: manager,
                 microphoneMonitor: microphoneMonitor,
-                microphoneRecording: microphoneRecording
+                microphoneRecording: microphoneRecording,
+                clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)
             )
         #endif
         self.discordIntegration = discordIntegration
@@ -569,9 +570,10 @@ struct KerNotchApp: App {
             restartRequired: languageOverride != appliedLanguageOverride,
             onRestart: restartApplication,
             discordPreferences: $discordPreferences,
-            discordSettings: discordIntegration.map { _ in
+            discordSettings: discordIntegration.map { integration in
                 DiscordSettingsState(
                     isDiscordInstalled: discordSettings.isDiscordInstalled,
+                    isConnectionAvailable: integration.isConnectionAvailable,
                     status: discordSettings.status
                 )
             },

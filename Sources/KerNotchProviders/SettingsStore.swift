@@ -34,6 +34,16 @@ public struct SettingsMigration {
     }
 }
 
+extension SettingsMigration {
+    /// Removes the keys in `SettingsKeys.retiredKeyNames`. Safe to run on every
+    /// launch: removing a key that is already gone does nothing.
+    public static let removingRetiredKeys = SettingsMigration { storage in
+        for name in SettingsKeys.retiredKeyNames {
+            storage.removeObject(forKey: name)
+        }
+    }
+}
+
 @MainActor
 public final class SettingsStore {
     public typealias ObserverID = UUID
@@ -130,14 +140,10 @@ public final class SettingsStore {
 
     public var discordIntegrationPreferences: DiscordIntegrationPreferences {
         get {
-            DiscordIntegrationPreferences(
-                isEnabled: self[.enableDiscord],
-                clientID: self[.discordClientID]
-            )
+            DiscordIntegrationPreferences(isEnabled: self[.enableDiscord])
         }
         set {
             self[.enableDiscord] = newValue.isEnabled
-            self[.discordClientID] = newValue.clientID
         }
     }
 

@@ -5,10 +5,14 @@ import SwiftUI
 /// What the Integrations pane shows about Discord that is not a preference.
 public struct DiscordSettingsState: Equatable, Sendable {
     public var isDiscordInstalled: Bool
+    /// Whether this build carries KerNotch's Discord application, and so can
+    /// connect at all.
+    public var isConnectionAvailable: Bool
     public var status: DiscordConnectionStatus
 
-    public init(isDiscordInstalled: Bool, status: DiscordConnectionStatus) {
+    public init(isDiscordInstalled: Bool, isConnectionAvailable: Bool, status: DiscordConnectionStatus) {
         self.isDiscordInstalled = isDiscordInstalled
+        self.isConnectionAvailable = isConnectionAvailable
         self.status = status
     }
 }
@@ -22,28 +26,21 @@ public enum DiscordSettingsAction: Equatable, Sendable {
     case reconnect
 }
 
-/// The Integrations pane: Discord's switch, and the optional connection that
-/// names the channel and leaves it.
+/// The Integrations pane: Discord's switch, and the connection that names the
+/// channel and leaves it.
 ///
-/// The pane owns only the Client ID being typed. Everything else binds through
-/// to the composition root, for the reason every pane does: the value the
-/// screen shows and the value the integration runs on must be one value.
+/// The pane owns no state. It binds through to the composition root, for the
+/// reason every pane does: the value the screen shows and the value the
+/// integration runs on must be one value. There is deliberately no field for a
+/// Discord application: KerNotch connects through its own, set per build.
 public struct IntegrationsSettingsView: View {
-    private static let developerPortalURL = URL(string: "https://discord.com/developers/applications")
     private static let downloadURL = URL(string: "https://discord.com/download")
-    /// How long typing pauses before the field's text is taken as the Client
-    /// ID. A 19-digit ID passes validation at 17 digits already, and every
-    /// published ID reconnects to Discord, so each keystroke must not.
-    private static let clientIDCommitDelay = Duration.milliseconds(700)
 
     @Binding private var preferences: DiscordIntegrationPreferences
     private let discord: DiscordSettingsState
     private let metrics: SettingsPaneMetrics
     private let onPreferencesChange: (DiscordIntegrationPreferences) -> Void
     private let onAction: (DiscordSettingsAction) -> Void
-
-    /// What is in the field, which is not yet the Client ID until it parses.
-    @State private var clientIDDraft: String
 
     public init(
         preferences: Binding<DiscordIntegrationPreferences>,
@@ -57,7 +54,6 @@ public struct IntegrationsSettingsView: View {
         self.metrics = metrics
         self.onPreferencesChange = onPreferencesChange
         self.onAction = onAction
-        _clientIDDraft = State(initialValue: preferences.wrappedValue.clientID?.rawValue ?? "")
     }
 
     public var enabledBinding: Binding<Bool> {
@@ -66,34 +62,10 @@ public struct IntegrationsSettingsView: View {
             set: { isEnabled in
                 var updated = preferences
                 updated.isEnabled = isEnabled
-                publish(updated)
+                preferences = updated
+                onPreferencesChange(updated)
             }
         )
-    }
-
-    /// Publishes a Client ID only once the text is one, and clears it when the
-    /// field is emptied. A half-pasted ID is kept in the field, where the user
-    /// can see and fix it, rather than stored.
-    public func updateClientID(from text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        let clientID = DiscordClientID(rawValue: trimmed)
-        guard trimmed.isEmpty || clientID != nil, clientID != preferences.clientID else { return }
-
-        var updated = preferences
-        updated.clientID = clientID
-        publish(updated)
-    }
-
-    /// Brings the field back in line with a stored ID that changed elsewhere,
-    /// without overwriting text that already means the same ID.
-    private func syncDraft(with clientID: DiscordClientID?) {
-        guard DiscordClientID(rawValue: clientIDDraft) != clientID else { return }
-        clientIDDraft = clientID?.rawValue ?? ""
-    }
-
-    public static func isMalformedClientID(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty == false && DiscordClientID(rawValue: trimmed) == nil
     }
 
     /// Switching on stays possible only while Discord is installed; switching
@@ -102,21 +74,27 @@ public struct IntegrationsSettingsView: View {
         discord.isDiscordInstalled || preferences.isEnabled
     }
 
-    public static func statusText(
-        for status: DiscordConnectionStatus,
-        hasClientID: Bool
-    ) -> String? {
+    /// A build without KerNotch's Discord application has no connection to
+    /// offer, so the section is left out rather than shown disabled forever.
+    public var showsVoiceChannelSection: Bool {
+        discord.isConnectionAvailable
+    }
+
+    public static func statusText(for status: DiscordConnectionStatus) -> String? {
         switch status {
-        case .inactive: hasClientID ? nil : localized("Paste a Client ID to connect.")
+        case .inactive: nil
         case .discordUnavailable: localized("Waiting for Discord to open.")
         case .connecting: localized("Connecting to Discord…")
         case .needsAuthorization: localized("Ready to connect.")
         case .awaitingApproval: localized("Approve KerNotch in Discord.")
         case .connected(let username?): localized("Connected as \(username).")
         case .connected(nil): localized("Connected.")
-        case .failed(.invalidClientID): localized("Discord does not recognize this Client ID.")
+        case .failed(.invalidClientID): localized("Discord did not recognize KerNotch.")
         case .failed(.authorizationDenied): localized("The request was declined in Discord.")
-        case .failed(.authorizationFailed): localized("Discord did not issue a token. Check that Public Client is on.")
+        case .failed(.authorizationFailed):
+            localized(
+                "Discord did not complete the connection. KerNotch's Discord connection may not be available for your account yet; the microphone badge still works."
+            )
         }
     }
 
@@ -131,16 +109,13 @@ public struct IntegrationsSettingsView: View {
     public var body: some View {
         VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
             discordSection
-            Divider()
-            voiceChannelSection
-                .disabled(preferences.isEnabled == false)
+            if showsVoiceChannelSection {
+                Divider()
+                voiceChannelSection
+                    .disabled(preferences.isEnabled == false)
+            }
         }
         .settingsPaneFrame(metrics)
-    }
-
-    private func publish(_ updated: DiscordIntegrationPreferences) {
-        preferences = updated
-        onPreferencesChange(updated)
     }
 
     private var discordSection: some View {
@@ -169,58 +144,20 @@ public struct IntegrationsSettingsView: View {
         SettingsSection(
             title: localized("Voice channel"),
             caption: localized(
-                "Optional. Connect Discord to see the channel name and leave the channel from the island. KerNotch connects through a Discord application you own, without a client secret."
+                "Connect Discord to see the channel name and leave the channel from the island. Discord asks you to approve KerNotch once."
             ),
             metrics: metrics
         ) {
-            setupSteps
-            clientIDField
             connectionRow
         }
     }
 
-    private var setupSteps: some View {
-        VStack(alignment: .leading, spacing: metrics.rowSpacing / 2) {
-            Text(localized("1. Create an application in the Discord Developer Portal."))
-            Text(localized("2. On its OAuth2 page, turn on Public Client."))
-            Text(localized("3. Paste its Client ID here, press Connect, and approve KerNotch in Discord."))
-            if let url = Self.developerPortalURL {
-                Link(localized("Open Developer Portal"), destination: url)
-            }
-        }
-        .foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var clientIDField: some View {
-        VStack(alignment: .leading, spacing: metrics.rowSpacing / 2) {
-            TextField(localized("Client ID"), text: $clientIDDraft)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit { updateClientID(from: clientIDDraft) }
-                .task(id: clientIDDraft) {
-                    // Cancellation — another keystroke — is the only error
-                    // Task.sleep throws here, and it means "not yet".
-                    try? await Task.sleep(for: Self.clientIDCommitDelay)
-                    guard Task.isCancelled == false else { return }
-                    updateClientID(from: clientIDDraft)
-                }
-                .onChange(of: preferences.clientID) { _, clientID in
-                    syncDraft(with: clientID)
-                }
-
-            if Self.isMalformedClientID(clientIDDraft) {
-                Text(localized("That is not a Discord application ID."))
-                    .font(.system(size: metrics.footnoteSize))
-                    .foregroundStyle(.red)
-            }
-        }
-    }
-
     private var connectionRow: some View {
-        HStack {
-            if let text = Self.statusText(for: discord.status, hasClientID: preferences.clientID != nil) {
+        HStack(alignment: .firstTextBaseline) {
+            if let text = Self.statusText(for: discord.status) {
                 Text(text)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: metrics.rowSpacing)
             switch Self.connectionAction(for: discord.status) {

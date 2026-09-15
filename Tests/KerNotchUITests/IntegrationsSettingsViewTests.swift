@@ -23,8 +23,11 @@ struct IntegrationsSettingsViewTests {
         }
     }
 
-    private static let installed = DiscordSettingsState(isDiscordInstalled: true, status: .inactive)
-    private static let clientID = DiscordClientID(rawValue: "1549389234912239636")
+    private static let installed = DiscordSettingsState(
+        isDiscordInstalled: true,
+        isConnectionAvailable: true,
+        status: .inactive
+    )
 
     private static func makeView(
         _ store: Store,
@@ -50,49 +53,22 @@ struct IntegrationsSettingsViewTests {
 
     @Test("cannot be switched on without Discord installed, but can always be switched off")
     func toggleNeedsDiscordToTurnOn() {
-        let missing = DiscordSettingsState(isDiscordInstalled: false, status: .inactive)
+        let missing = DiscordSettingsState(isDiscordInstalled: false, isConnectionAvailable: true, status: .inactive)
 
         #expect(Self.makeView(Store(), discord: missing).isToggleEnabled == false)
         #expect(Self.makeView(Store(DiscordIntegrationPreferences(isEnabled: true)), discord: missing).isToggleEnabled)
     }
 
-    @Test("stores a Client ID only once the text is one")
-    func storesOnlyWholeClientIDs() {
-        let store = Store(DiscordIntegrationPreferences(isEnabled: true))
-        let view = Self.makeView(store)
+    @Test("offers the connection only in a build that carries KerNotch's Discord application")
+    func voiceChannelSectionFollowsBuild() {
+        let withoutApplication = DiscordSettingsState(
+            isDiscordInstalled: true,
+            isConnectionAvailable: false,
+            status: .inactive
+        )
 
-        view.updateClientID(from: "15493892349")
-        #expect(store.published.isEmpty)
-
-        view.updateClientID(from: "1549389234912239636 ")
-        #expect(store.preferences.clientID == Self.clientID)
-    }
-
-    @Test("emptying the field clears the stored Client ID")
-    func emptyingClears() {
-        let store = Store(DiscordIntegrationPreferences(isEnabled: true, clientID: Self.clientID))
-        let view = Self.makeView(store)
-
-        view.updateClientID(from: "  ")
-
-        #expect(store.preferences.clientID == nil)
-    }
-
-    @Test("retyping the same Client ID publishes nothing")
-    func unchangedIDIsSilent() {
-        let store = Store(DiscordIntegrationPreferences(isEnabled: true, clientID: Self.clientID))
-        let view = Self.makeView(store)
-
-        view.updateClientID(from: "1549389234912239636")
-
-        #expect(store.published.isEmpty)
-    }
-
-    @Test("flags malformed text, but not an empty field")
-    func flagsMalformedText() {
-        #expect(IntegrationsSettingsView.isMalformedClientID("abc"))
-        #expect(IntegrationsSettingsView.isMalformedClientID("") == false)
-        #expect(IntegrationsSettingsView.isMalformedClientID("1549389234912239636") == false)
+        #expect(Self.makeView(Store()).showsVoiceChannelSection)
+        #expect(Self.makeView(Store(), discord: withoutApplication).showsVoiceChannelSection == false)
     }
 
     @Test(
@@ -104,7 +80,23 @@ struct IntegrationsSettingsViewTests {
         ]
     )
     func describesEveryStatus(status: DiscordConnectionStatus) {
-        #expect(IntegrationsSettingsView.statusText(for: status, hasClientID: true)?.isEmpty == false)
+        #expect(IntegrationsSettingsView.statusText(for: status)?.isEmpty == false)
+    }
+
+    @Test("says nothing while the integration is off")
+    func inactiveSaysNothing() {
+        #expect(IntegrationsSettingsView.statusText(for: .inactive) == nil)
+    }
+
+    /// Before Discord approves KerNotch's application, an account that is not
+    /// one of its testers cannot finish connecting; the message says so rather
+    /// than blaming a setting the user cannot see.
+    @Test("explains an incomplete connection without naming developer settings")
+    func incompleteConnectionIsExplained() throws {
+        let text = try #require(IntegrationsSettingsView.statusText(for: .failed(.authorizationFailed)))
+
+        #expect(text.contains("Public Client") == false)
+        #expect(text.contains("Client ID") == false)
     }
 
     @Test(
@@ -123,12 +115,6 @@ struct IntegrationsSettingsViewTests {
         #expect(IntegrationsSettingsView.connectionAction(for: .failed(.authorizationDenied)) == .connect)
         #expect(IntegrationsSettingsView.connectionAction(for: .inactive) == .connect)
         #expect(IntegrationsSettingsView.connectionAction(for: .connected(username: nil)) == .disconnect)
-    }
-
-    @Test("asks for a Client ID only while there is none")
-    func inactiveStatusText() {
-        #expect(IntegrationsSettingsView.statusText(for: .inactive, hasClientID: false) != nil)
-        #expect(IntegrationsSettingsView.statusText(for: .inactive, hasClientID: true) == nil)
     }
 
     @Test("the settings window hides the Integrations tab in a build without Discord")

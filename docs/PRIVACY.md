@@ -25,7 +25,7 @@ Specifically, KerNotch does not collect, store, or transmit:
 
 The only network socket KerNotch ever opens is a loopback HTTP listener bound to `127.0.0.1`. This listener receives status events from AI coding agents (Claude Code, Codex CLI, OpenCode) running on the same machine. It is unreachable from outside your Mac. No data sent to this listener leaves your device.
 
-KerNotch makes no outbound network connections of its own unless you connect the Discord integration (Direct build only). Then it talks to the Discord app on your Mac through Discord's local socket to read your voice channel and mute state, and contacts `discord.com` only to obtain or renew the authorization you approved. The Discord application it connects through is one you create and own; KerNotch sends nothing else to Discord. Update checks are handled entirely by the Mac App Store or Homebrew, not by KerNotch.
+KerNotch makes no outbound network connections of its own unless you connect the Discord integration (Direct build only). Then it talks to the Discord app on your Mac through Discord's local socket to read your voice channel and mute state, and contacts `discord.com` only to obtain or renew the authorization you approved. The connection goes through KerNotch's own Discord application, which Discord shows by name when it asks you to approve it; KerNotch sends nothing else to Discord. Update checks are handled entirely by the Mac App Store or Homebrew, not by KerNotch.
 
 ---
 

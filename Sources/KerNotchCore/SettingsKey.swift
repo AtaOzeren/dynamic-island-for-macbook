@@ -158,20 +158,14 @@ extension SettingsKey where Value == String? {
     }
 }
 
-extension SettingsKey where Value == DiscordClientID? {
-    /// Stored as the plain decimal string, so a value that no longer parses —
-    /// hand-edited, or truncated — reads back as no ID rather than a bad one.
-    public static var discordClientID: Self {
-        SettingsKey(
-            path: "integrations.discord.clientID",
-            defaultValue: nil,
-            decode: { ($0 as? String).flatMap(DiscordClientID.init(rawValue:)) },
-            encode: { $0?.rawValue }
-        )
-    }
-}
-
 public enum SettingsKeys {
+    /// Keys a released build no longer reads, removed by migration so they do
+    /// not linger in the user's preferences.
+    public static let retiredKeyNames = [
+        // A Client ID the user typed in; the connection now uses the build's own.
+        "com.kernotch.settings.integrations.discord.clientID"
+    ]
+
     public static var registeredDefaults: [String: Any] {
         var defaults: [String: Any] = [:]
         register(.displayTarget, in: &defaults)

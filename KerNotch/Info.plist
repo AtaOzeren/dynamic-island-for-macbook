@@ -30,6 +30,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>KerNotchDiscordClientID</key>
+	<string>$(KERNOTCH_DISCORD_CLIENT_ID)</string>
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSAppleEventsUsageDescription</key>

@@ -2401,132 +2401,6 @@
         }
       }
     },
-    "Optional. Connect Discord to see the channel name and leave the channel from the island. KerNotch connects through a Discord application you own, without a client secret.": {
-      "comment": "Integrations pane, caption of the optional Discord connection section.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Optional. Connect Discord to see the channel name and leave the channel from the island. KerNotch connects through a Discord application you own, without a client secret."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "İsteğe bağlı. Kanal adını görmek ve adadan kanaldan çıkmak için Discord'u bağlayın. KerNotch, size ait bir Discord uygulaması üzerinden ve istemci gizli anahtarı olmadan bağlanır."
-          }
-        }
-      }
-    },
-    "1. Create an application in the Discord Developer Portal.": {
-      "comment": "Integrations pane, first Discord setup step. 'Discord Developer Portal' is a product name.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1. Create an application in the Discord Developer Portal."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "1. Discord Developer Portal'da bir uygulama oluşturun."
-          }
-        }
-      }
-    },
-    "2. On its OAuth2 page, turn on Public Client.": {
-      "comment": "Integrations pane, second Discord setup step. 'OAuth2' and 'Public Client' are labels in Discord's Developer Portal.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "2. On its OAuth2 page, turn on Public Client."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "2. Uygulamanın OAuth2 sayfasında Public Client ayarını açın."
-          }
-        }
-      }
-    },
-    "3. Paste its Client ID here, press Connect, and approve KerNotch in Discord.": {
-      "comment": "Integrations pane, third Discord setup step.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3. Paste its Client ID here, press Connect, and approve KerNotch in Discord."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "3. İstemci ID'sini buraya yapıştırın, Bağlan'a basın ve Discord'da KerNotch'u onaylayın."
-          }
-        }
-      }
-    },
-    "Open Developer Portal": {
-      "comment": "Integrations pane link to Discord's Developer Portal.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Open Developer Portal"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Developer Portal'ı aç"
-          }
-        }
-      }
-    },
-    "Client ID": {
-      "comment": "Integrations pane text field placeholder for the Discord application's Client ID.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Client ID"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "İstemci ID'si"
-          }
-        }
-      }
-    },
-    "That is not a Discord application ID.": {
-      "comment": "Integrations pane validation message under a malformed Client ID.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "That is not a Discord application ID."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bu bir Discord uygulama ID'si değil."
-          }
-        }
-      }
-    },
     "Connect": {
       "comment": "Integrations pane button that asks Discord to authorize KerNotch.",
       "extractionState": "manual",
@@ -2559,24 +2433,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bağlantıyı kes"
-          }
-        }
-      }
-    },
-    "Paste a Client ID to connect.": {
-      "comment": "Integrations pane status while no Client ID is set.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paste a Client ID to connect."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Bağlanmak için bir İstemci ID'si yapıştırın."
           }
         }
       }
@@ -2689,24 +2545,6 @@
         }
       }
     },
-    "Discord does not recognize this Client ID.": {
-      "comment": "Integrations pane status after Discord rejected the Client ID.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discord does not recognize this Client ID."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discord bu İstemci ID'sini tanımıyor."
-          }
-        }
-      }
-    },
     "The request was declined in Discord.": {
       "comment": "Integrations pane status after the user declined the prompt in Discord.",
       "extractionState": "manual",
@@ -2725,24 +2563,6 @@
         }
       }
     },
-    "Discord did not issue a token. Check that Public Client is on.": {
-      "comment": "Integrations pane status when the authorization code could not be exchanged. 'Public Client' is a Developer Portal label.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discord did not issue a token. Check that Public Client is on."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discord erişim izni vermedi. Public Client ayarının açık olduğundan emin olun."
-          }
-        }
-      }
-    },
     "Try Again": {
       "comment": "Integrations pane button that starts the Discord connection over when it is waiting on Discord.",
       "extractionState": "manual",
@@ -2757,6 +2577,60 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tekrar dene"
+          }
+        }
+      }
+    },
+    "Connect Discord to see the channel name and leave the channel from the island. Discord asks you to approve KerNotch once.": {
+      "comment": "Integrations pane, caption of the Discord connection section.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connect Discord to see the channel name and leave the channel from the island. Discord asks you to approve KerNotch once."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal adını görmek ve adadan kanaldan çıkmak için Discord'u bağlayın. Discord, KerNotch'u bir kez onaylamanızı ister."
+          }
+        }
+      }
+    },
+    "Discord did not recognize KerNotch.": {
+      "comment": "Integrations pane status when Discord rejects the build's Discord application.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord did not recognize KerNotch."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord KerNotch'u tanımadı."
+          }
+        }
+      }
+    },
+    "Discord did not complete the connection. KerNotch's Discord connection may not be available for your account yet; the microphone badge still works.": {
+      "comment": "Integrations pane status when Discord does not complete authorization — before KerNotch's Discord application is approved, accounts that are not its testers see this.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord did not complete the connection. KerNotch's Discord connection may not be available for your account yet; the microphone badge still works."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord bağlantıyı tamamlamadı. KerNotch'un Discord bağlantısı hesabınız için henüz kullanılamıyor olabilir; mikrofon rozeti yine çalışır."
           }
         }
       }
