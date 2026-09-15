@@ -79,6 +79,14 @@ struct KerNotchApp: App {
     private let automationGate: MusicAutomationGate
     private let appliedLanguageOverride: String?
 
+    /// False when the settings file exists but could not be read. The session
+    /// then runs on defaults that are not the user's choices, so nothing is
+    /// applied on the user's behalf outside KerNotch itself: not Launch at
+    /// Login, not the app language, not the agents' hook files, not onboarding.
+    /// Otherwise a file made unreadable by a restore or an ownership change
+    /// would cost the user their login item and their installed hooks.
+    private let isSettingsFileUsable: Bool
+
     @State private var aiPreferences: AIIntegrationPreferences
     @State private var generalPreferences: GeneralPreferences
     @State private var enabledIdentifiers: Set<ActivityProviderIdentifier>
@@ -129,6 +137,8 @@ struct KerNotchApp: App {
             settingsStorage.importPreferences(from: .standard, domain: bundleIdentifier)
         }
         let settingsStore = SettingsStore(storage: settingsStorage, migrations: [.removingRetiredKeys])
+        let isSettingsFileUsable = settingsStorage.isSavingEnabled
+        self.isSettingsFileUsable = isSettingsFileUsable
         self.musicProvider = musicProvider
         self.settingsStore = settingsStore
         _aiPreferences = State(initialValue: settingsStore.aiIntegrationPreferences)
@@ -138,20 +148,29 @@ struct KerNotchApp: App {
             availableDisplayCount: currentDisplays.count
         )
         initialGeneralPreferences.appearance = .dark
+        if isSettingsFileUsable == false {
+            // Shows what macOS actually has, rather than a default that would
+            // read as the login item having been switched off.
+            initialGeneralPreferences.launchAtLogin = SMAppService.mainApp.status == .enabled
+        }
         _generalPreferences = State(initialValue: initialGeneralPreferences)
         _launchAtLoginNeedsApproval = State(
             initialValue: SMAppService.mainApp.status == .requiresApproval
         )
-        do {
-            try Self.applyLaunchAtLogin(initialGeneralPreferences.launchAtLogin)
-        } catch {
-            Self.present(error)
+        if isSettingsFileUsable {
+            do {
+                try Self.applyLaunchAtLogin(initialGeneralPreferences.launchAtLogin)
+            } catch {
+                Self.present(error)
+            }
         }
         _enabledIdentifiers = State(initialValue: settingsStore.enabledProviderIdentifiers)
         let appliedLanguageOverride = settingsStore[.languageOverride]
         self.appliedLanguageOverride = appliedLanguageOverride
         _languageOverride = State(initialValue: appliedLanguageOverride)
-        Self.applyLanguageOverride(appliedLanguageOverride)
+        if isSettingsFileUsable {
+            Self.applyLanguageOverride(appliedLanguageOverride)
+        }
 
         // Held rather than constructed inline: the menu bar's timer control and
         // the expanded island's pause/resume have to reach the same provider
@@ -346,23 +365,27 @@ struct KerNotchApp: App {
             )
             watchdogLaunch.presentNoticeIfNeeded()
 
-            Self.repairEnabledHooks(
-                preferences: settingsStore.aiIntegrationPreferences,
-                manualSetupPresenter: manualSetupPresenter
-            )
-
-            presenter.presentIfNeeded(
-                hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding] || Self.isUITesting,
-                detectedAgents: Self.detectedAgents()
-            ) { outcome in
-                settingsStore[.hasCompletedOnboarding] = true
-                Self.applyHookOffers(
-                    outcome.acceptedHookOffers,
-                    to: settingsStore,
-                    receiver: receiver,
-                    listener: loopbackListener,
+            if isSettingsFileUsable {
+                Self.repairEnabledHooks(
+                    preferences: settingsStore.aiIntegrationPreferences,
                     manualSetupPresenter: manualSetupPresenter
                 )
+
+                presenter.presentIfNeeded(
+                    hasCompletedOnboarding: settingsStore[.hasCompletedOnboarding] || Self.isUITesting,
+                    detectedAgents: Self.detectedAgents()
+                ) { outcome in
+                    settingsStore[.hasCompletedOnboarding] = true
+                    Self.applyHookOffers(
+                        outcome.acceptedHookOffers,
+                        to: settingsStore,
+                        receiver: receiver,
+                        listener: loopbackListener,
+                        manualSetupPresenter: manualSetupPresenter
+                    )
+                }
+            } else {
+                Self.presentUnreadableSettingsNotice()
             }
 
             if CommandLine.arguments.contains(Self.reopenSettingsArgument) {
@@ -611,11 +634,15 @@ struct KerNotchApp: App {
         ) { _ in
             refreshMusicAutomationState()
         }
-        .onChange(of: generalPreferences, initial: true) { _, preferences in
-            do {
-                try Self.applyLaunchAtLogin(preferences.launchAtLogin)
-            } catch {
-                Self.present(error)
+        .onChange(of: generalPreferences, initial: true) { previous, preferences in
+            // With an unreadable settings file, only a switch the user actually
+            // flips reaches macOS; the window echoing its values back does not.
+            if isSettingsFileUsable || previous.launchAtLogin != preferences.launchAtLogin {
+                do {
+                    try Self.applyLaunchAtLogin(preferences.launchAtLogin)
+                } catch {
+                    Self.present(error)
+                }
             }
             refreshLaunchAtLoginApprovalState()
             settingsStore.generalPreferences = preferences
@@ -825,6 +852,17 @@ struct KerNotchApp: App {
 
     private static func present(_ error: Error) {
         NSAlert(error: error).runModal()
+    }
+
+    private static func presentUnreadableSettingsNotice() {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "KerNotch could not read its settings.")
+        alert.informativeText = String(
+            localized:
+                "KerNotch is using default settings for now and will not save changes. Launch at Login, the app language and agent hooks are left exactly as they are. Check that this file belongs to you, then restart KerNotch: \(FileSettingsStorage.defaultFileURL.path)"
+        )
+        alert.runModal()
     }
 
     /// Says what a failed loopback start means for the user, in their language.

@@ -505,6 +505,25 @@ struct CompositionRootWiringTests {
         #expect(source.contains("#if APPSTORE_BUILD\n            let discordIntegration: DiscordIntegration? = nil"))
     }
 
+    /// With a settings file that exists but cannot be read, the session runs on
+    /// defaults. Applying those defaults would switch off Launch at Login, drop
+    /// the chosen language and — because every agent defaults to off — remove
+    /// the user's installed hooks from Claude Code, Codex and OpenCode.
+    @Test("an unreadable settings file leaves the system and the agents' files untouched")
+    func unreadableSettingsTouchNothing() throws {
+        let source = try Self.appSource("KerNotch/KerNotchApp.swift")
+
+        #expect(source.contains("let isSettingsFileUsable = settingsStorage.isSavingEnabled"))
+        let launchAtLoginGuard =
+            "if isSettingsFileUsable {\n" + "            do {\n" + "                try Self.applyLaunchAtLogin"
+        #expect(source.contains(launchAtLoginGuard))
+        #expect(source.contains("if isSettingsFileUsable {\n            Self.applyLanguageOverride"))
+        #expect(source.contains("if isSettingsFileUsable {\n                Self.repairEnabledHooks("))
+        #expect(source.contains("} else {\n                Self.presentUnreadableSettingsNotice()"))
+        let flippedByUser = "if isSettingsFileUsable || previous.launchAtLogin != preferences.launchAtLogin"
+        #expect(source.contains(flippedByUser))
+    }
+
     /// The Client ID travels xcconfig → build setting → Info.plist → app. A
     /// break anywhere along it still builds, and silently ships an app whose
     /// Integrations pane has no connection to offer.

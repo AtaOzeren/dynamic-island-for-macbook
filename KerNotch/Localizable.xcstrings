@@ -288,6 +288,42 @@
           }
         }
       }
+    },
+    "KerNotch could not read its settings.": {
+      "comment": "Launch alert title when settings.json exists but cannot be read.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch could not read its settings."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch ayarlarını okuyamadı."
+          }
+        }
+      }
+    },
+    "KerNotch is using default settings for now and will not save changes. Launch at Login, the app language and agent hooks are left exactly as they are. Check that this file belongs to you, then restart KerNotch: %@": {
+      "comment": "Launch alert detail when settings.json cannot be read. Placeholder is the settings file path.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch is using default settings for now and will not save changes. Launch at Login, the app language and agent hooks are left exactly as they are. Check that this file belongs to you, then restart KerNotch: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch şimdilik varsayılan ayarlarla çalışıyor ve değişiklikleri kaydetmeyecek. Açılışta başlatma, uygulama dili ve ajan hook'larına dokunulmadı. Bu dosyanın size ait olduğunu kontrol edip KerNotch'u yeniden başlatın: %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

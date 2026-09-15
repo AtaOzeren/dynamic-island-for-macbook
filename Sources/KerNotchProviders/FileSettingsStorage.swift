@@ -40,7 +40,11 @@ public final class FileSettingsStorage: SettingsStorage {
     private var isDirectoryPrepared = false
 
     /// False when saving could destroy settings that may still be recoverable.
-    private(set) var isSavingEnabled: Bool
+    ///
+    /// Read at launch as "the settings in memory are not the user's": the
+    /// composition root then applies none of them to the system or to other
+    /// applications for the session.
+    public private(set) var isSavingEnabled: Bool
 
     public init(fileURL: URL = FileSettingsStorage.defaultFileURL) {
         self.fileURL = fileURL
