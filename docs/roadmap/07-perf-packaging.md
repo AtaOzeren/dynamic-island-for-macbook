@@ -3,13 +3,13 @@
 **Status:** NOT STARTED
 **Todos:** 66–74 (Wave 7)
 **Depends on:** Phase 6 — the plan places this wave last because it needs a feature-complete app: every provider wired in, every AI integration point live, and settings/localization done, so the idle-cost measurement and the packaging artifacts reflect the real shipped surface.
-**Unblocks:** Phase F (Final Verification Wave) — the hardware matrix and release checks in the final wave assume the performance budget is already met and both build configurations already exist.
+**Unblocks:** Phase F (Final Verification Wave) — the hardware matrix and release checks in the final wave assume the performance budget is already met and the `Release` build configuration already exists.
 
 ## What this phase delivers
 
-The last wave before ship: proof that the app is actually cheap when idle, both distributable artifacts (a notarizable `.dmg` for Direct, a submittable archive for the App Store), the Homebrew Cask, the store metadata and privacy policy, a tag-triggered release workflow, and a final pass reconciling the 15 `docs/` files against whatever actually got built along the way.
+The last wave before ship: proof that the app is actually cheap when idle, the distributable artifact (a notarizable `.dmg`, published on GitHub Releases and later on the project website), the Homebrew Cask, the privacy policy, a tag-triggered release workflow, and a final pass reconciling the 15 `docs/` files against whatever actually got built along the way.
 
-Three of the nine todos — 70, 71, 72 — are marked `BLOCKED-ON-MEMBERSHIP` in the plan. They are not skipped: each produces everything an Apple Developer Program membership doesn't gate (a `.dmg` with ad-hoc signing, a locally-audited Cask, a validated local archive) and explicitly reports the membership-dependent step as skipped rather than pretending it succeeded. The remaining six todos have no such gate.
+Two of the nine todos — 70 and 71 — are marked `BLOCKED-ON-MEMBERSHIP` in the plan. They are not skipped: each produces everything an Apple Developer Program membership doesn't gate (a `.dmg` with ad-hoc signing, a locally-audited Cask) and explicitly reports the membership-dependent step as skipped rather than pretending it succeeded. Todo 72 is `DROPPED`: KerNotch ships one notarized build, so there is no store submission to prepare. The remaining six todos have no such gate.
 
 ## Todos
 
@@ -31,27 +31,27 @@ Profile and fix until the script from todo 66 passes. Expected work: eliminating
 - **Evidence:** `.omo/evidence/task-67-kernotch-v1/`
 - **Commit:** `perf: meet the idle cost budget`
 
-### 68. Author both entitlements files and both build configurations
+### 68. Author the entitlements file and the build configuration
 
-Per `docs/09` and `docs/10`, with the guards from todos 20 and 21 wired into both.
+`KerNotch.entitlements` and the `KerNotch` scheme's `Debug` and `Release` configurations under the hardened runtime, per `docs/09` and `docs/10`, with the guards from todos 20 and 21 wired into CI.
 
-- **Acceptance:** Both configurations build; the App Store configuration passes the symbol guard; each entitlement present is justified in `docs/09`.
-- **QA (CI):** Build both; run both guards; diff the effective entitlements against the documented table.
+- **Acceptance:** The `Release` configuration builds; the MediaRemote-linked guard passes against its binary; each entitlement present is justified in `docs/09`.
+- **QA (CI):** Build `Release`; run both guards; diff the effective entitlements against the documented table.
 - **Evidence:** `.omo/evidence/task-68-kernotch-v1.log`
 - **Commit:** `build: add per-configuration entitlements`
 
-### 69. Write the privacy policy and App Store metadata
+### 69. Write the privacy policy
 
-Privacy policy file in the repository, plus the App Store description, keywords, review notes explaining the overlay window and the absence of private API, and the privacy nutrition label answers — all localized.
+The privacy policy file in the repository (`docs/PRIVACY.md`), which also serves as the policy URL the Discord application needs (`docs/16`).
 
-- **Acceptance:** The privacy policy matches the actual data behaviour described in `docs/09`; review notes address the overlay question directly.
+- **Acceptance:** The privacy policy matches the actual data behaviour described in `docs/09`.
 - **QA (CI):** Consistency check between the privacy policy claims and the entitlements table.
 - **Evidence:** `.omo/evidence/task-69-kernotch-v1.txt`
 - **Commit:** `docs(store): add privacy policy and App Store metadata`
 
-### 70. Implement the Direct build packaging pipeline — BLOCKED-ON-MEMBERSHIP for signing
+### 70. Implement the release packaging pipeline — BLOCKED-ON-MEMBERSHIP for signing
 
-Script producing a `.dmg`: build, sign with Developer ID, enable the hardened runtime, submit to `notarytool`, staple, and package. Until the membership exists, the script runs end-to-end with ad-hoc signing and clearly reports the signing steps as skipped.
+`scripts/package-release.sh` producing `KerNotch-<version>.dmg`: build `Release`, sign with Developer ID under the hardened runtime, submit to `notarytool`, staple, and package. Until the membership exists, the script runs end-to-end with ad-hoc signing and clearly reports the signing steps as skipped.
 
 - **Acceptance:** The script produces a mountable `.dmg` today; every membership-dependent step is explicitly reported as skipped rather than silently omitted.
 - **QA (HW):** Run the script; mount the `.dmg`; confirm the skipped-step report.
@@ -67,14 +67,9 @@ The cask file with the correct stanzas, plus the submission checklist. Submissio
 - **Evidence:** `.omo/evidence/task-71-kernotch-v1.log`
 - **Commit:** `build: add homebrew cask definition`
 
-### 72. Prepare the App Store submission — BLOCKED-ON-MEMBERSHIP
+### 72. Prepare a store submission — DROPPED
 
-Archive the App Store configuration, run the full validation locally, and assemble screenshots and metadata. Actual upload waits on the membership.
-
-- **Acceptance:** A validated archive exists locally with zero validation errors; the screenshot set is complete for every required size.
-- **QA (HW):** Produce the archive and run validation; capture the report.
-- **Evidence:** `.omo/evidence/task-72-kernotch-v1/`
-- **Commit:** `build: prepare App Store submission artifacts`
+KerNotch is distributed only as the notarized `.dmg` and the Homebrew Cask (todos 70 and 71), so there is no store archive, screenshot set, or submission to prepare.
 
 ### 73. Add the release workflow
 
@@ -96,16 +91,16 @@ Re-read all 15 documents against the shipped code and correct every divergence. 
 
 ## Verification
 
-Six of the nine todos are `CI` tier; three (66, 67, 70, 72 — the idle-cost measurement and the two artifact-producing todos that touch real signing state) are `HW` tier and need the physical notched MacBook.
+Five of the nine todos are `CI` tier; three (66, 67, 70 — the idle-cost measurement and the artifact-producing todo that touches real signing state) are `HW` tier and need the physical notched MacBook; todo 72 is dropped.
 
 CI-tier, runnable unattended:
 
 ```bash
-# 68 — both configurations build, both guards pass
-xcodebuild -scheme KerNotch -configuration AppStore build
-xcodebuild -scheme KerNotch -configuration Direct build
-./Scripts/guard-core-imports.sh
-./Scripts/guard-forbidden-symbols.sh
+# 68 — the Release configuration builds, both guards pass
+xcodebuild -scheme KerNotch -configuration Release build
+./scripts/check-core-dependencies.sh
+./scripts/check-media-remote-linked.sh <path-to-Release-binary>
+./scripts/check-music-backend.sh
 
 # 69 — privacy policy matches entitlements
 ./Scripts/check-privacy-consistency.sh
@@ -126,13 +121,9 @@ HW-tier, on the notched MacBook:
 # 66/67 — idle cost script; must pass with every provider enabled, no activity present
 ./Scripts/measure-idle-cost.sh
 
-# 70 — Direct packaging pipeline, ad-hoc signed until membership exists
-./Scripts/package-dmg.sh
-hdiutil attach KerNotch.dmg   # confirm it mounts; check the skipped-step report
-
-# 72 — App Store archive validation
-xcodebuild -scheme KerNotch -configuration AppStore archive -archivePath build/KerNotch.xcarchive
-xcodebuild -exportArchive -archivePath build/KerNotch.xcarchive -exportOptionsPlist ExportOptions-AppStore.plist
+# 70 — release packaging pipeline, ad-hoc signed until membership exists
+./scripts/package-release.sh
+hdiutil attach dist/KerNotch-<version>.dmg   # confirm it mounts; check the skipped-step report
 ```
 
 Every command's exact invocation and pass criteria live in `docs/02` (performance budget), `docs/09` (entitlements and privacy), and `docs/10` (build and distribution) — this file only maps plan todos to the commands that verify them.

@@ -16,9 +16,10 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Launch at login | Bool | `false` | `general.launchAtLogin` | General |
 | Menu bar icon visible | Bool | `true` | `general.showMenuBarIcon` | General, Appearance |
 | Appearance | enum: `auto` \| `light` \| `dark` | `auto` | `general.appearance` | General |
+| Island size | enum: `minimalist` \| `large` (an unrecognised stored value reads as `minimalist`) | `minimalist` | `general.islandSize` | General |
 | Reduced motion override | Bool? (nil = follow system) | `nil` | `general.reducedMotionOverride` | General |
 | Music provider enabled | Bool | `true` | `providers.music.enabled` | Activities |
-| Timer/Stopwatch provider enabled | Bool | `true` | `providers.timer.enabled` | Activities |
+| Timer/Stopwatch provider enabled ("Timers and stopwatches"; also shows or hides the menu bar timer entries) | Bool | `true` | `providers.timer.enabled` | Activities |
 | Screen Recording provider enabled | Bool | `true` | `providers.screenRecording.enabled` | Activities |
 | Audio Recording provider enabled | Bool | `true` | `providers.audioRecording.enabled` | Activities |
 | Charging provider enabled | Bool | `true` | `providers.charging.enabled` | Activities |
@@ -50,7 +51,7 @@ KerNotch never reads or writes its settings storage directly from a view or a pr
 
 ### Storage location
 
-`SettingsStore` sits on the `SettingsStorage` seam, and the app hands it `FileSettingsStorage`: one JSON document at `~/Library/Application Support/KerNotch/settings.json` (inside the container in the App Store build), mode `0600` in a `0700` directory. It sits beside the Discord credentials, the IPC port file and the watchdog's records, so everything KerNotch owns lives in one folder — backing it up, resetting it, or removing it is one directory.
+`SettingsStore` sits on the `SettingsStorage` seam, and the app hands it `FileSettingsStorage`: one JSON document at `~/Library/Application Support/KerNotch/settings.json`, mode `0600` in a `0700` directory. It sits beside the Discord credentials, the IPC port file and the watchdog's records, so everything KerNotch owns lives in one folder — backing it up, resetting it, or removing it is one directory.
 
 The file is written only on a real change. Setting a value it already holds writes nothing, and so does setting a registered default the user never changed — the settings window writes every value back whenever it appears, and without this a default the user never chose would be frozen into the file, where a later release could no longer change it. A save writes only the keys that instance changed over what is on disk, so a second instance running for a moment (the language restart, a watchdog relaunch) does not revert the first one's changes.
 
@@ -80,9 +81,13 @@ No setting in the table above defaults to a state that would show the user somet
 
 Settings is a standard SwiftUI `Settings` scene, giving KerNotch platform-native window chrome and keyboard shortcut (⌘,). It opens from the AppKit status item's menu, first-run onboarding, or by reopening the running app from Finder. Reopening remains available when the user hides the status item. Opening Settings does not change the app's activation policy — KerNotch remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open.
 
-The window is organized into the sections implied by the "Appears in" column above: **General** (display target, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), **Integrations** (the Discord switch and the connection to the local Discord client — present only in builds without the App Sandbox, see `15-build-configuration-parity.md`; the connection section only in builds that carry a Discord Client ID), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in the settings file.
+The window is organized into the sections implied by the "Appears in" column above: **General** (display target, island size, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), **Integrations** (the Discord switch and the connection to the local Discord client; the connection section only in builds that carry a Discord Client ID), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in the settings file.
 
 Most settings apply live. The language override is the exception because `Bundle` resolves and caches its localization at launch. Changing it shows a restart-required warning in both About and General. General's restart action launches one replacement KerNotch instance, reopens Settings, then terminates the old instance only after launch succeeds; a launch failure leaves the current process running and presents the error. Restart requests for external AI tools remain in their hook setup guidance because restarting KerNotch cannot reload another application's configuration.
+
+The island size applies live too. General's Island section offers **Minimalist**, the default island, and **Large**, which widens the expanded island and enlarges its text and controls; changing it resizes the panel on every display without a restart (`04-overlay-window.md`).
+
+The Activities pane's "Timers and stopwatches" switch also governs the menu bar item. Switched off, the item's Start 5-, 10- and 25-Minute Timer and Stop Timer entries and their separator are hidden, and any running timer is stopped; switched back on, the entries return. A start entry left in the menu would begin a countdown the disabled provider never draws.
 
 The menu bar icon toggle also applies live. With multiple displays, macOS owns status-item placement and may put the icon on a different active or main menu bar than the Settings window. General discloses this while multiple displays are attached instead of describing it as a restart requirement.
 
@@ -122,7 +127,3 @@ Layout uses SwiftUI's leading/trailing-relative modifiers (`.leading`, `.trailin
 ### Ship set and contributing a language
 
 V1 ships two languages: English (base) and Turkish. Adding a language is a String Catalog operation, not a code change: a contributor adds the new locale to the catalog's language list in Xcode, translates every key (Xcode's catalog editor flags untranslated and stale entries), and opens a PR containing only the updated `.xcstrings` files. No Swift source file changes are needed to add a language, which is the direct payoff of the "no hardcoded strings" rule above — every translatable surface already routes through the catalog before a new language is ever added.
-
-### App Store metadata localization
-
-App Store listing text — the app name, subtitle, description, keywords, and "what's new" release notes — lives outside the `.xcstrings` mechanism entirely, in App Store Connect's own per-locale metadata fields (see `10-build-and-distribution.md` for the submission flow those fields are part of). These strings are translated and maintained separately from the in-app catalog because App Store Connect does not read `.xcstrings`; keeping this distinction explicit avoids a contributor assuming a catalog translation also updates the store listing.

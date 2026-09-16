@@ -90,7 +90,7 @@ public struct ClaudeCodeHookInstaller: Sendable {
     }
 
     /// The manual-setup fallback's content, for when the user declines the write
-    /// or the sandbox refuses it.
+    /// or the file system refuses it.
     ///
     /// Goes through `proposedSettings()` rather than re-deriving the text, so the
     /// snippet on screen and the bytes `install()` would write come from one

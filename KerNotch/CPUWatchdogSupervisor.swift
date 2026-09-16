@@ -545,9 +545,6 @@ struct UserNotificationPoster: WatchdogNotifying {
 }
 
 /// The relaunch, in the shape `restartApplication()` already uses.
-///
-/// `NSWorkspace.openApplication` rather than `/usr/bin/open` through `Process`:
-/// the sandboxed App Store build cannot spawn it.
 struct WorkspaceRelauncher: WatchdogApplicationRelaunching {
     func relaunch(completion: @escaping @Sendable (Error?) -> Void) {
         let configuration = NSWorkspace.OpenConfiguration()

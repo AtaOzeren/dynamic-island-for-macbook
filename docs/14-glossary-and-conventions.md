@@ -21,7 +21,7 @@ This document fixes the vocabulary the codebase and the rest of `docs/` share, t
 
 ## Naming rules
 
-KerNotch is the product name everywhere: in code, in commit messages, in the App Store listing, and in prose. Apple's "Dynamic Island" and "MacBook" are trademarks and must not appear in the product name, the bundle identifier, or any App Store metadata field.
+KerNotch is the product name everywhere: in code, in commit messages, in release and Homebrew Cask metadata, and in prose. Apple's "Dynamic Island" and "MacBook" are trademarks and must not appear in the product name, the bundle identifier, or the name KerNotch is published under anywhere (GitHub Releases, the Homebrew Cask, the project website).
 
 In prose, refer to the concept generically, for example "the notch on modern MacBook models" when describing the hardware, or "a Dynamic-Island-style live activity surface" only in an explanatory, comparative sentence aimed at readers who already know the iPhone feature, never as part of KerNotch's own name or marketing copy. When in doubt, prefer "the island" or "the notch," both defined above.
 

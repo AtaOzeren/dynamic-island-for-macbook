@@ -1,8 +1,8 @@
 import Foundation
 
 /// Single resolution point for the user directories KerNotch writes to.
-/// `FileManager.urls(for:in:)` returns an empty array in a few sandbox and
-/// test configurations, so every caller needs the same home-relative
+/// `FileManager.urls(for:in:)` can return an empty array in some test
+/// configurations, so every caller needs the same home-relative
 /// fallback — keeping that fallback in one place stops the copies drifting.
 enum ApplicationDirectories {
     static var library: URL {

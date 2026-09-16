@@ -280,13 +280,13 @@ struct CompositionRootWiringTests {
     @Test("modern macOS avoids the MediaRemote entitlement wall")
     func modernMacOSUsesScriptableMusicFallback() throws {
         let source = try Self.appSource("KerNotch/MusicBackend.swift")
-        let directEntitlements = try Self.appSource("KerNotch-Direct.entitlements")
+        let entitlements = try Self.appSource("KerNotch.entitlements")
 
         #expect(source.contains("#available(macOS 15.4, *)"))
         #expect(source.contains("AppleScriptMusicProvider("))
         #expect(source.contains("URLSessionArtworkDataLoader()"))
         #expect(source.contains("gate.access()"))
-        #expect(directEntitlements.contains("com.apple.security.automation.apple-events"))
+        #expect(entitlements.contains("com.apple.security.automation.apple-events"))
     }
 
     @Test("music automation changes refresh the live provider immediately")
@@ -318,15 +318,52 @@ struct CompositionRootWiringTests {
         let presenter = try Self.appSource("KerNotch/IslandPresenter.swift")
         let app = try Self.appSource("KerNotch/KerNotchApp.swift")
 
+        let menu = try Self.appSource("KerNotch/TimerMenuControls.swift")
+
         #expect(presenter.contains("timerProvider?.handle(command.timerCommand)"))
-        #expect(app.contains("timerProvider.handle("))
-        #expect(app.contains("timerPresets"))
+        #expect(menu.contains("timerProvider.handle("))
+        #expect(app.contains("TimerMenuControls(timerProvider: timerProvider)"))
 
         // One instance, shared: the registry that draws the timer and the menu
         // that starts it must not hold different providers.
         #expect(app.contains("let timerProvider = TimerProvider()"))
         #expect(app.contains("timerProvider: timerProvider"))
         #expect(app.components(separatedBy: "TimerProvider()").count - 1 == 1)
+    }
+
+    /// The island is sized in the view, the hit test and the window. Each half
+    /// compiles on the default metrics alone, so a missed wire draws a large
+    /// island that collapses under the pointer or clips inside a small window.
+    @Test("the island size setting reaches the view, the hit test and every display")
+    func islandSizeIsWired() throws {
+        let app = try Self.appSource("KerNotch/KerNotchApp.swift")
+        let presenter = try Self.appSource("KerNotch/IslandPresenter.swift")
+        let secondary = try Self.appSource("KerNotch/SecondaryIslandPresentation.swift")
+
+        #expect(app.contains("islandPresenter.applyIslandSize(preferences.islandSize)"))
+        #expect(presenter.contains("IslandLayout(size: settingsStore.generalPreferences.islandSize)"))
+        #expect(presenter.components(separatedBy: "metrics: model.layout.items").count - 1 == 2)
+        #expect(presenter.components(separatedBy: "panelMetrics: model.layout.panel").count - 1 == 2)
+        #expect(presenter.contains("controller.applyLayout(layout)"))
+        #expect(presenter.contains("secondary.applyLayout(chosenLayout)"))
+        #expect(presenter.contains("layout: chosenLayout,\n                reduceMotion: reduceMotion"))
+        #expect(presenter.contains("let layout = chosenLayout.fitted(to: targetScreen)"))
+        #expect(presenter.contains("fitLayout(to: targetScreen)"))
+        #expect(secondary.contains("controller.applyLayout(layout)"))
+        #expect(secondary.contains("model.layout = layout"))
+        #expect(secondary.contains("fitLayout(to: currentScreen)"))
+    }
+
+    /// A switched-off timer is not observed, so a menu that still offered to
+    /// start one would begin a countdown nothing draws.
+    @Test("the menu's timer items follow the Activities timer switch")
+    func timerMenuFollowsActivitiesSwitch() throws {
+        let app = try Self.appSource("KerNotch/KerNotchApp.swift")
+
+        #expect(app.contains("guard identifier == .timer else { return }"))
+        #expect(app.contains("timerControls.showControls()"))
+        #expect(app.components(separatedBy: "timerControls.hideControlsAndStopTimer()").count - 1 == 2)
+        #expect(app.contains("if settingsStore.enabledProviderIdentifiers.contains(.timer) == false {"))
     }
 
     @Test("the panel's visibility is reported to the timer provider")
@@ -492,17 +529,17 @@ struct CompositionRootWiringTests {
 
         #expect(source.contains("microphoneRecording: microphoneRecording,\n            enabledIdentifiers:"))
         let integrationArguments =
-            "microphoneMonitor: microphoneMonitor,\n" + "                microphoneRecording: microphoneRecording"
+            "microphoneMonitor: microphoneMonitor,\n" + "            microphoneRecording: microphoneRecording"
         let builtInClientID = "clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)"
         #expect(source.contains(integrationArguments))
         #expect(source.contains(builtInClientID))
         #expect(source.contains("let settingsStorage = FileSettingsStorage()"))
         #expect(source.contains("settingsStorage.importPreferences(from: .standard, domain: bundleIdentifier)"))
         #expect(source.contains("SettingsStore(storage: settingsStorage, migrations: [.removingRetiredKeys])"))
-        #expect(source.contains("discordVoice: discordIntegration?.voiceChannelLeaving"))
-        #expect(source.contains("discordIntegration?.apply(settingsStore.discordIntegrationPreferences)"))
-        #expect(source.contains("discordIntegration?.apply(preferences)"))
-        #expect(source.contains("#if APPSTORE_BUILD\n            let discordIntegration: DiscordIntegration? = nil"))
+        #expect(source.contains("let discordIntegration = DiscordIntegration("))
+        #expect(source.contains("discordVoice: discordIntegration.voiceChannelLeaving"))
+        #expect(source.contains("discordIntegration.apply(settingsStore.discordIntegrationPreferences)"))
+        #expect(source.contains("discordIntegration.apply(preferences)"))
     }
 
     /// With a settings file that exists but cannot be read, the session runs on
@@ -536,6 +573,6 @@ struct CompositionRootWiringTests {
         #expect(config.contains("KERNOTCH_DISCORD_CLIENT_ID = "))
         let infoPlistEntry = "<key>KerNotchDiscordClientID</key>\n\t<string>$(KERNOTCH_DISCORD_CLIENT_ID)</string>"
         #expect(infoPlist.contains(infoPlistEntry))
-        #expect(project.components(separatedBy: "baseConfigurationReference = D15C0001A0000000000000A1").count - 1 == 4)
+        #expect(project.components(separatedBy: "baseConfigurationReference = D15C0001A0000000000000A1").count - 1 == 2)
     }
 }

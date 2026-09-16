@@ -10,9 +10,9 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 **What it is:** A live-activity card showing an incoming or in-progress call — caller name, call source (FaceTime, Phone Link, or another calling app), and duration — the way a timer or recording indicator appears today.
 
-**Why it is not in V1:** macOS has no public API for observing call state from third-party apps. FaceTime and Phone Link do not publish call state through `MediaRemote`, `CallKit` is not available to non-telephony apps for reading system-wide call state, and there is no distributed-notification or `NSWorkspace` equivalent for this. Reading it would require unsupported private frameworks, which is disqualifying for both build configurations (see `docs/12-api-feasibility-matrix.md`).
+**Why it is not in V1:** macOS has no public API for observing call state from third-party apps. FaceTime and Phone Link do not publish call state through `MediaRemote`, `CallKit` is not available to non-telephony apps for reading system-wide call state, and there is no distributed-notification or `NSWorkspace` equivalent for this. Reading it would require unsupported private frameworks (see `docs/12-api-feasibility-matrix.md`).
 
-**What would have to become true:** Apple would need to ship a public, sandboxable API surfacing call state from FaceTime, Phone Link, or a general "Call" activity type analogous to how `MediaRemote` covers now-playing. A `CallKit`-adjacent read-only observer API would also qualify.
+**What would have to become true:** Apple would need to ship a public API surfacing call state from FaceTime, Phone Link, or a general "Call" activity type analogous to how `MediaRemote` covers now-playing. A `CallKit`-adjacent read-only observer API would also qualify.
 
 **Work estimate once feasible:** Small. The activity model already generalizes to arbitrary sources (see `docs/05-activity-model.md`); this would be one new provider plus one new compact/expanded view, comparable in scope to the recording indicator.
 
@@ -30,7 +30,7 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 **What it is:** A live-activity card showing download or transfer progress from arbitrary third-party apps — a browser download, a large file copy, a cloud-sync upload — without those apps doing anything special to support KerNotch.
 
-**Why it is not in V1:** Showing another app's download progress would require inspecting that app's internals, which is not available through public APIs and conflicts with the App Sandbox model. `NSProgress` file-progress publishing exists but is opt-in per publishing app; Finder and Safari do not expose it to third-party subscribers today, so there is no general mechanism that covers "any app's download" without that app's cooperation.
+**Why it is not in V1:** Showing another app's download progress would require inspecting that app's internals, which is not available through public APIs. `NSProgress` file-progress publishing exists but is opt-in per publishing app; Finder and Safari do not expose it to third-party subscribers today, so there is no general mechanism that covers "any app's download" without that app's cooperation.
 
 **What would have to become true:** Either (a) more system and third-party apps voluntarily publish `NSProgress` for their transfers and KerNotch subscribes to whichever ones do, or (b) Apple introduces a general transfer-progress observation API analogous to `MediaRemote` for media.
 
@@ -64,7 +64,7 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 **Why it is not in V1:** Deferred until the core activity system is stable and proven in daily use; `draft.md` section 16 groups it with the other V1.5 items as work that follows, not precedes, that stability milestone.
 
-**What would have to become true:** V1's core system shipping and being validated in daily use, plus confirming a public, sandboxable way to observe Touch ID authentication events (not yet verified; would need its own feasibility row).
+**What would have to become true:** V1's core system shipping and being validated in daily use, plus confirming a public way to observe Touch ID authentication events (not yet verified; would need its own feasibility row).
 
 **Work estimate once feasible:** Small, assuming a public observation API exists — comparable to the charging-state provider in scope.
 
@@ -76,7 +76,7 @@ Anything listed here must also appear in the "What V1 Deliberately Excludes" sec
 
 **Why it is not in V1:** A distinct integration surface (HomeKit and third-party ecosystems) that deserves its own design pass rather than being folded into the V1 activity model as an afterthought.
 
-**What would have to become true:** A dedicated design pass covering which smart-home ecosystems to support, how HomeKit permissions and entitlements interact with KerNotch's sandboxed build, and how third-party (non-HomeKit) ecosystems would be integrated at all.
+**What would have to become true:** A dedicated design pass covering which smart-home ecosystems to support, how HomeKit permissions and entitlements interact with KerNotch's hardened-runtime build, and how third-party (non-HomeKit) ecosystems would be integrated at all.
 
 **Work estimate once feasible:** Large. This is a new integration category, not a new provider — comparable in scope to adding AI agent integration was for V1.
 
