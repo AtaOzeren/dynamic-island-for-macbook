@@ -145,17 +145,21 @@ public struct ExpandedItemMetrics: Equatable, Sendable {
     public let music: MusicViewMetrics
     public let timer: TimerViewMetrics
     public let aiAgent: AIAgentViewMetrics
+    /// The scale the panel's own text — the blocked-agent footnote — is set in.
+    public let typeScale: IslandTypeScale
 
     public init(
         panel: ExpandedPanelMetrics = .default,
         music: MusicViewMetrics = .default,
         timer: TimerViewMetrics = .default,
-        aiAgent: AIAgentViewMetrics = .default
+        aiAgent: AIAgentViewMetrics = .default,
+        typeScale: IslandTypeScale = .default
     ) {
         self.panel = panel
         self.music = music
         self.timer = timer
         self.aiAgent = aiAgent
+        self.typeScale = typeScale
     }
 }
 
@@ -320,7 +324,11 @@ public func expandedPanelSize(
     let footnote = blockedAgentFootnote(for: activities)
     let footnoteHeight =
         footnote.map {
-            blockedFootnoteHeight(hasRecoveryText: $0.hasRecoveryText(), metrics: metrics.panel)
+            blockedFootnoteHeight(
+                hasRecoveryText: $0.hasRecoveryText(),
+                metrics: metrics.panel,
+                scale: metrics.typeScale
+            )
         } ?? 0
     let height =
         heights.reduce(0, +) + spacing + footnoteHeight + metrics.panel.contentInset * 2
@@ -437,7 +445,11 @@ public func expandedPanelOverflowsWindow(
     let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
     let footnoteHeight =
         blockedAgentFootnote(for: activities).map {
-            blockedFootnoteHeight(hasRecoveryText: $0.hasRecoveryText(), metrics: metrics.panel)
+            blockedFootnoteHeight(
+                hasRecoveryText: $0.hasRecoveryText(),
+                metrics: metrics.panel,
+                scale: metrics.typeScale
+            )
         } ?? 0
     let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
     return heights.reduce(0, +) + spacing + footnoteHeight + metrics.panel.contentInset * 2
@@ -599,7 +611,7 @@ public struct ExpandedActivityView: View {
                 BlockedAgentFootnoteView(
                     footnote: footnote,
                     metrics: metrics.panel,
-                    scale: .default
+                    scale: metrics.typeScale
                 )
             }
         }

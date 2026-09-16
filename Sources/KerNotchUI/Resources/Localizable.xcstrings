@@ -2634,6 +2634,60 @@
           }
         }
       }
+    },
+    "Island": {
+      "comment": "General pane: section title for how the expanded island is sized.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Island"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ada"
+          }
+        }
+      }
+    },
+    "Island size": {
+      "comment": "General pane: picker choosing between the minimalist and the large expanded island.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Island size"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ada boyutu"
+          }
+        }
+      }
+    },
+    "Large widens the island that opens on hover and enlarges its text and controls.": {
+      "comment": "General pane, Island section caption: what the Large island size changes.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Large widens the island that opens on hover and enlarges its text and controls."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Büyük, üzerine gelince açılan adayı genişletir; yazılarını ve kontrollerini büyütür."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

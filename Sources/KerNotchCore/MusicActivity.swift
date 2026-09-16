@@ -35,8 +35,8 @@ public struct NowPlaying: Equatable, Sendable {
     public let artist: String
     public let playbackState: MusicPlaybackState
     /// The human-readable name of the app the audio is coming from, when the
-    /// backend can attribute it. The Direct build's system-wide observation
-    /// cannot always name a source, so this stays optional.
+    /// backend can attribute it. The MediaRemote backend's system-wide
+    /// observation cannot always name a source, so this stays optional.
     public let sourceApplicationName: String?
     /// Encoded artwork bytes, bounded before the long-lived activity manager
     /// retains them. Backends may omit artwork without weakening the rest of

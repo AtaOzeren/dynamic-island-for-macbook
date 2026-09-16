@@ -39,6 +39,9 @@ final class IslandViewModel: ObservableObject {
     /// is rebuilt every time the island expands and collapses.
     @Published var attentionGlow: IslandAttentionGlow?
     @Published var notchSize: CGSize
+    /// The island size the user picked, as the metrics the expanded surface is
+    /// drawn with. Published so a change in Settings redraws an open island.
+    @Published var layout: IslandLayout
     @Published var hoverScale: CGFloat = 1
     @Published var transitionMovesGeometry = true
     /// Set only by the CPU watchdog's degrade action, to stand the island's
@@ -59,9 +62,10 @@ final class IslandViewModel: ObservableObject {
     var onTimerCommand: (TimerControlCommand) -> Void = { _ in }
     var onPrimaryAction: (ActivityIdentity) -> Void = { _ in }
 
-    init(compact: CompactActivityPresentation, notchSize: CGSize) {
+    init(compact: CompactActivityPresentation, notchSize: CGSize, layout: IslandLayout) {
         self.compact = compact
         self.notchSize = notchSize
+        self.layout = layout
     }
 }
 
@@ -135,6 +139,8 @@ struct IslandRootView: View {
             disclosedInstances: model.disclosedInstances,
             registrationTimes: model.registrationTimes,
             notchSize: model.notchSize,
+            metrics: model.layout.items,
+            panelMetrics: model.layout.panel,
             topInset: model.notchSize.height
         )
         return ConnectedIslandGeometry(
@@ -218,6 +224,8 @@ struct IslandRootView: View {
                     registrationTimes: model.registrationTimes,
                     disclosedInstances: $model.disclosedInstances,
                     notchSize: model.notchSize,
+                    metrics: model.layout.items,
+                    panelMetrics: model.layout.panel,
                     topInset: model.notchSize.height,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,
@@ -268,7 +276,9 @@ final class IslandPresenter {
 
     private let manager: ActivityManager
     private let settingsStore: SettingsStore
-    private let metrics: PanelMetrics
+    /// The layout for the island size picked in Settings, before it is fitted
+    /// to the screen the island is on.
+    private var chosenLayout: IslandLayout
     private let model: IslandViewModel
     private let panel: NotchPanel
     private let controller: PresentationController
@@ -291,7 +301,6 @@ final class IslandPresenter {
     init(
         manager: ActivityManager,
         settingsStore: SettingsStore,
-        metrics: PanelMetrics = .default,
         screenChanges: any ScreenChangeObserving = SystemScreenChangeObserver(),
         musicProvider: (any MusicProvider)? = nil,
         timerProvider: TimerProvider? = nil,
@@ -301,7 +310,8 @@ final class IslandPresenter {
     ) {
         self.manager = manager
         self.settingsStore = settingsStore
-        self.metrics = metrics
+        let chosenLayout = IslandLayout(size: settingsStore.generalPreferences.islandSize)
+        self.chosenLayout = chosenLayout
         self.screenChanges = screenChanges
         self.musicProvider = musicProvider
         self.timerProvider = timerProvider
@@ -314,17 +324,17 @@ final class IslandPresenter {
         )
         self.reduceMotion = reduceMotion
 
+        let targetScreen = Self.targetScreen(preference: settingsStore.generalPreferences.displayTarget)
+        let layout = chosenLayout.fitted(to: targetScreen)
         let model = IslandViewModel(
             compact: manager.compactPresentation,
-            notchSize: Self.notchSize(
-                metrics: metrics,
-                preference: settingsStore.generalPreferences.displayTarget
-            )
+            notchSize: resolvedNotchSize(screen: targetScreen, metrics: layout.panel),
+            layout: layout
         )
         self.model = model
 
         panel = NotchPanel(
-            metrics: metrics,
+            metrics: layout.panel,
             appearance: .dark,
             content: IslandRootView(model: model)
         )
@@ -338,7 +348,7 @@ final class IslandPresenter {
         controller = PresentationController(
             panel: panel,
             manager: manager,
-            metrics: metrics,
+            layout: layout,
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
             screen: { Self.targetScreen(preference: displayTarget()) },
@@ -483,6 +493,27 @@ final class IslandPresenter {
         }
     }
 
+    /// Resizes the island on every display to the size picked in Settings,
+    /// without rebuilding a window — an open island redraws at the new size.
+    func applyIslandSize(_ size: IslandSize) {
+        let chosenLayout = IslandLayout(size: size)
+        guard chosenLayout != self.chosenLayout else { return }
+        self.chosenLayout = chosenLayout
+        fitLayout(to: Self.targetScreen(preference: settingsStore.generalPreferences.displayTarget))
+        for secondary in secondaryPresentations.values {
+            secondary.applyLayout(chosenLayout)
+        }
+    }
+
+    /// Keeps the drawn island, its hover silhouette and its window on the one
+    /// budget the screen it is on can hold.
+    private func fitLayout(to screen: ScreenDescription?) {
+        let layout = chosenLayout.fitted(to: screen)
+        guard model.layout != layout else { return }
+        model.layout = layout
+        controller.applyLayout(layout)
+    }
+
     func applyReducedMotion(_ preferenceOverride: Bool?) {
         reduceMotion.updateOverride(preferenceOverride)
     }
@@ -621,10 +652,9 @@ final class IslandPresenter {
         model.attentionGlow = reading.attentionGlow
         model.expanded = manager.expandedActivities
         model.registrationTimes = manager.registrationTimes
-        model.notchSize = Self.notchSize(
-            metrics: metrics,
-            preference: settingsStore.generalPreferences.displayTarget
-        )
+        let targetScreen = Self.targetScreen(preference: settingsStore.generalPreferences.displayTarget)
+        model.notchSize = resolvedNotchSize(screen: targetScreen, metrics: chosenLayout.panel)
+        fitLayout(to: targetScreen)
         schedulePresentationRefresh(after: now)
         for secondary in secondaryPresentations.values {
             secondary.follow(reading)
@@ -667,7 +697,7 @@ final class IslandPresenter {
             let identifier = display.identifier
             let secondary = SecondaryIslandPresentation(
                 manager: manager,
-                metrics: metrics,
+                layout: chosenLayout,
                 reduceMotion: reduceMotion,
                 screen: { Self.screen(identifier: identifier) },
                 onMusicTransport: { [weak self] command in
@@ -739,18 +769,11 @@ final class IslandPresenter {
             DisplayDescription($0).identifier == identifier
         }.map(ScreenDescription.init)
     }
-
-    /// The hardware notch's size, or the fallback pill size on a screen that has
-    /// none — the degraded mode from `docs/03-display-and-notch.md`, not an
-    /// error state.
-    private static func notchSize(
-        metrics: PanelMetrics,
-        preference: DisplayPreference
-    ) -> CGSize {
-        resolvedNotchSize(screen: targetScreen(preference: preference), metrics: metrics)
-    }
 }
 
+/// The hardware notch's size, or the fallback pill size on a screen that has
+/// none — the degraded mode from `docs/03-display-and-notch.md`, not an error
+/// state.
 func resolvedNotchSize(screen: ScreenDescription?, metrics: PanelMetrics) -> CGSize {
     guard
         let screen,

@@ -38,8 +38,8 @@ struct KerNotchApp: App {
     @NSApplicationDelegateAdaptor(URLSchemeAppDelegate.self)
     private var appDelegate
 
-    /// The composition root's single music backend, selected at compile time by
-    /// `makeMusicProvider()`.
+    /// The composition root's single music backend, selected for the running
+    /// macOS release by `makeMusicProvider(gate:)`.
     private let musicProvider: any MusicProvider
     private let manager = ActivityManager()
     private let registry: ActivityProviderRegistry
@@ -56,16 +56,13 @@ struct KerNotchApp: App {
     /// The timer the menu bar starts and the island controls — one instance,
     /// shared with the registry that draws it.
     private let timerProvider: TimerProvider
-    private let appleClockMirror: AppleClockMirror?
     private let statusItemPresenter: StatusItemPresenter
 
     /// Draws the manager's activities in the overlay window. Held for the app's
     /// lifetime: the panel is created once and ordered in and out, never rebuilt.
     private let islandPresenter: IslandPresenter
 
-    /// `nil` in the App Store build: the integration reaches Discord's socket
-    /// outside the sandbox, so that build has no tab for it and no connection.
-    private let discordIntegration: DiscordIntegration?
+    private let discordIntegration: DiscordIntegration
 
     /// Watches the process's own CPU and degrades, restarts, or quits the app
     /// when it runs away. Held for the app's lifetime for the plainest reason:
@@ -104,8 +101,8 @@ struct KerNotchApp: App {
         let musicProvider = makeMusicProvider(gate: automationGate)
         let settingsWindowRouter = SettingsWindowRouter()
 
-        // The build's backend, reportable without a window, so CI can assert the
-        // two configurations differ and a support conversation can ask for one
+        // The running backend, reportable without a window, so CI can assert it
+        // matches the macOS release and a support conversation can ask for one
         // line of output rather than a screenshot. This must happen before
         // provider observation starts, so the diagnostic path starts no Apple
         // Events work.
@@ -178,9 +175,9 @@ struct KerNotchApp: App {
         // nothing is drawing.
         let timerProvider = TimerProvider()
         self.timerProvider = timerProvider
-        appleClockMirror = makeAppleClockMirror(timerProvider: timerProvider)
+        let timerControls = TimerMenuControls(timerProvider: timerProvider)
         let statusItemPresenter = StatusItemPresenter(
-            timerProvider: timerProvider,
+            timerControls: timerControls,
             openSettings: settingsWindowRouter.open
         )
         self.statusItemPresenter = statusItemPresenter
@@ -194,34 +191,38 @@ struct KerNotchApp: App {
             enabledIdentifiers: settingsStore.enabledProviderIdentifiers
         )
         self.registry = registry
+        if settingsStore.enabledProviderIdentifiers.contains(.timer) == false {
+            timerControls.hideControlsAndStopTimer()
+        }
         settingsStore.observeProviderEnablement { identifier, isEnabled in
             registry.setEnabled(isEnabled, for: identifier)
+            guard identifier == .timer else { return }
+            if isEnabled {
+                timerControls.showControls()
+            } else {
+                timerControls.hideControlsAndStopTimer()
+            }
         }
 
         registry.startObserving(into: manager)
-        appleClockMirror?.start()
 
         // Applied before the island draws anything, so a Discord call already in
         // progress at launch appears as the call rather than flashing as the
         // microphone indicator first.
-        #if APPSTORE_BUILD
-            let discordIntegration: DiscordIntegration? = nil
-        #else
-            let discordIntegration: DiscordIntegration? = DiscordIntegration(
-                manager: manager,
-                microphoneMonitor: microphoneMonitor,
-                microphoneRecording: microphoneRecording,
-                clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)
-            )
-        #endif
+        let discordIntegration = DiscordIntegration(
+            manager: manager,
+            microphoneMonitor: microphoneMonitor,
+            microphoneRecording: microphoneRecording,
+            clientID: DiscordApplication.builtInClientID(infoDictionary: Bundle.main.infoDictionary)
+        )
         self.discordIntegration = discordIntegration
-        let discordSettings = DiscordSettingsModel(status: discordIntegration?.status ?? .inactive)
+        let discordSettings = DiscordSettingsModel(status: discordIntegration.status)
         _discordSettings = StateObject(wrappedValue: discordSettings)
         _discordPreferences = State(initialValue: settingsStore.discordIntegrationPreferences)
-        discordIntegration?.onStatusChange = { status in
+        discordIntegration.onStatusChange = { status in
             discordSettings.status = status
         }
-        discordIntegration?.apply(settingsStore.discordIntegrationPreferences)
+        discordIntegration.apply(settingsStore.discordIntegrationPreferences)
 
         // The providers are handed in so a press inside the expanded island
         // reaches the backend that owns the state it is about. The presenter
@@ -231,7 +232,7 @@ struct KerNotchApp: App {
             settingsStore: settingsStore,
             musicProvider: musicProvider,
             timerProvider: timerProvider,
-            discordVoice: discordIntegration?.voiceChannelLeaving,
+            discordVoice: discordIntegration.voiceChannelLeaving,
             screenConfigurationSettled: { displays in
                 statusItemPresenter.screenConfigurationDidChange()
                 displayInventory.displays = displays
@@ -600,13 +601,11 @@ struct KerNotchApp: App {
             restartRequired: languageOverride != appliedLanguageOverride,
             onRestart: restartApplication,
             discordPreferences: $discordPreferences,
-            discordSettings: discordIntegration.map { integration in
-                DiscordSettingsState(
-                    isDiscordInstalled: discordSettings.isDiscordInstalled,
-                    isConnectionAvailable: integration.isConnectionAvailable,
-                    status: discordSettings.status
-                )
-            },
+            discordSettings: DiscordSettingsState(
+                isDiscordInstalled: discordSettings.isDiscordInstalled,
+                isConnectionAvailable: discordIntegration.isConnectionAvailable,
+                status: discordSettings.status
+            ),
             onDiscordPreferencesChange: applyDiscordPreferences,
             onDiscordAction: handleDiscordAction
         )
@@ -648,6 +647,7 @@ struct KerNotchApp: App {
             settingsStore.generalPreferences = preferences
             statusItemPresenter.setVisible(preferences.showMenuBarIcon)
             islandPresenter.applyAppearance(preferences.appearance)
+            islandPresenter.applyIslandSize(preferences.islandSize)
             islandPresenter.applyReducedMotion(preferences.reducedMotionOverride)
             islandPresenter.applyDisplayTarget()
         }
@@ -728,17 +728,17 @@ struct KerNotchApp: App {
 
     private func applyDiscordPreferences(_ preferences: DiscordIntegrationPreferences) {
         settingsStore.discordIntegrationPreferences = preferences
-        discordIntegration?.apply(preferences)
+        discordIntegration.apply(preferences)
     }
 
     private func handleDiscordAction(_ action: DiscordSettingsAction) {
         switch action {
         case .connect:
-            discordIntegration?.authorize()
+            discordIntegration.authorize()
         case .disconnect:
-            discordIntegration?.forgetAuthorization()
+            discordIntegration.forgetAuthorization()
         case .reconnect:
-            discordIntegration?.reconnect()
+            discordIntegration.reconnect()
         }
     }
 
@@ -746,7 +746,7 @@ struct KerNotchApp: App {
     /// a timer: the answer only changes when the user installs or removes
     /// Discord, and both happen outside KerNotch.
     private func refreshDiscordInstallation() {
-        discordSettings.isDiscordInstalled = discordIntegration?.isDiscordInstalled ?? false
+        discordSettings.isDiscordInstalled = discordIntegration.isDiscordInstalled
     }
 
     private func handleHookAction(_ agentID: IPCAgentID, _ action: AIHookAction) {
@@ -927,18 +927,18 @@ private final class StatusItemPresenter: NSObject {
     /// Named explicitly so Control Center tracks one stable host identity across
     /// launches instead of a derived `Item-N` that shifts as scenes come and go.
     private static let statusItemAutosaveName = "KerNotchMenuBarItem"
-    private static let timerPresets: [(minutes: Int, title: String)] = [
-        (5, String(localized: "Start 5-Minute Timer")),
-        (10, String(localized: "Start 10-Minute Timer")),
-        (25, String(localized: "Start 25-Minute Timer")),
-    ]
 
-    private let timerProvider: TimerProvider
+    private let timerControls: TimerMenuControls
     private let openSettings: () -> Void
     private var statusItem: NSStatusItem?
 
-    init(timerProvider: TimerProvider, openSettings: @escaping () -> Void) {
-        self.timerProvider = timerProvider
+    /// Built once and handed to every status item this presenter adds. A menu
+    /// item belongs to one menu at a time, so rebuilding the menu on a re-add
+    /// would try to insert the timer items into a second menu.
+    private lazy var menu = makeMenu()
+
+    init(timerControls: TimerMenuControls, openSettings: @escaping () -> Void) {
+        self.timerControls = timerControls
         self.openSettings = openSettings
         super.init()
     }
@@ -1015,7 +1015,7 @@ private final class StatusItemPresenter: NSObject {
         button.imagePosition = .imageOnly
         button.setAccessibilityLabel("KerNotch")
         button.toolTip = "KerNotch"
-        statusItem.menu = makeMenu()
+        statusItem.menu = menu
         statusItem.isVisible = true
         self.statusItem = statusItem
     }
@@ -1035,23 +1035,9 @@ private final class StatusItemPresenter: NSObject {
 
     private func makeMenu() -> NSMenu {
         let menu = NSMenu()
-        for preset in Self.timerPresets {
-            let item = NSMenuItem(
-                title: preset.title,
-                action: #selector(startTimer(_:)),
-                keyEquivalent: ""
-            )
-            item.tag = preset.minutes
-            item.target = self
+        for item in timerControls.items {
             menu.addItem(item)
         }
-
-        menu.addItem(
-            menuItem(
-                title: String(localized: "Stop Timer"),
-                action: #selector(stopTimer)
-            ))
-        menu.addItem(.separator())
 
         let settingsItem = menuItem(
             title: String(localized: "Settings…"),
@@ -1076,16 +1062,6 @@ private final class StatusItemPresenter: NSObject {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
         return item
-    }
-
-    @objc private func startTimer(_ sender: NSMenuItem) {
-        timerProvider.handle(
-            .start(.countdown(duration: .seconds(sender.tag * 60)))
-        )
-    }
-
-    @objc private func stopTimer() {
-        timerProvider.handle(.stop)
     }
 
     @objc private func showSettings() {

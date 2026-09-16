@@ -327,6 +327,22 @@
           }
         }
       }
+    },
+    "Minimalist" : {
+      "comment" : "General pane, Island size picker: the compact expanded island.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Minimalist" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Minimalist" } }
+      }
+    },
+    "Large" : {
+      "comment" : "General pane, Island size picker: the wider expanded island with larger text and controls.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Large" } },
+        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Büyük" } }
+      }
     }
   },
   "version" : "1.0"

@@ -2,8 +2,8 @@ import KerNotchCore
 import ServiceManagement
 import SwiftUI
 
-/// The General pane: display target, menu bar visibility, launch at login,
-/// appearance, and reduced motion.
+/// The General pane: display target, island size, menu bar visibility, launch
+/// at login, appearance, and reduced motion.
 ///
 /// Like the AI Integrations pane, it owns no state — it edits the binding the
 /// composition root hands it, so the window and the store never hold two
@@ -82,6 +82,13 @@ public struct GeneralSettingsView: View {
         )
     }
 
+    public var islandSize: Binding<IslandSize> {
+        Binding(
+            get: { preferences.islandSize },
+            set: { preferences.islandSize = $0 }
+        )
+    }
+
     public var menuBarIconVisibility: Binding<Bool> {
         Binding(
             get: { preferences.showMenuBarIcon },
@@ -108,6 +115,8 @@ public struct GeneralSettingsView: View {
         VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
             displaySection
             Divider()
+            islandSection
+            Divider()
             appearanceSection
             Divider()
             startupSection
@@ -126,6 +135,20 @@ public struct GeneralSettingsView: View {
             Picker(localized("Show the island on"), selection: displayTarget) {
                 ForEach(displayOptions, id: \.self) { option in
                     Text(title(for: option)).tag(option)
+                }
+            }
+        }
+    }
+
+    private var islandSection: some View {
+        SettingsSection(
+            title: localized("Island"),
+            caption: localized("Large widens the island that opens on hover and enlarges its text and controls."),
+            metrics: metrics
+        ) {
+            Picker(localized("Island size"), selection: islandSize) {
+                ForEach(IslandSize.allCases, id: \.self) { size in
+                    Text(size.displayName).tag(size)
                 }
             }
         }
