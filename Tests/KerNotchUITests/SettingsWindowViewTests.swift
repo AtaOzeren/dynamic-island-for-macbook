@@ -91,11 +91,22 @@ struct SettingsWindowViewTests {
         view.launchAtLogin.wrappedValue = true
         view.menuBarIconVisibility.wrappedValue = false
         view.appearance.wrappedValue = .dark
+        view.islandSize.wrappedValue = .large
 
         #expect(box.value.displayTarget == .named("Studio Display"))
         #expect(box.value.launchAtLogin)
         #expect(box.value.showMenuBarIcon == false)
         #expect(box.value.appearance == .dark)
+        #expect(box.value.islandSize == .large)
+    }
+
+    @Test("the island size picker starts on the minimalist island")
+    func islandSizeDefaultsToMinimalist() {
+        let box = Box(GeneralPreferences.default)
+        let view = GeneralSettingsView(preferences: box.binding, availableDisplays: [])
+
+        #expect(view.islandSize.wrappedValue == .minimalist)
+        #expect(IslandSize.allCases == [.minimalist, .large])
     }
 
     @Test("the General restart control delegates one restart request")

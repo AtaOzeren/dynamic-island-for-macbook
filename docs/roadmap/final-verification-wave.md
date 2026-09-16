@@ -13,9 +13,9 @@ The plan's verification strategy collects every `HW`-tier item into this wave an
 
 ## Todos
 
-### F1. Full clean build of both configurations from a fresh checkout
+### F1. Full clean build from a fresh checkout
 
-Clone into a clean directory, build `AppStore` and `Direct`, and run all guards and lints. Assert zero warnings in the app targets.
+Clone into a clean directory, build `Debug` and `Release`, and run all guards and lints. Assert zero warnings in the app targets.
 
 - **Evidence:** `.omo/evidence/final-F1-kernotch-v1.log`
 
@@ -63,13 +63,13 @@ Run the todo 66 script with every provider enabled and no activity, for the full
 
 ### F9. Privacy and entitlement audit
 
-Inspect the effective entitlements of both built binaries; assert they match [docs/09](../09-security-privacy-permissions.md) exactly with nothing extra. Confirm no network connection other than the loopback listener occurs during a full session, using a network monitor.
+Inspect the effective entitlements of the signed `Release` binary; assert they match [docs/09](../09-security-privacy-permissions.md) exactly with nothing extra. Confirm no network connection other than those docs/09 lists — the loopback listener, the opt-in Discord integration, and Spotify artwork downloads — occurs during a full session, using a network monitor.
 
 - **Evidence:** `.omo/evidence/final-F9-kernotch-v1/`
 
 ### F10. Scope and guardrail audit
 
-Confirm every Must-have is present and every Must-NOT-have is absent: no MediaRemote symbol in the App Store build, no polling loop, no screen scraping, no third-party runtime dependency, no deferred feature partially implemented, no undocumented setting.
+Confirm every Must-have is present and every Must-NOT-have is absent: the MediaRemote backend present in the `Release` build and selected only before macOS 15.4, no polling loop, no screen scraping, no third-party runtime dependency, no deferred feature partially implemented, no undocumented setting.
 
 - **Evidence:** `.omo/evidence/final-F10-kernotch-v1.txt`
 

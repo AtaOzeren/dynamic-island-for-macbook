@@ -44,6 +44,18 @@ struct TurkishLocalizationTests {
         }
     }
 
+    @Test("the island size control is fully Turkish")
+    func islandSizeSettingIsTurkish() throws {
+        try withTurkishBundle(for: "Sources/KerNotchUI/Resources/Localizable.xcstrings") { bundle in
+            #expect(bundle.localizedString(forKey: "Island", value: nil, table: nil) == "Ada")
+            #expect(bundle.localizedString(forKey: "Island size", value: nil, table: nil) == "Ada boyutu")
+        }
+        try withTurkishBundle(for: "Sources/KerNotchCore/Resources/Localizable.xcstrings") { bundle in
+            #expect(bundle.localizedString(forKey: "Minimalist", value: nil, table: nil) == "Minimalist")
+            #expect(bundle.localizedString(forKey: "Large", value: nil, table: nil) == "Büyük")
+        }
+    }
+
     @Test("the General multi-display control is fully Turkish")
     func generalMultiDisplaySettingIsTurkish() throws {
         let expectedTranslations = [
@@ -158,10 +170,11 @@ struct TurkishLocalizationTests {
     /// A key whose Turkish is byte-identical to its English is the shape an
     /// untranslated placeholder takes: present, resolvable, and still English.
     /// The exceptions are brand names and format-only strings, which have no
-    /// words to translate.
+    /// words to translate, and loanwords Turkish spells exactly as English does.
     private static let untranslatableKeys: Set<String> = [
         "KerNotch",
         "Discord",
+        "Minimalist",
         "activity.accessibility.headlineAndDetail",
         "activity.ai.blockedFootnote",
         "activity.ai.compactTitle",

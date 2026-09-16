@@ -7,10 +7,10 @@ import unittest
 from pathlib import Path
 
 
-SCRIPT_PATH = Path(__file__).parents[1] / "package-direct.sh"
+SCRIPT_PATH = Path(__file__).parents[1] / "package-release.sh"
 
 
-class DirectPackagingTests(unittest.TestCase):
+class ReleasePackagingTests(unittest.TestCase):
     def setUp(self):
         self.temporary_directory = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary_directory.name)
@@ -27,14 +27,13 @@ class DirectPackagingTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = self.command_log.read_text(encoding="utf-8")
-        self.assertIn('-scheme KerNotch (Direct)', commands)
-        self.assertIn("-configuration Direct", commands)
+        self.assertIn("-scheme KerNotch -configuration Release", commands)
         self.assertIn("-derivedDataPath", commands)
         self.assertIn("CODE_SIGNING_ALLOWED=NO clean build", commands)
         self.assertIn(
             "codesign --force --deep --options runtime --entitlements ", commands
         )
-        self.assertIn("KerNotch-Direct.entitlements --sign -", commands)
+        self.assertIn("KerNotch.entitlements --sign -", commands)
         self.assertIn("hdiutil create -volname KerNotch -format UDZO", commands)
         self.assertIn("SKIPPED (no membership): Developer ID signing", result.stdout)
         self.assertIn("SKIPPED: notarization", result.stdout)
@@ -45,8 +44,8 @@ class DirectPackagingTests(unittest.TestCase):
         self.assertTrue((stage_directory / "Applications").is_symlink())
         self.assertEqual(os.readlink(stage_directory / "Applications"), "/Applications")
 
-        disk_image = self.root / "dist" / "KerNotch-1.2.3-direct.dmg"
-        checksum = self.root / "dist" / "KerNotch-1.2.3-direct.dmg.sha256"
+        disk_image = self.root / "dist" / "KerNotch-1.2.3.dmg"
+        checksum = self.root / "dist" / "KerNotch-1.2.3.dmg.sha256"
         self.assertTrue(disk_image.is_file())
         self.assertIn(disk_image.name, checksum.read_text(encoding="utf-8"))
 
@@ -65,7 +64,7 @@ class DirectPackagingTests(unittest.TestCase):
             commands,
         )
         self.assertIn(
-            "KerNotch-Direct.entitlements --timestamp --sign "
+            "KerNotch.entitlements --timestamp --sign "
             "Developer ID Application: Example (TEAMID)",
             commands,
         )
@@ -101,19 +100,19 @@ class DirectPackagingTests(unittest.TestCase):
             info_plist["CFBundleShortVersionString"], "$(MARKETING_VERSION)"
         )
         self.assertEqual(info_plist["CFBundleVersion"], "$(CURRENT_PROJECT_VERSION)")
-        self.assertEqual(project_settings.count("MARKETING_VERSION = 1.0.0;"), 4)
-        self.assertEqual(project_settings.count("CURRENT_PROJECT_VERSION = 1;"), 4)
+        self.assertEqual(project_settings.count("MARKETING_VERSION = 1.0.0;"), 2)
+        self.assertEqual(project_settings.count("CURRENT_PROJECT_VERSION = 1;"), 2)
 
-    def test_release_workflow_uses_the_direct_packaging_pipeline(self):
+    def test_release_workflow_uses_the_release_packaging_pipeline(self):
         workflow = (
             SCRIPT_PATH.parents[1] / ".github" / "workflows" / "release.yml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("run: ./scripts/package-direct.sh", workflow)
+        self.assertIn("run: ./scripts/package-release.sh", workflow)
         self.assertIn("security import", workflow)
         self.assertIn("xcrun notarytool store-credentials", workflow)
-        self.assertIn("KerNotch-*-direct.dmg", workflow)
-        self.assertNotIn("KerNotch-$RELEASE_TAG-direct.zip", workflow)
+        self.assertIn("KerNotch-*.dmg", workflow)
+        self.assertNotIn("-direct", workflow)
 
     def test_ci_ad_hoc_mode_does_not_require_membership_secrets(self):
         result = self._run_script(
@@ -174,7 +173,7 @@ class DirectPackagingTests(unittest.TestCase):
                 fi
                 shift
             done
-            app="$derived_data/Build/Products/Direct/KerNotch.app"
+            app="$derived_data/Build/Products/Release/KerNotch.app"
             mkdir -p "$app/Contents/MacOS"
             printf '#!/bin/bash\n' > "$app/Contents/MacOS/KerNotch"
             chmod +x "$app/Contents/MacOS/KerNotch"
