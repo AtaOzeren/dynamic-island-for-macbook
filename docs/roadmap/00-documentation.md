@@ -7,7 +7,7 @@
 
 ## What this phase delivers
 
-The complete pre-implementation specification: the `docs/README.md` index plus fifteen numbered documents, one per todo. Together they fix the product scope (`00`, `13`), the architecture and its dependency rule (`01`), the measurable idle-cost budget (`02`), notch detection and display selection (`03`), the overlay panel (`04`), the activity model and its providers (`05`, `06`), the AI status protocol (`07`), the settings surface and localization rules (`08`), the privacy stance and entitlements (`09`), the dual build and release pipeline (`10`), the testing strategy (`11`), the API feasibility research record (`12`), and the shared vocabulary and conventions (`14`).
+The complete pre-implementation specification: the `docs/README.md` index plus fifteen numbered documents, one per todo. Together they fix the product scope (`00`, `13`), the architecture and its dependency rule (`01`), the measurable idle-cost budget (`02`), notch detection and display selection (`03`), the overlay panel (`04`), the activity model and its providers (`05`, `06`), the AI status protocol (`07`), the settings surface and localization rules (`08`), the privacy stance and entitlements (`09`), the single notarized build and its release pipeline (`10`), the testing strategy (`11`), the API feasibility research record (`12`), and the shared vocabulary and conventions (`14`).
 
 The plan's execution strategy shapes this wave: fully parallel, sixteen independent files, no code dependency, no ordering between todos. Nothing here is code. Every file is a contract that later todos either implement (the geometry formula, the `Activity` protocol, the IPC schema) or enforce (the dependency rule, the performance numbers, the naming rules). Every todo's QA is a CI-tier structural check: file counts, link resolution, keyword greps, table-shape assertions.
 
@@ -15,7 +15,7 @@ The plan's execution strategy shapes this wave: fully parallel, sixteen independ
 
 ### 1. Create `docs/README.md` as the documentation index
 
-The tagline, the statement that this folder is a pre-implementation design specification containing no code, a table of contents linking all fifteen documents with a one-line description each, and the "five decisions everything depends on": dual distribution from one codebase, the split music provider and why the App Store build cannot contain MediaRemote, idle means genuinely idle, the screen is never looked at, and AI status as the differentiator with no model ever running in KerNotch. Plus a pointer to the executable plan, the MIT note, and the naming note that Apple marks are not used.
+The tagline, the statement that this folder is a pre-implementation design specification containing no code, a table of contents linking all fifteen documents with a one-line description each, and the "five decisions everything depends on": one notarized build from one codebase, distributed as a `.dmg` and a Homebrew Cask; the music provider chosen by macOS release; idle means genuinely idle; the screen is never looked at; and AI status as the differentiator with no model ever running in KerNotch. Plus a pointer to the executable plan, the MIT note, and the naming note that Apple marks are not used.
 
 - **Acceptance:** File exists; all fifteen sibling documents are linked and every link resolves.
 - **QA (CI):** Count of `docs/*.md` (the index plus fifteen documents) and a link-check script resolving every relative link in `docs/README.md`, non-zero exit on any miss. Evidence: `.omo/evidence/task-1-kernotch-v1.txt`.
@@ -71,15 +71,15 @@ The `Activity` protocol in full: identity, kind, priority, lifecycle, compact an
 
 ### 8. Create `docs/06-activity-providers.md`
 
-One section per V1 provider, each stating the event source, exact API, permission needs, produced activity, priority, update cadence, teardown, and CI-vs-hardware verifiability. Music gets the longest section: the `MusicProvider` protocol, `AppleScriptMusicProvider` for the App Store build (ScriptingBridge plus distributed notifications, with the honest limitation on browser audio), `MediaRemoteMusicProvider` for the Direct build (dynamically resolved, never linked), compile-time selection, and the prohibition on any MediaRemote symbol in the App Store binary (Guideline 2.5.1). Timer/stopwatch owns the only repeating tick and only while visible. Screen and audio recording state what is honestly detectable. Charging uses IOKit with the never-display-a-persistent-percentage rule. Closes with the provider × build configuration table.
+One section per V1 provider, each stating the event source, exact API, permission needs, produced activity, priority, update cadence, teardown, and CI-vs-hardware verifiability. Music gets the longest section: the `MusicProvider` protocol, `AppleScriptMusicProvider` for macOS 15.4 and later (ScriptingBridge plus distributed notifications, with the honest limitation on browser audio), `MediaRemoteMusicProvider` for earlier releases (dynamically resolved, never linked), runtime selection by macOS release, and the guards that keep the MediaRemote backend in the build. Timer/stopwatch owns the only repeating tick and only while visible. Screen and audio recording state what is honestly detectable. Charging uses IOKit with the never-display-a-persistent-percentage rule. Closes with the provider × macOS release table.
 
-- **Acceptance:** The music section states the App Store constraint and its guideline; every provider has a permission line, even "none".
-- **QA (CI):** Document contains a section per provider and the string "2.5.1"; a script asserts the provider × build table has a row per provider. Evidence: `.omo/evidence/task-8-kernotch-v1.txt`.
+- **Acceptance:** The music section states the macOS 15.4 `MediaRemote` restriction and how the backend is selected; every provider has a permission line, even "none".
+- **QA (CI):** Document contains a section per provider and the string "15.4"; a script asserts the provider × macOS release table has a row per provider. Evidence: `.omo/evidence/task-8-kernotch-v1.txt`.
 - **Commit:** `docs(providers): specify V1 activity providers and the music split`
 
 ### 9. Create `docs/07-ai-integration.md`
 
-The design principle first: KerNotch is a status surface, runs no model, holds no API key, never reads the screen. The seven-state agent state machine (idle, thinking, working, using tool, waiting for user, completed, error) with legal transitions and renderings. The versioned IPC contract: message envelope, JSON schema, and two transports (a custom URL scheme via `open -g`, and a loopback HTTP listener on an ephemeral port), with preference order and the loopback security rules (validation, rate limit, size limit, per-agent opt-in). Per-agent sections for Claude Code hooks, Codex CLI notify, and OpenCode plugins with the exact snippets generated. The consent-based hook installer UX with backup and uninstall, the sandbox difference (manual copy-paste in App Store vs direct write in Direct), the privacy statement, and why agents with no public status hook are not in V1.
+The design principle first: KerNotch is a status surface, runs no model, holds no API key, never reads the screen. The seven-state agent state machine (idle, thinking, working, using tool, waiting for user, completed, error) with legal transitions and renderings. The versioned IPC contract: message envelope, JSON schema, and two transports (a custom URL scheme via `open -g`, and a loopback HTTP listener on an ephemeral port), with preference order and the loopback security rules (validation, rate limit, size limit, per-agent opt-in). Per-agent sections for Claude Code hooks, Codex CLI notify, and OpenCode plugins with the exact snippets generated. The consent-based hook installer UX with backup and uninstall, the manual-setup fallback (a copyable snippet when the user declines the write), the privacy statement, and why agents with no public status hook are not in V1.
 
 - **Acceptance:** The message schema is fully specified with every field typed; the consent-before-writing rule is unambiguous.
 - **QA (CI):** Document contains a JSON schema block, the seven state names, and the three agent sections. Evidence: `.omo/evidence/task-9-kernotch-v1.txt`.
@@ -95,17 +95,17 @@ The complete settings surface as a table (setting, type, default, persistence ke
 
 ### 11. Create `docs/09-security-privacy-permissions.md`
 
-The privacy stance up front: nothing collected, nothing sent off-device, no analytics, the only socket is loopback. The entitlements table per build configuration with justification and user-visible consequence for each row, plus the explicit not-requested list: no camera, no microphone recording, no screen recording, no Accessibility, no full disk access, no contacts, no location. Nothing is requested at launch; permissions are asked lazily with a plain-language explanation before the system prompt, and every feature degrades gracefully when denied. Verbatim purpose strings in English and Turkish, the loopback threat model and mitigations, the hook-installer trust model (consent, visible diff, backup, full uninstall), the data-at-rest statement, and the privacy-policy text reused for App Store Connect.
+The privacy stance up front: nothing collected, nothing sent off-device, no analytics, the only socket is loopback. The entitlements table with justification and user-visible consequence for each row, plus the explicit not-requested list: no camera, no microphone recording, no screen recording, no Accessibility, no full disk access, no contacts, no location. Nothing is requested at launch; permissions are asked lazily with a plain-language explanation before the system prompt, and every feature degrades gracefully when denied. Verbatim purpose strings in English and Turkish, the loopback threat model and mitigations, the hook-installer trust model (consent, visible diff, backup, full uninstall), the data-at-rest statement, and the privacy-policy text reused for the published policy.
 
-- **Acceptance:** Every entitlement in either build appears with a justification; the not-requested list is present.
-- **QA (CI):** Document contains the per-build entitlements table, the not-requested list, and the verbatim purpose strings. Evidence: `.omo/evidence/task-11-kernotch-v1.txt`.
+- **Acceptance:** Every declared entitlement appears with a justification; the not-requested list is present.
+- **QA (CI):** Document contains the entitlements table, the not-requested list, and the verbatim purpose strings. Evidence: `.omo/evidence/task-11-kernotch-v1.txt`.
 - **Commit:** `docs(security): specify entitlements, permissions and threat model`
 
 ### 12. Create `docs/10-build-and-distribution.md`
 
-The two configurations side by side: `AppStore` (sandboxed, no private frameworks, AppleScript music provider, IPC-only AI) and `Direct` (Developer ID signed and notarized, MediaRemote music provider, `.dmg` on GitHub Releases, Homebrew Cask). How the split is implemented (build configurations, Swift compilation conditions, per-configuration entitlements, separate schemes, the forbidden-symbol build guard), version and build-number policy, the App Store pipeline including privacy label answers and review notes, the Direct pipeline through `notarytool` and stapling, and the blocked-on-membership note marking every signing and submission step gated on the Apple Developer Program while local development continues with ad-hoc signing. Plus a signing and notarization troubleshooting section.
+The one build: Developer ID signed and notarized under the hardened runtime, not sandboxed, music provider chosen by macOS release, distributed as a `.dmg` on GitHub Releases (later also the project website) and a Homebrew Cask. The `KerNotch` scheme with its `Debug` and `Release` configurations and single entitlements file, the CI checks (including the music backend and MediaRemote-linked guards), version and build-number policy, the release pipeline through `notarytool` and stapling, and the blocked-on-membership note marking every signing and submission step gated on the Apple Developer Program while local development continues with ad-hoc signing. Plus a signing and notarization troubleshooting section.
 
-- **Acceptance:** The forbidden-symbol guard is specified concretely enough to implement; every paid-membership step is marked.
+- **Acceptance:** The CI guards are specified concretely enough to implement; every paid-membership step is marked.
 - **QA (CI):** Script asserts at least three steps are marked as membership-gated. Evidence: `.omo/evidence/task-12-kernotch-v1.txt`.
 - **Commit:** `docs(distribution): specify dual build and release pipelines`
 
@@ -119,7 +119,7 @@ The TDD boundary stated precisely: mandatory for `KerNotchCore` and every pure f
 
 ### 14. Create `docs/12-api-feasibility-matrix.md`
 
-The research record, so settled questions stay settled: one row per needed capability with the API, minimum macOS version, public or private, entitlement, sandbox behavior, Direct-build behavior, and a source link, covering every system touch point from notch detection through loopback listening. Each row ends in one of four verdicts: public API, feasible only unsandboxed, sandbox-blocked, or impossible. Contested rows get an evidence paragraph, especially why MediaRemote cannot ship in the App Store build, why incoming calls are impossible on macOS, and why AirDrop and transfer progress are not observable. A dated "as researched" header with an instruction to re-verify rows older than a year.
+The research record, so settled questions stay settled: one row per needed capability with the API, minimum macOS version, public or private, entitlement, whether it works in KerNotch's build, and a source link, covering every system touch point from notch detection through loopback listening. Each row ends in one of four verdicts: public API, private or undocumented API, third-party API, or impossible. Contested rows get an evidence paragraph, especially why MediaRemote is used only before macOS 15.4, why incoming calls are impossible on macOS, and why AirDrop and transfer progress are not observable. A dated "as researched" header with an instruction to re-verify rows older than a year.
 
 - **Acceptance:** Every capability referenced anywhere in `docs/` appears as a row; every row has a verdict and a source.
 - **QA (CI):** Script asserts at least twenty rows and that every verdict cell matches one of the four allowed verdicts. Evidence: `.omo/evidence/task-14-kernotch-v1.txt`.
@@ -135,7 +135,7 @@ The standing note that postponed is not cancelled. One section per deferred item
 
 ### 16. Create `docs/14-glossary-and-conventions.md`
 
-One vocabulary for code and docs: island, notch, compact, expanded, activity, provider, agent, session, slot, overflow. Product naming rules: KerNotch everywhere, Apple's marks never in the product name, bundle identifier, or App Store metadata, and how to refer to the concept in prose. Code conventions: Swift API design guidelines, the lint and format configuration summary, one type per file, the file-length policy, internal-by-default access control, the comment policy (why, never what or when; history belongs in git), and the Swift 6 concurrency hop pattern. Git conventions: Conventional Commits with the type list, branch naming, the pull-request checklist. Documentation conventions, including the rule that a code change contradicting a document updates the document in the same commit.
+One vocabulary for code and docs: island, notch, compact, expanded, activity, provider, agent, session, slot, overflow. Product naming rules: KerNotch everywhere, Apple's marks never in the product name, bundle identifier, or the name KerNotch is published under, and how to refer to the concept in prose. Code conventions: Swift API design guidelines, the lint and format configuration summary, one type per file, the file-length policy, internal-by-default access control, the comment policy (why, never what or when; history belongs in git), and the Swift 6 concurrency hop pattern. Git conventions: Conventional Commits with the type list, branch naming, the pull-request checklist. Documentation conventions, including the rule that a code change contradicting a document updates the document in the same commit.
 
 - **Acceptance:** The commit convention matches the one used by every todo in the plan; the comment policy is stated.
 - **QA (CI):** Document contains the Conventional Commits type list and the naming prohibition. Evidence: `.omo/evidence/task-16-kernotch-v1.txt`.
@@ -151,7 +151,7 @@ Still re-runnable today:
 
 ```
 ls docs/*.md | wc -l        # 16: the index plus fifteen documents
-grep -c "2.5.1" docs/06-activity-providers.md
+grep -c "15.4" docs/06-activity-providers.md
 grep -c "xcstrings" docs/08-settings-and-localization.md
 ```
 

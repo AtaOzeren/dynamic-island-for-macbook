@@ -6,65 +6,64 @@ Each provider is a single type implementing the `Activity` protocol (`05-activit
 
 ## Music
 
-Music is the longest section here because it is the one provider that does not exist as a single implementation: the App Store's sandbox rules make it impossible to ship the same music-observation code in both build configurations, so V1 ships two interchangeable providers behind one protocol, selected at compile time. See `10-build-and-distribution.md` for the full build-configuration mechanism this section relies on.
+Music is the longest section here because it is the one provider that does not exist as a single implementation: macOS 15.4 restricted `MediaRemote` now-playing metadata to Apple-signed processes, so KerNotch carries two interchangeable providers behind one protocol and picks one at launch for the running macOS release. Both are compiled into the one build described in `10-build-and-distribution.md`.
 
 ### The `MusicProvider` protocol
 
-`KerNotchProviders` defines a `MusicProvider` protocol independent of the `Activity` protocol itself — it is the seam between "however we learn about now-playing" and "how we turn that into a `MusicActivity`". Exactly one concrete conformance is compiled into any given build:
+`KerNotchProviders` defines a `MusicProvider` protocol independent of the `Activity` protocol itself — it is the seam between "however we learn about now-playing" and "how we turn that into a `MusicActivity`". Exactly one concrete conformance is instantiated per launch:
 
-| Conformance | Build | Mechanism |
-|---|---|---|
-| `AppleScriptMusicProvider` | `AppStore` | ScriptingBridge to Spotify.app and Music.app |
-| `MediaRemoteMusicProvider` | `Direct` | The system-wide `MediaRemote` private framework |
+| Conformance | macOS release | Mechanism | Lives in |
+|---|---|---|---|
+| `AppleScriptMusicProvider` | 15.4 and later | ScriptingBridge to Spotify.app and Music.app | `KerNotchProviders` |
+| `MediaRemoteMusicProvider` | Before 15.4 | The system-wide `MediaRemote` private framework | `KerNotch` app target |
 
-### `AppleScriptMusicProvider` (App Store build)
+### `AppleScriptMusicProvider` (macOS 15.4 and later)
 
 - **Event source:** Distributed notifications that Spotify and Music.app post on track change and play-state change (`com.spotify.client.PlaybackStateChanged`, `com.apple.Music.playerInfo`), observed via `DistributedNotificationCenter`. The notification payload carries enough to know *something* changed but not always the full up-to-date state, so the provider treats it as a wake-up signal.
-- **Exact API:** On receiving a distributed notification, the provider queries the app's current state through ScriptingBridge-generated interfaces (`SpotifyApplication`, `MusicApplication` from each app's `.sdef`) for track name, artist, and player state. Transport control (play/pause, next/previous) is sent back the same way, as an AppleScript/ScriptingBridge call against the active app.
-- **Permission or entitlement:** `com.apple.security.scripting-targets` entitlement, scoped to `com.spotify.client` and `com.apple.Music`, declared in `KerNotch-AppStore.entitlements`. The user sees a one-time Apple Events automation prompt per target app on first control attempt; no separate KerNotch-specific permission screen is needed.
+- **Exact API:** On receiving a distributed notification, the provider queries the app's current state through ScriptingBridge-generated interfaces (`SpotifyApplication`, `MusicApplication` from each app's `.sdef`) for track name, artist, and player state. Transport control (play/pause, next/previous) is sent back the same way, as an AppleScript/ScriptingBridge call against the active app. Artwork comes from Music.app's track artwork data, and from the HTTPS `artworkUrl` Spotify reports for the current track.
+- **Permission or entitlement:** The `com.apple.security.automation.apple-events` entitlement in `KerNotch.entitlements` — without it the hardened runtime refuses to send Apple Events at all — plus the `NSAppleEventsUsageDescription` purpose string. macOS asks for Apple Events consent once per target app (`com.spotify.client`, `com.apple.Music`); `MusicAutomationGate` shows KerNotch's own explanation before that prompt, and the Activities pane shows one permission row per target app. No separate KerNotch-specific permission screen is needed.
 - **Activity produced:** `MusicActivity` with track title, artist, and play/pause state; `kind = .music`.
 - **Priority:** `low` (see the V1 priority table in `05-activity-model.md`) — music never forces the panel visible on its own account and stays visible only as long as something is playing.
 - **Update cadence:** Purely event-driven, bounded by how often Spotify/Music post their distributed notifications (on track change and play/pause, not on a timer). No polling of player state at any interval.
 - **Teardown:** The provider calls `end()` on the current `MusicActivity` when it observes a "stopped" player state, or when both target apps are no longer running.
 - **CI-vs-hardware verifiability:** The ScriptingBridge call surface can be unit-tested in CI behind a protocol seam (a fake conforming to the same Objective-C interface), but the actual round-trip against a real Spotify/Music.app instance and the Apple Events consent prompt can only be exercised on real hardware with those apps installed.
-- **Honest limitation:** Only Spotify and Apple Music are observable this way. YouTube Music, browser-tab audio (Chrome, Safari), and any other player that does not post the two specific distributed notifications above are invisible to this provider. This is a real, user-facing capability gap versus the Direct build, not a bug to be silently patched — see "communicating reduced capability" below.
+- **Honest limitation:** Only Spotify and Apple Music are observable this way. YouTube Music, browser-tab audio (Chrome, Safari), and any other player that does not post the two specific distributed notifications above are invisible to this provider. This is a real, user-facing capability gap on macOS 15.4 and later, not a bug to be silently patched — see "coverage by macOS release" below.
 
-### `MediaRemoteMusicProvider` (Direct build)
+### `MediaRemoteMusicProvider` (before macOS 15.4)
 
 - **Event source:** The system's private `MediaRemote` framework, which aggregates now-playing state across every app that participates in Control Center / media-key routing — Spotify, Apple Music, YouTube Music (web or app), browser tabs, anything.
-- **Exact API:** `MediaRemote`'s now-playing notification callback (`MRMediaRemoteRegisterForNowPlayingNotifications`) delivered on a `MediaRemote`-owned queue, and its info dictionary getter (`MRMediaRemoteGetNowPlayingInfo`) for track metadata. Because `MediaRemote` is a private framework, every symbol is resolved dynamically at runtime via `dlopen`/`dlsym` against the framework path — **the symbol table is never linked at compile time**, so no `MediaRemote` or `MRMediaRemote` string appears in the binary's import table even in the Direct build. Transport control uses the corresponding `MediaRemote` command-sending function.
-- **Permission or entitlement:** None. `MediaRemote` now-playing observation requires no user-facing permission prompt and no entitlement; the Direct build is unsandboxed, so there is no App Sandbox restriction to satisfy either.
+- **Exact API:** `MediaRemoteNowPlayingBridge` (`KerNotch/SystemNowPlayingBridge+MediaRemote.swift`) registers with `MRMediaRemoteRegisterForNowPlayingNotifications`, observes the now-playing change notifications `MediaRemote` then posts, and reads track metadata with `MRMediaRemoteGetNowPlayingInfo` and play state with `MRMediaRemoteGetNowPlayingApplicationPlaybackState`. Because `MediaRemote` is a private framework, every symbol is resolved at runtime via `dlopen`/`dlsym` against the framework path; the framework is never linked at compile time. Transport control uses `MRMediaRemoteSendCommand`.
+- **Permission or entitlement:** None. `MediaRemote` now-playing observation requires no user-facing permission prompt and no entitlement, and this backend sends no Apple Events.
 - **Activity produced:** The same `MusicActivity` shape as `AppleScriptMusicProvider` — track title, artist, play/pause state, `kind = .music`. `KerNotchUI` renders one music view regardless of which provider is behind it.
-- **Priority:** `low`, identical to the App Store conformance — the `Activity` protocol and the priority table make provider identity invisible above `KerNotchProviders`.
-- **Update cadence:** Purely event-driven — `MediaRemote` calls back only on an actual now-playing state change, no polling.
+- **Priority:** `low`, identical to the ScriptingBridge conformance — the `Activity` protocol and the priority table make provider identity invisible above the provider layer.
+- **Update cadence:** Purely event-driven — `MediaRemote` notifies only on an actual now-playing state change, no polling.
 - **Teardown:** The provider calls `end()` on the current `MusicActivity` when `MediaRemote` reports an empty now-playing state (nothing playing anywhere on the system).
-- **CI-vs-hardware verifiability:** The `dlopen`/`dlsym` resolution and the now-playing callback wiring can only be exercised on real hardware running the Direct build; CI can unit-test the `MusicActivity` construction logic against a fake `MediaRemote` info dictionary, but not the dynamic symbol resolution itself.
+- **CI-vs-hardware verifiability:** The `dlopen`/`dlsym` resolution and the now-playing notification wiring can only be exercised on real hardware running a macOS release before 15.4; CI can unit-test the `MusicActivity` construction logic against a fake bridge snapshot, but not the dynamic symbol resolution itself.
 
-### The compile-time selection mechanism
+### The runtime selection mechanism
 
-`KerNotchProviders` selects the conformance with a Swift compilation condition, matching the two build configurations described in `10-build-and-distribution.md`:
+`makeMusicProvider(gate:)` in `KerNotch/MusicBackend.swift` selects the conformance with an availability check:
 
 ```swift
-#if APPSTORE_BUILD
-let musicProvider: MusicProvider = AppleScriptMusicProvider()
-#elseif DIRECT_BUILD
-let musicProvider: MusicProvider = MediaRemoteMusicProvider()
-#endif
+if #available(macOS 15.4, *) {
+    AppleScriptMusicProvider(gate: gate, artworkLoader: URLSessionArtworkDataLoader())
+} else {
+    MediaRemoteMusicProvider()
+}
 ```
 
-This is a compile-time branch, not a runtime `if`. The `AppStore` scheme's build settings define `APPSTORE_BUILD` and omit any reference to `MediaRemoteMusicProvider.swift` from the target membership for that configuration where feasible; where a single target must contain both files, the `#if` guard above ensures `MediaRemoteMusicProvider`'s body — including every `dlsym` string literal — is stripped by the compiler before the App Store binary is produced.
+This is a runtime branch, not a compile-time one: both providers are in every build, and the running macOS release decides. `makeMusicAutomationAccess(gate:)` sits beside it and answers from the same check whether the Activities pane shows Apple Events permission rows, so a backend that sends no Apple Events never offers to request them. The selected backend's name (`ScriptingBridge` or `MediaRemote`) is shown in the About pane and printed by `KerNotch --print-music-backend` without opening a window.
 
-### The MediaRemote prohibition
+### Keeping the MediaRemote backend in the build
 
-**No `MediaRemote` or `MRMediaRemote` symbol may reach the App Store build, under any code path, for any reason.** The reason is Apple App Review Guideline 2.5.1 (Software Requirements): apps must use public APIs, and use of private frameworks is grounds for automatic rejection. `MediaRemote` is undocumented and unlisted in any public SDK; a submission that links it — even if the linked code path is unreachable at runtime — risks rejection because static analysis of the binary, not runtime behavior, is what review tooling and `nm`/`otool` inspection catch.
+`MediaRemote` has no public header, documentation page, or entitlement, and Apple can change or restrict it in any release — macOS 15.4 already did (row 10 of `12-api-feasibility-matrix.md`). Two rules follow:
 
-This prohibition is enforced two ways:
-1. **Compile-time exclusion**, per the mechanism above — the App Store target does not compile `MediaRemoteMusicProvider`'s implementation body under `APPSTORE_BUILD`.
-2. **The forbidden-symbol build guard** (`10-build-and-distribution.md`, todo 21): a post-build script phase on the `AppStore` scheme runs `nm`/`strings` against the built product and fails the build non-zero on any match for `MediaRemote` or `MRMediaRemote`. This is the backstop that catches an accidental reintroduction (a stray import, a shared file that should have been guarded) before it can reach archiving, let alone submission.
+1. **Kept out of the provider package.** `MediaRemoteMusicProvider` and its bridge live in the `KerNotch` app target, not in `KerNotchProviders`, beside the one branch that decides to use them.
+2. **Guarded as present.** Because the framework is resolved with `dlopen`/`dlsym`, nothing at compile time notices if the backend drops out of the build. `scripts/check-media-remote-linked.sh <binary>` fails when the Release binary lacks the framework path the bridge passes to `dlopen` or the now-playing notification name it subscribes to, and `scripts/check-music-backend.sh` fails when `--print-music-backend` does not report the backend the runner's macOS version calls for. CI runs both (`10-build-and-distribution.md`).
 
-### Communicating reduced capability to App Store users
+### Coverage by macOS release
 
-Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on the App Store build who plays audio from YouTube Music or a browser tab sees no music activity at all — KerNotch does not show a broken or stale card, it shows nothing, which is the correct and honest behavior for a source it genuinely cannot observe. The Settings screen (`08-settings-and-localization.md`) states this limitation plainly next to the music section — "Supports Spotify and Apple Music. For all other players, install the Homebrew/Direct build." — rather than leaving the user to guess why their music never appears. This is a capability difference disclosed up front, not a bug to be worked around silently.
+On macOS 15.4 and later, a user who plays audio from YouTube Music or a browser tab sees no music activity at all — KerNotch does not show a broken or stale card, it shows nothing, which is the correct and honest behavior for a source it genuinely cannot observe. Below 15.4, `MediaRemote` covers any app that reports now playing to the system. The Activities pane reflects the selected backend: on 15.4 and later it lists the Apple Events permission for Spotify and Apple Music, and below 15.4 it lists none.
 
 ## Timer / Stopwatch
 
@@ -74,7 +73,8 @@ Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on 
 - **Activity produced:** `TimerActivity` with mode (countdown or stopwatch), remaining or elapsed duration, and a running/paused flag; `kind = .timer`.
 - **Priority:** `high` while the timer is expiring or has just expired and needs acknowledgment (the V1 priority table's "Timer expiring" row); a running, non-expiring timer that the user is actively watching is not itself a forcing condition beyond having registered an activity at all.
 - **Update cadence:** The `DispatchSourceTimer` fires only while the timer's `TimerActivity` is part of the currently visible panel — a countdown running with the panel closed or the notch not visible does not tick KerNotch's own timer at the interval a visible one would; the underlying duration is still tracked (typically via a start timestamp and elapsed-time computation rather than tick-accumulation, so no ticks are ever "lost" while not visible), but the moment-to-moment display refresh only runs when there is a display to refresh. This is the concrete instance of the performance contract's "active only while a time-based activity is visible" rule.
-- **Teardown:** `end()` fires when the countdown reaches zero and the auto-dismiss window (if any) elapses, when the user manually stops the timer, or when the user acknowledges an expired timer's notification.
+- **Menu bar controls:** The menu bar item carries Start 5-, 10- and 25-Minute Timer entries and a Stop Timer entry (`KerNotch/TimerMenuControls.swift`). They follow the Activities pane's "Timers and stopwatches" switch (`providers.timer.enabled`): switching it off hides those entries and their separator and stops any running timer, because a switched-off provider is not observed and a countdown started from the menu would be drawn nowhere; switching it back on shows the entries again.
+- **Teardown:** `end()` fires when the countdown reaches zero and the auto-dismiss window (if any) elapses, when the user manually stops the timer, when the user acknowledges an expired timer's notification, or when the timer switch is turned off.
 - **CI-vs-hardware verifiability:** Fully verifiable in CI. Because KerNotch is both source and consumer, the state machine (start → tick → expire → acknowledge) is pure logic over a clock abstraction and needs no live hardware, no permission, and no external app — this is one of the `KerNotchCore`-adjacent pieces suited to the TDD approach in `11-testing-strategy.md`.
 
 ## Screen Recording
@@ -104,7 +104,7 @@ Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on 
 ## Discord Call
 
 - **Event source:** Two, and either is enough. The per-process microphone state CoreAudio has published since macOS 14.2 (`kAudioHardwarePropertyProcessObjectList`, `kAudioProcessPropertyIsRunningInput`), matched against the `com.hnc.Discord` bundle-identifier prefix — the input is opened by Discord's `helper.Renderer` process, not the application. Changes are heard through `kAudioProcessPropertyDevices`: on macOS 26 the documented `kAudioProcessPropertyIsRunningInput` listener was measured never to fire, while the device list changed on every join and leave. And, once the user has pressed Connect, Discord's local RPC over its IPC socket (`$TMPDIR/discord-ipc-N`): `GET_SELECTED_VOICE_CHANNEL` plus the `VOICE_CHANNEL_SELECT` and `VOICE_SETTINGS_UPDATE` subscriptions.
-- **Permission or entitlement:** None for the microphone half. The RPC half needs Discord's `rpc` and `rpc.voice.read` scopes, which Discord grants only to approved applications — and, before approval, to the application's owner and its listed testers. Every user connects through KerNotch's own application, whose Client ID is a build setting (`Config/Discord.xcconfig`, see `16-discord-application.md`), authorized with PKCE and no client secret. There is no user-facing field for another application. Unsandboxed builds only: the socket lives outside the App Sandbox container.
+- **Permission or entitlement:** None for the microphone half. The RPC half needs Discord's `rpc` and `rpc.voice.read` scopes, which Discord grants only to approved applications — and, before approval, to the application's owner and its listed testers. Every user connects through KerNotch's own application, whose Client ID is a build setting (`Config/Discord.xcconfig`, see `16-discord-application.md`), authorized with PKCE and no client secret. There is no user-facing field for another application. The socket is reachable because KerNotch is not sandboxed: it lives in the per-user `$TMPDIR` KerNotch shares with Discord.
 - **Priority:** `high`, `pinned` band, like the microphone indicator it stands in for.
 - **Update cadence:** Event-driven on both halves. Process listeners are attached only while the integration is on *and* an input device is running. `VOICE_CONNECTION_STATUS` and `SPEAKING_START`/`STOP` are never subscribed: the first re-sends ping statistics every few seconds for a whole call, the second fires on every syllable. Server names are fetched once per server. Reconnection after Discord quits is a five-step backoff (2–32 s) that then waits for `NSWorkspace.didLaunchApplicationNotification`.
 - **Interaction with Audio Recording:** while the integration is on, `SystemAudioRecordingObserver` leaves Discord out; its session ends only when every microphone client is known and excluded, so another application sharing the microphone keeps the ordinary indicator on screen beside the call.
@@ -115,7 +115,7 @@ Because `AppleScriptMusicProvider` only sees Spotify and Apple Music, a user on 
 
 - **Event source:** IOKit power-source change notifications — the same mechanism the menu bar battery indicator itself is built on.
 - **Exact API:** `IOPSNotificationCreateRunLoopSource`, registered once at launch and left running for the life of the process; it delivers a callback whenever the system's power-source state changes (AC connected/disconnected, charging/charged transition), which the provider then reads via `IOPSCopyPowerSourcesInfo`/`IOPSGetPowerSourceDescription` to determine the current state.
-- **Permission or entitlement:** None — power-source state is available without any user-facing permission prompt or entitlement in either build configuration.
+- **Permission or entitlement:** None — power-source state is available without any user-facing permission prompt or entitlement.
 - **Activity produced:** `ChargingActivity` with state (`pluggedIn` → `charging` → `fullyCharged`); `kind = .charging`. Per the explicit rule from `draft.md:272` — **a persistent battery percentage is never displayed.** The activity communicates the charging *transition*, not an ongoing percentage readout; showing a live, continuously-updating battery percentage would turn a brief, dismissible notification into exactly the kind of persistent low-value display this app's whole design avoids.
 - **Priority:** `normal`, per the V1 priority table, and auto-dismissing.
 - **State machine:**
@@ -139,18 +139,18 @@ MacBook plugged in
 
 ## AI Status
 
-AI status is not documented in depth here — see `07-ai-integration.md` for the full agent state machine, the IPC protocol, and the per-agent (Claude Code, Codex CLI, OpenCode) hook integrations. In the terms of this document: the AI provider's "event source" is the IPC protocol itself (a custom URL scheme and a loopback HTTP listener) rather than a system framework, its `Activity` is `AIActivity` with `kind = .ai`, its priority is `high` for both "AI needs input" and "AI completed" per the V1 priority table, and it needs the `com.apple.security.network.server` entitlement only for the HTTP-listener transport in the sandboxed build — the URL-scheme transport needs no entitlement in either build.
+AI status is not documented in depth here — see `07-ai-integration.md` for the full agent state machine, the IPC protocol, and the per-agent (Claude Code, Codex CLI, OpenCode) hook integrations. In the terms of this document: the AI provider's "event source" is the IPC protocol itself (a custom URL scheme and a loopback HTTP listener) rather than a system framework, its `Activity` is `AIActivity` with `kind = .ai`, its priority is `high` for both "AI needs input" and "AI completed" per the V1 priority table, and neither transport needs an entitlement.
 
-## Provider × build configuration matrix
+## Provider × macOS release matrix
 
-| Provider | `AppStore` build | `Direct` build |
+| Provider | macOS 14.0 – 15.3 | macOS 15.4 and later |
 |---|---|---|
-| Music | Available — degraded (Spotify + Apple Music only, via `AppleScriptMusicProvider`) | Available — full (any app, via `MediaRemoteMusicProvider`) |
+| Music | Available — any app that reports now playing, via `MediaRemoteMusicProvider` | Available — Spotify and Apple Music only, via `AppleScriptMusicProvider` |
 | Timer / Stopwatch | Available | Available |
 | Screen recording | Available | Available |
 | Audio recording | Available | Available |
-| Discord call | Not built | Available — microphone attribution needs macOS 14.2; channel name and leave need KerNotch's Discord application to be approved, or the user to be one of its testers |
+| Discord call | Available — microphone attribution needs macOS 14.2; channel name and leave need KerNotch's Discord application to be approved, or the user to be one of its testers | Available — channel name and leave under the same approval condition |
 | Charging | Available | Available |
-| AI status | Available (IPC only) | Available (IPC, plus optional agent session log reading per `10-build-and-distribution.md`) |
+| AI status | Available (IPC) | Available (IPC) |
 
-Every provider except music is identical across both build configurations — no permission, API, or behavior differs. Music is the sole provider whose capability set genuinely changes with the build, which is why it is the only row above marked "degraded" rather than a flat "available"/"unavailable".
+Apart from Discord's microphone attribution needing macOS 14.2, every provider except music behaves identically on every supported macOS release — no permission, API, or behavior differs. Music is the sole provider whose capability set genuinely changes with the release, which is why its two cells above describe different coverage rather than a flat "available".

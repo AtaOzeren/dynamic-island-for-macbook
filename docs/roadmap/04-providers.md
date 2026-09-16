@@ -3,11 +3,11 @@
 **Todos:** 41-49
 **Status:** IN PROGRESS (41-42 done)
 **Depends on:** Phase 2 (Core, under TDD) — the `ActivityProvider` protocol and activity model providers register against. Phase 3 (Window and UI) — the compact/expanded view containers that render each provider's activity.
-**Blocks:** Phase 6 (Settings, Localization, Polish) needs the per-provider enablement wired here before it can expose provider toggles in settings. Phase 7 (Performance, Packaging, Distribution) needs both music backends in place before it can verify the App Store build excludes the MediaRemote symbol.
+**Blocks:** Phase 6 (Settings, Localization, Polish) needs the per-provider enablement wired here before it can expose provider toggles in settings. Phase 7 (Performance, Packaging, Distribution) needs both music backends in place before it can verify the `Release` build carries the backend each macOS release selects.
 
 ## What this phase delivers
 
-Every source of a live activity except AI agent status (Phase 5): music (via two interchangeable backends split by build configuration), a timer/stopwatch owned entirely by KerNotch, screen recording and audio recording indicators built on public detection signals only, and the charging state machine. The phase closes with all providers wired into the registry behind per-provider settings, so each one starts only when enabled and stops immediately when disabled.
+Every source of a live activity except AI agent status (Phase 5): music (via two interchangeable backends selected by macOS release), a timer/stopwatch owned entirely by KerNotch, screen recording and audio recording indicators built on public detection signals only, and the charging state machine. The phase closes with all providers wired into the registry behind per-provider settings, so each one starts only when enabled and stops immediately when disabled.
 
 ## Todos
 
@@ -19,7 +19,7 @@ The protocol, the now-playing model, the transport-command interface, and the Sw
 - **QA (CI):** Snapshot or structural tests against a fake provider. Evidence: `.omo/evidence/task-41-kernotch-v1.log`.
 - **Commit:** `feat(music): add music provider protocol and views`
 
-### 42. Implement `AppleScriptMusicProvider` (App Store build)
+### 42. Implement `AppleScriptMusicProvider` (macOS 15.4 and later)
 
 ScriptingBridge against Spotify and Music.app for metadata and transport, driven by the distributed notifications those apps post rather than by polling. Handles the app-not-running and permission-denied cases by producing no activity rather than erroring.
 
@@ -27,20 +27,20 @@ ScriptingBridge against Spotify and Music.app for metadata and transport, driven
 - **QA (HW):** With each app in turn, change track, use each transport control, then revoke Automation permission and confirm graceful degradation. Evidence: `.omo/evidence/task-42-kernotch-v1/`.
 - **Commit:** `feat(music): add AppleScript music backend`
 
-### 43. Implement `MediaRemoteMusicProvider` (Direct build only)
+### 43. Implement `MediaRemoteMusicProvider` (before macOS 15.4)
 
-System-wide now-playing observation, compiled only into the `Direct` configuration, resolved dynamically, never linked into `AppStore`.
+System-wide now-playing observation, resolved dynamically with `dlopen`/`dlsym`, never linked, living in the app target.
 
-- **Acceptance:** The App Store build contains no MediaRemote symbol (todo 21's guard passes); the Direct build shows now-playing for a media app that the AppleScript backend cannot see.
-- **QA (HW + CI):** CI runs the symbol guard against the App Store build. On hardware, play audio in a browser and confirm the Direct build shows it while the App Store build does not. Evidence: `.omo/evidence/task-43-kernotch-v1/`.
+- **Acceptance:** The `Release` binary carries the MediaRemote backend (todo 21's guard passes); on a macOS release before 15.4 the island shows now-playing for a media app that the AppleScript backend cannot see.
+- **QA (HW + CI):** CI runs the MediaRemote-linked guard against the `Release` build. On hardware running macOS before 15.4, play audio in a browser and confirm the island shows it. Evidence: `.omo/evidence/task-43-kernotch-v1/`.
 - **Commit:** `feat(music): add MediaRemote backend for direct builds`
 
-### 44. Wire the build-time music backend selection
+### 44. Wire the runtime music backend selection
 
-Compilation condition selects the backend; a single composition-root line differs between configurations.
+A macOS 15.4 availability check in the composition root selects the backend.
 
-- **Acceptance:** Both configurations build and run with the correct backend active; the active backend is visible in the about pane for support purposes.
-- **QA (CI):** Build both configurations and assert the reported backend name differs. Evidence: `.omo/evidence/task-44-kernotch-v1.log`.
+- **Acceptance:** The `Release` build runs with the backend the macOS release calls for; the active backend is visible in the about pane for support purposes.
+- **QA (CI):** `scripts/check-music-backend.sh` builds `Release` and asserts the reported backend name matches the runner's macOS version. Evidence: `.omo/evidence/task-44-kernotch-v1.log`.
 - **Commit:** `feat(music): select music backend per build configuration`
 
 ### 45. Implement the timer and stopwatch provider

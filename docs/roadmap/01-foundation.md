@@ -7,7 +7,7 @@
 
 ## What this phase delivers
 
-The scaffolding everything else builds on: the Xcode project and SPM package skeleton, licensing and contributor docs, lint/format configuration, two architecture guard scripts (module dependency rule, forbidden-symbol check), the CI workflow, and the app's basic runtime shape as a Dock-less accessory app with launch-at-login. Nothing here is user-facing feature work — it is the machinery that lets every subsequent phase be verified automatically.
+The scaffolding everything else builds on: the Xcode project and SPM package skeleton, licensing and contributor docs, lint/format configuration, two architecture guard scripts (module dependency rule, MediaRemote-linked check), the CI workflow, and the app's basic runtime shape as a Dock-less accessory app with launch-at-login. Nothing here is user-facing feature work — it is the machinery that lets every subsequent phase be verified automatically.
 
 The plan calls this wave "sequential-ish": todo 17 must land first because every other todo in the wave, and every todo in every later wave, needs the project and package structure it creates. The remaining six todos (18–23) are otherwise independent of each other.
 
@@ -23,7 +23,7 @@ Create an Xcode project for a macOS app named `KerNotch`, deployment target macO
 
 ### 18. Add MIT `LICENSE`, root `README.md`, `CONTRIBUTING.md`
 
-`LICENSE`: MIT, current year, the author's name. `README.md`: what KerNotch is, a screenshot placeholder, install instructions for both channels marked "coming soon", a build-from-source section, a link to `docs/`, and the license and naming notes. `CONTRIBUTING.md`: how to build, the TDD expectation for core code, the commit convention, and the pull-request checklist.
+`LICENSE`: MIT, current year, the author's name. `README.md`: what KerNotch is, a screenshot placeholder, install instructions for the notarized `.dmg` and the Homebrew Cask marked "coming soon", a build-from-source section, a link to `docs/`, and the license and naming notes. `CONTRIBUTING.md`: how to build, the TDD expectation for core code, the commit convention, and the pull-request checklist.
 
 - **Acceptance:** `LICENSE` is the verbatim MIT text; `README.md` links to `docs/README.md`.
 - **QA (CI):** Link check on `README.md`; assert `LICENSE` contains the MIT permission clause. Evidence: `.omo/evidence/task-18-kernotch-v1.txt`.
@@ -45,17 +45,17 @@ A script that fails if `KerNotchCore` sources import AppKit, SwiftUI, or any pro
 - **QA (CI):** Run both the passing case and the deliberately-failing case; assert exit codes zero and non-zero respectively. Evidence: `.omo/evidence/task-20-kernotch-v1.log`.
 - **Commit:** `build: enforce core module dependency rule`
 
-### 21. Add the forbidden-symbol guard script
+### 21. Add the MediaRemote-linked guard script
 
-A script that inspects a built binary and fails if any `MediaRemote` or `MRMediaRemote` symbol or string is present. Wired to run for the `AppStore` configuration only.
+`scripts/check-media-remote-linked.sh <binary>`: inspects a built binary and fails if no `MediaRemote` or `MRMediaRemote` symbol or string is present, so the dynamically resolved MediaRemote music backend cannot silently drop out of the `Release` build.
 
-- **Acceptance:** Passes for a stub `AppStore` build; fails for a stub binary containing the symbol.
+- **Acceptance:** Passes for the `Release` binary; fails for a stub binary without the symbol.
 - **QA (CI):** Both cases executed with asserted exit codes. Evidence: `.omo/evidence/task-21-kernotch-v1.log`.
 - **Commit:** `build: guard the App Store build against private framework symbols`
 
 ### 22. Add the GitHub Actions CI workflow
 
-Jobs: build both configurations, run all tests, run lint, run the architecture guard, run the forbidden-symbol guard, and run the docs consistency checks from Wave 0. Pin the runner image and Xcode version. Use `xcbeautify` for readable logs. Upload test results and coverage as artifacts.
+Jobs: build the `Release` configuration, run all tests, run lint, run the architecture guard, run the music backend and MediaRemote-linked guards, and run the docs consistency checks from Wave 0. Pin the runner image and Xcode version. Use `xcbeautify` for readable logs. Upload test results and coverage as artifacts.
 
 - **Acceptance:** The workflow passes on the current tree.
 - **QA (CI):** The workflow run itself is the evidence; record the run URL and conclusion. Evidence: `.omo/evidence/task-22-kernotch-v1.txt`.
@@ -78,8 +78,8 @@ xcodebuild -scheme KerNotch build
 swift test
 swiftlint --strict
 swift-format lint --recursive .
-./scripts/guard-core-dependencies.sh
-./scripts/guard-forbidden-symbols.sh
+./scripts/check-core-dependencies.sh
+./scripts/check-media-remote-linked.sh <path-to-Release-binary>
 ```
 
 Todo 22's own check is the CI workflow run itself — there is no local equivalent. Todo 23 has no CI command; it is verified on the physical hardware matrix in the Final Verification Wave.
