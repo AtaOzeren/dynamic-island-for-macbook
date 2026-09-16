@@ -18,12 +18,11 @@ This folder is a design specification, not code. Every document here describes w
 | 07 | [AI Integration](07-ai-integration.md) | The agent state machine and hook integrations for Claude Code, Codex, and OpenCode |
 | 08 | [Settings and Localization](08-settings-and-localization.md) | The settings surface, persistence, onboarding, and localization mechanism |
 | 09 | [Security, Privacy, and Permissions](09-security-privacy-permissions.md) | Privacy stance, entitlements, permission flow, and the IPC threat model |
-| 10 | [Build and Distribution](10-build-and-distribution.md) | The dual-channel build (Mac App Store and Homebrew) and release pipeline |
+| 10 | [Build and Distribution](10-build-and-distribution.md) | The single notarized build, its DMG and Homebrew Cask distribution, and the release pipeline |
 | 11 | [Testing Strategy](11-testing-strategy.md) | TDD boundary, CI/hardware verifiability matrix, definition of done |
-| 12 | [API Feasibility Matrix](12-api-feasibility-matrix.md) | Which macOS APIs are usable, sandbox-blocked, or impossible, and why |
+| 12 | [API Feasibility Matrix](12-api-feasibility-matrix.md) | Which macOS APIs are public, private, or impossible, and why |
 | 13 | [Deferred Backlog](13-deferred-backlog.md) | Everything valuable that didn't make V1, and the trigger that revives it |
 | 14 | [Glossary and Conventions](14-glossary-and-conventions.md) | Shared vocabulary, naming rules, and code/git/documentation conventions |
-| 15 | [Build Configuration Parity](15-build-configuration-parity.md) | What the sandboxed App Store build cannot do, measured, and what would close each gap |
 | 16 | [Discord Application](16-discord-application.md) | KerNotch's Discord Client ID: where it lives, how to change it, forks, and Discord's RPC approval |
 
 ## How to use this folder
@@ -32,4 +31,3 @@ This folder is a design specification, not code. Every document here describes w
 - Building a specific piece? Jump directly to its document — each one is self-contained enough to implement from.
 - Unsure whether an API is usable? Check **12-api-feasibility-matrix** before you design around it.
 - Wondering why something isn't in V1? It's probably in **13-deferred-backlog**, with the reason and the trigger to revisit it.
-- Wondering whether a feature survives the App Store sandbox? **15-build-configuration-parity** measures it, and says what would have to change.

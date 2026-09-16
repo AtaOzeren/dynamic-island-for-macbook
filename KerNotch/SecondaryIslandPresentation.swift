@@ -7,8 +7,10 @@ import SwiftUI
 @MainActor
 final class SecondaryIslandPresentation {
     private let manager: ActivityManager
-    private let metrics: PanelMetrics
     private let screen: PresentationController.ScreenProvider
+    /// The layout for the island size picked in Settings, before it is fitted
+    /// to this display.
+    private var chosenLayout: IslandLayout
     private let model: IslandViewModel
     private let panel: NotchPanel
     private let controller: PresentationController
@@ -24,7 +26,7 @@ final class SecondaryIslandPresentation {
 
     init(
         manager: ActivityManager,
-        metrics: PanelMetrics,
+        layout: IslandLayout,
         reduceMotion: any ReduceMotionQuerying,
         screen: @escaping PresentationController.ScreenProvider,
         onMusicTransport: @escaping (MusicTransportCommand) -> Void,
@@ -32,17 +34,20 @@ final class SecondaryIslandPresentation {
         onPrimaryAction: @escaping (ActivityIdentity) -> Void
     ) {
         self.manager = manager
-        self.metrics = metrics
         self.screen = screen
+        chosenLayout = layout
 
+        let currentScreen = screen()
+        let fittedLayout = layout.fitted(to: currentScreen)
         let model = IslandViewModel(
             compact: manager.compactPresentation,
-            notchSize: resolvedNotchSize(screen: screen(), metrics: metrics)
+            notchSize: resolvedNotchSize(screen: currentScreen, metrics: layout.panel),
+            layout: fittedLayout
         )
         self.model = model
 
         let panel = NotchPanel(
-            metrics: metrics,
+            metrics: fittedLayout.panel,
             appearance: .dark,
             content: IslandRootView(model: model)
         )
@@ -51,7 +56,7 @@ final class SecondaryIslandPresentation {
         let controller = PresentationController(
             panel: panel,
             manager: manager,
-            metrics: metrics,
+            layout: fittedLayout,
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
             screen: screen,
@@ -119,6 +124,11 @@ final class SecondaryIslandPresentation {
         panel.applyAppearance(.dark)
     }
 
+    func applyLayout(_ layout: IslandLayout) {
+        chosenLayout = layout
+        fitLayout(to: screen())
+    }
+
     /// Mirrors the CPU watchdog's degrade on this display. Left to the primary
     /// model alone, the other displays' working dots, equaliser and glow kept
     /// moving while the process was over budget.
@@ -156,7 +166,18 @@ final class SecondaryIslandPresentation {
         model.attentionGlow = reading.attentionGlow
         model.expanded = manager.expandedActivities
         model.registrationTimes = manager.registrationTimes
-        model.notchSize = resolvedNotchSize(screen: screen(), metrics: metrics)
+        let currentScreen = screen()
+        model.notchSize = resolvedNotchSize(screen: currentScreen, metrics: chosenLayout.panel)
+        fitLayout(to: currentScreen)
+    }
+
+    /// Keeps the drawn island, its hover silhouette and its window on the one
+    /// budget this display can hold.
+    private func fitLayout(to screen: ScreenDescription?) {
+        let layout = chosenLayout.fitted(to: screen)
+        guard model.layout != layout else { return }
+        model.layout = layout
+        controller.applyLayout(layout)
     }
 
     private func requestExpansion() {

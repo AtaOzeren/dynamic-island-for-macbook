@@ -326,7 +326,7 @@ public final class MusicAutomationGate {
     private var requestingTargets: Set<MusicPlayerTarget> = []
 
     /// The default explainer refuses. A gate built without one is used by tests
-    /// and by the Direct build, and in both cases silently opening a system
+    /// and by the app itself, and in both cases silently opening a system
     /// prompt with no explanation would be the exact failure this type exists to
     /// prevent — so the safe answer is the one that costs nothing.
     public init(

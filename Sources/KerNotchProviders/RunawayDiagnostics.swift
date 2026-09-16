@@ -5,19 +5,14 @@ import os
 
 /// Writes CPU runaway diagnostics to `<Library>/Logs/KerNotch` at degrade
 /// time (lightweight snapshot) and at alarm time (full report including a
-/// per-thread CPU table and, on the Direct build, a `/usr/bin/sample`
-/// capture). The supervisor calls these before any restart or quit: without
-/// the report, the restart-loop guard fires and the cause stays unknown.
+/// per-thread CPU table and a `/usr/bin/sample` capture). The supervisor
+/// calls these before any restart or quit: without the report, the
+/// restart-loop guard fires and the cause stays unknown.
 ///
 /// Privacy: reports contain process introspection and the values passed in
 /// only. Activity kinds are names ("recording", "ai-agent"), never session
 /// titles or agent detail — see `docs/07-ai-integration.md`.
 public struct RunawayDiagnostics: Sendable {
-    public enum BuildFlavour: String, Sendable {
-        case direct
-        case appStore
-    }
-
     private enum ReportKind: String {
         case degrade
         case alarm
@@ -41,20 +36,17 @@ public struct RunawayDiagnostics: Sendable {
 
     public struct Configuration: Sendable {
         public let directoryURL: URL
-        public let flavour: BuildFlavour
         public let keepNewestFileCount: Int
         public let sampleWaitTimeoutSeconds: TimeInterval
         public let runSampleTool: @Sendable (_ pid: pid_t, _ outputURL: URL) -> Void
 
         public init(
             directoryURL: URL? = nil,
-            flavour: BuildFlavour? = nil,
             keepNewestFileCount: Int = 20,
             sampleWaitTimeoutSeconds: TimeInterval = 15,
             runSampleTool: (@Sendable (_ pid: pid_t, _ outputURL: URL) -> Void)? = nil
         ) {
             self.directoryURL = directoryURL ?? Self.defaultDirectoryURL
-            self.flavour = flavour ?? RunawayDiagnostics.detectedBuildFlavour
             self.keepNewestFileCount = keepNewestFileCount
             self.sampleWaitTimeoutSeconds = sampleWaitTimeoutSeconds
             self.runSampleTool = runSampleTool ?? { pid, outputURL in
@@ -78,20 +70,6 @@ public struct RunawayDiagnostics: Sendable {
         self.configuration = configuration
     }
 
-    /// Direct build in the Xcode sense is invisible to package code
-    /// (`#if DIRECT_BUILD` is dead inside SwiftPM targets), so the flavour is
-    /// detected at runtime from the App Store receipt.
-    public static var detectedBuildFlavour: BuildFlavour {
-        guard
-            let receiptURL = Bundle.main.appStoreReceiptURL,
-            receiptURL.lastPathComponent == "receipt",
-            FileManager.default.fileExists(atPath: receiptURL.path)
-        else {
-            return .direct
-        }
-        return .appStore
-    }
-
     /// Writes a lightweight snapshot at degrade time.
     public func writeSnapshot(
         cpuPercent: Double,
@@ -113,9 +91,9 @@ public struct RunawayDiagnostics: Sendable {
         )
     }
 
-    /// Writes the full report at alarm time. On the Direct build this also
-    /// runs `/usr/bin/sample` for 5 seconds and waits for it, bounded by the
-    /// configured timeout, so the caller can relaunch or quit afterwards.
+    /// Writes the full report at alarm time. This also runs `/usr/bin/sample`
+    /// for 5 seconds and waits for it, bounded by the configured timeout, so the
+    /// caller can relaunch or quit afterwards.
     @discardableResult
     public func writeFullReport(
         cpuPercent: Double,
@@ -166,8 +144,7 @@ public struct RunawayDiagnostics: Sendable {
             writtenAt: Date(),
             pid: ProcessInfo.processInfo.processIdentifier,
             threadRows: kind == .alarm ? Self.collectThreadRows() : [],
-            sampleURL: kind == .alarm ? sampleURL : nil,
-            flavour: configuration.flavour
+            sampleURL: kind == .alarm ? sampleURL : nil
         )
 
         try FileManager.default.createDirectory(
@@ -186,10 +163,6 @@ public struct RunawayDiagnostics: Sendable {
     }
 
     private func runSampleToolBounded(outputURL: URL) {
-        guard configuration.flavour == .direct else {
-            Self.logger.notice("skipped /usr/bin/sample (app store build)")
-            return
-        }
         let pid = ProcessInfo.processInfo.processIdentifier
         let runner = configuration.runSampleTool
         let semaphore = DispatchSemaphore(value: 0)
@@ -409,8 +382,7 @@ public struct RunawayDiagnostics: Sendable {
         writtenAt: Date,
         pid: pid_t,
         threadRows: [ThreadRow],
-        sampleURL: URL?,
-        flavour: BuildFlavour
+        sampleURL: URL?
     ) -> String {
         let stampFormatter = ISO8601DateFormatter()
         var lines: [String] = []
@@ -418,7 +390,6 @@ public struct RunawayDiagnostics: Sendable {
         lines.append("KerNotch CPU diagnostics — \(kind.title)")
         lines.append(String(repeating: "=", count: 40))
         lines.append("written: \(stampFormatter.string(from: writtenAt))")
-        lines.append("build flavour: \(flavour.rawValue)")
         lines.append("pid: \(Int(pid))")
         if let reason {
             lines.append("reason: \(reason)")
@@ -479,11 +450,9 @@ public struct RunawayDiagnostics: Sendable {
                 }
             }
 
-            lines.append("")
-            if let sampleURL, flavour == .direct {
+            if let sampleURL {
+                lines.append("")
                 lines.append("/usr/bin/sample output: \(sampleURL.path)")
-            } else {
-                lines.append("/usr/bin/sample output: skipped (app store build)")
             }
         }
 

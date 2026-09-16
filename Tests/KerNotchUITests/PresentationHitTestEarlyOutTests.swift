@@ -74,7 +74,7 @@ struct PresentationHitTestEarlyOutTests {
         let controller = PresentationController(
             panel: panel,
             manager: manager,
-            metrics: metrics,
+            layout: IslandLayout(panel: metrics, items: .default),
             mouse: mouse,
             screen: { notchedScreen },
             disclosedInstances: {

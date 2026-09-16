@@ -41,7 +41,7 @@ struct PresentationControllerTests {
         let controller = PresentationController(
             panel: panel,
             manager: manager,
-            metrics: metrics,
+            layout: IslandLayout(panel: metrics, items: .default),
             mouse: mouse,
             motion: motion,
             reduceMotion: FakeReduceMotion(prefersReducedMotion: reduceMotion),
@@ -259,7 +259,7 @@ struct PresentationControllerTests {
         let controller = PresentationController(
             panel: NotchPanel(metrics: Self.metrics, content: Color.clear),
             manager: manager,
-            metrics: Self.metrics,
+            layout: IslandLayout(panel: Self.metrics, items: .default),
             mouse: mouse,
             reduceMotion: FakeReduceMotion(prefersReducedMotion: false),
             screen: { Self.notchedScreen },

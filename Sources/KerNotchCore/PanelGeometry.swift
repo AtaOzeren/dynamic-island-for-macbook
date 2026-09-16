@@ -2,8 +2,8 @@ import CoreGraphics
 
 /// The fixed sizing budget for the overlay window. Per `docs/04-overlay-window.md`
 /// the panel's frame is allocated once at its maximum expanded size and only
-/// recomputed on a display change, so the window server is never asked to resize
-/// during an expand or collapse.
+/// recomputed on a display change or an island size change, so the window server
+/// is never asked to resize during an expand or collapse.
 public struct PanelMetrics: Equatable, Sendable {
     /// The window is allocated once at this size and mostly transparent while
     /// collapsed, so height here costs nothing until something fills it. 260 was
@@ -13,6 +13,14 @@ public struct PanelMetrics: Equatable, Sendable {
     public static let `default` = PanelMetrics(
         maximumExpandedSize: CGSize(width: 640, height: 460),
         minimumBottomInset: 120
+    )
+
+    /// The `IslandSize.large` budget: a wider island with a taller ceiling, so
+    /// cards drawn at the larger type scale fit as many rows before scrolling.
+    public static let large = PanelMetrics(
+        maximumExpandedSize: CGSize(width: 760, height: 560),
+        minimumBottomInset: 120,
+        expandedWidthGrowth: 1.4
     )
 
     /// The largest content the expanded state can ever draw.
@@ -29,17 +37,26 @@ public struct PanelMetrics: Equatable, Sendable {
     /// hardware rectangle to inherit — the degraded mode from
     /// `docs/03-display-and-notch.md`.
     public let compactFallbackSize: CGSize
+    /// How much wider the expanded panel is than the compact pill it grows
+    /// from — see `expandedPanelWidth(notchSize:compactMetrics:panelMetrics:)`.
+    ///
+    /// Enough to read as the pill having grown rather than as a second,
+    /// unrelated surface, and enough to give the cards room to breathe — but
+    /// not so much that opening the island throws a wall across the screen.
+    public let expandedWidthGrowth: CGFloat
 
     public init(
         maximumExpandedSize: CGSize,
         minimumBottomInset: CGFloat,
         compactHitPadding: CGFloat = 8,
-        compactFallbackSize: CGSize = CGSize(width: 200, height: 32)
+        compactFallbackSize: CGSize = CGSize(width: 200, height: 32),
+        expandedWidthGrowth: CGFloat = 1.12
     ) {
         self.maximumExpandedSize = maximumExpandedSize
         self.minimumBottomInset = minimumBottomInset
         self.compactHitPadding = compactHitPadding
         self.compactFallbackSize = compactFallbackSize
+        self.expandedWidthGrowth = expandedWidthGrowth
     }
 }
 
@@ -103,13 +120,6 @@ public struct CompactPillGeometry: Equatable, Sendable {
 /// on each flank, which is where the pill settles in ordinary use.
 public let expandedPanelReferenceSlotCount = 2
 
-/// How much wider the expanded panel is than that pill.
-///
-/// Enough to read as the pill having grown rather than as a second, unrelated
-/// surface, and enough to give the cards room to breathe — but not so much that
-/// opening the island throws a wall across the screen.
-public let expandedPanelWidthGrowth: CGFloat = 1.12
-
 /// The expanded panel's width.
 ///
 /// Fixed rather than fitted to the widest card. The panel is the compact pill
@@ -131,7 +141,7 @@ public func expandedPanelWidth(
         notchSize: notchSize,
         metrics: compactMetrics
     ).width
-    return min(reference * expandedPanelWidthGrowth, panelMetrics.maximumExpandedSize.width)
+    return min(reference * panelMetrics.expandedWidthGrowth, panelMetrics.maximumExpandedSize.width)
 }
 
 /// The pill's geometry for `leadingSlotCount` slots before the notch and
@@ -245,6 +255,26 @@ public func panelFrame(
     let originX = clamp(centreX - width / 2, lowerBound: bounds.minX, upperBound: bounds.maxX - width)
 
     return CGRect(x: originX, y: bounds.maxY - height, width: width, height: height)
+}
+
+extension PanelMetrics {
+    /// This budget as the window can actually have it on `screen`.
+    ///
+    /// `panelFrame(for:metrics:)` shortens the window on a screen too small for
+    /// the budget, but everything drawn inside the window — the expanded
+    /// content's height clamp, its scroll decision, the hover band — reads the
+    /// budget. Fitting the budget to the screen first keeps them agreeing with
+    /// the window, so on a short screen the list scrolls instead of losing its
+    /// bottom rows past the window's edge.
+    public func fitted(to screen: ScreenDescription) -> PanelMetrics {
+        PanelMetrics(
+            maximumExpandedSize: panelFrame(for: screen, metrics: self).size,
+            minimumBottomInset: minimumBottomInset,
+            compactHitPadding: compactHitPadding,
+            compactFallbackSize: compactFallbackSize,
+            expandedWidthGrowth: expandedWidthGrowth
+        )
+    }
 }
 
 /// The compact pill's hover and click target on `screen`, in screen coordinates.

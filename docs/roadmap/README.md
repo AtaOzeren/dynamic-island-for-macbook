@@ -10,6 +10,7 @@ Each phase file states: what it delivers, which todos it covers, what it depends
 - `IN PROGRESS` — some todos done, some pending
 - `DONE` — all todos in the phase verified and committed
 - `BLOCKED-ON-MEMBERSHIP` — plan explicitly defers this until an Apple Developer Program membership exists; work is written but not executed
+- `DROPPED` — marks a single todo that no longer applies to the one notarized build KerNotch ships; kept in place so todo numbers stay traceable
 
 ## Phases
 

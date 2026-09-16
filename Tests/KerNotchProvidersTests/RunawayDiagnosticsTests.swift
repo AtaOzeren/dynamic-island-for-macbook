@@ -23,13 +23,11 @@ struct RunawayDiagnosticsTests {
 
     private func makeConfiguration(
         directory: URL,
-        flavour: RunawayDiagnostics.BuildFlavour = .direct,
         sampleWaitTimeoutSeconds: TimeInterval = 5,
         runner: @escaping @Sendable (pid_t, URL) -> Void = { _, _ in }
     ) -> RunawayDiagnostics.Configuration {
         RunawayDiagnostics.Configuration(
             directoryURL: directory,
-            flavour: flavour,
             sampleWaitTimeoutSeconds: sampleWaitTimeoutSeconds,
             runSampleTool: runner
         )
@@ -89,7 +87,6 @@ struct RunawayDiagnosticsTests {
         let text = try String(contentsOf: reportURL, encoding: .utf8)
         #expect(text.contains("per-thread CPU"))
         #expect(text.contains("reason: cpuAboveAlarmThreshold"))
-        #expect(text.contains("build flavour: direct"))
         #expect(text.contains("recording, ai-agent"))
         #expect(text.contains("state transitions"))
         #expect(text.contains("sample history"))
@@ -198,8 +195,8 @@ struct RunawayDiagnosticsTests {
         #expect(entries[0].lastPathComponent.hasPrefix("cpu-degrade-"))
     }
 
-    @Test("sample tool runs only for the direct build on the alarm path")
-    func sampleToolIsDirectBuildAlarmOnly() throws {
+    @Test("sample tool runs on the alarm path")
+    func sampleToolRunsOnAlarm() throws {
         final class SampleCallLog: @unchecked Sendable {
             private let lock = NSLock()
             private var recordedURLs: [URL] = []
@@ -218,16 +215,13 @@ struct RunawayDiagnosticsTests {
         let directory = makeTempDirectory()
         defer { try? FileManager.default.removeItem(at: directory) }
         let calls = SampleCallLog()
-        let runner: @Sendable (pid_t, URL) -> Void = { _, url in calls.record(url) }
-
-        let appStoreDiagnostics = RunawayDiagnostics(
+        let diagnostics = RunawayDiagnostics(
             configuration: makeConfiguration(
                 directory: directory,
-                flavour: .appStore,
-                runner: runner
+                runner: { _, url in calls.record(url) }
             )
         )
-        _ = try appStoreDiagnostics.writeFullReport(
+        let reportURL = try diagnostics.writeFullReport(
             cpuPercent: 50,
             sampleHistory: [],
             transitions: [],
@@ -236,30 +230,15 @@ struct RunawayDiagnosticsTests {
             activityKinds: [],
             reason: "cpuAboveAlarmThreshold"
         )
-        #expect(calls.urls.isEmpty)
 
-        let directDiagnostics = RunawayDiagnostics(
-            configuration: makeConfiguration(
-                directory: directory,
-                flavour: .direct,
-                runner: runner
-            )
-        )
-        _ = try directDiagnostics.writeFullReport(
-            cpuPercent: 50,
-            sampleHistory: [],
-            transitions: [],
-            mainThreadResponsive: true,
-            displayTarget: "builtin",
-            activityKinds: [],
-            reason: "cpuAboveAlarmThreshold"
-        )
         #expect(calls.urls.count == 1)
         #expect(calls.urls[0].lastPathComponent.hasPrefix("sample-"))
         #expect(calls.urls[0].deletingLastPathComponent() == directory)
+        let text = try String(contentsOf: reportURL, encoding: .utf8)
+        #expect(text.contains("/usr/bin/sample output: \(calls.urls[0].path)"))
     }
 
-    @Test("snapshot never runs the sample tool even on the direct build")
+    @Test("snapshot never runs the sample tool")
     func snapshotSkipsSampleTool() throws {
         final class SampleCallLog: @unchecked Sendable {
             private let lock = NSLock()
@@ -282,7 +261,6 @@ struct RunawayDiagnosticsTests {
         let diagnostics = RunawayDiagnostics(
             configuration: makeConfiguration(
                 directory: directory,
-                flavour: .direct,
                 runner: { _, _ in calls.record() }
             )
         )
@@ -306,7 +284,6 @@ struct RunawayDiagnosticsTests {
         let diagnostics = RunawayDiagnostics(
             configuration: makeConfiguration(
                 directory: directory,
-                flavour: .direct,
                 sampleWaitTimeoutSeconds: 0.2,
                 runner: { _, _ in Thread.sleep(forTimeInterval: 2.0) }
             )

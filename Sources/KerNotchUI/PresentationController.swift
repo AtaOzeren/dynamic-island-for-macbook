@@ -26,7 +26,9 @@ public final class PresentationController {
 
     private let panel: NotchPanel
     private let manager: ActivityManager
-    private let metrics: PanelMetrics
+    /// The window budget and the card metrics the island is drawn with. Both
+    /// shape the silhouette hover is judged against, so they travel as one.
+    private var layout: IslandLayout
     private let mouse: any MouseLocationObserving
     private let screen: ScreenProvider
     private let motion: IslandMotion
@@ -132,7 +134,7 @@ public final class PresentationController {
     public init(
         panel: NotchPanel,
         manager: ActivityManager,
-        metrics: PanelMetrics = .default,
+        layout: IslandLayout = .minimalist,
         mouse: any MouseLocationObserving,
         motion: IslandMotion = .default,
         reduceMotion: any ReduceMotionQuerying = SystemReduceMotion(),
@@ -143,7 +145,7 @@ public final class PresentationController {
     ) {
         self.panel = panel
         self.manager = manager
-        self.metrics = metrics
+        self.layout = layout
         self.mouse = mouse
         self.motion = motion
         self.reduceMotion = reduceMotion
@@ -228,6 +230,20 @@ public final class PresentationController {
         }
     }
 
+    /// Adopts the island size the user picked.
+    ///
+    /// Repositioning is what resizes the window to the new budget; a hidden
+    /// panel picks it up on its next order-in. Hover is re-read against the new
+    /// silhouette, so a pointer resting just past the old edge of a larger
+    /// island counts as over it without having to move first.
+    public func applyLayout(_ layout: IslandLayout) {
+        guard layout != self.layout else { return }
+        self.layout = layout
+        panel.adopt(layout.panel)
+        guard repositionOnCurrentScreen(), let lastPointerLocation else { return }
+        pointerMoved(to: lastPointerLocation)
+    }
+
     /// Re-resolves the target screen and moves the panel onto it.
     ///
     /// `show()` resolves the screen once, on order-in, which is right for the
@@ -304,15 +320,15 @@ public final class PresentationController {
     }
 
     private func updateHitRect(on screen: ScreenDescription) {
-        let layout = compactSlotLayout(
+        let slots = compactSlotLayout(
             for: manager.compactPresentation,
             hiding: hiddenMusicSlotIDs()
         )
         hitRect = compactHitRect(
             for: screen,
-            leadingSlotCount: layout.leading.count,
-            trailingSlotCount: layout.trailing.count,
-            metrics: metrics
+            leadingSlotCount: slots.leading.count,
+            trailingSlotCount: slots.trailing.count,
+            metrics: layout.panel
         )
     }
 
@@ -321,8 +337,8 @@ public final class PresentationController {
         guard let currentScreen = screen() else { return false }
 
         let hardwareNotch = notchRect(for: currentScreen)
-        let notchSize = hardwareNotch?.size ?? metrics.compactFallbackSize
-        let panelRect = panelFrame(for: currentScreen, metrics: metrics)
+        let notchSize = hardwareNotch?.size ?? layout.panel.compactFallbackSize
+        let panelRect = panelFrame(for: currentScreen, metrics: layout.panel)
 
         // Cheap reject before any size is built. The island is always flush with
         // the top of the panel and its neck plus its content can never outgrow
@@ -332,7 +348,7 @@ public final class PresentationController {
         // band is deliberately not the panel frame: `expandedPanelSize` clamps
         // its content to the panel's *width* and the surface then flares wider
         // still, so a frame test would cut hover off at the island's own edge.
-        let maximumIslandHeight = max(metrics.maximumExpandedSize.height, notchSize.height)
+        let maximumIslandHeight = max(layout.panel.maximumExpandedSize.height, notchSize.height)
         guard location.y <= panelRect.maxY,
             location.y >= panelRect.maxY - maximumIslandHeight
         else {
@@ -354,7 +370,8 @@ public final class PresentationController {
             disclosedInstances: disclosedInstances(),
             registrationTimes: registrationTimes(),
             notchSize: notchSize,
-            panelMetrics: metrics,
+            metrics: layout.items,
+            panelMetrics: layout.panel,
             topInset: notchSize.height
         )
         let geometry = ConnectedIslandGeometry(

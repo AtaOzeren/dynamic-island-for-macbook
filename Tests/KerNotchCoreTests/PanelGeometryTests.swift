@@ -80,6 +80,27 @@ struct PanelGeometryTests {
         #expect(frame.size == Self.metrics.maximumExpandedSize)
     }
 
+    /// The large island's budget is taller than a short screen can give it,
+    /// so the budget itself has to shrink to the window it will actually get.
+    @Test("fitting a budget to a short screen shrinks it to the window's frame")
+    func fittedBudgetMatchesTheWindowOnAShortScreen() {
+        let shortScreen = Self.notchedScreen(frame: CGRect(x: 0, y: 0, width: 1024, height: 640))
+
+        let fitted = PanelMetrics.large.fitted(to: shortScreen)
+
+        #expect(fitted.maximumExpandedSize == panelFrame(for: shortScreen, metrics: .large).size)
+        #expect(fitted.maximumExpandedSize.height == 640 - PanelMetrics.large.minimumBottomInset)
+        #expect(fitted.expandedWidthGrowth == PanelMetrics.large.expandedWidthGrowth)
+        #expect(fitted.compactFallbackSize == PanelMetrics.large.compactFallbackSize)
+        #expect(panelFrame(for: shortScreen, metrics: fitted) == panelFrame(for: shortScreen, metrics: .large))
+    }
+
+    @Test("fitting a budget to a screen with room for it changes nothing")
+    func fittedBudgetIsUnchangedOnARoomyScreen() {
+        #expect(PanelMetrics.large.fitted(to: Self.notchedScreen()) == .large)
+        #expect(PanelMetrics.default.fitted(to: Self.externalScreen()) == .default)
+    }
+
     @Test("keeps the panel clear of the Dock on a short screen")
     func clampsHeightAboveTheDock() {
         let shortScreen = Self.notchedScreen(
