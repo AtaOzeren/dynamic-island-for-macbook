@@ -109,48 +109,6 @@
         }
       }
     },
-    "%lld more activities": {
-      "comment": "VoiceOver label for the compact pill's overflow slot, when more activities are running than the pill can show.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld more activity"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld more activities"
-                }
-              }
-            }
-          }
-        },
-        "tr": {
-          "variations": {
-            "plural": {
-              "one": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld etkinlik daha"
-                }
-              },
-              "other": {
-                "stringUnit": {
-                  "state": "translated",
-                  "value": "%lld etkinlik daha"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "A disabled event never reaches the notch — it is dropped on arrival.": {
       "comment": "AI Integrations pane, Events section caption.",
       "extractionState": "manual",
@@ -1106,7 +1064,7 @@
       }
     },
     "Plugged In": {
-      "comment": "Charging activity: connected to power, not yet charging.",
+      "comment": "Charging activity: connected to power but not charging, either just plugged in or holding at the charge limit.",
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -1119,6 +1077,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fişe Takılı"
+          }
+        }
+      }
+    },
+    "Unplugged": {
+      "comment": "Charging activity: the charger was just disconnected and the Mac runs on its battery.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unplugged"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fişten Çekildi"
           }
         }
       }
@@ -1191,6 +1167,24 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ekran kaydı yapılıyor"
+          }
+        }
+      }
+    },
+    "Screen recording and microphone in use": {
+      "comment": "VoiceOver label for the compact pill's single recording icon while the screen is being recorded and the microphone is in use at the same time.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen recording and microphone in use"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran kaydı ve mikrofon kullanılıyor"
           }
         }
       }
@@ -1587,24 +1581,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zamanlayıcı bitti"
-          }
-        }
-      }
-    },
-    "Transfer": {
-      "comment": "Generic VoiceOver name for the file transfer activity kind in the compact pill.",
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Transfer"
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Aktarım"
           }
         }
       }

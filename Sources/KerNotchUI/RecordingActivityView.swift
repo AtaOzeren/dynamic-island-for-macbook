@@ -14,7 +14,11 @@ public struct RecordingPresentation: Equatable, Sendable {
     public let source: RecordingSource
 
     public init(activity: RecordingActivity) {
-        source = activity.source
+        self.init(source: activity.source)
+    }
+
+    public init(source: RecordingSource) {
+        self.source = source
     }
 
     public var symbolName: String {
@@ -31,11 +35,109 @@ public struct RecordingPresentation: Equatable, Sendable {
     public var accessibilityLabel: String { title }
 }
 
-public func recordingCompactSlot(for activity: RecordingActivity) -> CompactSlot {
+/// What the compact pill draws for the captures in progress.
+public enum CompactRecordingIndicator: Equatable, Sendable {
+    case screen
+    case microphone
+    /// Both at once, drawn as one icon: the screen mark carrying a microphone
+    /// badge, the way the Discord call carries Discord's.
+    case screenAndMicrophone
+
+    init(source: RecordingSource) {
+        switch source {
+        case .screen: self = .screen
+        case .audio: self = .microphone
+        }
+    }
+
+    var symbolName: String {
+        RecordingPresentation(source: leadingSource).symbolName
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .screen, .microphone:
+            RecordingPresentation(source: leadingSource).accessibilityLabel
+        case .screenAndMicrophone:
+            localized("Screen recording and microphone in use")
+        }
+    }
+
+    /// The capture whose mark the icon is built on.
+    private var leadingSource: RecordingSource {
+        switch self {
+        case .screen, .screenAndMicrophone: .screen
+        case .microphone: .audio
+        }
+    }
+
+    /// A single capture keeps its own identity; both together are the group's,
+    /// so the icon is replaced as a whole when the second capture joins.
+    func slotIdentity(for activity: RecordingActivity) -> ActivityIdentity {
+        switch self {
+        case .screen, .microphone: activity.identity
+        case .screenAndMicrophone: activity.compactGroupIdentity
+        }
+    }
+}
+
+/// The recording slot. `sourceCount` is how many captures the compact group
+/// stands for; the activity is only the one that represents it.
+public func recordingCompactSlot(
+    for activity: RecordingActivity,
+    sourceCount: Int = 1
+) -> CompactSlot {
     CompactSlot(
         recording: activity,
-        presentation: RecordingPresentation(activity: activity)
+        indicator: sourceCount > 1
+            ? .screenAndMicrophone
+            : CompactRecordingIndicator(source: activity.source)
     )
+}
+
+struct CompactRecordingIcon: View {
+    let indicator: CompactRecordingIndicator
+    let size: CGFloat
+
+    var body: some View {
+        switch indicator {
+        case .screen:
+            AnimatedScreenRecordingIcon(size: size)
+        case .microphone:
+            AnimatedMicrophoneRecordingIcon(size: size)
+        case .screenAndMicrophone:
+            AnimatedScreenRecordingIcon(size: size)
+                .overlay(alignment: .bottomTrailing) {
+                    MicrophoneRecordingBadge(diameter: size * Self.badgeScale)
+                        .offset(x: size * 0.28, y: size * 0.18)
+                }
+        }
+    }
+
+    /// The same proportion the Discord badge rides its microphone at, so the two
+    /// badged icons read as one family.
+    private static let badgeScale: CGFloat = 0.62
+}
+
+/// A red disc with a white microphone, ringed in the pill's own black so it
+/// separates from the monitor outline it overlaps.
+struct MicrophoneRecordingBadge: View {
+    let diameter: CGFloat
+
+    var body: some View {
+        Circle()
+            .fill(.red)
+            .overlay {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: diameter * 0.58, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            .overlay {
+                Circle().strokeBorder(.black, lineWidth: max(diameter * 0.1, 1))
+            }
+            .frame(width: diameter, height: diameter)
+            .accessibilityHidden(true)
+    }
 }
 
 /// Compact recording mark: a restrained monitor outline and red capture dot.

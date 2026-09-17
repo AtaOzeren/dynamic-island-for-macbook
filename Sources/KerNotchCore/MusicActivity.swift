@@ -113,6 +113,10 @@ public struct MusicActivity: Activity, Equatable {
 
     public var priority: ActivityPriority { .low }
 
+    /// First to give up its place in the pill: the expanded panel still shows
+    /// the track, and nothing is missed by not seeing it playing.
+    public var compactRank: CompactRank { .ambient }
+
     /// Music ends when the player stops, never on a clock.
     public var autoDismiss: AutoDismissDescriptor? { nil }
 

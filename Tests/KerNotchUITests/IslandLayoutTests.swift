@@ -303,7 +303,7 @@ struct IslandLayoutTests {
     }
 
     private static func chargingRows(_ count: Int) -> [any Activity] {
-        (0..<count).map { _ in ChargingActivity(state: .charging) as any Activity }
+        (0..<count).map { _ in ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.5)) as any Activity }
     }
 
     private static func music() -> MusicActivity {
@@ -336,7 +336,7 @@ struct IslandLayoutTests {
     }
 
     private static func charging() -> ChargingActivity {
-        ChargingActivity(state: .charging)
+        ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.5))
     }
 
     private static func recording() -> RecordingActivity {

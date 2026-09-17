@@ -1,22 +1,22 @@
 import Foundation
 import IOKit.ps
+import KerNotchCore
 
-/// Reduces one IOKit power-source description to the state the island reports.
+/// Reduces one IOKit power-source description to the reading the island uses.
 ///
-/// This is the boundary where the battery percentage is dropped, and it is the
-/// only place in KerNotch with access to one. `docs/06-activity-providers.md`
-/// forbids displaying a persistent battery percentage, so rather than carrying
-/// `kIOPSCurrentCapacityKey` inward and trusting every future view not to draw
-/// it, this reads the three keys that answer "what is happening to the power"
-/// and never looks the capacity up at all. Nothing downstream can render a
-/// number that was never fetched.
-///
-/// Split from the observer because it is pure: a dictionary in, a state out,
+/// Split from the observer because it is pure: a dictionary in, a reading out,
 /// with no run loop and no hardware, so the classification that decides what the
 /// island says is checkable in CI even though the notification that delivers the
 /// dictionary is not.
 enum PowerSourceDescription {
-    static func state(from description: [String: Any]) -> PowerSourceState {
+    /// `nil` when the description carries no readable charge, rather than a
+    /// guessed level drawn as though it were real.
+    static func reading(from description: [String: Any]) -> PowerSourceReading? {
+        guard let level = level(from: description) else { return nil }
+        return PowerSourceReading(state: state(from: description), level: level)
+    }
+
+    private static func state(from description: [String: Any]) -> ChargingState {
         let isConnectedToPower = description[kIOPSPowerSourceStateKey] as? String == kIOPSACPowerValue
 
         guard isConnectedToPower else { return .onBattery }
@@ -29,6 +29,18 @@ enum PowerSourceDescription {
 
         return .pluggedIn
     }
+
+    /// The internal battery reports its capacity on a scale of 100, but the
+    /// maximum is read rather than assumed.
+    private static func level(from description: [String: Any]) -> BatteryLevel? {
+        guard let current = description[kIOPSCurrentCapacityKey] as? Int,
+            let maximum = description[kIOPSMaxCapacityKey] as? Int,
+            maximum > 0
+        else {
+            return nil
+        }
+        return BatteryLevel(fraction: Double(current) / Double(maximum))
+    }
 }
 
 /// The system's own account of the power situation, per row 9 of
@@ -37,30 +49,29 @@ enum PowerSourceDescription {
 ///
 /// Nothing here polls. `IOPSNotificationCreateRunLoopSource` delivers a callback
 /// on every power-source change, and the blob is read only in response to one;
-/// the single unprompted read is at start, because a machine already plugged in
-/// when KerNotch launches is a real state rather than an edge that was missed.
+/// the single unprompted read is at start, which gives the provider the baseline
+/// the first real plug-in or unplug is measured against.
 ///
 /// The run loop source is created when observation starts and invalidated when
-/// it stops, rather than registered for the life of the process as
-/// `docs/06-activity-providers.md` describes: todo 49 makes every provider
-/// startable and stoppable from settings, and a source left running after the
+/// it stops, rather than registered for the life of the process: every provider
+/// is startable and stoppable from settings, and a source left running after the
 /// user disabled the provider would keep waking the process to compute a state
 /// nobody is listening for.
 @MainActor
 public final class SystemPowerSourceObserver: PowerSourceObserving {
-    private let readState: @MainActor () -> PowerSourceState
-    private var observer: PowerSourceStateObserver?
+    private let read: @MainActor () -> PowerSourceReading?
+    private var observer: PowerSourceReadingObserver?
     private var runLoopSource: CFRunLoopSource?
 
     public convenience init() {
-        self.init(readState: { SystemPowerSourceObserver.currentState() })
+        self.init(read: { SystemPowerSourceObserver.currentReading() })
     }
 
-    init(readState: @escaping @MainActor () -> PowerSourceState) {
-        self.readState = readState
+    init(read: @escaping @MainActor () -> PowerSourceReading?) {
+        self.read = read
     }
 
-    public func startObserving(_ observer: @escaping PowerSourceStateObserver) {
+    public func startObserving(_ observer: @escaping PowerSourceReadingObserver) {
         stopObserving()
         self.observer = observer
 
@@ -77,7 +88,7 @@ public final class SystemPowerSourceObserver: PowerSourceObserving {
                     let observer = Unmanaged<SystemPowerSourceObserver>
                         .fromOpaque(context)
                         .takeUnretainedValue()
-                    MainActor.assumeIsolated { observer.emitCurrentState() }
+                    MainActor.assumeIsolated { observer.emitCurrentReading() }
                 },
                 context
             )?.takeRetainedValue()
@@ -91,7 +102,7 @@ public final class SystemPowerSourceObserver: PowerSourceObserving {
         runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .defaultMode)
 
-        emitCurrentState()
+        emitCurrentReading()
     }
 
     public func stopObserving() {
@@ -108,21 +119,23 @@ public final class SystemPowerSourceObserver: PowerSourceObserving {
         MainActor.assumeIsolated { stopObserving() }
     }
 
-    private func emitCurrentState() {
-        guard let observer else { return }
+    /// A Mac without a battery, or a reading IOKit could not give, says nothing:
+    /// there is no cable edge to announce on a machine that is always plugged in.
+    private func emitCurrentReading() {
+        guard let observer, let reading = read() else { return }
 
-        observer(readState())
+        observer(reading)
     }
 
     /// The internal power source is the only one the island speaks for: a
     /// connected UPS is a real power source to IOKit but not the battery the
     /// user is watching fill.
-    private static func currentState() -> PowerSourceState {
+    private static func currentReading() -> PowerSourceReading? {
         guard
             let blob = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
             let sources = IOPSCopyPowerSourcesList(blob)?.takeRetainedValue() as? [CFTypeRef]
         else {
-            return .onBattery
+            return nil
         }
 
         let internalBattery =
@@ -130,8 +143,6 @@ public final class SystemPowerSourceObserver: PowerSourceObserving {
             .compactMap { IOPSGetPowerSourceDescription(blob, $0)?.takeUnretainedValue() as? [String: Any] }
             .first { $0[kIOPSTypeKey] as? String == kIOPSInternalBatteryType }
 
-        guard let internalBattery else { return .onBattery }
-
-        return PowerSourceDescription.state(from: internalBattery)
+        return internalBattery.flatMap(PowerSourceDescription.reading(from:))
     }
 }

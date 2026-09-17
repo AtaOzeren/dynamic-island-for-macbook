@@ -55,6 +55,12 @@ public struct RecordingActivity: Activity, Equatable {
 
     public var identity: ActivityIdentity { Self.identity(for: source) }
 
+    /// Both sources share one compact element: a screen recording with the
+    /// microphone open is one capture to the user, and two red icons side by
+    /// side spend a place of the pill saying it twice. The expanded panel keeps
+    /// a card for each, since each has its own running time.
+    public var compactGroupIdentity: ActivityIdentity { ActivityIdentity("kernotch.recording") }
+
     public var kind: ActivityKind { .recording }
 
     /// `high`, and never auto-dismissing: per `docs/06-activity-providers.md`
@@ -65,6 +71,8 @@ public struct RecordingActivity: Activity, Equatable {
     public var orderBand: ActivityOrderBand { .pinned }
 
     public var priority: ActivityPriority { .high }
+
+    public var compactRank: CompactRank { .capture }
 
     public var autoDismiss: AutoDismissDescriptor? { nil }
 

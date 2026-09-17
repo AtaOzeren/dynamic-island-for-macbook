@@ -52,7 +52,7 @@ struct PresentationControllerLayoutTests {
 
     private static func cardHeight(_ layout: IslandLayout) -> CGFloat {
         expandedPanelSize(
-            for: [ChargingActivity(state: .charging)],
+            for: [ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.5))],
             notchSize: notchSize,
             metrics: layout.items,
             panelMetrics: layout.panel,
@@ -85,7 +85,7 @@ struct PresentationControllerLayoutTests {
     private static func expandedHarness() -> Harness {
         let harness = makeHarness()
         harness.controller.start()
-        harness.manager.register(ChargingActivity(state: .charging))
+        harness.manager.register(ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.5)))
         harness.controller.expand()
         return harness
     }

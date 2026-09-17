@@ -181,7 +181,7 @@ struct DiscordCallPresentationTests {
         let slot = discordCallCompactSlot(for: DiscordCallActivity(channel: nil, isMuted: false))
 
         #expect(slot.discordCall != nil)
-        #expect(slot.recordingSource == nil)
+        #expect(slot.recordingIndicator == nil)
         #expect(slot.id == DiscordCallActivity.identity.rawValue)
     }
 

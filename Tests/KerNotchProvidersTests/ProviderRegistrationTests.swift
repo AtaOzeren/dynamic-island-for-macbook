@@ -5,9 +5,9 @@ import Testing
 @testable import KerNotchProviders
 
 /// The seam between the providers' optional emissions and the registry's
-/// explicit ends. Every provider expresses teardown as `nil`, and every
-/// assertion here is about that `nil` arriving at the registry as an end
-/// carrying the identity the manager needs to remove the right activity.
+/// explicit ends. A provider expresses teardown as `nil`, and the assertions
+/// here are about that `nil` arriving at the registry as an end carrying the
+/// identity the manager needs to remove the right activity.
 @Suite("ProviderRegistration")
 @MainActor
 struct ProviderRegistrationTests {
@@ -18,7 +18,7 @@ struct ProviderRegistrationTests {
         var emissions: [ActivityEmission] = []
 
         registration.startObserving { emissions.append($0) }
-        source.emit(.charging)
+        source.plugIn()
 
         #expect(emissions.count == 1)
         #expect(emissions.first?.isEnded == false)
@@ -29,31 +29,31 @@ struct ProviderRegistrationTests {
     /// the registry hears "end the thing you had".
     @Test("turns a nil emission into an end carrying the last identity")
     func mapsNilToEnd() {
-        let source = FakePowerSourceObserver()
-        let registration = ActivityProviderRegistration.charging(ChargingProvider(source: source))
+        let sessions = FakeRecordingObserver()
+        let registration = ActivityProviderRegistration.recording(Self.screenRecordingProvider(sessions))
         var emissions: [ActivityEmission] = []
 
         registration.startObserving { emissions.append($0) }
-        source.emit(.charging)
+        sessions.emit(RecordingSession(startedAt: Date(timeIntervalSince1970: 0)))
         emissions.removeAll()
-        source.emit(.onBattery)
+        sessions.emit(nil)
 
         #expect(emissions.count == 1)
         #expect(emissions.first?.isEnded == true)
-        #expect(emissions.first?.identity == ActivityIdentity("kernotch.charging"))
+        #expect(emissions.first?.identity == RecordingActivity.identity(for: .screen))
     }
 
     /// You can only end what you started. A provider that opens by reporting
-    /// absence — a machine launched on battery, nothing playing — must not
-    /// manufacture an end for an activity the manager never registered.
+    /// absence — nothing recording, nothing playing — must not manufacture an
+    /// end for an activity the manager never registered.
     @Test("emits nothing for an absence that was never present")
     func ignoresLeadingAbsence() {
-        let source = FakePowerSourceObserver()
-        let registration = ActivityProviderRegistration.charging(ChargingProvider(source: source))
+        let sessions = FakeRecordingObserver()
+        let registration = ActivityProviderRegistration.recording(Self.screenRecordingProvider(sessions))
         var emissions: [ActivityEmission] = []
 
         registration.startObserving { emissions.append($0) }
-        source.emit(.onBattery)
+        sessions.emit(nil)
 
         #expect(emissions.isEmpty)
     }
@@ -66,7 +66,7 @@ struct ProviderRegistrationTests {
 
         registration.startObserving { emissions.append($0) }
         registration.stopObserving()
-        source.emit(.charging)
+        source.plugIn()
 
         #expect(emissions.isEmpty)
         #expect(source.isObserving == false)
@@ -77,16 +77,16 @@ struct ProviderRegistrationTests {
     /// position as a fresh one.
     @Test("forgets the live identity across a restart")
     func forgetsIdentityAcrossRestart() {
-        let source = FakePowerSourceObserver()
-        let registration = ActivityProviderRegistration.charging(ChargingProvider(source: source))
+        let sessions = FakeRecordingObserver()
+        let registration = ActivityProviderRegistration.recording(Self.screenRecordingProvider(sessions))
         var emissions: [ActivityEmission] = []
 
         registration.startObserving { _ in }
-        source.emit(.charging)
+        sessions.emit(RecordingSession(startedAt: Date(timeIntervalSince1970: 0)))
         registration.stopObserving()
 
         registration.startObserving { emissions.append($0) }
-        source.emit(.onBattery)
+        sessions.emit(nil)
 
         #expect(emissions.isEmpty)
     }
@@ -145,26 +145,13 @@ struct ProviderRegistrationTests {
         #expect(ActivityProviderRegistration.recording(provider).identifier == expected)
     }
 
-    @Test("ends the recording session when the capture stops")
-    func recordingEndsOnStop() {
-        let sessions = FakeRecordingObserver()
-        let provider = RecordingProvider(
+    private static func screenRecordingProvider(_ sessions: FakeRecordingObserver) -> RecordingProvider {
+        RecordingProvider(
             source: .screen,
             sessions: sessions,
             scheduler: FakeTickScheduler(),
             now: { Date(timeIntervalSince1970: 0) }
         )
-        let registration = ActivityProviderRegistration.recording(provider)
-        var emissions: [ActivityEmission] = []
-
-        registration.startObserving { emissions.append($0) }
-        sessions.emit(RecordingSession(startedAt: Date(timeIntervalSince1970: 0)))
-        emissions.removeAll()
-        sessions.emit(nil)
-
-        #expect(emissions.count == 1)
-        #expect(emissions.first?.isEnded == true)
-        #expect(emissions.first?.identity == RecordingActivity.identity(for: .screen))
     }
 }
 
@@ -177,11 +164,11 @@ extension ActivityEmission {
 
 @MainActor
 private final class FakePowerSourceObserver: PowerSourceObserving {
-    private var observer: PowerSourceStateObserver?
+    private var observer: PowerSourceReadingObserver?
 
     var isObserving: Bool { observer != nil }
 
-    func startObserving(_ observer: @escaping PowerSourceStateObserver) {
+    func startObserving(_ observer: @escaping PowerSourceReadingObserver) {
         self.observer = observer
     }
 
@@ -189,8 +176,15 @@ private final class FakePowerSourceObserver: PowerSourceObserving {
         observer = nil
     }
 
-    func emit(_ state: PowerSourceState) {
-        observer?(state)
+    func emit(_ state: ChargingState) {
+        observer?(PowerSourceReading(state: state, level: BatteryLevel(fraction: 0.5)))
+    }
+
+    /// The first reading is only the provider's baseline, so plugging in is an
+    /// unplugged reading followed by a connected one.
+    func plugIn() {
+        emit(.onBattery)
+        emit(.charging)
     }
 }
 

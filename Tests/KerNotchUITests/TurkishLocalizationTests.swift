@@ -30,20 +30,6 @@ struct TurkishLocalizationTests {
         }
     }
 
-    /// Turkish is a one/other language in CLDR, but its numeral phrases take the
-    /// singular noun — "3 etkinlik", never "3 etkinlikler". Both forms therefore
-    /// carry the same text, which is a translation decision rather than a
-    /// copy-paste, and only formatting an actual count tells the two apart.
-    @Test("the plural entry formats a count in Turkish")
-    func pluralFormatsInTurkish() throws {
-        try withTurkishBundle(for: "Sources/KerNotchUI/Resources/Localizable.xcstrings") { bundle in
-            let format = bundle.localizedString(forKey: "%lld more activities", value: nil, table: nil)
-
-            #expect(String(format: format, 1) == "1 etkinlik daha")
-            #expect(String(format: format, 3) == "3 etkinlik daha")
-        }
-    }
-
     @Test("the island size control is fully Turkish")
     func islandSizeSettingIsTurkish() throws {
         try withTurkishBundle(for: "Sources/KerNotchUI/Resources/Localizable.xcstrings") { bundle in
@@ -79,6 +65,24 @@ struct TurkishLocalizationTests {
         let expectedTranslations = [
             "Screen recording in progress": "Ekran kaydı yapılıyor",
             "Microphone in use": "Mikrofon kullanılıyor",
+            "Screen recording and microphone in use": "Ekran kaydı ve mikrofon kullanılıyor",
+        ]
+
+        try withTurkishBundle(
+            for: "Sources/KerNotchUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            for (key, translation) in expectedTranslations {
+                #expect(bundle.localizedString(forKey: key, value: nil, table: nil) == translation)
+            }
+        }
+    }
+
+    @Test("charging notification copy is fully Turkish")
+    func chargingStatusIsTurkish() throws {
+        let expectedTranslations = [
+            "Unplugged": "Fişten Çekildi",
+            "Plugged In": "Fişe Takılı",
+            "Fully Charged": "Tam Şarj Oldu",
         ]
 
         try withTurkishBundle(

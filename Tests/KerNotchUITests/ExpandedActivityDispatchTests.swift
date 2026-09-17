@@ -49,7 +49,7 @@ struct ExpandedActivityDispatchTests {
     }
 
     private static func charging() -> ChargingActivity {
-        ChargingActivity(state: .charging)
+        ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.5))
     }
 
     private static func recording(_ source: RecordingSource = .screen) -> RecordingActivity {
@@ -58,7 +58,7 @@ struct ExpandedActivityDispatchTests {
 
     private struct UnknownKindActivity: Activity {
         let identity = ActivityIdentity("kernotch.unknown")
-        let kind = ActivityKind.fileTransfer
+        let kind = ActivityKind.timer
         let priority = ActivityPriority.normal
     }
 
@@ -360,6 +360,6 @@ struct ExpandedActivityDispatchTests {
 
 private struct SizedStubActivity: Activity {
     let identity: ActivityIdentity
-    let kind = ActivityKind.fileTransfer
+    let kind = ActivityKind.timer
     let priority = ActivityPriority.normal
 }
