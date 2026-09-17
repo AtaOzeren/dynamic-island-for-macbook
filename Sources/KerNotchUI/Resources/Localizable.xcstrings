@@ -16,6 +16,30 @@
             "state": "translated",
             "value": "Uygulama"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Programm"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aplicación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Application"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applicazione"
+          }
         }
       }
     },
@@ -33,6 +57,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch'u yeniden başlat"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch neu starten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reiniciar KerNotch"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redémarrer KerNotch"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riavvia KerNotch"
           }
         }
       }
@@ -52,6 +100,30 @@
             "state": "translated",
             "value": "Yeniden başlatma gerekiyor"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neustart erforderlich"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requiere reinicio"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redémarrage requis"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riavvio necessario"
+          }
         }
       }
     },
@@ -69,6 +141,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ayarlarınızı değiştirmeden KerNotch'u yeniden başlatır."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Startet KerNotch neu, ohne deine Einstellungen zu ändern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reinicia KerNotch sin cambiar tus ajustes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Redémarre KerNotch sans modifier vos réglages."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riavvia KerNotch senza modificare le tue impostazioni."
           }
         }
       }
@@ -88,6 +184,30 @@
             "state": "translated",
             "value": "Bazı değişiklikler yeniden başlatma gerektiriyor. Seçimlerinizi tamamlayıp KerNotch'u yeniden başlatın."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Änderungen erfordern einen Neustart. Triff zuerst deine Auswahl und starte KerNotch dann neu."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Algunos cambios requieren reiniciar. Termina tus selecciones y reinicia KerNotch."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certaines modifications nécessitent un redémarrage. Terminez vos choix, puis redémarrez KerNotch."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alcune modifiche richiedono un riavvio. Completa le tue scelte, poi riavvia KerNotch."
+          }
         }
       }
     },
@@ -105,6 +225,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "macOS bu simgeyi ana menü çubuğunda gösterir. Birden fazla ekran varsa başka bir ekranda görünebilir."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS zeigt dieses Symbol in der Hauptmenüleiste. Bei mehreren Displays kann es auf einem anderen Bildschirm erscheinen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS muestra este icono en la barra de menús principal. Con varias pantallas, puede aparecer en otra."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS affiche cette icône dans la barre des menus principale. Avec plusieurs écrans, elle peut apparaître sur un autre écran."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS mostra questa icona nella barra dei menu principale. Con più display può comparire su un altro schermo."
           }
         }
       }
@@ -124,6 +268,30 @@
             "state": "translated",
             "value": "Kapatılmış bir olay çentiğe hiç ulaşmaz — geldiği anda düşürülür."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein deaktiviertes Ereignis erreicht die Notch nie — es wird sofort verworfen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un evento desactivado nunca llega a la muesca: se descarta al llegar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un événement désactivé n'atteint jamais l'encoche : il est abandonné dès son arrivée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un evento disattivato non raggiunge mai il notch: viene scartato all'arrivo."
+          }
         }
       }
     },
@@ -141,6 +309,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kapatılan bir etkinlik yalnızca gizlenmez, izlenmesi de durur."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eine ausgeschaltete Aktivität wird nicht mehr beobachtet, nicht nur ausgeblendet."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una actividad desactivada deja de observarse, no solo de mostrarse."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une activité désactivée cesse d'être observée, pas seulement masquée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un'attività disattivata smette di essere osservata, non viene solo nascosta."
           }
         }
       }
@@ -160,6 +352,30 @@
             "state": "translated",
             "value": "AI Araçları"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KI-Integrationen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integraciones de IA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intégrations IA"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integrazioni IA"
+          }
         }
       }
     },
@@ -177,6 +393,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yapay zekâ aracısı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KI-Agent"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agente de IA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent IA"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agente IA"
           }
         }
       }
@@ -196,6 +436,30 @@
             "state": "translated",
             "value": "Yapay zekâ kodlama aracıları"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KI-Coding-Agenten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agentes de programación con IA"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents de code IA"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agenti di programmazione IA"
+          }
         }
       }
     },
@@ -213,6 +477,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hakkında"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Über"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acerca de"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "À propos"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Info"
           }
         }
       }
@@ -232,6 +520,30 @@
             "state": "translated",
             "value": "Etkinlikler"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktivitäten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actividades"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activités"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attività"
+          }
         }
       }
     },
@@ -249,6 +561,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aracılar"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agenten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agentes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agents"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agenti"
           }
         }
       }
@@ -268,6 +604,30 @@
             "state": "translated",
             "value": "Uygulama dili"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App-Sprache"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idioma de la app"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue de l'app"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lingua dell'app"
+          }
         }
       }
     },
@@ -285,6 +645,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Görünüm"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erscheinungsbild"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aspecto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apparence"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aspetto"
           }
         }
       }
@@ -304,6 +688,30 @@
             "state": "translated",
             "value": "Apple Events; böylece şimdi çalan bilgisi ve çalma denetimleri Spotify ve Apple Music ile çalışır."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Events, damit „Aktuelle Wiedergabe“ und die Steuerung mit Spotify und Apple Music funktionieren."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Events, para que la reproducción actual y los controles funcionen con Spotify y Apple Music."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Events, pour que la lecture en cours et les commandes fonctionnent avec Spotify et Apple Music."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Events, così “In riproduzione” e i controlli funzionano con Spotify e Apple Music."
+          }
         }
       }
     },
@@ -321,6 +729,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Otomatik"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatique"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatico"
           }
         }
       }
@@ -340,6 +772,30 @@
             "state": "translated",
             "value": "Otomatik, çentiği olan ekranı izler; bulamazsa yerleşik ekrana döner."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Automatisch“ folgt dem Display mit der Notch und weicht sonst auf den eingebauten Bildschirm aus."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Automático» sigue la pantalla con muesca y, si no, usa la pantalla integrada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Automatique » suit l'écran doté de l'encoche, sinon l'écran intégré."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Automatico” segue il display con il notch, altrimenti usa lo schermo integrato."
+          }
         }
       }
     },
@@ -357,6 +813,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Geri"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurück"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Atrás"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Retour"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Indietro"
           }
         }
       }
@@ -376,6 +856,30 @@
             "state": "translated",
             "value": "Yerleşik ekran"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingebautes Display"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantalla integrada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écran intégré"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display integrato"
+          }
         }
       }
     },
@@ -393,6 +897,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Şarj oluyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird geladen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En charge"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In carica"
           }
         }
       }
@@ -412,6 +940,30 @@
             "state": "translated",
             "value": "Bağlanıyor…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connessione…"
+          }
         }
       }
     },
@@ -429,6 +981,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sürdür"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fortfahren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continuer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Continua"
           }
         }
       }
@@ -448,6 +1024,30 @@
             "state": "translated",
             "value": "Kopyalandı"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kopiert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copié"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiato"
+          }
         }
       }
     },
@@ -465,6 +1065,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Parçacığı kopyala"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snippet kopieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copiar fragmento"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier l'extrait"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copia lo snippet"
           }
         }
       }
@@ -484,6 +1108,30 @@
             "state": "translated",
             "value": "Geri sayım"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Countdown"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuenta atrás"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compte à rebours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conto alla rovescia"
+          }
         }
       }
     },
@@ -501,6 +1149,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zamanlayıcıyı kapat"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer ausblenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Descartar temporizador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer le minuteur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiudi il timer"
           }
         }
       }
@@ -520,6 +1192,30 @@
             "state": "translated",
             "value": "Ekran"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pantalla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Écran"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Display"
+          }
         }
       }
     },
@@ -537,6 +1233,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bitti"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fertig"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terminé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fine"
           }
         }
       }
@@ -556,6 +1276,30 @@
             "state": "translated",
             "value": "Olaylar"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ereignisse"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eventos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Événements"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eventi"
+          }
         }
       }
     },
@@ -573,6 +1317,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tam Şarj Oldu"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Voll geladen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carga completa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Charge complète"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Carica completa"
           }
         }
       }
@@ -592,6 +1360,30 @@
             "state": "translated",
             "value": "Genel"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allgemein"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "General"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Général"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Generali"
+          }
         }
       }
     },
@@ -609,6 +1401,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Boşta"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inaktiv"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inactivo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inactif"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inattivo"
           }
         }
       }
@@ -628,6 +1444,30 @@
             "state": "translated",
             "value": "Dil"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprache"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Idioma"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Langue"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lingua"
+          }
         }
       }
     },
@@ -645,6 +1485,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Oturum açıldığında başlat"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beim Anmelden öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir al iniciar sesión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir à la connexion"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri all'accesso"
           }
         }
       }
@@ -664,6 +1528,30 @@
             "state": "translated",
             "value": "MIT lisanslıdır. Müzik, bu yapının derlendiği arka uç üzerinden okunur."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MIT-lizenziert. Musik wird über das Backend gelesen, gegen das dieser Build kompiliert wurde."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con licencia MIT. La música se lee a través del backend con el que se compiló esta versión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sous licence MIT. La musique est lue via le backend avec lequel cette version a été compilée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Licenza MIT. La musica viene letta tramite il backend con cui è stata compilata questa build."
+          }
         }
       }
     },
@@ -681,6 +1569,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hareket"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bewegung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Movimiento"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animations"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Movimento"
           }
         }
       }
@@ -700,6 +1612,30 @@
             "state": "translated",
             "value": "Müzik"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Música"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musique"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musica"
+          }
         }
       }
     },
@@ -717,6 +1653,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Müzik arka ucu"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik-Backend"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backend de música"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backend musical"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backend musicale"
           }
         }
       }
@@ -736,6 +1696,30 @@
             "state": "translated",
             "value": "Müzik denetimi"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musiksteuerung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Control de música"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contrôle de la musique"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controllo della musica"
+          }
         }
       }
     },
@@ -753,6 +1737,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Girdinizi bekliyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Braucht deine Eingabe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Necesita tu respuesta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attend votre saisie"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Richiede un tuo input"
           }
         }
       }
@@ -772,6 +1780,30 @@
             "state": "translated",
             "value": "Sonraki parça"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächster Titel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pista siguiente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste suivante"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brano successivo"
+          }
         }
       }
     },
@@ -790,6 +1822,30 @@
             "state": "translated",
             "value": "Claude Code, Codex CLI veya OpenCode için yapılandırma bulunamadı. Birini kurduktan sonra kancayı Ayarlar'dan yükleyebilirsiniz."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Für Claude Code, Codex CLI oder OpenCode wurde keine Konfiguration gefunden. Du kannst einen Hook später in den Einstellungen installieren, sobald einer eingerichtet ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se encontró configuración de agente para Claude Code, Codex CLI ni OpenCode. Podrás instalar un hook más adelante desde Ajustes cuando tengas uno configurado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucune configuration d'agent n'a été trouvée pour Claude Code, Codex CLI ou OpenCode. Vous pourrez installer un hook plus tard depuis les réglages, une fois l'un d'eux configuré."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non è stata trovata alcuna configurazione per Claude Code, Codex CLI o OpenCode. Potrai installare un hook più tardi dalle impostazioni, una volta configurato uno di essi."
+          }
         }
       }
     },
@@ -804,6 +1860,30 @@
           }
         },
         "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch"
+          }
+        },
+        "it": {
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch"
@@ -826,6 +1906,30 @@
             "state": "translated",
             "value": "KerNotch şu anda hiçbir şey istemiyor. Her izin, yalnızca ona gereksinim duyan özelliği açtığınızda ve yalnızca KerNotch ne isteyeceğini açıkladıktan sonra istenir."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch fragt jetzt nach nichts. Jede Berechtigung wird erst angefragt, wenn du die Funktion einschaltest, die sie braucht — und erst, nachdem KerNotch erklärt hat, worum es geht."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch no pide nada ahora mismo. Cada permiso se solicita solo cuando activas la función que lo necesita, y solo después de que KerNotch explique qué va a pedir."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch ne demande rien pour l'instant. Chaque autorisation n'est demandée que lorsque vous activez la fonction qui en a besoin, et seulement après que KerNotch a expliqué ce qu'il va demander."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch non chiede nulla adesso. Ogni autorizzazione viene richiesta solo quando attivi la funzione che ne ha bisogno, e solo dopo che KerNotch ha spiegato cosa sta per chiedere."
+          }
         }
       }
     },
@@ -843,6 +1947,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch her çalar için macOS'ten ayrı ayrı ve yalnızca düğmeye bastığınızda izin ister."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch fragt macOS für jeden Player einzeln — und nur, wenn du die Taste drückst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch pide permiso a macOS para cada reproductor por separado, y solo cuando pulsas el botón."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch interroge macOS pour chaque lecteur séparément, et uniquement quand vous appuyez sur le bouton."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch chiede a macOS per ogni player separatamente, e solo quando premi il pulsante."
           }
         }
       }
@@ -862,6 +1990,30 @@
             "state": "translated",
             "value": "KerNotch aşağıdaki araçlar için yapılandırma buldu. Burada birini açmak yalnızca onu istediğinizi kaydeder — hiçbir dosyaya yazılmaz. Kancanın kendisi, tam kod parçasını görüp yazmayı onayladığınız Ayarlar'dan kurulur."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch hat für die folgenden Agenten eine Konfiguration gefunden. Sie hier einzuschalten hält nur fest, dass du sie möchtest — es wird in keine Datei geschrieben. Der Hook selbst wird in den Einstellungen installiert, wo du das genaue Snippet siehst und das Schreiben freigibst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch encontró configuración para los agentes de abajo. Activarlos aquí solo registra que los quieres: no se escribe nada en ningún archivo. El hook se instala en Ajustes, donde ves el fragmento exacto y apruebas la escritura."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch a trouvé une configuration pour les agents ci-dessous. Les activer ici ne fait qu'enregistrer votre choix : rien n'est écrit dans un fichier. L'installation du hook se fait dans les réglages, où vous voyez l'extrait exact et approuvez l'écriture."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch ha trovato la configurazione per gli agenti qui sotto. Attivarli qui registra solo la tua scelta: non viene scritto nulla su alcun file. L'installazione dell'hook avviene nelle impostazioni, dove vedi lo snippet esatto e approvi la scrittura."
+          }
         }
       }
     },
@@ -879,6 +2031,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch'un Dock simgesi yoktur. Menü çubuğu simgesi gizliyken Ayarlar'ı göstermek için uygulamayı yeniden açın."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch hat kein Dock-Symbol. Öffne die App erneut, um die Einstellungen zu zeigen, wenn das Menüleistensymbol ausgeblendet ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch no tiene icono en el Dock. Vuelve a abrir la app para mostrar los ajustes cuando su icono de la barra de menús esté oculto."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch n'a pas d'icône dans le Dock. Rouvrez l'app pour afficher les réglages lorsque son icône de barre des menus est masquée."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch non ha un'icona nel Dock. Riapri l'app per mostrare le impostazioni quando l'icona nella barra dei menu è nascosta."
           }
         }
       }
@@ -898,6 +2074,30 @@
             "state": "translated",
             "value": "KerNotch menü çubuğunda yaşar. Az önce gördükleriniz — ve atladıklarınız — istediğiniz zaman Ayarlar'dan değiştirilebilir."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch lebt in der Menüleiste. Alles, was du gerade gesehen hast — und alles, was du übersprungen hast — lässt sich jederzeit in den Einstellungen ändern."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch vive en la barra de menús. Todo lo que acabas de ver, y todo lo que te saltaste, puede cambiarse en cualquier momento en Ajustes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch vit dans la barre des menus. Tout ce que vous venez de voir — et tout ce que vous avez passé — peut être modifié à tout moment dans les réglages."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch vive nella barra dei menu. Tutto ciò che hai appena visto — e tutto ciò che hai saltato — si può cambiare in qualsiasi momento nelle impostazioni."
+          }
         }
       }
     },
@@ -915,6 +2115,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch, bir aracıyı burada etkinleştirene dek onun için hiçbir şey göstermez."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch zeigt für einen Agenten nichts an, bis du ihn hier einschaltest."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch no muestra nada de un agente hasta que lo actives aquí."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch n'affiche rien pour un agent tant que vous ne l'activez pas ici."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch non mostra nulla di un agente finché non lo attivi qui."
           }
         }
       }
@@ -934,6 +2158,30 @@
             "state": "translated",
             "value": "KerNotch, çentiğinizin çevresini canlı bir etkinlik yüzeyine dönüştürür: çalanlar, çalışan zamanlayıcılar, ekran ve ses kaydı göstergeleri, şarj durumu ve yapay zekâ kodlama aracılarınızın durumu."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch macht den Bereich um deine Notch zu einer lebendigen Aktivitätsfläche: aktuelle Wiedergabe, laufende Timer, Anzeigen für Bildschirm- und Audioaufnahme, Ladezustand und der Status deiner KI-Coding-Agenten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch convierte la zona alrededor de la muesca en una superficie de actividad en vivo: lo que suena, los temporizadores, los indicadores de grabación de pantalla y micrófono, el estado de carga y el estado de tus agentes de programación con IA."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch transforme la zone autour de l'encoche en une surface d'activités en direct : la lecture en cours, les minuteurs, les indicateurs d'enregistrement d'écran et de micro, l'état de charge et le statut de vos agents de code IA."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch trasforma l'area attorno al notch in una superficie di attività dal vivo: cosa è in riproduzione, i timer attivi, gli indicatori di registrazione schermo e microfono, lo stato di carica e lo stato dei tuoi agenti di programmazione IA."
+          }
         }
       }
     },
@@ -951,6 +2199,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Şimdi Çalıyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Wiedergabe"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproduciendo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture en cours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In riproduzione"
           }
         }
       }
@@ -970,6 +2242,30 @@
             "state": "translated",
             "value": "Ayarlar'ı aç"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir Ajustes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir les réglages"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri le impostazioni"
+          }
         }
       }
     },
@@ -987,6 +2283,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Duraklat"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausa"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pause"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausa"
           }
         }
       }
@@ -1006,6 +2326,30 @@
             "state": "translated",
             "value": "Zamanlayıcıyı duraklat"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer pausieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausar temporizador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mettre le minuteur en pause"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Metti in pausa il timer"
+          }
         }
       }
     },
@@ -1023,6 +2367,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Duraklatıldı: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pausiert: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pausa: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En pause : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In pausa: %@"
           }
         }
       }
@@ -1042,6 +2410,30 @@
             "state": "translated",
             "value": "İzinler daha sonra"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Berechtigungen kommen später"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los permisos vienen después"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les autorisations viendront plus tard"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le autorizzazioni arrivano dopo"
+          }
         }
       }
     },
@@ -1059,6 +2451,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Çal"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abspielen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproducir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riproduci"
           }
         }
       }
@@ -1078,6 +2494,30 @@
             "state": "translated",
             "value": "Fişe Takılı"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Angeschlossen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Branché"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collegato"
+          }
         }
       }
     },
@@ -1095,6 +2535,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fişten Çekildi"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abgezogen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desconectado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Débranché"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scollegato"
           }
         }
       }
@@ -1114,6 +2578,30 @@
             "state": "translated",
             "value": "Önceki parça"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vorheriger Titel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pista anterior"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Piste précédente"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brano precedente"
+          }
         }
       }
     },
@@ -1131,6 +2619,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kayıt"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufnahme"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grabación"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrement"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrazione"
           }
         }
       }
@@ -1150,6 +2662,30 @@
             "state": "translated",
             "value": "Kayıt ve şarj göstergeleri hiçbir izin gerektirmez."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Anzeigen für Aufnahme und Laden brauchen überhaupt keine Berechtigung."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los indicadores de grabación y carga no necesitan ningún permiso."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les indicateurs d'enregistrement et de charge ne nécessitent aucune autorisation."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gli indicatori di registrazione e di carica non richiedono alcuna autorizzazione."
+          }
         }
       }
     },
@@ -1167,6 +2703,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ekran kaydı yapılıyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildschirmaufnahme läuft"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grabando la pantalla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrement de l'écran en cours"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrazione dello schermo in corso"
           }
         }
       }
@@ -1186,6 +2746,30 @@
             "state": "translated",
             "value": "Ekran kaydı ve mikrofon kullanılıyor"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildschirmaufnahme läuft und Mikrofon wird benutzt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grabando la pantalla y micrófono en uso"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrement de l'écran et micro utilisé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrazione dello schermo e microfono in uso"
+          }
         }
       }
     },
@@ -1203,6 +2787,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mikrofon kullanılıyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon wird benutzt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Micrófono en uso"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Micro utilisé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microfono in uso"
           }
         }
       }
@@ -1222,6 +2830,30 @@
             "state": "translated",
             "value": "Azaltılmış hareket de, siz geçersiz kılmadıkça sistemin erişilebilirlik ayarını izler."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Bewegung reduzieren“ folgt auch der Bedienungshilfen-Einstellung des Systems, solange du sie nicht überschreibst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La reducción de movimiento también sigue el ajuste de accesibilidad del sistema, salvo que lo anules."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La réduction des animations suit aussi le réglage d'accessibilité du système, sauf si vous le remplacez."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La riduzione del movimento segue anche l'impostazione di accessibilità del sistema, a meno che tu non la sovrascriva."
+          }
         }
       }
     },
@@ -1239,6 +2871,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Menü çubuğu simgesini göster"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Menüleistensymbol zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar icono en la barra de menús"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher l'icône de la barre des menus"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra l'icona nella barra dei menu"
           }
         }
       }
@@ -1258,6 +2914,30 @@
             "state": "translated",
             "value": "Zamanlayıcıyı sürdür"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer fortsetzen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reanudar temporizador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reprendre le minuteur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riprendi il timer"
+          }
         }
       }
     },
@@ -1275,6 +2955,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ çalıştırılıyor…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ läuft…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecutando %@…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exécution de %@…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esecuzione di %@…"
           }
         }
       }
@@ -1294,6 +2998,30 @@
             "state": "translated",
             "value": "Araç çalıştırılıyor…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werkzeug läuft…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ejecutando herramienta…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Outil en cours…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strumento in esecuzione…"
+          }
         }
       }
     },
@@ -1311,6 +3039,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ için kurulum parçacığı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einrichtungs-Snippet für %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fragmento de configuración para %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extrait de configuration pour %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snippet di configurazione per %@"
           }
         }
       }
@@ -1330,6 +3082,30 @@
             "state": "translated",
             "value": "%@ durumunu çentikte göster"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-Status in der Notch zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar el estado de %@ en la muesca"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher l'état de %@ dans l'encoche"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra lo stato di %@ nel notch"
+          }
         }
       }
     },
@@ -1347,6 +3123,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Adayı şurada göster"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insel anzeigen auf"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar la isla en"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher l'îlot sur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra l'isola su"
           }
         }
       }
@@ -1366,6 +3166,30 @@
             "state": "translated",
             "value": "Atla"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Überspringen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Omitir"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ignorer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salta"
+          }
         }
       }
     },
@@ -1383,6 +3207,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Başlangıç"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arranque"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Démarrage"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avvio"
           }
         }
       }
@@ -1402,6 +3250,30 @@
             "state": "translated",
             "value": "Zamanlayıcıyı durdur"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer stoppen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detener temporizador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêter le minuteur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ferma il timer"
+          }
         }
       }
     },
@@ -1419,6 +3291,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kronometre"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stoppuhr"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cronómetro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chronomètre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cronometro"
           }
         }
       }
@@ -1438,6 +3334,30 @@
             "state": "translated",
             "value": "Sistem öntanımlısı"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Systemstandard"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajuste del sistema"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglage du système"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impostazione di sistema"
+          }
         }
       }
     },
@@ -1455,6 +3375,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch bir sonraki açılışında geçerli olur."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird beim nächsten Start von KerNotch wirksam."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se aplica la próxima vez que se inicie KerNotch."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prend effet au prochain démarrage de KerNotch."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ha effetto al prossimo avvio di KerNotch."
           }
         }
       }
@@ -1474,6 +3418,30 @@
             "state": "translated",
             "value": "Görev tamamlandı"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgabe abgeschlossen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea completada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tâche terminée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attività completata"
+          }
         }
       }
     },
@@ -1492,6 +3460,30 @@
             "state": "translated",
             "value": "Görev hatası"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgabenfehler"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error de tarea"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur de tâche"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Errore nell'attività"
+          }
         }
       }
     },
@@ -1506,6 +3498,30 @@
           }
         },
         "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tema"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Design"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tema"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thème"
+          }
+        },
+        "it": {
           "stringUnit": {
             "state": "translated",
             "value": "Tema"
@@ -1528,6 +3544,30 @@
             "state": "translated",
             "value": "Düşünüyor…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Denkt nach…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pensando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réflexion…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sto pensando…"
+          }
         }
       }
     },
@@ -1545,6 +3585,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Süre doldu"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeit ist um"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se acabó el tiempo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temps écoulé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tempo scaduto"
           }
         }
       }
@@ -1564,6 +3628,30 @@
             "state": "translated",
             "value": "Zamanlayıcı"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temporizador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minuteur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer"
+          }
         }
       }
     },
@@ -1581,6 +3669,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zamanlayıcı bitti"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer beendet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temporizador finalizado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minuteur terminé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer concluso"
           }
         }
       }
@@ -1600,6 +3712,30 @@
             "state": "translated",
             "value": "Sürüm"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Versione"
+          }
         }
       }
     },
@@ -1617,6 +3753,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch'a hoş geldiniz"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Willkommen bei KerNotch"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te damos la bienvenida a KerNotch"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bienvenue dans KerNotch"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ti diamo il benvenuto in KerNotch"
           }
         }
       }
@@ -1636,6 +3796,30 @@
             "state": "translated",
             "value": "Çalışıyor…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arbeitet…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trabajando…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Travail en cours…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Al lavoro…"
+          }
         }
       }
     },
@@ -1653,6 +3837,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bir aracının yapılandırma dosyasına yazma erişimi, yalnızca kancasını kurduğunuzda."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schreibzugriff auf die Konfigurationsdatei eines Agenten — nur wenn du seinen Hook installierst."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acceso de escritura al archivo de configuración de un agente, solo cuando instalas su hook."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'accès en écriture au fichier de configuration d'un agent, uniquement lorsque vous installez son hook."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accesso in scrittura al file di configurazione di un agente, solo quando installi il suo hook."
           }
         }
       }
@@ -1672,6 +3880,30 @@
             "state": "translated",
             "value": "Kurulum tamam"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alles eingerichtet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todo listo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tout est prêt"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "È tutto pronto"
+          }
         }
       }
     },
@@ -1686,6 +3918,30 @@
           }
         },
         "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@, %2$@"
+          }
+        },
+        "it": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@, %2$@"
@@ -1708,6 +3964,30 @@
             "state": "translated",
             "value": "%1$@ · %2$@"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
         }
       }
     },
@@ -1725,6 +4005,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hook'u yükle"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hook installieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instalar hook"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installer le hook"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installa l'hook"
           }
         }
       }
@@ -1744,6 +4048,30 @@
             "state": "translated",
             "value": "Hook'u yükle ve durumu çentikte göster"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hook installieren und Status in der Notch zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instalar el hook y mostrar el estado en la muesca"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installer le hook et afficher l'état dans l'encoche"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installa l'hook e mostra lo stato nel notch"
+          }
         }
       }
     },
@@ -1761,6 +4089,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elle kurulum"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Manuelle Einrichtung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuración manual"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuration manuelle"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurazione manuale"
           }
         }
       }
@@ -1780,6 +4132,30 @@
             "state": "translated",
             "value": "KerNotch aşağıdaki aracıların yapılandırmasını buldu. Birini açmanız, kurulum tamamlandığında hook'unun yüklenmesini onaylar. Herhangi bir değişiklikten önce mevcut yapılandırma yedeklenerek korunur."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch hat für die folgenden Agenten eine Konfiguration gefunden. Einen davon einzuschalten erlaubt, seinen Hook am Ende der Einrichtung zu installieren. Vorhandene Konfiguration bleibt erhalten und wird vor jeder Änderung gesichert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch encontró configuración para los agentes de abajo. Activar uno aprueba instalar su hook al terminar la configuración. La configuración existente se conserva con una copia de seguridad antes de cualquier cambio."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch a trouvé une configuration pour les agents ci-dessous. En activer un autorise l'installation de son hook à la fin de la configuration. La configuration existante est conservée, avec une sauvegarde avant toute modification."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch ha trovato la configurazione per gli agenti qui sotto. Attivarne uno autorizza l'installazione del suo hook al termine della configurazione. La configurazione esistente viene conservata con un backup prima di ogni modifica."
+          }
         }
       }
     },
@@ -1797,6 +4173,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hook'u kaldır"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hook entfernen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desinstalar hook"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Désinstaller le hook"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disinstalla l'hook"
           }
         }
       }
@@ -1816,6 +4216,30 @@
             "state": "translated",
             "value": "Tüm ekranlar"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Displays"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Todas las pantallas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tous les écrans"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tutti i display"
+          }
         }
       }
     },
@@ -1830,6 +4254,30 @@
           }
         },
         "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld."
+          }
+        },
+        "it": {
           "stringUnit": {
             "state": "translated",
             "value": "%lld."
@@ -1852,6 +4300,30 @@
             "state": "translated",
             "value": "%1$@ %2$lld"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ %2$lld"
+          }
         }
       }
     },
@@ -1866,6 +4338,30 @@
           }
         },
         "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9+"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9+"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9+"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "9+"
+          }
+        },
+        "it": {
           "stringUnit": {
             "state": "translated",
             "value": "9+"
@@ -1888,6 +4384,30 @@
             "state": "translated",
             "value": "%lld oturum"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Sitzungen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sesiones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessions"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sessioni"
+          }
         }
       }
     },
@@ -1905,6 +4425,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld aracı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Agenten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld agentes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld agents"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld agenti"
           }
         }
       }
@@ -1924,6 +4468,30 @@
             "state": "translated",
             "value": "Alt ajanları göster"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unteragenten zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar subagentes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les sous-agents"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra i sotto-agenti"
+          }
         }
       }
     },
@@ -1941,6 +4509,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Alt ajanları gizle"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unteragenten ausblenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar subagentes"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer les sous-agents"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi i sotto-agenti"
           }
         }
       }
@@ -1960,6 +4552,30 @@
             "state": "translated",
             "value": "Yüksek CPU toparlanması"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erholung von hoher CPU-Last"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recuperación por CPU alta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Récupération après une charge processeur élevée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ripristino dopo CPU elevata"
+          }
         }
       }
     },
@@ -1977,6 +4593,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ajan %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent %lld"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agente %lld"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent %lld"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agente %lld"
           }
         }
       }
@@ -1996,6 +4636,30 @@
             "state": "translated",
             "value": "Kota doldu"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontingent aufgebraucht"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin cuota"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quota épuisé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quota esaurita"
+          }
         }
       }
     },
@@ -2013,6 +4677,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Oturum açmanız gerekiyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anmeldung erforderlich"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requiere inicio de sesión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion requise"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accesso necessario"
           }
         }
       }
@@ -2032,6 +4720,30 @@
             "state": "translated",
             "value": "Sağlayıcı kullanılamıyor"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anbieter nicht erreichbar"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proveedor no disponible"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fournisseur indisponible"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provider non disponibile"
+          }
         }
       }
     },
@@ -2049,6 +4761,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "İstek reddedildi"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anfrage abgelehnt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Solicitud rechazada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Requête refusée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Richiesta rifiutata"
           }
         }
       }
@@ -2068,6 +4804,30 @@
             "state": "translated",
             "value": "Bir hatayla durdu"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wegen eines Fehlers gestoppt"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detenido por un error"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêté sur une erreur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fermato per un errore"
+          }
         }
       }
     },
@@ -2082,6 +4842,30 @@
           }
         },
         "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ · %2$@"
+          }
+        },
+        "it": {
           "stringUnit": {
             "state": "translated",
             "value": "%1$@ · %2$@"
@@ -2104,6 +4888,30 @@
             "state": "translated",
             "value": "%@ sıfırlanır"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zurückgesetzt um %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se restablece a las %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réinitialisation à %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si ripristina alle %@"
+          }
         }
       }
     },
@@ -2121,6 +4929,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ada ışığı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leuchten der Insel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brillo de la isla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Halo de l'îlot"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bagliore dell'isola"
           }
         }
       }
@@ -2140,6 +4972,30 @@
             "state": "translated",
             "value": "Bir aracı görevi bitirdiğinde, girdi beklediğinde ya da hata aldığında küçük adanın etrafında yumuşak bir ışık geçer."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein sanftes Licht läuft um die kleine Insel, wenn ein Agent fertig ist, eine Eingabe braucht oder fehlschlägt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una luz suave recorre la isla pequeña cuando un agente termina, pide tu respuesta o falla."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Une lumière douce parcourt le petit îlot quand un agent termine, demande une saisie ou échoue."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una luce soffusa scorre attorno all'isola piccola quando un agente finisce, chiede un input o fallisce."
+          }
         }
       }
     },
@@ -2157,6 +5013,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Işığı göster"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leuchten zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar el brillo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le halo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra il bagliore"
           }
         }
       }
@@ -2176,6 +5056,30 @@
             "state": "translated",
             "value": "Işığı test et"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leuchten testen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Probar el brillo"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tester le halo"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prova il bagliore"
+          }
         }
       }
     },
@@ -2193,6 +5097,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Discord görüşmesi"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord-Anruf"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada de Discord"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel Discord"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata Discord"
           }
         }
       }
@@ -2212,6 +5140,30 @@
             "state": "translated",
             "value": "Discord görüşmesinde"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In einem Discord-Anruf"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En una llamada de Discord"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En appel Discord"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In una chiamata Discord"
+          }
         }
       }
     },
@@ -2229,6 +5181,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Özel görüşme"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privater Anruf"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Llamada privada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appel privé"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiamata privata"
           }
         }
       }
@@ -2248,6 +5224,30 @@
             "state": "translated",
             "value": "Sessizde: %@"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stummgeschaltet: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Silenciado: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Micro coupé : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microfono disattivato: %@"
+          }
         }
       }
     },
@@ -2266,6 +5266,30 @@
             "state": "translated",
             "value": "Entegrasyonlar"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integrationen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integraciones"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Intégrations"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Integrazioni"
+          }
         }
       }
     },
@@ -2280,6 +5304,30 @@
           }
         },
         "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord"
+          }
+        },
+        "it": {
           "stringUnit": {
             "state": "translated",
             "value": "Discord"
@@ -2302,6 +5350,30 @@
             "state": "translated",
             "value": "Discord sesli görüşmelerini adada mikrofon göstergesinin yerine gösterir."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt Discord-Sprachanrufe auf der Insel anstelle der Mikrofonanzeige."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Muestra las llamadas de voz de Discord en la isla en lugar del indicador del micrófono."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche les appels vocaux Discord sur l'îlot à la place de l'indicateur du micro."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra le chiamate vocali di Discord sull'isola al posto dell'indicatore del microfono."
+          }
         }
       }
     },
@@ -2319,6 +5391,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Discord görüşmelerini göster"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord-Anrufe zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar llamadas de Discord"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les appels Discord"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra le chiamate Discord"
           }
         }
       }
@@ -2338,6 +5434,30 @@
             "state": "translated",
             "value": "Bu Mac'te Discord yüklü değil."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord ist auf diesem Mac nicht installiert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord no está instalado en este Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord n'est pas installé sur ce Mac."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord non è installato su questo Mac."
+          }
         }
       }
     },
@@ -2355,6 +5475,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Discord'u indir"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord laden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obtener Discord"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Obtenir Discord"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ottieni Discord"
           }
         }
       }
@@ -2374,6 +5518,30 @@
             "state": "translated",
             "value": "Ses kanalı"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sprachkanal"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canal de voz"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salon vocal"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Canale vocale"
+          }
         }
       }
     },
@@ -2391,6 +5559,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bağlan"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connetti"
           }
         }
       }
@@ -2410,6 +5602,30 @@
             "state": "translated",
             "value": "Bağlantıyı kes"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trennen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desconectar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déconnecter"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnetti"
+          }
         }
       }
     },
@@ -2427,6 +5643,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Discord'un açılması bekleniyor."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Warten, bis Discord geöffnet ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esperando a que se abra Discord."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En attente de l'ouverture de Discord."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In attesa che Discord si apra."
           }
         }
       }
@@ -2446,6 +5686,30 @@
             "state": "translated",
             "value": "Discord'a bağlanılıyor…"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinden mit Discord…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectando con Discord…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion à Discord…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connessione a Discord…"
+          }
         }
       }
     },
@@ -2463,6 +5727,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bağlanmaya hazır."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bereit zum Verbinden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Listo para conectar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prêt à se connecter."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pronto a connettersi."
           }
         }
       }
@@ -2482,6 +5770,30 @@
             "state": "translated",
             "value": "Discord'da KerNotch'u onaylayın."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bestätige KerNotch in Discord."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aprueba KerNotch en Discord."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approuvez KerNotch dans Discord."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Approva KerNotch in Discord."
+          }
         }
       }
     },
@@ -2499,6 +5811,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ olarak bağlandı."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden als %@."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado como %@."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté en tant que %@."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connesso come %@."
           }
         }
       }
@@ -2518,6 +5854,30 @@
             "state": "translated",
             "value": "Bağlandı."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connesso."
+          }
         }
       }
     },
@@ -2535,6 +5895,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "İstek Discord'da reddedildi."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Anfrage wurde in Discord abgelehnt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La solicitud se rechazó en Discord."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La demande a été refusée dans Discord."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La richiesta è stata rifiutata in Discord."
           }
         }
       }
@@ -2554,6 +5938,30 @@
             "state": "translated",
             "value": "Tekrar dene"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erneut versuchen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reintentar"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réessayer"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riprova"
+          }
         }
       }
     },
@@ -2571,6 +5979,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kanal adını görmek ve adadan kanaldan çıkmak için Discord'u bağlayın. Discord, KerNotch'u bir kez onaylamanızı ister."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbinde Discord, um den Kanalnamen zu sehen und den Kanal von der Insel aus zu verlassen. Discord bittet dich einmal, KerNotch zu bestätigen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conecta Discord para ver el nombre del canal y salir de él desde la isla. Discord te pide aprobar KerNotch una vez."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connectez Discord pour voir le nom du salon et le quitter depuis l'îlot. Discord vous demande d'approuver KerNotch une seule fois."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connetti Discord per vedere il nome del canale e uscirne dall'isola. Discord ti chiede di approvare KerNotch una sola volta."
           }
         }
       }
@@ -2590,6 +6022,30 @@
             "state": "translated",
             "value": "Discord KerNotch'u tanımadı."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord hat KerNotch nicht erkannt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord no reconoció KerNotch."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord n'a pas reconnu KerNotch."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord non ha riconosciuto KerNotch."
+          }
         }
       }
     },
@@ -2607,6 +6063,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Discord bağlantıyı tamamlamadı. KerNotch'un Discord bağlantısı hesabınız için henüz kullanılamıyor olabilir; mikrofon rozeti yine çalışır."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord hat die Verbindung nicht abgeschlossen. Die Discord-Verbindung von KerNotch ist für dein Konto vielleicht noch nicht verfügbar; die Mikrofonanzeige funktioniert weiterhin."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord no completó la conexión. Puede que la conexión de Discord de KerNotch aún no esté disponible para tu cuenta; el indicador del micrófono sigue funcionando."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord n'a pas finalisé la connexion. La connexion Discord de KerNotch n'est peut-être pas encore disponible pour votre compte ; l'indicateur du micro fonctionne toujours."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord non ha completato la connessione. La connessione Discord di KerNotch potrebbe non essere ancora disponibile per il tuo account; l'indicatore del microfono continua a funzionare."
           }
         }
       }
@@ -2626,6 +6106,30 @@
             "state": "translated",
             "value": "Ada"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Insel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Îlot"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Isola"
+          }
         }
       }
     },
@@ -2644,6 +6148,30 @@
             "state": "translated",
             "value": "Ada boyutu"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inselgröße"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tamaño de la isla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Taille de l'îlot"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dimensione dell'isola"
+          }
         }
       }
     },
@@ -2661,6 +6189,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Büyük, üzerine gelince açılan adayı genişletir; yazılarını ve kontrollerini büyütür."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„Groß“ verbreitert die Insel, die beim Zeigen aufgeht, und vergrößert Text und Bedienelemente."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "«Grande» ensancha la isla que se abre al pasar el cursor y agranda su texto y sus controles."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "« Grand » élargit l'îlot qui s'ouvre au survol et agrandit son texte et ses commandes."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "“Grande” allarga l'isola che si apre al passaggio del puntatore e ingrandisce testo e controlli."
           }
         }
       }

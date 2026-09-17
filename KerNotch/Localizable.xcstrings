@@ -16,6 +16,30 @@
             "state": "translated",
             "value": "Aracı oturumları yeniden başlatma sırasında taşınmaz. Her biri bir sonraki olayında yeniden görünür."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Agent-Sitzungen werden bei einem Neustart nicht übernommen. Jede erscheint bei ihrem nächsten Ereignis wieder."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las sesiones de agente no se conservan al reiniciar. Cada una reaparece en su siguiente evento."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les sessions d'agent ne sont pas conservées lors d'un redémarrage. Chacune réapparaît à son prochain événement."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le sessioni degli agenti non vengono mantenute dopo un riavvio. Ognuna riappare al suo evento successivo."
+          }
         }
       }
     },
@@ -33,6 +57,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch son çalışmasında üç yeniden başlatmaya rağmen CPU yüksek kaldığı için kendini kapattı. Rapor: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beim letzten Mal hat sich KerNotch beendet, weil die CPU-Last nach drei Neustarts hoch blieb. Bericht: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La última vez, KerNotch se cerró porque la CPU siguió alta tras tres reinicios. Informe: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La dernière fois, KerNotch s'est fermé car l'utilisation du processeur est restée élevée après trois redémarrages. Rapport : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'ultima volta KerNotch si è chiuso perché la CPU è rimasta alta dopo tre riavvii. Rapporto: %@"
           }
         }
       }
@@ -52,6 +100,30 @@
             "state": "translated",
             "value": "KerNotch koruyucu önlemlere rağmen CPU yüksek kaldığı için yeniden başlatılıyor. Tanı raporu kaydedildi."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch startet neu, weil die CPU-Last trotz Schutzmaßnahmen hoch blieb. Ein Diagnosebericht wurde gesichert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch se está reiniciando porque la CPU siguió alta pese a las medidas de protección. Se guardó un informe de diagnóstico."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch redémarre car l'utilisation du processeur est restée élevée malgré les mesures de protection. Un rapport de diagnostic a été enregistré."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch si sta riavviando perché la CPU è rimasta alta nonostante le misure di protezione. È stato salvato un rapporto diagnostico."
+          }
         }
       }
     },
@@ -69,6 +141,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch beklenenden fazla CPU kullanıyor. Toparlanana kadar animasyonlar duraklatıldı."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch benötigt mehr CPU als erwartet. Animationen pausieren, bis es sich erholt hat."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch está usando más CPU de lo previsto. Las animaciones se pausan mientras se recupera."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch utilise plus de processeur que prévu. Les animations sont suspendues le temps qu'il se rétablisse."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch sta usando più CPU del previsto. Le animazioni sono in pausa finché non si riprende."
           }
         }
       }
@@ -88,6 +184,30 @@
             "state": "translated",
             "value": "KerNotch kendini kapattı: bir saat içinde 3 yeniden başlatmaya rağmen CPU yüksek kaldı. Tanı raporu: %@"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch hat sich beendet: Die CPU-Last blieb nach 3 Neustarts innerhalb einer Stunde hoch. Diagnosebericht: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch se cerró: la CPU siguió alta tras 3 reinicios en una hora. Informe de diagnóstico: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch s'est fermé : l'utilisation du processeur est restée élevée après 3 redémarrages en une heure. Rapport de diagnostic : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch si è chiuso: la CPU è rimasta alta dopo 3 riavvii in un'ora. Rapporto diagnostico: %@"
+          }
         }
       }
     },
@@ -105,6 +225,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch sürekli yüksek CPU kullanımı sonrası kendini yeniden başlattı. Rapor: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch hat sich nach anhaltend hoher CPU-Last neu gestartet. Bericht: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch se reinició tras un uso alto y sostenido de la CPU. Informe: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch a redémarré après une utilisation élevée et prolongée du processeur. Rapport : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch si è riavviato dopo un uso elevato e prolungato della CPU. Rapporto: %@"
           }
         }
       }
@@ -124,6 +268,30 @@
             "state": "translated",
             "value": "KerNotch'dan Çık"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch beenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salir de KerNotch"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter KerNotch"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esci da KerNotch"
+          }
         }
       }
     },
@@ -141,6 +309,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ayarlar…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einstellungen…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ajustes…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impostazioni…"
           }
         }
       }
@@ -160,6 +352,30 @@
             "state": "translated",
             "value": "10 Dakikalık Zamanlayıcı Başlat"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "10-Minuten-Timer starten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar temporizador de 10 minutos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer un minuteur de 10 minutes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avvia timer da 10 minuti"
+          }
         }
       }
     },
@@ -177,6 +393,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "25 Dakikalık Zamanlayıcı Başlat"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "25-Minuten-Timer starten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar temporizador de 25 minutos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer un minuteur de 25 minutes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avvia timer da 25 minuti"
           }
         }
       }
@@ -196,6 +436,30 @@
             "state": "translated",
             "value": "5 Dakikalık Zamanlayıcı Başlat"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "5-Minuten-Timer starten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Iniciar temporizador de 5 minutos"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lancer un minuteur de 5 minutes"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avvia timer da 5 minuti"
+          }
         }
       }
     },
@@ -213,6 +477,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zamanlayıcıyı Durdur"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer stoppen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Detener temporizador"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Arrêter le minuteur"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ferma timer"
           }
         }
       }
@@ -232,6 +520,30 @@
             "state": "translated",
             "value": "KerNotch'a hoş geldiniz"
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Willkommen bei KerNotch"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Te damos la bienvenida a KerNotch"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bienvenue dans KerNotch"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ti diamo il benvenuto in KerNotch"
+          }
         }
       }
     },
@@ -249,6 +561,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "kaydedilmedi"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "nicht gesichert"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "no guardado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "non enregistré"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "non salvato"
           }
         }
       }
@@ -268,6 +604,30 @@
             "state": "translated",
             "value": "KerNotch, aracı güncellemelerini dinlemeye başlayamadı."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch konnte nicht beginnen, auf Agent-Updates zu hören."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch no pudo empezar a escuchar las actualizaciones de los agentes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch n'a pas pu commencer à écouter les mises à jour des agents."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch non è riuscito a iniziare ad ascoltare gli aggiornamenti degli agenti."
+          }
         }
       }
     },
@@ -285,6 +645,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "Dinleme başlayana kadar aracı durumu çentikte görünmez. Aracıyı kapatıp yeniden açın ya da KerNotch'u yeniden başlatın."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Agent-Status erscheint erst in der Notch, wenn das Zuhören beginnt. Schalte den Agenten aus und wieder ein oder starte KerNotch neu."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El estado del agente no aparecerá en la muesca hasta que empiece la escucha. Desactiva y vuelve a activar el agente, o reinicia KerNotch."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "L'état de l'agent n'apparaîtra pas dans l'encoche tant que l'écoute n'a pas commencé. Désactivez puis réactivez l'agent, ou redémarrez KerNotch."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lo stato dell'agente non comparirà nel notch finché l'ascolto non inizia. Disattiva e riattiva l'agente, oppure riavvia KerNotch."
           }
         }
       }
@@ -304,6 +688,30 @@
             "state": "translated",
             "value": "KerNotch ayarlarını okuyamadı."
           }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch konnte seine Einstellungen nicht lesen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch no pudo leer sus ajustes."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch n'a pas pu lire ses réglages."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch non è riuscito a leggere le sue impostazioni."
+          }
         }
       }
     },
@@ -321,6 +729,30 @@
           "stringUnit": {
             "state": "translated",
             "value": "KerNotch şimdilik varsayılan ayarlarla çalışıyor ve değişiklikleri kaydetmeyecek. Açılışta başlatma, uygulama dili ve ajan hook'larına dokunulmadı. Bu dosyanın size ait olduğunu kontrol edip KerNotch'u yeniden başlatın: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch verwendet vorerst die Standardeinstellungen und sichert keine Änderungen. „Beim Anmelden öffnen“, die App-Sprache und die Agent-Hooks bleiben genau so, wie sie sind. Prüfe, ob diese Datei dir gehört, und starte KerNotch dann neu: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch está usando los ajustes por omisión y no guardará los cambios. El arranque al iniciar sesión, el idioma de la app y los hooks de los agentes quedan intactos. Comprueba que este archivo es tuyo y reinicia KerNotch: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch utilise pour l'instant les réglages par défaut et n'enregistrera aucune modification. L'ouverture à la connexion, la langue de l'app et les hooks des agents restent inchangés. Vérifiez que ce fichier vous appartient, puis redémarrez KerNotch : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch sta usando le impostazioni di default e non salverà le modifiche. L'avvio all'accesso, la lingua dell'app e gli hook degli agenti restano invariati. Verifica che questo file sia tuo, poi riavvia KerNotch: %@"
           }
         }
       }

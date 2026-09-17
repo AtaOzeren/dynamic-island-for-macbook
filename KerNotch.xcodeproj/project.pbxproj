@@ -65,6 +65,10 @@
 		F10000022C8100000000001A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		F10000022C81000000000014 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F10000022C81000000000015 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = tr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F10000022C81000000000016 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F10000022C81000000000017 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F10000022C81000000000018 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F10000022C81000000000019 /* InfoPlist.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = InfoPlist.strings; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		D15C0001A0000000000000A1 /* Discord.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config/Discord.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -214,6 +218,10 @@
 			knownRegions = (
 				en,
 				tr,
+				de,
+				es,
+				fr,
+				it,
 				Base,
 			);
 			mainGroup = F10000052C81000000000001;
@@ -522,6 +530,10 @@
 			children = (
 				F10000022C81000000000014 /* InfoPlist.strings */,
 				F10000022C81000000000015 /* InfoPlist.strings */,
+				F10000022C81000000000016 /* InfoPlist.strings */,
+				F10000022C81000000000017 /* InfoPlist.strings */,
+				F10000022C81000000000018 /* InfoPlist.strings */,
+				F10000022C81000000000019 /* InfoPlist.strings */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";

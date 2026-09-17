@@ -154,17 +154,17 @@ public struct MusicViewMetrics: Equatable, Sendable {
     public let width: CGFloat
 
     public init(
-        artworkSize: CGFloat = 40,
-        contentInset: CGFloat = 10,
-        textSpacing: CGFloat = 2,
-        columnSpacing: CGFloat = 8,
-        titleSize: CGFloat = IslandTypeScale.default.title,
-        subtitleSize: CGFloat = IslandTypeScale.default.detail,
-        transportSymbolSize: CGFloat = 11,
-        transportButtonSize: CGFloat = 24,
+        artworkSize: CGFloat = IslandRowGrammar.default.iconSize,
+        contentInset: CGFloat = IslandRowGrammar.default.contentInset,
+        textSpacing: CGFloat = IslandRowGrammar.default.textSpacing,
+        columnSpacing: CGFloat = IslandRowGrammar.default.columnSpacing,
+        titleSize: CGFloat = IslandRowGrammar.default.titleSize,
+        subtitleSize: CGFloat = IslandRowGrammar.default.detailSize,
+        transportSymbolSize: CGFloat = IslandRowGrammar.default.controlSymbolSize,
+        transportButtonSize: CGFloat = IslandRowGrammar.default.controlButtonSize,
         transportSpacing: CGFloat = 2,
-        cornerRadius: CGFloat = 16,
-        width: CGFloat = 276
+        cornerRadius: CGFloat = IslandRowGrammar.default.cornerRadius,
+        width: CGFloat = IslandRowGrammar.default.width
     ) {
         self.artworkSize = artworkSize
         self.contentInset = contentInset

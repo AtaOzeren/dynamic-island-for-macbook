@@ -97,19 +97,22 @@ public func recordingCompactSlot(
 
 struct CompactRecordingIcon: View {
     let indicator: CompactRecordingIndicator
+    /// The height of the icon band every island icon is drawn in. The screen
+    /// mark is wider than it is tall, so it is built from the width that makes
+    /// it exactly this tall rather than from the band's own measure.
     let size: CGFloat
 
     var body: some View {
         switch indicator {
         case .screen:
-            AnimatedScreenRecordingIcon(size: size)
+            AnimatedScreenRecordingIcon(size: ScreenRecordingGlyph.size(fittingHeight: size))
         case .microphone:
             AnimatedMicrophoneRecordingIcon(size: size)
         case .screenAndMicrophone:
-            AnimatedScreenRecordingIcon(size: size)
+            AnimatedScreenRecordingIcon(size: ScreenRecordingGlyph.size(fittingHeight: size))
                 .overlay(alignment: .bottomTrailing) {
                     MicrophoneRecordingBadge(diameter: size * Self.badgeScale)
-                        .offset(x: size * 0.28, y: size * 0.18)
+                        .offset(x: size * 0.22, y: size * 0.24)
                 }
         }
     }
@@ -192,8 +195,7 @@ struct AnimatedMicrophoneRecordingIcon: View {
     let size: CGFloat
 
     var body: some View {
-        Image(systemName: "mic.fill")
-            .font(.system(size: size, weight: .medium))
+        IslandSymbolIcon(systemName: "mic.fill", height: size)
             .foregroundStyle(.red)
             .scaleEffect(symbolScale)
             .task {
@@ -225,6 +227,14 @@ struct AnimatedMicrophoneRecordingIcon: View {
 }
 
 struct ScreenRecordingGlyph: View {
+    /// How tall the glyph draws as a fraction of `size`: a monitor is wider
+    /// than it is tall, so its width is what `size` sets.
+    static let heightRatio: CGFloat = 0.72
+
+    static func size(fittingHeight height: CGFloat) -> CGFloat {
+        height / heightRatio
+    }
+
     let size: CGFloat
     let dotScale: CGFloat
 
@@ -238,7 +248,7 @@ struct ScreenRecordingGlyph: View {
                 .frame(width: size * 0.32, height: size * 0.32)
                 .scaleEffect(dotScale)
         }
-        .frame(width: size, height: size * 0.72)
+        .frame(width: size, height: size * Self.heightRatio)
     }
 }
 
@@ -292,10 +302,11 @@ public struct RecordingActivityView: View {
     private var icon: some View {
         switch presentation.source {
         case .screen:
-            ScreenRecordingGlyph(size: metrics.symbolSize * 0.88, dotScale: 1)
+            // A monitor is wider than it is tall, so it fills the icon box's
+            // width rather than the height a symbol is set to.
+            ScreenRecordingGlyph(size: metrics.symbolColumnWidth, dotScale: 1)
         case .audio:
-            Image(systemName: presentation.symbolName)
-                .font(.system(size: metrics.symbolSize * 0.88, weight: .medium))
+            IslandSymbolIcon(systemName: presentation.symbolName, height: metrics.symbolSize)
                 .foregroundStyle(.red)
         }
     }

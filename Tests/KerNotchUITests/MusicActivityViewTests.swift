@@ -204,11 +204,13 @@ struct MusicActivityViewTests {
         #expect(size.height > 0)
     }
 
+    /// The card is drawn to the island's shared grammar, not to a budget of its
+    /// own: one width and one height for every card in the panel.
     @Test("the music card stays within the minimalist visual budget")
     func expandedViewStaysMinimal() {
         let size = musicExpandedSize()
 
-        #expect(size.width <= 300)
-        #expect(size.height <= 64)
+        #expect(size.width == ExpandedPanelMetrics.default.width)
+        #expect(size.height == IslandRowGrammar.default.rowHeight)
     }
 }

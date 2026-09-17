@@ -121,7 +121,7 @@ extension TimerViewMetrics {
             textSpacing: textSpacing.islandScaled(by: factor),
             columnSpacing: columnSpacing.islandScaled(by: factor),
             timeSize: timeSize.islandScaled(by: factor),
-            titleSize: titleSize.islandScaled(by: factor),
+            labelSize: labelSize.islandScaled(by: factor),
             controlSymbolSize: controlSymbolSize.islandScaled(by: factor),
             controlButtonSize: controlButtonSize.islandScaled(by: factor),
             controlSpacing: controlSpacing.islandScaled(by: factor),
