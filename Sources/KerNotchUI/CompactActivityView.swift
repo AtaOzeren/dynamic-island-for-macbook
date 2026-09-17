@@ -427,11 +427,13 @@ public struct CompactActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
+    /// The clock the island itself is moving on. The pill's own width follows
+    /// the island's shape, and its icons follow a hair behind it.
+    @Environment(\.islandContentMotion) private var islandMotion
 
     private let presentation: CompactActivityPresentation
     private let notchSize: CGSize
     private let metrics: CompactPillMetrics
-    private let motion: IslandMotion
 
     /// Music icons the presenter has taken off the pill. Read, never written:
     /// the presenter's clocks own the countdown, because this view is rebuilt
@@ -442,14 +444,12 @@ public struct CompactActivityView: View {
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
         hiddenMusicSlotIDs: Set<String> = [],
-        metrics: CompactPillMetrics = .default,
-        motion: IslandMotion = .default
+        metrics: CompactPillMetrics = .default
     ) {
         self.presentation = presentation
         self.notchSize = notchSize
         self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
         self.metrics = metrics
-        self.motion = motion
     }
 
     public var body: some View {
@@ -483,7 +483,6 @@ public struct CompactActivityView: View {
             }
         }
         .environment(\.colorScheme, surface.preferredColorScheme)
-        .animation(slotAnimation, value: visibleSlots)
     }
 
     /// The opaque notch plus the gap owed to each occupied flank.
@@ -509,7 +508,7 @@ public struct CompactActivityView: View {
                     .transition(slotTransition)
             }
         }
-        .animation(slotAnimation, value: slots)
+        .animation(islandMotion.content, value: slots)
     }
 
     /// Slots grow out of, and shrink back into, the notch's edge rather than
@@ -518,12 +517,6 @@ public struct CompactActivityView: View {
     private var slotTransition: AnyTransition {
         guard reduceMotion == false else { return .opacity }
         return .scale(scale: 0.6).combined(with: .opacity)
-    }
-
-    private var slotAnimation: Animation {
-        reduceMotion
-            ? .easeOut(duration: motion.reducedMotionCrossFadeDuration)
-            : .spring(response: motion.springResponse, dampingFraction: motion.springDamping)
     }
 
     private func slotView(_ slot: CompactSlot) -> some View {

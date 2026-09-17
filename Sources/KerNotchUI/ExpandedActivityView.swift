@@ -484,6 +484,17 @@ public struct ExpandedActivityView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
+    /// The clock the island itself is moving on, so a card arriving and the
+    /// island growing to hold it are one movement rather than two.
+    @Environment(\.islandContentMotion) private var islandMotion
+
+    /// Which way the last disclosure press moved the island.
+    ///
+    /// The environment carries the direction of whatever the *presenter* last
+    /// changed, and a list opened from inside the island is not that change. The
+    /// control knows its own direction before anything moves, so it records it
+    /// here for the rows to follow.
+    @State private var disclosureChange: IslandExtentChange = .growing
 
     private let activities: [any Activity]
     private let metrics: ExpandedItemMetrics
@@ -579,7 +590,7 @@ public struct ExpandedActivityView: View {
                 }
             }
             .environment(\.colorScheme, surface.preferredColorScheme)
-            .animation(disclosureAnimation, value: disclosedInstances)
+            .animation(islandMotion.changing(to: disclosureChange).content, value: disclosedInstances)
     }
 
     /// The items, separated the way the surface they sit on calls for.
@@ -605,6 +616,7 @@ public struct ExpandedActivityView: View {
                     IslandItemSeparator(height: metrics.panel.rowSpacing)
                 }
                 itemView(for: item)
+                    .transition(itemTransition)
             }
 
             if let footnote = blockedAgentFootnote(for: activities) {
@@ -615,6 +627,14 @@ public struct ExpandedActivityView: View {
                 )
             }
         }
+        .animation(islandMotion.content, value: items.map(\.id))
+    }
+
+    /// A card arrives and leaves the way a compact icon does: it grows out of
+    /// the island rather than blinking into a space that is already there.
+    private var itemTransition: AnyTransition {
+        guard reduceMotion == false else { return .opacity }
+        return .opacity.combined(with: .scale(scale: 0.94, anchor: .top))
     }
 
     @ViewBuilder
@@ -633,15 +653,20 @@ public struct ExpandedActivityView: View {
         }
     }
 
-    private var disclosureAnimation: Animation? {
-        reduceMotion ? nil : .easeInOut(duration: 0.18)
-    }
-
+    /// Opening a list makes the island taller and closing it makes it shorter,
+    /// so the press moves the island's own shape — which is why it carries the
+    /// shape's animation rather than leaving the change unanimated for the
+    /// ancestor that draws the surface.
     private func toggleDisclosure(for instance: ActivityIdentity) {
-        if disclosedInstances.contains(instance) {
-            disclosedInstances.remove(instance)
-        } else {
-            disclosedInstances.insert(instance)
+        let isOpening = disclosedInstances.contains(instance) == false
+        disclosureChange = isOpening ? .growing : .shrinking
+
+        withAnimation(islandMotion.changing(to: disclosureChange).container) {
+            if isOpening {
+                disclosedInstances.insert(instance)
+            } else {
+                disclosedInstances.remove(instance)
+            }
         }
     }
 

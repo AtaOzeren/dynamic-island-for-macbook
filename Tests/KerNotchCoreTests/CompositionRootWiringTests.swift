@@ -42,15 +42,21 @@ struct CompositionRootWiringTests {
     /// prevent. Only the wiring can catch that.
     @Test("the expanded panel is handed the session registration times")
     func expandedPanelReceivesRegistrationTimes() throws {
-        for presenter in ["KerNotch/IslandPresenter.swift", "KerNotch/SecondaryIslandPresentation.swift"] {
-            let source = try Self.appSource(presenter)
-            #expect(
-                source.contains("model.registrationTimes = manager.registrationTimes"),
-                "\(presenter) never refreshes the registration times"
-            )
-        }
-
         let primary = try Self.appSource("KerNotch/IslandPresenter.swift")
+        let secondary = try Self.appSource("KerNotch/SecondaryIslandPresentation.swift")
+
+        #expect(
+            primary.contains("registrationTimes: manager.registrationTimes"),
+            "the primary island never reads the registration times"
+        )
+        #expect(
+            primary.contains("model.registrationTimes = registrationTimes"),
+            "the primary island never publishes the registration times"
+        )
+        #expect(
+            secondary.contains("model.registrationTimes = manager.registrationTimes"),
+            "a secondary island never refreshes the registration times"
+        )
         #expect(primary.contains("@Published var registrationTimes"))
         #expect(primary.contains("registrationTimes: model.registrationTimes"))
     }
@@ -74,9 +80,16 @@ struct CompositionRootWiringTests {
         #expect(presenter.contains("@Published var hiddenMusicSlotIDs"))
         #expect(presenter.contains("hiddenMusicSlotIDs: model.hiddenMusicSlotIDs"))
         #expect(!presenter.contains("$model.hiddenMusicSlotIDs"))
+
+        // The island's drawn size is one calculation, reached through the model's
+        // own reading of what it is showing — so the pill, the surface that backs
+        // it and the direction a change moves it cannot be measured differently.
+        let extent = try Self.appSource("Sources/KerNotchUI/IslandExtent.swift")
+        #expect(presenter.contains("islandCompactPillGeometry(model.extentInput)"))
+        #expect(presenter.contains("islandSurfaceSize(model.extentInput)"))
         #expect(
-            presenter.contains(
-                "compactSlotLayout(for: model.compact, hiding: model.hiddenMusicSlotIDs)"
+            extent.contains(
+                "compactSlotLayout(for: input.compact, hiding: input.hiddenMusicSlotIDs)"
             )
         )
         // And handed to the controller, which owns the hover target — on every
@@ -342,8 +355,13 @@ struct CompositionRootWiringTests {
 
         #expect(app.contains("islandPresenter.applyIslandSize(preferences.islandSize)"))
         #expect(presenter.contains("IslandLayout(size: settingsStore.generalPreferences.islandSize)"))
-        #expect(presenter.components(separatedBy: "metrics: model.layout.items").count - 1 == 2)
-        #expect(presenter.components(separatedBy: "panelMetrics: model.layout.panel").count - 1 == 2)
+        // Once in the presenter, for the expanded panel it draws; once in the
+        // sizing the whole island is measured with.
+        let extent = try Self.appSource("Sources/KerNotchUI/IslandExtent.swift")
+        #expect(presenter.components(separatedBy: "metrics: model.layout.items").count - 1 == 1)
+        #expect(presenter.components(separatedBy: "panelMetrics: model.layout.panel").count - 1 == 1)
+        #expect(extent.contains("metrics: input.layout.items"))
+        #expect(extent.contains("panelMetrics: input.layout.panel"))
         #expect(presenter.contains("controller.applyLayout(layout)"))
         #expect(presenter.contains("secondary.applyLayout(chosenLayout)"))
         #expect(presenter.contains("layout: chosenLayout,\n                reduceMotion: reduceMotion"))

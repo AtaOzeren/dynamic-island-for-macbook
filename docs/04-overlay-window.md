@@ -81,11 +81,14 @@ Everything the island draws is clipped to the island's own silhouette, apart fro
 | Curve | Spring, `response ≈ 0.35s`, `dampingFraction ≈ 0.8` | Tuned to feel snappy without overshoot that would visually collide with the notch's hard edges |
 | Peek transition duration | ~0.15s ease-out | Fast enough to feel like hover feedback, not a committed state change |
 | Expand/collapse transition duration | ~0.35s spring (see curve above) | Matches the primary spring so expand and collapse feel symmetric |
+| Content lead | 0.08s | What the island shows changes on the same spring the island moves with, and only one of the two waits: growing, the shape goes first, so an icon never appears in a space the island has not made yet; shrinking, the contents go first, so the shape never closes across something still drawn inside it. Removed under Reduce Motion, where there is no travel to lead |
 | Hover expansion delay | ~0.25s | Crossing the pill on the way somewhere else must not open the island |
 | Collapse grace period | ~0.5s | The panel is a target the pointer travels to, and the path from the notch to a row crosses the island's own edge. Collapsing the instant the pointer slipped off made a hand that overshot start the hover again from scratch |
 | Attention glow pass | 2s left to right, then a 3s rest; 5 passes (22s) | One Core Animation keyframe animation on a gradient mask; resumes at its elapsed point if the island collapses back mid-glow |
 | Music equaliser stroke | 0.42s, autoreversing, staggered per bar | Runs only while a track plays, as a Core Animation layer animation |
 | Idle-state animation budget | Zero | No animation, timer-driven or otherwise, runs while the empty compact island is idle; this is part of the idle-cost contract from `docs/02-performance-contract.md` |
+
+The island's shape and its contents are one movement, not two: the surface, the mask that clips it, its offset onto the notch and the icons or cards inside it all change in a single transaction, applied by the presenter. Nothing inside the island keeps an animation clock of its own, which is what let the pill's black surface jump to its new width while an arriving icon was still animating into it.
 
 No animation is ever started while the window is ordered out. Returning from suspension orders the window in at resting compact geometry first; only a later user-triggered transition animates.
 

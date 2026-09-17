@@ -7,6 +7,7 @@ import SwiftUI
 @MainActor
 final class SecondaryIslandPresentation {
     private let manager: ActivityManager
+    private let reduceMotion: any ReduceMotionQuerying
     private let screen: PresentationController.ScreenProvider
     /// The layout for the island size picked in Settings, before it is fitted
     /// to this display.
@@ -34,6 +35,7 @@ final class SecondaryIslandPresentation {
         onPrimaryAction: @escaping (ActivityIdentity) -> Void
     ) {
         self.manager = manager
+        self.reduceMotion = reduceMotion
         self.screen = screen
         chosenLayout = layout
 
@@ -151,21 +153,46 @@ final class SecondaryIslandPresentation {
         controller.collapse()
     }
 
+    /// Drawn in one movement, exactly as the primary island draws it: the shape
+    /// and its contents share a transaction, and which of them waits depends on
+    /// which way the island is about to move.
     func refreshContent() {
-        model.compact = compactPresentation(
+        let compact = compactPresentation(
             manager.compactPresentation,
             reconciledWith: manager.expandedActivities,
             announcementStarts: reading.announcementStarts,
             registrationTimes: manager.registrationTimes,
             now: Date()
         )
-        if model.hiddenMusicSlotIDs != reading.hiddenMusicSlotIDs {
+        let expanded = manager.expandedActivities
+        let narrowsPill = model.hiddenMusicSlotIDs != reading.hiddenMusicSlotIDs
+        let motion = islandContentMotion(
+            in: model.state,
+            change: islandExtentChange(
+                from: islandSurfaceSize(model.extentInput),
+                to: islandSurfaceSize(
+                    model.extentInput(
+                        compact: compact,
+                        hiddenMusicSlotIDs: reading.hiddenMusicSlotIDs,
+                        expanded: expanded
+                    )
+                )
+            ),
+            reduceMotion: reduceMotion.prefersReducedMotion,
+            isMotionSuspended: model.isMotionSuspended
+        )
+
+        model.contentMotion = motion
+        withAnimation(motion.container) {
+            model.compact = compact
             model.hiddenMusicSlotIDs = reading.hiddenMusicSlotIDs
+            model.expanded = expanded
+            model.registrationTimes = manager.registrationTimes
+        }
+        if narrowsPill {
             controller.compactLayoutDidChange()
         }
         model.attentionGlow = reading.attentionGlow
-        model.expanded = manager.expandedActivities
-        model.registrationTimes = manager.registrationTimes
         let currentScreen = screen()
         model.notchSize = resolvedNotchSize(screen: currentScreen, metrics: chosenLayout.panel)
         fitLayout(to: currentScreen)
