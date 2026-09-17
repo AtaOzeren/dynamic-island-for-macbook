@@ -550,11 +550,11 @@ public struct CompactActivityView: View {
             } else if let charging = slot.charging {
                 BatteryLevelGlyph(
                     presentation: charging,
-                    size: BatteryLevelGlyph.size(fittingWidth: metrics.slotWidth)
+                    size: BatteryLevelGlyph.size(fittingWidth: metrics.wideIconWidth)
                 )
             } else if let discordCall = slot.discordCall {
                 DiscordCallIcon(
-                    isMuted: discordCall.isMuted,
+                    presentation: discordCall,
                     size: metrics.symbolSize,
                     animatesArrival: true
                 )
@@ -587,4 +587,9 @@ extension CompactPillMetrics {
     var slotHeight: CGFloat {
         iconBandTopInset + CompactAIAgentMetrics.default.statusBaseline(iconSize: symbolSize)
     }
+
+    /// How wide an icon that cannot be square — the battery — is drawn. Narrower
+    /// than the slot, so it keeps the air its neighbours have around them
+    /// instead of reaching the icon beside it.
+    var wideIconWidth: CGFloat { (slotWidth * 0.8).rounded() }
 }

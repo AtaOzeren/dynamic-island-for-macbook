@@ -176,6 +176,40 @@ struct DiscordCallPresentationTests {
         #expect(presentation.accessibilityLabel.hasPrefix("Muted"))
     }
 
+    /// The reported defect: deafening switches the microphone off too, but
+    /// Discord leaves its mute flag alone — so the island drew a live
+    /// microphone for someone who could neither speak nor hear.
+    @Test("shows deafened as its own state, not as a live microphone")
+    func deafened() {
+        let presentation = DiscordCallPresentation(
+            activity: DiscordCallActivity(channel: Self.lobby, isMuted: false, isDeafened: true)
+        )
+
+        #expect(presentation.audioState == .deafened)
+        #expect(presentation.isMuted, "a deafened microphone is not live")
+        #expect(presentation.microphoneSymbolName == "headphones.slash")
+        #expect(presentation.accessibilityLabel.hasPrefix("Deafened"))
+    }
+
+    @Test("deafened outranks muted, since it is both")
+    func deafenedOutranksMuted() {
+        let presentation = DiscordCallPresentation(
+            activity: DiscordCallActivity(channel: Self.lobby, isMuted: true, isDeafened: true)
+        )
+
+        #expect(presentation.audioState == .deafened)
+    }
+
+    @Test("a call that is neither muted nor deafened reads as live")
+    func live() {
+        let presentation = DiscordCallPresentation(
+            activity: DiscordCallActivity(channel: Self.lobby, isMuted: false, isDeafened: false)
+        )
+
+        #expect(presentation.audioState == .live)
+        #expect(presentation.microphoneSymbolName == "mic.fill")
+    }
+
     @Test("gets a compact slot of its own, distinct from the microphone indicator")
     func compactSlot() {
         let slot = discordCallCompactSlot(for: DiscordCallActivity(channel: nil, isMuted: false))

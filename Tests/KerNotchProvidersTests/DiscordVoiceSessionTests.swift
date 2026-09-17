@@ -301,7 +301,8 @@ struct DiscordVoiceSessionTests {
             fixture.session.voiceState
                 == DiscordVoiceState(
                     channel: DiscordVoiceChannel(name: "Lobby", serverName: "Ocean View Hotel"),
-                    isMuted: true
+                    isMuted: true,
+                    isDeafened: false
                 )
         )
     }
@@ -347,6 +348,44 @@ struct DiscordVoiceSessionTests {
         fixture.transport.dispatch("VOICE_SETTINGS_UPDATE", data: ["mute": true, "deaf": false])
 
         #expect(fixture.session.voiceState.isMuted == true)
+    }
+
+    /// The reported defect: deafening switches the microphone off as well, but
+    /// Discord leaves `mute` alone — so a session that read only `mute` kept
+    /// reporting a live microphone.
+    @Test("follows the deafen switch, which mute alone does not report")
+    func followsDeafen() async {
+        let fixture = Fixture()
+        await fixture.startWithStoredToken()
+
+        fixture.transport.dispatch("VOICE_SETTINGS_UPDATE", data: ["mute": false, "deaf": true])
+
+        #expect(fixture.session.voiceState.isDeafened == true)
+        #expect(fixture.session.voiceState.isMuted == false, "Discord's own flags are reported as they arrive")
+    }
+
+    /// Discord serialises these flags as numbers in some builds, and a call
+    /// must not read as "unknown" for its whole length because of it.
+    @Test("reads numeric voice flags")
+    func numericVoiceFlags() async {
+        let fixture = Fixture()
+        await fixture.startWithStoredToken()
+
+        fixture.transport.dispatch("VOICE_SETTINGS_UPDATE", data: ["mute": 0, "deaf": 1])
+
+        #expect(fixture.session.voiceState.isDeafened == true)
+        #expect(fixture.session.voiceState.isMuted == false)
+    }
+
+    @Test("a payload without the deafen flag reads as not deafened")
+    func missingDeafenFlag() async {
+        let fixture = Fixture()
+        await fixture.startWithStoredToken()
+
+        fixture.transport.dispatch("VOICE_SETTINGS_UPDATE", data: ["mute": true])
+
+        #expect(fixture.session.voiceState.isMuted == true)
+        #expect(fixture.session.voiceState.isDeafened == false)
     }
 
     @Test("leaves the channel with an explicit null, and clears it once Discord agrees")

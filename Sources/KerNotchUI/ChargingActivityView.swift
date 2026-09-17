@@ -164,7 +164,7 @@ public struct ChargingActivityView: View {
         HStack(spacing: 0) {
             BatteryLevelGlyph(
                 presentation: presentation,
-                size: BatteryLevelGlyph.size(fittingWidth: metrics.symbolColumnWidth)
+                size: BatteryLevelGlyph.size(fittingWidth: metrics.symbolSize)
             )
             .frame(width: metrics.symbolColumnWidth)
 
