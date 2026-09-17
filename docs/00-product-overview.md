@@ -30,9 +30,9 @@ The first release includes:
 - **Countdown timer and stopwatch** — start a countdown or a stopwatch and watch the remaining or elapsed time live in the notch.
 - **Screen recording indicator** — a clear "Recording" indicator with an elapsed-time counter while the screen is being recorded.
 - **Audio recording indicator** — the same live indicator treatment for microphone recording.
-- **Charging state** — a brief notification when the MacBook starts charging and again when it reaches a full charge, without a persistent battery-percentage display.
+- **Charging state** — a brief notification when the charger is plugged in or unplugged, showing the battery's level as a drawn fill, without a persistent battery-percentage display.
 - **AI agent status** — live status for Claude Code, Codex, and OpenCode (terminal-based, best-effort), showing whether the agent is working, needs input, or has finished a task.
-- **Multiple simultaneous activities** — several activities (for example, music plus a timer plus a file transfer) can be visible and prioritized in the same expanded view at once.
+- **Multiple simultaneous activities** — several activities (for example, music plus a timer plus a Discord call) can be visible and prioritized in the same expanded view at once.
 
 ## What V1 Deliberately Excludes
 

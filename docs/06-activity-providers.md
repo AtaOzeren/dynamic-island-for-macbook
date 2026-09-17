@@ -114,28 +114,30 @@ On macOS 15.4 and later, a user who plays audio from YouTube Music or a browser 
 ## Charging
 
 - **Event source:** IOKit power-source change notifications — the same mechanism the menu bar battery indicator itself is built on.
-- **Exact API:** `IOPSNotificationCreateRunLoopSource`, registered once at launch and left running for the life of the process; it delivers a callback whenever the system's power-source state changes (AC connected/disconnected, charging/charged transition), which the provider then reads via `IOPSCopyPowerSourcesInfo`/`IOPSGetPowerSourceDescription` to determine the current state.
+- **Exact API:** `IOPSNotificationCreateRunLoopSource`, created when the provider starts observing and invalidated when it stops; it delivers a callback whenever the system's power-source state changes (AC connected/disconnected, charging/charged transition, capacity ticks), which `SystemPowerSourceObserver` reads via `IOPSCopyPowerSourcesInfo`/`IOPSGetPowerSourceDescription` into a `PowerSourceReading`: the state and the internal battery's level (`kIOPSCurrentCapacityKey` over `kIOPSMaxCapacityKey`). A Mac without an internal battery produces no reading.
 - **Permission or entitlement:** None — power-source state is available without any user-facing permission prompt or entitlement.
-- **Activity produced:** `ChargingActivity` with state (`pluggedIn` → `charging` → `fullyCharged`); `kind = .charging`. Per the explicit rule from `draft.md:272` — **a persistent battery percentage is never displayed.** The activity communicates the charging *transition*, not an ongoing percentage readout; showing a live, continuously-updating battery percentage would turn a brief, dismissible notification into exactly the kind of persistent low-value display this app's whole design avoids.
-- **Priority:** `normal`, per the V1 priority table, and auto-dismissing.
-- **State machine:**
+- **Activity produced:** `ChargingActivity` with a state (`onBattery`, `pluggedIn`, `charging`, `fullyCharged`) and a `BatteryLevel`; `kind = .charging`. Per the explicit rule from `draft.md:272` — **a persistent battery percentage is never displayed.** The level is drawn as the fill of a battery glyph, the way the menu bar draws it, and only for the seconds the notification lasts; no digits appear on screen, and only VoiceOver is told the number. The fill is green while connected, and an unplugged battery at or below 20% is drawn red. The bolt is drawn only while the battery is filling, so a Mac holding at its charge limit shows a connected battery without one.
+- **Priority:** `normal`, per the V1 priority table, compact rank `transition`, and auto-dismissing after 4 seconds.
+- **State machine:** only the cable announces.
 
 ```
-MacBook plugged in
+first reading after observation starts  ── baseline, nothing announced
         │
         ▼
-   pluggedIn / charging     ── ChargingActivity registered
+cable plugged in or unplugged           ── ChargingActivity registered (state + level)
         │
-        ▼
-   fullyCharged              ── ChargingActivity updated
+        ├── state changes within 4 s of the cable ── ChargingActivity updated in place
         │
         ▼ (auto-dismiss duration elapses)
-   end()                     ── island closes
+end()                                   ── island closes
+
+while connected: pluggedIn ⇄ charging ⇄ fullyCharged  ── nothing announced
 ```
 
-- **Update cadence:** Purely event-driven off the IOKit run-loop source callback; no polling of battery state at any interval.
-- **Teardown:** `end()` fires automatically after the auto-dismiss duration elapses following the `fullyCharged` update, per the `ActivityManager`'s own auto-dismiss timer contract in `05-activity-model.md` — the provider does not need its own dismiss timer.
-- **CI-vs-hardware verifiability:** The `IOPSNotificationCreateRunLoopSource` registration and real power-source transitions can only be observed on real hardware with a battery (or a way to simulate AC plug/unplug); the `ChargingActivity` state-machine transitions (`pluggedIn` → `charging` → `fullyCharged` → dismissed) are pure logic over an injected power-source-state sequence and are fully unit-testable in CI.
+- **Why only the cable:** a charge limit or optimised charging pauses and resumes the charge again and again while the Mac stays connected, and the battery reports full and not-full as it tops up. Announcing those changes reopened the island all through a charge. The change a moment after the cable goes in — the charge starting — still reaches the notification on screen, measured from the cable's edge so a flickering charge cannot keep it open.
+- **Update cadence:** Purely event-driven off the IOKit run-loop source callback; no polling of battery state at any interval. The provider owns no timer: the announcement window is compared with the clock only when a reading arrives.
+- **Teardown:** `end()` fires automatically when the auto-dismiss duration elapses, per the `ActivityManager`'s own auto-dismiss timer contract in `05-activity-model.md`. Launching KerNotch, or switching the provider back on, takes a fresh baseline and announces nothing.
+- **CI-vs-hardware verifiability:** The `IOPSNotificationCreateRunLoopSource` registration and real power-source transitions can only be observed on real hardware with a battery; the description classification, the baseline, the cable-edge rule and the refinement window are pure logic over an injected reading sequence and clock, and are fully unit-testable in CI.
 
 ## AI Status
 
