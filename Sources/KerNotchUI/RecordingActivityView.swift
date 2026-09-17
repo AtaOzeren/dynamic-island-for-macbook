@@ -302,9 +302,10 @@ public struct RecordingActivityView: View {
     private var icon: some View {
         switch presentation.source {
         case .screen:
-            // A monitor is wider than it is tall, so it fills the icon box's
-            // width rather than the height a symbol is set to.
-            ScreenRecordingGlyph(size: metrics.symbolColumnWidth, dotScale: 1)
+            // A monitor is wider than it is tall, so its width is what the
+            // symbol size sets — the icon box keeps the same air around it that
+            // a symbol has, instead of the glyph reaching the text.
+            ScreenRecordingGlyph(size: metrics.symbolSize, dotScale: 1)
         case .audio:
             IslandSymbolIcon(systemName: presentation.symbolName, height: metrics.symbolSize)
                 .foregroundStyle(.red)

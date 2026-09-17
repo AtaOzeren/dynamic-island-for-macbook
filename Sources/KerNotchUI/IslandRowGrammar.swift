@@ -22,6 +22,10 @@ public struct IslandRowGrammar: Equatable, Sendable {
     /// The gap between a card's edge and what is inside it.
     public let contentInset: CGFloat
     /// The gap between the icon, the text and the trailing control.
+    ///
+    /// Read against the *widest* icon, not the average one: a monitor or a
+    /// battery reaches the edge of its box, so a gap that looked generous
+    /// beside a microphone had the screen-recording mark leaning on its label.
     public let columnSpacing: CGFloat
     /// The gap between a card's two lines of text.
     public let textSpacing: CGFloat
@@ -34,7 +38,7 @@ public struct IslandRowGrammar: Equatable, Sendable {
     public init(
         iconSize: CGFloat = 24,
         contentInset: CGFloat = 8,
-        columnSpacing: CGFloat = 8,
+        columnSpacing: CGFloat = 10,
         textSpacing: CGFloat = 2,
         controlButtonSize: CGFloat = 24,
         controlSymbolSize: CGFloat = 12,

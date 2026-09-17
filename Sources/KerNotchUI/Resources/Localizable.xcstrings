@@ -5251,6 +5251,48 @@
         }
       }
     },
+    "Deafened: %@": {
+      "comment": "Discord call: VoiceOver label while the user is deafened — neither hearing nor speaking. The placeholder is the channel, and its server when known.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deafened: %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sağırlaştırıldı: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Stummgeschaltet und taub gestellt: %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sin escuchar ni hablar: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Son et micro coupés : %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio e microfono disattivati: %@"
+          }
+        }
+      }
+    },
     "Integrations": {
       "comment": "Settings window tab for integrations with other applications, such as Discord.",
       "extractionState": "manual",
