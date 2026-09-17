@@ -95,7 +95,7 @@ struct ExpandedActivityDispatchTests {
         #expect(expandedItemRenderer(for: UnknownKindActivity()) == .genericRow)
     }
 
-    @Test("per-kind items are sized at their real content heights, not row multiples")
+    @Test("per-kind items are sized at their real content heights")
     func itemHeightsMatchPerKindViews() {
         let metrics = ExpandedItemMetrics.default
         let panelMetrics = PanelMetrics.default
@@ -105,7 +105,6 @@ struct ExpandedActivityDispatchTests {
             musicHeight
                 == musicExpandedSize(metrics: metrics.music, panelMetrics: panelMetrics).height
         )
-        #expect(musicHeight > metrics.panel.rowHeight)
 
         let timerHeight = expandedItemHeight(for: Self.timer(), metrics: metrics, panelMetrics: panelMetrics)
         #expect(
@@ -113,10 +112,11 @@ struct ExpandedActivityDispatchTests {
                 == timerExpandedSize(metrics: metrics.timer, panelMetrics: panelMetrics).height
         )
 
-        // The agent card is a glyph-height card, not a text row. It was measured
-        // at `rowHeight` while a grouped view intercepted every agent activity
-        // and this number went unused; drawing sessions as their own cards made
-        // the shortfall visible as clipping at the bottom of the island.
+        // The agent card is measured by its own view rather than assumed to be a
+        // row. It was measured at `rowHeight` while a grouped view intercepted
+        // every agent activity and this number went unused; drawing sessions as
+        // their own cards made the shortfall visible as clipping at the bottom
+        // of the island.
         let agentHeight = expandedItemHeight(for: Self.aiAgent(), metrics: metrics, panelMetrics: panelMetrics)
         #expect(
             agentHeight
@@ -126,7 +126,12 @@ struct ExpandedActivityDispatchTests {
                     panelMetrics: panelMetrics
                 ).height
         )
-        #expect(agentHeight > metrics.panel.rowHeight)
+        // Every card stands at the island's one row height, so the panel reads
+        // as a list rather than as a stack of differently sized boxes.
+        #expect(musicHeight == metrics.panel.rowHeight)
+        #expect(timerHeight == metrics.panel.rowHeight)
+        #expect(agentHeight == metrics.panel.rowHeight)
+        #expect(metrics.panel.rowHeight == IslandRowGrammar.default.rowHeight)
 
         let agentWithProgress = expandedItemHeight(
             for: Self.aiAgent(progress: 0.5),
@@ -317,8 +322,67 @@ struct ExpandedActivityDispatchTests {
 
         #expect(metrics.panel.titleSize == scale.title, "the generic row, charging and recording")
         #expect(metrics.music.titleSize == scale.title)
-        #expect(metrics.timer.titleSize == scale.title)
+        #expect(metrics.timer.timeSize == scale.title, "the clock face is the timer card's headline")
         #expect(metrics.aiAgent.titleSize == scale.title)
+    }
+
+    /// The defect this grammar exists to close: every card carried its own copy
+    /// of these numbers and they had drifted, so a recording glyph was 15pt
+    /// beside a 24pt agent logo and three cards started their text at three
+    /// different distances from the island's edge.
+    @Test("every card takes its shared measures from one grammar")
+    func everyCardSharesOneGrammar() {
+        let grammar = IslandRowGrammar.default
+        let metrics = ExpandedItemMetrics.default
+
+        #expect(metrics.panel.symbolColumnWidth == grammar.iconSize, "the generic row, charging and recording")
+        #expect(metrics.music.artworkSize == grammar.iconSize)
+        #expect(metrics.timer.glyphSize == grammar.iconSize)
+        #expect(metrics.aiAgent.glyphSize == grammar.iconSize)
+
+        for inset in [
+            metrics.panel.contentInset, metrics.music.contentInset,
+            metrics.timer.contentInset, metrics.aiAgent.contentInset,
+        ] {
+            #expect(inset == grammar.contentInset)
+        }
+
+        for spacing in [
+            metrics.panel.columnSpacing, metrics.music.columnSpacing,
+            metrics.timer.columnSpacing, metrics.aiAgent.columnSpacing,
+        ] {
+            #expect(spacing == grammar.columnSpacing)
+        }
+
+        for width in [
+            metrics.panel.width, metrics.music.width,
+            metrics.timer.width, metrics.aiAgent.width,
+        ] {
+            #expect(width == grammar.width)
+        }
+
+        #expect(metrics.music.transportButtonSize == grammar.controlButtonSize)
+        #expect(metrics.timer.controlButtonSize == grammar.controlButtonSize)
+        #expect(metrics.music.transportSymbolSize == grammar.controlSymbolSize)
+        #expect(metrics.timer.controlSymbolSize == grammar.controlSymbolSize)
+    }
+
+    /// What the eye actually reads: every card's text begins the same distance
+    /// from the island's edge, whatever is drawn beside it.
+    @Test("every card starts its text in the same place")
+    func everyCardStartsItsTextInOnePlace() {
+        let metrics = ExpandedItemMetrics.default
+        let grammar = IslandRowGrammar.default
+        let expected = grammar.contentInset + grammar.iconSize + grammar.columnSpacing
+
+        let starts = [
+            metrics.panel.contentInset + metrics.panel.symbolColumnWidth + metrics.panel.columnSpacing,
+            metrics.music.contentInset + metrics.music.artworkSize + metrics.music.columnSpacing,
+            metrics.timer.contentInset + metrics.timer.glyphSize + metrics.timer.columnSpacing,
+            metrics.aiAgent.contentInset + metrics.aiAgent.glyphSize + metrics.aiAgent.columnSpacing,
+        ]
+
+        #expect(starts.allSatisfy { $0 == expected })
     }
 
     /// The same for the second line every card carries.
@@ -329,6 +393,7 @@ struct ExpandedActivityDispatchTests {
 
         #expect(metrics.panel.detailSize == scale.detail)
         #expect(metrics.music.subtitleSize == scale.detail)
+        #expect(metrics.timer.labelSize == scale.detail)
         #expect(metrics.aiAgent.detailSize == scale.detail)
     }
 

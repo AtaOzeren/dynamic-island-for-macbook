@@ -495,3 +495,45 @@ struct CompactActivityViewTests {
         )
     }
 }
+
+/// The compact pill's icons are drawn in one band, at one height.
+///
+/// Each glyph used to carry a factor of its own — 0.84 here, the raw symbol size
+/// there — so a microphone came out taller than the warning triangle beside it
+/// and a screen mark shorter than both, while the agent logo sat in a band of
+/// its own above the status light.
+@Suite("Compact icon band")
+@MainActor
+struct CompactIconBandTests {
+    @Test("every icon is drawn in the agent logo's own band")
+    func iconsShareTheAgentBand() {
+        let metrics = CompactPillMetrics.default
+        let agent = CompactAIAgentMetrics.default
+
+        #expect(metrics.iconBandTopInset == agent.countBadgeOverhang)
+        #expect(
+            metrics.slotHeight
+                == agent.countBadgeOverhang + agent.statusBaseline(iconSize: metrics.symbolSize)
+        )
+        #expect(
+            compactAIAgentIconSize(iconSize: metrics.symbolSize, state: .working).height
+                == metrics.slotHeight
+        )
+    }
+
+    /// No glyph may size itself from a factor of its own again: that is exactly
+    /// what let the icons drift apart.
+    @Test("no compact glyph scales the shared icon size by a factor of its own")
+    func noGlyphCarriesItsOwnFactor() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Sources/KerNotchUI/CompactActivityView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("metrics.symbolSize *") == false)
+    }
+}

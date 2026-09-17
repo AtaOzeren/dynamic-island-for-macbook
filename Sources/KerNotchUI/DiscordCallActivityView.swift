@@ -58,8 +58,7 @@ struct DiscordCallIcon: View {
     let animatesArrival: Bool
 
     var body: some View {
-        Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
-            .font(.system(size: size, weight: .medium))
+        IslandSymbolIcon(systemName: isMuted ? "mic.slash.fill" : "mic.fill", height: size)
             .foregroundStyle(isMuted ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
             .scaleEffect(symbolScale)
             .overlay(alignment: .bottomTrailing) {
@@ -127,19 +126,20 @@ public struct DiscordCallActivityView: View {
         )
 
         HStack(spacing: metrics.columnSpacing) {
-            DiscordCallIcon(isMuted: presentation.isMuted, size: metrics.symbolSize * 0.88, animatesArrival: false)
+            DiscordCallIcon(isMuted: presentation.isMuted, size: metrics.symbolSize, animatesArrival: false)
                 .frame(width: metrics.symbolColumnWidth)
 
-            Text(presentation.title)
-                .font(.system(size: metrics.titleSize, weight: .medium))
-                .lineLimit(1)
-                .layoutPriority(1)
-
-            if let detail = presentation.detail {
-                Text(detail)
-                    .font(.system(size: metrics.detailSize))
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: IslandRowGrammar.default.textSpacing) {
+                Text(presentation.title)
+                    .font(.system(size: metrics.titleSize, weight: .medium))
                     .lineLimit(1)
+
+                if let detail = presentation.detail {
+                    Text(detail)
+                        .font(.system(size: metrics.detailSize))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 0)
@@ -147,7 +147,7 @@ public struct DiscordCallActivityView: View {
             if let action = presentation.leaveAction {
                 Button(action: leave) {
                     Image(systemName: action.symbolName)
-                        .font(.system(size: metrics.symbolSize - 4, weight: .semibold))
+                        .font(.system(size: IslandRowGrammar.default.controlSymbolSize, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: metrics.symbolColumnWidth, height: metrics.symbolColumnWidth)
                         .background(Circle().fill(.red))

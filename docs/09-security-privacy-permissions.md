@@ -49,6 +49,10 @@ The `NSAppleEventsUsageDescription` shown in the system prompt, verbatim:
 
 - **English:** "KerNotch uses Apple Events to show now-playing info and let you control playback for Spotify and Apple Music from the notch."
 - **Turkish:** "KerNotch, çentikten şu an çalan şarkı bilgisini göstermek ve Spotify ile Apple Music'i kontrol edebilmek için Apple Events kullanır."
+- **German:** "KerNotch verwendet Apple Events, um in der Notch anzuzeigen, was gerade läuft, und die Wiedergabe von Spotify und Apple Music zu steuern."
+- **Spanish:** "KerNotch usa Apple Events para mostrar en la muesca lo que suena y controlar la reproducción de Spotify y Apple Music."
+- **French:** "KerNotch utilise Apple Events pour afficher dans l'encoche ce qui est en cours de lecture et contrôler la lecture de Spotify et Apple Music."
+- **Italian:** "KerNotch usa gli Apple Events per mostrare nel notch cosa è in riproduzione e controllare la riproduzione di Spotify e Apple Music."
 
 ## Threat model
 

@@ -73,28 +73,26 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
     public let contentInset: CGFloat
     public let symbolSize: CGFloat
     public let symbolColumnWidth: CGFloat
-    /// A row's headline, from the panel's shared scale.
+    /// A row's headline, from the island's shared grammar.
     ///
     /// Separate from `symbolSize` because they answer to different things: one
-    /// is how big the glyph is drawn, the other how big its label reads. The row
-    /// used to take both from `symbolSize`, which is why a mic label came out
-    /// three points larger than every card beside it.
+    /// is how big the glyph is drawn, the other how big its label reads.
     public let titleSize: CGFloat
     public let detailSize: CGFloat
     public let cornerRadius: CGFloat
     public let width: CGFloat
 
     public init(
-        rowHeight: CGFloat = 34,
+        rowHeight: CGFloat = IslandRowGrammar.default.rowHeight,
         rowSpacing: CGFloat = 9,
-        columnSpacing: CGFloat = 4,
-        contentInset: CGFloat = 12,
-        symbolSize: CGFloat = 15,
-        symbolColumnWidth: CGFloat = 24,
-        titleSize: CGFloat = IslandTypeScale.default.title,
-        detailSize: CGFloat = IslandTypeScale.default.detail,
-        cornerRadius: CGFloat = 18,
-        width: CGFloat = 320
+        columnSpacing: CGFloat = IslandRowGrammar.default.columnSpacing,
+        contentInset: CGFloat = IslandRowGrammar.default.contentInset,
+        symbolSize: CGFloat = IslandRowGrammar.default.symbolSize,
+        symbolColumnWidth: CGFloat = IslandRowGrammar.default.iconSize,
+        titleSize: CGFloat = IslandRowGrammar.default.titleSize,
+        detailSize: CGFloat = IslandRowGrammar.default.detailSize,
+        cornerRadius: CGFloat = IslandRowGrammar.default.cornerRadius,
+        width: CGFloat = IslandRowGrammar.default.width
     ) {
         self.rowHeight = rowHeight
         self.rowSpacing = rowSpacing
@@ -762,8 +760,7 @@ private struct GenericActivityRowView: View {
         )
 
         HStack(spacing: metrics.columnSpacing) {
-            Image(systemName: row.symbolName)
-                .font(.system(size: metrics.symbolSize, weight: .medium))
+            IslandSymbolIcon(systemName: row.symbolName, height: metrics.symbolSize)
                 .frame(width: metrics.symbolColumnWidth)
 
             Text(row.title)
@@ -777,7 +774,7 @@ private struct GenericActivityRowView: View {
                     onPrimaryAction(ActivityIdentity(row.id))
                 } label: {
                     Label(action.title, systemImage: action.symbolName)
-                        .font(.system(size: metrics.symbolSize - 2, weight: .semibold))
+                        .font(.system(size: IslandRowGrammar.default.controlSymbolSize, weight: .semibold))
                         .labelStyle(.iconOnly)
                 }
                 .buttonStyle(.plain)

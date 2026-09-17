@@ -519,21 +519,44 @@ public struct CompactActivityView: View {
         return .scale(scale: 0.6).combined(with: .opacity)
     }
 
+    /// Every icon is drawn in the same band: the agent logo's own, so a
+    /// microphone, a battery and a logo sit at one height and on one centre
+    /// line. Each glyph used to carry a factor of its own, which is why a
+    /// microphone came out taller than the warning triangle beside it and a
+    /// screen mark shorter than both.
     private func slotView(_ slot: CompactSlot) -> some View {
         Group {
-            if let recordingIndicator = slot.recordingIndicator {
-                CompactRecordingIcon(
-                    indicator: recordingIndicator,
-                    size: metrics.symbolSize * 0.84
-                )
-            } else if let charging = slot.charging {
-                BatteryLevelGlyph(presentation: charging, size: metrics.symbolSize)
-            } else if let discordCall = slot.discordCall {
-                DiscordCallIcon(isMuted: discordCall.isMuted, size: metrics.symbolSize * 0.84, animatesArrival: true)
-            } else if let aiAgentPresentation = slot.aiAgentPresentation {
+            if let aiAgentPresentation = slot.aiAgentPresentation {
                 CompactAIAgentIcon(
                     presentation: aiAgentPresentation,
                     iconSize: metrics.symbolSize
+                )
+            } else {
+                slotIcon(slot)
+                    .frame(height: metrics.symbolSize)
+                    .padding(.top, metrics.iconBandTopInset)
+                    .frame(height: metrics.slotHeight, alignment: .top)
+            }
+        }
+        .frame(width: metrics.slotWidth)
+        .accessibilityLabel(slot.accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private func slotIcon(_ slot: CompactSlot) -> some View {
+        Group {
+            if let recordingIndicator = slot.recordingIndicator {
+                CompactRecordingIcon(indicator: recordingIndicator, size: metrics.symbolSize)
+            } else if let charging = slot.charging {
+                BatteryLevelGlyph(
+                    presentation: charging,
+                    size: BatteryLevelGlyph.size(fittingWidth: metrics.slotWidth)
+                )
+            } else if let discordCall = slot.discordCall {
+                DiscordCallIcon(
+                    isMuted: discordCall.isMuted,
+                    size: metrics.symbolSize,
+                    animatesArrival: true
                 )
             } else if let sourceIdentity = slot.musicSourceIdentity {
                 if slot.isPlayingMusic {
@@ -543,16 +566,25 @@ public struct CompactActivityView: View {
                         sourceIdentity: sourceIdentity
                     )
                 } else {
-                    Image(systemName: slot.symbolName)
-                        .font(.system(size: metrics.symbolSize, weight: .medium))
+                    IslandSymbolIcon(systemName: slot.symbolName, height: metrics.symbolSize)
                         .foregroundStyle(musicAccentColor(sourceIdentity))
                 }
             } else {
-                Image(systemName: slot.symbolName)
-                    .font(.system(size: metrics.symbolSize, weight: .medium))
+                IslandSymbolIcon(systemName: slot.symbolName, height: metrics.symbolSize)
             }
         }
-        .frame(width: metrics.slotWidth)
-        .accessibilityLabel(slot.accessibilityLabel)
+    }
+}
+
+extension CompactPillMetrics {
+    /// How far below the pill's top the icon band begins. The agent slot hangs
+    /// a session-count badge above its logo, and every other icon lines up with
+    /// that logo rather than with the badge's corner.
+    var iconBandTopInset: CGFloat { CompactAIAgentMetrics.default.countBadgeOverhang }
+
+    /// The whole slot: the badge's corner, the icon band, and the room the
+    /// agent's status light hangs in underneath.
+    var slotHeight: CGFloat {
+        iconBandTopInset + CompactAIAgentMetrics.default.statusBaseline(iconSize: symbolSize)
     }
 }

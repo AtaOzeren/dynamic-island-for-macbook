@@ -64,6 +64,15 @@ public func chargingCompactSlot(for activity: ChargingActivity) -> CompactSlot {
 /// quarter steps and only the full one has a bolt variant, so a battery charging
 /// at 41% could only be drawn full or without its bolt.
 struct BatteryLevelGlyph: View {
+    /// How much wider than `size` the whole glyph draws: the body, the gap and
+    /// the cap. A battery is the one island icon that cannot be square, so it is
+    /// fitted to the width of the icon box everything else fills.
+    static let widthRatio: CGFloat = 1.6
+
+    static func size(fittingWidth width: CGFloat) -> CGFloat {
+        width / widthRatio
+    }
+
     let presentation: ChargingPresentation
     let size: CGFloat
 
@@ -153,8 +162,11 @@ public struct ChargingActivityView: View {
         )
 
         HStack(spacing: 0) {
-            BatteryLevelGlyph(presentation: presentation, size: metrics.symbolSize * 0.8)
-                .frame(width: metrics.symbolColumnWidth)
+            BatteryLevelGlyph(
+                presentation: presentation,
+                size: BatteryLevelGlyph.size(fittingWidth: metrics.symbolColumnWidth)
+            )
+            .frame(width: metrics.symbolColumnWidth)
 
             Text(presentation.title)
                 .font(.system(size: metrics.titleSize, weight: .medium))
