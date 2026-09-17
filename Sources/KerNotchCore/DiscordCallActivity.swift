@@ -52,6 +52,8 @@ public struct DiscordCallActivity: Activity, Equatable {
 
     public var priority: ActivityPriority { .high }
 
+    public var compactRank: CompactRank { .call }
+
     /// Offered only while a channel is known: leaving goes through the same RPC
     /// connection that named the channel, so without one there is nothing a
     /// press could do.

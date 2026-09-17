@@ -1,29 +1,20 @@
 import Foundation
 import KerNotchCore
 
-/// The machine's power situation as the island cares about it.
-///
-/// This is deliberately narrower than what IOKit reports: the power-source
-/// description carries a current capacity, a maximum capacity, a time-to-empty
-/// and more, and none of it appears here. `docs/06-activity-providers.md`
-/// forbids displaying a persistent battery percentage, and the cheapest way to
-/// keep a number off the island is to never carry it past the boundary that
-/// reads it — an absent field cannot leak into a view, and the reduction
-/// happens at the one place with access to the raw description.
-///
-/// `onBattery` exists here but has no counterpart in `ChargingState` for the
-/// same reason the recording providers have no not-recording activity: running
-/// on battery is the absence of the activity, so this case is what teardown
-/// looks like on the way in.
-public enum PowerSourceState: Hashable, Sendable {
-    case onBattery
-    case pluggedIn
-    case charging
-    case fullyCharged
+/// One reading of the internal battery: what is happening to the power, and how
+/// full the battery is.
+public struct PowerSourceReading: Equatable, Sendable {
+    public let state: ChargingState
+    public let level: BatteryLevel
+
+    public init(state: ChargingState, level: BatteryLevel) {
+        self.state = state
+        self.level = level
+    }
 }
 
-/// Called with the power state each time the system reports a change.
-public typealias PowerSourceStateObserver = @MainActor (PowerSourceState) -> Void
+/// Called with the battery's reading each time the system reports a change.
+public typealias PowerSourceReadingObserver = @MainActor (PowerSourceReading) -> Void
 
 /// The seam between "however the system reports power state" and "how that
 /// becomes a `ChargingActivity`".
@@ -36,79 +27,95 @@ public typealias PowerSourceStateObserver = @MainActor (PowerSourceState) -> Voi
 /// update-cadence rule and `docs/02-performance-contract.md` with it.
 @MainActor
 public protocol PowerSourceObserving: AnyObject {
-    func startObserving(_ observer: @escaping PowerSourceStateObserver)
+    func startObserving(_ observer: @escaping PowerSourceReadingObserver)
     func stopObserving()
 }
 
-/// Called with the charging activity, or `nil` once power is disconnected —
-/// teardown is the absence of an activity rather than an activity describing
-/// absence, per the teardown rule in `docs/06-activity-providers.md`.
-public typealias ChargingActivityObserver = @MainActor (ChargingActivity?) -> Void
+/// Called with each charging notification to announce. There is no teardown
+/// emission: every notification is ended by its own auto-dismiss window.
+public typealias ChargingActivityObserver = @MainActor (ChargingActivity) -> Void
 
-/// Turns the system's power-source notifications into the charging transition
-/// the manager registers, per `docs/06-activity-providers.md`.
+/// Turns the system's power-source notifications into the plug-in and unplug
+/// notifications the manager registers, per `docs/06-activity-providers.md`.
 ///
-/// The provider owns no timer of any kind. It never counts, so it never needs a
-/// wakeup to redraw; and it never dismisses, because `ActivityManager` owns the
-/// auto-dismiss window for any activity that declares one. Every emission here
-/// is an edge delivered by the underlying observer.
+/// Only the cable announces. The IOKit source fires on every power-source
+/// change, and while a Mac is connected those changes never stop: a charge
+/// limit or optimised charging pauses and resumes the charge again and again,
+/// and the battery reports full and not-full as it tops up. Announcing each of
+/// those reopened the island all through a charge, alternating a charging
+/// battery with a plugged-in one for no reason the user could see.
 ///
-/// Its one piece of judgement is refusing to speak when nothing changed. The
-/// IOKit source fires on every power-source change, which includes each capacity
-/// tick during a charge; since the manager restarts the dismiss window on each
-/// `update()`, a provider that forwarded every callback would pin the island
-/// open for the whole charge — the persistent power display the design forbids,
-/// arrived at sideways. Deduping on the reduced state is what makes the
-/// documented auto-dismiss actually reachable.
+/// The one exception is the notification already on screen. The charge usually
+/// starts a moment after the cable goes in, so a change inside the announcement
+/// window refines the notification rather than leaving it without its bolt.
+///
+/// The first reading after observation starts is only a baseline. A Mac already
+/// plugged in when KerNotch launches, or when the user switches the provider
+/// back on, did not just have its cable plugged in.
+///
+/// The provider owns no timer. `ActivityManager` dismisses the notification, and
+/// the announcement window is measured against the clock only when a reading
+/// arrives.
 @MainActor
 public final class ChargingProvider {
     private let source: any PowerSourceObserving
+    private let now: () -> Date
     private var observer: ChargingActivityObserver?
-    private var activity: ChargingActivity?
+    private var lastReading: PowerSourceReading?
+    private var announcementStart: Date?
 
-    public init(source: any PowerSourceObserving) {
+    public init(
+        source: any PowerSourceObserving,
+        now: @escaping () -> Date = Date.init
+    ) {
         self.source = source
+        self.now = now
     }
-
-    public var currentActivity: ChargingActivity? { activity }
 
     public func startObserving(_ observer: @escaping ChargingActivityObserver) {
         self.observer = observer
-        source.startObserving { [weak self] state in
-            self?.apply(state)
+        source.startObserving { [weak self] reading in
+            self?.apply(reading)
         }
     }
 
-    /// Forgetting the last activity is part of stopping: a provider restarted
-    /// into the power state it was stopped in must report it rather than dedupe
-    /// against a reading from before anyone was listening.
+    /// Forgetting the last reading is part of stopping: a provider restarted
+    /// into the power state it was stopped in must treat it as a new baseline
+    /// rather than compare it with a reading from before anyone was listening.
     public func stopObserving() {
         observer = nil
-        activity = nil
+        lastReading = nil
+        announcementStart = nil
         source.stopObserving()
     }
 
-    /// Deduping on the derived activity rather than on the raw power state is
-    /// what keeps a machine that launches on battery — or that reports the same
-    /// discharged state twice — from emitting a teardown for an activity that
-    /// was never registered. Absence and continued absence are the same
-    /// emission, so they must compare equal.
-    private func apply(_ state: PowerSourceState) {
-        let activity = Self.activity(for: state)
-        guard self.activity != activity else { return }
+    private func apply(_ reading: PowerSourceReading) {
+        let previous = lastReading
+        lastReading = reading
+        guard let previous else { return }
 
-        self.activity = activity
-        observer?(activity)
+        if reading.state.isConnectedToPower != previous.state.isConnectedToPower {
+            announcementStart = now()
+            announce(reading)
+        } else if reading.state != previous.state, isAnnouncing {
+            announce(reading)
+        }
     }
 
-    /// Running on battery has no activity, which is what makes teardown the
-    /// absence of one rather than a fourth state describing absence.
-    private static func activity(for state: PowerSourceState) -> ChargingActivity? {
-        switch state {
-        case .onBattery: nil
-        case .pluggedIn: ChargingActivity(state: .pluggedIn)
-        case .charging: ChargingActivity(state: .charging)
-        case .fullyCharged: ChargingActivity(state: .fullyCharged)
-        }
+    /// Whether the last plug-in or unplug is still on screen. Measured from the
+    /// cable's edge, not from the last refinement, so a charge flickering in its
+    /// first seconds cannot hold the notification open.
+    private var isAnnouncing: Bool {
+        guard let announcementStart else { return false }
+        return now().timeIntervalSince(announcementStart) < Self.announcementWindow
+    }
+
+    private static let announcementWindow: TimeInterval = {
+        let parts = ChargingActivity.autoDismissAfter.components
+        return TimeInterval(parts.seconds) + TimeInterval(parts.attoseconds) / 1e18
+    }()
+
+    private func announce(_ reading: PowerSourceReading) {
+        observer?(ChargingActivity(state: reading.state, level: reading.level))
     }
 }

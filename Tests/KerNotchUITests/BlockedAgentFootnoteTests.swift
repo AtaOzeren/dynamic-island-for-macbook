@@ -255,7 +255,7 @@ struct CompactAnnouncementWindowTests {
         func drawnCount(at now: Date) -> Int {
             compactPresentation(
                 CompactActivityPresentation(
-                    activities: [agent], overflowCount: 0, groupSizes: [:]),
+                    activities: [agent], groupSizes: [:]),
                 reconciledWith: [agent],
                 announcementStarts: starts,
                 registrationTimes: [agent.identity: Self.start],
@@ -281,7 +281,7 @@ struct CompactAnnouncementWindowTests {
             previous: starts, activities: [retry], now: Self.start.addingTimeInterval(40))
 
         let drawn = compactPresentation(
-            CompactActivityPresentation(activities: [retry], overflowCount: 0, groupSizes: [:]),
+            CompactActivityPresentation(activities: [retry], groupSizes: [:]),
             reconciledWith: [retry],
             announcementStarts: starts,
             registrationTimes: [retry.identity: Self.start],
@@ -307,7 +307,7 @@ struct CompactAnnouncementWindowTests {
         #expect(
             compactPresentation(
                 CompactActivityPresentation(
-                    activities: [recovered], overflowCount: 0, groupSizes: [:]),
+                    activities: [recovered], groupSizes: [:]),
                 reconciledWith: [recovered],
                 announcementStarts: advanced,
                 registrationTimes: [recovered.identity: Self.start],
@@ -326,7 +326,7 @@ struct CompactAnnouncementWindowTests {
             previous: [:], activities: [blocked, working], now: Self.start)
 
         let drawn = compactPresentation(
-            CompactActivityPresentation(activities: [blocked], overflowCount: 0, groupSizes: [:]),
+            CompactActivityPresentation(activities: [blocked], groupSizes: [:]),
             reconciledWith: [blocked, working],
             announcementStarts: starts,
             registrationTimes: [blocked.identity: Self.start, working.identity: Self.start],
@@ -348,9 +348,9 @@ struct CompactAnnouncementWindowTests {
             previous: [:], activities: [blocked, working], now: Self.start)
         let after = Self.start.addingTimeInterval(90)
 
-        // The manager picks the failure: it is the more urgent of the two.
+        // The manager's representative is the failure: it is the more urgent.
         let raw = CompactActivityPresentation(
-            activities: [blocked], overflowCount: 0, groupSizes: [:])
+            activities: [blocked], groupSizes: [:])
 
         let adjusted = compactPresentation(
             raw,
@@ -374,7 +374,7 @@ struct CompactAnnouncementWindowTests {
 
         let adjusted = compactPresentation(
             CompactActivityPresentation(
-                activities: [blocked], overflowCount: 0, groupSizes: [:]),
+                activities: [blocked], groupSizes: [:]),
             reconciledWith: [blocked, working],
             announcementStarts: starts,
             registrationTimes: [blocked.identity: Self.start, working.identity: Self.start],
@@ -457,15 +457,11 @@ struct CompactAnnouncementWindowTests {
         #expect(deadline == Self.start.addingTimeInterval(60), "woke on the later window")
     }
 
-    /// The defect this reconciliation exists for, end to end.
-    ///
-    /// The manager fits agent groups to the pill by urgency, and a failure
-    /// outranks work in flight — so a blocked agent wins a slot. Hiding it
-    /// afterwards left that slot empty while a third agent that was genuinely
-    /// working never appeared at all.
-    @Test("a muted agent gives its slot back to one that is working")
+    /// End to end through the manager: once its announcement is over, a blocked
+    /// agent leaves the pill to the agents that are still working.
+    @Test("a muted agent leaves the pill to the ones that are working")
     @MainActor
-    func mutedAgentGivesItsSlotBack() {
+    func mutedAgentLeavesThePill() {
         let manager = ActivityManager()
         let blocked = Self.blocked(.claudeCode)
         let codex = AIAgentActivity(
@@ -478,7 +474,6 @@ struct CompactAnnouncementWindowTests {
         let all = manager.expandedActivities
         let starts = advancedAnnouncementStarts(previous: [:], activities: all, now: Self.start)
 
-        // The manager picks the failure first: it is the more urgent.
         let managerChoice = manager.compactPresentation.activities
             .compactMap { ($0 as? AIAgentActivity)?.agent }
         #expect(managerChoice.contains(.claudeCode))
@@ -491,7 +486,7 @@ struct CompactAnnouncementWindowTests {
             now: Self.start.addingTimeInterval(120)
         ).activities.compactMap { ($0 as? AIAgentActivity)?.agent }
 
-        #expect(drawn.count == 2, "the muted agent kept a slot it no longer draws in")
+        #expect(drawn.count == 2, "the muted agent is still drawn")
         #expect(drawn.contains(.claudeCode) == false)
         #expect(Set(drawn) == [.codex, .opencode])
     }

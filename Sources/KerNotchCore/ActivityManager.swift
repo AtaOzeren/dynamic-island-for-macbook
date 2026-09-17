@@ -3,16 +3,20 @@ import Foundation
 public struct CompactActivityPresentation {
     public init(
         activities: [any Activity],
-        overflowCount: Int,
         groupSizes: [ActivityIdentity: Int]
     ) {
         self.activities = activities
-        self.overflowCount = overflowCount
         self.groupSizes = groupSizes
     }
 
+    /// One element per compact group: the standard activities by `compactRank`,
+    /// then the agents, oldest first.
+    ///
+    /// Nothing is dropped here. How many standard icons fit depends on what the
+    /// pill takes out before counting — a track paused long enough, an agent that
+    /// has finished announcing — so `CompactFlankAllocation` is applied to what
+    /// is left, not to this.
     public let activities: [any Activity]
-    public let overflowCount: Int
     /// How many distinct instances each drawn element stands for, keyed by
     /// `compactGroupIdentity`.
     ///
@@ -39,27 +43,19 @@ public final class ActivityManager {
     private struct CompactGroup {
         let identity: ActivityIdentity
         var representative: any Activity
-        let order: Int
+        var earliestRegistrationTime: Date
         var latestRegistrationTime: Date
         var instanceIdentities: Set<ActivityIdentity>
 
         var instanceCount: Int { instanceIdentities.count }
 
-        /// What decides which agent groups survive the compact capacity.
-        ///
-        /// Urgency first, recency only to break ties. Ordering on recency alone
-        /// dropped whichever agent started earliest, so three concurrent agents
-        /// could push the one waiting on the user out of the pill entirely —
-        /// the island then showed two agents working and no sign that a third
-        /// had stopped to ask something.
-        var admissionKey: (CompactRepresentationPriority, Date) {
-            (representative.compactRepresentationPriority, latestRegistrationTime)
+        /// Rank first; among equals, whichever started first keeps its place, so
+        /// a newcomer never pushes an icon of the same rank sideways.
+        var standardOrderingKey: (CompactRank, Date) {
+            (representative.compactRank, earliestRegistrationTime)
         }
     }
 
-    private static let compactAgentCapacity = 2
-
-    private let compactCapacity: Int
     private let sleep: Sleep
     private var entries: [ActivityIdentity: Entry] = [:]
     private var dismissTasks: [ActivityIdentity: Task<Void, Never>] = [:]
@@ -74,12 +70,10 @@ public final class ActivityManager {
     public var onActivitiesChanged: (() -> Void)?
 
     public init(
-        compactCapacity: Int = 3,
         sleep: @escaping Sleep = { duration in
             try? await Task.sleep(for: duration)
         }
     ) {
-        self.compactCapacity = max(1, compactCapacity)
         self.sleep = sleep
     }
 
@@ -95,28 +89,16 @@ public final class ActivityManager {
         let standardActivities =
             groups
             .filter { $0.representative.compactRegion == .standard }
-            .sorted { $0.order < $1.order }
+            .sorted { $0.standardOrderingKey < $1.standardOrderingKey }
             .map(\.representative)
         let agentActivities =
             groups
             .filter { $0.representative.compactRegion == .agentTrailing }
-            .sorted { $0.admissionKey > $1.admissionKey }
-            .prefix(Self.compactAgentCapacity)
             .sorted { $0.latestRegistrationTime < $1.latestRegistrationTime }
             .map(\.representative)
 
-        guard standardActivities.count > compactCapacity else {
-            return CompactActivityPresentation(
-                activities: standardActivities + agentActivities,
-                overflowCount: 0,
-                groupSizes: groupSizes
-            )
-        }
-
-        let visibleStandardCount = compactCapacity - 1
         return CompactActivityPresentation(
-            activities: Array(standardActivities.prefix(visibleStandardCount)) + agentActivities,
-            overflowCount: standardActivities.count - visibleStandardCount,
+            activities: standardActivities + agentActivities,
             groupSizes: groupSizes
         )
     }
@@ -179,14 +161,14 @@ public final class ActivityManager {
     private var compactGroups: [CompactGroup] {
         var groups: [ActivityIdentity: CompactGroup] = [:]
 
-        for (order, entry) in orderedEntries.enumerated() {
+        for entry in orderedEntries {
             let activity = entry.activity
             let groupIdentity = activity.compactGroupIdentity
             guard var group = groups[groupIdentity] else {
                 groups[groupIdentity] = CompactGroup(
                     identity: groupIdentity,
                     representative: activity,
-                    order: order,
+                    earliestRegistrationTime: entry.registrationTime,
                     latestRegistrationTime: entry.registrationTime,
                     instanceIdentities: [activity.compactInstanceIdentity]
                 )
@@ -198,6 +180,7 @@ public final class ActivityManager {
             {
                 group.representative = activity
             }
+            group.earliestRegistrationTime = min(group.earliestRegistrationTime, entry.registrationTime)
             group.latestRegistrationTime = max(group.latestRegistrationTime, entry.registrationTime)
             group.instanceIdentities.insert(activity.compactInstanceIdentity)
             groups[groupIdentity] = group
