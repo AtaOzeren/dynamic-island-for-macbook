@@ -91,3 +91,19 @@ public func islandSurfaceSize(_ input: IslandExtentInput) -> CGSize {
             forPillSize: islandCompactPillGeometry(input).size
         )
 }
+
+/// The island's body as drawn now — the compact pill, or the open island inside
+/// its flares — whose leading edge is the pet's stage's outer edge.
+public func islandBodyWidth(_ input: IslandExtentInput) -> CGFloat {
+    input.state == .expanded
+        ? islandConnectedGeometry(input).expandedBodyWidth
+        : islandCompactPillGeometry(input).size.width
+}
+
+/// Where `pet` can stand on the island as drawn now: the compact pill's leading
+/// flank, or the open island's strip beside the notch, above the cards.
+public func islandPetStageGeometry(_ input: IslandExtentInput, for pet: IslandPet) -> PetStageGeometry {
+    guard input.state == .expanded else { return pet.stageGeometry() }
+    let strip = (islandConnectedGeometry(input).expandedBodyWidth - input.notchSize.width) / 2
+    return pet.openIslandStageGeometry(stripWidth: Int(strip.rounded(.down)))
+}

@@ -30,11 +30,37 @@ struct PetSpriteImageSet {
     }
 }
 
+/// The effects as images, as drawn and mirrored.
+struct PetEffectImageSet {
+    private let images: [Key: CGImage]
+
+    init(art: PetEffectArt) {
+        var images: [Key: CGImage] = [:]
+        for effect in PetEffect.allCases {
+            for mirrored in [false, true] {
+                images[Key(effect: effect, mirrored: mirrored)] = petEffectImage(
+                    of: art, effect: effect, mirrored: mirrored)
+            }
+        }
+        self.images = images
+    }
+
+    func image(for effect: PetEffect, mirrored: Bool) -> CGImage? {
+        images[Key(effect: effect, mirrored: mirrored)]
+    }
+
+    private struct Key: Hashable {
+        let effect: PetEffect
+        let mirrored: Bool
+    }
+}
+
 /// Every sheet's images, drawn the first time a pet is shown and kept for the
 /// app's lifetime, so a routine starting over never redraws a pixel.
 @MainActor
 enum PetSpriteImages {
     private static var sets: [PetSpriteSheet: PetSpriteImageSet] = [:]
+    private static var effectSets: [PetEffectArt: PetEffectImageSet] = [:]
 
     static func images(for sheet: PetSpriteSheet) -> PetSpriteImageSet {
         if let cached = sets[sheet] {
@@ -44,20 +70,43 @@ enum PetSpriteImages {
         sets[sheet] = images
         return images
     }
+
+    static func images(for art: PetEffectArt) -> PetEffectImageSet {
+        if let cached = effectSets[art] {
+            return cached
+        }
+        let images = PetEffectImageSet(art: art)
+        effectSets[art] = images
+        return images
+    }
 }
 
 /// One frame of `sheet` as an sRGB image, a pixel per art pixel, rows from the
 /// top. `nil` only if Core Graphics cannot make an image at all.
 func petSpriteImage(of sheet: PetSpriteSheet, frame: PetFrame, facing: PetFacing) -> CGImage? {
+    pixelArtImage(width: sheet.width, height: sheet.height) { column, row in
+        sheet.color(of: frame, facing: facing, column: column, row: row)
+    }
+}
+
+/// One effect of `art` as an sRGB image, a pixel per art pixel.
+func petEffectImage(of art: PetEffectArt, effect: PetEffect, mirrored: Bool) -> CGImage? {
+    pixelArtImage(width: art.pixelWidth(of: effect), height: art.pixelHeight(of: effect)) { column, row in
+        art.color(of: effect, mirrored: mirrored, column: column, row: row)
+    }
+}
+
+private func pixelArtImage(width: Int, height: Int, color: (Int, Int) -> PetColor?) -> CGImage? {
+    guard width > 0, height > 0 else { return nil }
     let bytesPerPixel = 4
-    var bytes = [UInt8](repeating: 0, count: sheet.width * sheet.height * bytesPerPixel)
-    for row in 0..<sheet.height {
-        for column in 0..<sheet.width {
-            guard let color = sheet.color(of: frame, facing: facing, column: column, row: row) else { continue }
-            let offset = (row * sheet.width + column) * bytesPerPixel
-            bytes[offset] = color.red
-            bytes[offset + 1] = color.green
-            bytes[offset + 2] = color.blue
+    var bytes = [UInt8](repeating: 0, count: width * height * bytesPerPixel)
+    for row in 0..<height {
+        for column in 0..<width {
+            guard let pixel = color(column, row) else { continue }
+            let offset = (row * width + column) * bytesPerPixel
+            bytes[offset] = pixel.red
+            bytes[offset + 1] = pixel.green
+            bytes[offset + 2] = pixel.blue
             bytes[offset + 3] = UInt8.max
         }
     }
@@ -69,11 +118,11 @@ func petSpriteImage(of sheet: PetSpriteSheet, frame: PetFrame, facing: PetFacing
         return nil
     }
     return CGImage(
-        width: sheet.width,
-        height: sheet.height,
+        width: width,
+        height: height,
         bitsPerComponent: 8,
         bitsPerPixel: 8 * bytesPerPixel,
-        bytesPerRow: sheet.width * bytesPerPixel,
+        bytesPerRow: width * bytesPerPixel,
         space: colorSpace,
         bitmapInfo: CGBitmapInfo(rawValue: CGImageAlphaInfo.premultipliedLast.rawValue),
         provider: provider,
