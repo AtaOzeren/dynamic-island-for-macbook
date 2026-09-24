@@ -17,7 +17,7 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Menu bar icon visible | Bool | `true` | `general.showMenuBarIcon` | General, Appearance |
 | Appearance | enum: `auto` \| `light` \| `dark` | `auto` | `general.appearance` | General |
 | Island size | enum: `minimalist` \| `large` (an unrecognised stored value reads as `minimalist`) | `minimalist` | `general.islandSize` | General |
-| Reduced motion override | Bool? (nil = follow system) | `nil` | `general.reducedMotionOverride` | General |
+| Reduced motion override (every island animation — transitions, equaliser, glow, working dot, pet — on every display) | Bool? (nil = follow system) | `nil` | `general.reducedMotionOverride` | General |
 | Music provider enabled | Bool | `true` | `providers.music.enabled` | Activities |
 | Timer/Stopwatch provider enabled ("Timers and stopwatches"; also shows or hides the menu bar timer entries) | Bool | `true` | `providers.timer.enabled` | Activities |
 | Screen Recording provider enabled | Bool | `true` | `providers.screenRecording.enabled` | Activities |
@@ -34,6 +34,7 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Island glow (attention light around the compact island) | Bool | `true` | `ai.presentation.attentionGlow` | AI Integrations |
 | Island glow test button | action, not a stored setting — plays a single yellow crossing of the glow on the island, even with the switch off | — | — | AI Integrations |
 | Discord integration enabled | Bool | `false` | `integrations.discord.enabled` | Integrations |
+| Island pet ("Show the pet on the island") | Bool | `false` | `pet.enabled` | Pet |
 | Discord connect / try again / disconnect | action, not a stored setting — the authorization token it produces lives in an owner-only file in Application Support, never in `UserDefaults` (see `09-security-privacy-permissions.md`). The Discord application it connects through is a build setting (`KERNOTCH_DISCORD_CLIENT_ID`), not a user setting | — | — | Integrations |
 | Hook installation status (per agent) | enum: `notInstalled` \| `installed` \| `outOfDate` | computed, not stored | — (derived by reading the agent's config file, see `07-ai-integration.md`) | AI Integrations |
 | Hook install / uninstall action | action, not a stored setting | — | — | AI Integrations |
@@ -65,7 +66,7 @@ Earlier builds kept settings in the preferences domain. `FileSettingsStorage.imp
 
 ### Key naming convention
 
-Keys are dot-separated, lower-camel-case path segments, always starting with the group they belong to (`general.`, `display.`, `providers.`, `ai.`, `integrations.`). The group prefix exists so a future settings export or reset-to-defaults operation can filter by group without a hardcoded list of every key.
+Keys are dot-separated, lower-camel-case path segments, always starting with the group they belong to (`general.`, `display.`, `providers.`, `ai.`, `integrations.`, `pet.`). The group prefix exists so a future settings export or reset-to-defaults operation can filter by group without a hardcoded list of every key.
 
 ### Migration policy
 
@@ -81,9 +82,11 @@ No setting in the table above defaults to a state that would show the user somet
 
 Settings is a standard SwiftUI `Settings` scene, giving KerNotch platform-native window chrome and keyboard shortcut (⌘,). It opens from the AppKit status item's menu, first-run onboarding, or by reopening the running app from Finder. Reopening remains available when the user hides the status item. Opening Settings does not change the app's activation policy — KerNotch remains an accessory app (`LSUIElement`, no Dock icon) whether or not the settings window is open.
 
-The window is organized into the sections implied by the "Appears in" column above: **General** (display target, island size, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), **Integrations** (the Discord switch and the connection to the local Discord client; the connection section only in builds that carry a Discord Client ID), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in the settings file.
+The window is organized into the sections implied by the "Appears in" column above: **General** (display target, island size, menu bar icon, launch at login, appearance, reduced motion, app restart), **Activities** (per-provider enable toggles), **Pet** (the island pet's switch, with the pet walking in a preview beside it), **AI Integrations** (per-agent enable, per-event toggles, hook status and install/uninstall), **Integrations** (the Discord switch and the connection to the local Discord client; the connection section only in builds that carry a Discord Client ID), and **About** (license, acknowledgments, language override). Each section is a single SwiftUI view backed directly by the typed settings wrapper — no intermediate view model duplicates state that already lives in the settings file.
 
 Most settings apply live. The language override is the exception because `Bundle` resolves and caches its localization at launch. Changing it shows a restart-required warning in both About and General. General's restart action launches one replacement KerNotch instance, reopens Settings, then terminates the old instance only after launch succeeds; a launch failure leaves the current process running and presents the error. Restart requests for external AI tools remain in their hook setup guidance because restarting KerNotch cannot reload another application's configuration.
+
+The pet switch applies live as well: switched on, the pill widens and the pet walks in from beyond the island's edge; switched off, the pet is gone and the pill narrows (`17-island-pet.md`). It is off by default, under the defaults-are-safe rule below: a moving picture on the notch is something the user asks for.
 
 The island size applies live too. General's Island section offers **Minimalist**, the default island, and **Large**, which widens the expanded island and enlarges its text and controls; changing it resizes the panel on every display without a restart (`04-overlay-window.md`).
 
