@@ -13,4 +13,10 @@ public struct IslandPet: Hashable, Sendable {
     public func stageGeometry(on pill: CompactPillMetrics = .default) -> PetStageGeometry {
         PetStageGeometry(pill: pill, spriteWidth: sprites.pointWidth)
     }
+
+    /// Where this pet can stand on the open island, whose strip beside the
+    /// notch is `stripWidth` points wide.
+    public func openIslandStageGeometry(stripWidth: Int, on pill: CompactPillMetrics = .default) -> PetStageGeometry {
+        PetStageGeometry(openIslandStripWidth: stripWidth, pill: pill, spriteWidth: sprites.pointWidth)
+    }
 }

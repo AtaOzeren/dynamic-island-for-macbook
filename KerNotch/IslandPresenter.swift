@@ -32,12 +32,13 @@ final class IslandViewModel: ObservableObject {
     /// this model. While the view owned it privately, the icon vanished and the
     /// bar behind it stayed at full width.
     @Published var hiddenMusicSlotIDs: Set<String> = []
-    /// The pet on the compact island, and the routine it is performing.
+    /// The pet on the island — on the compact pill's leading flank, or on the
+    /// open island's strip beside the notch — and the routine it is performing.
     ///
     /// Published rather than kept in the view for the reason the music icons
     /// are: the pet keeps the leading flank open, which decides how wide the
-    /// pill and its hover target are — and the compact view is rebuilt on every
-    /// expand and collapse, which would start the routine over each time.
+    /// pill and its hover target are — and the island's views are rebuilt on
+    /// every expand and collapse, which would start the routine over each time.
     @Published var pet: IslandPetPresentation?
     /// The light around the compact island while an agent has news.
     ///
@@ -71,6 +72,8 @@ final class IslandViewModel: ObservableObject {
     var onCollapse: () -> Void = {}
     var onExpand: () -> Void = {}
     var onBeginInteraction: () -> Void = {}
+    /// Where the pointer moving onto the pet goes.
+    var onPetTouched: () -> Void = {}
     /// Where a press inside the expanded island goes. Assigned by the
     /// composition root for the same reason `onCollapse` is: the view is built
     /// before the objects that execute these commands exist, and putting a
@@ -140,6 +143,7 @@ struct IslandRootView: View {
             ZStack(alignment: .top) {
                 if model.state != .hidden {
                     connectedSurface
+                    petStage
                 }
                 content
             }
@@ -200,6 +204,19 @@ struct IslandRootView: View {
         .animation(.easeOut(duration: IslandAttentionGlowTiming.fadeDuration), value: model.attentionGlow)
     }
 
+    /// The pet, laid against the island's outer edge whether the island is
+    /// compact or open, so it rides the edge on the island's own spring as it
+    /// opens and closes. Behind the content, so an icon arriving on the spot
+    /// the pet is leaving is drawn over it.
+    private var petStage: some View {
+        IslandPetStage(
+            pet: model.pet,
+            pillHeight: compactPill.size.height,
+            onTouch: model.onPetTouched
+        )
+        .frame(width: islandBodyWidth(model.extentInput), alignment: .leading)
+    }
+
     private var connectedSurface: some View {
         ConnectedIslandShape(geometry: geometry)
             .fill(.black)
@@ -232,7 +249,7 @@ struct IslandRootView: View {
                 presentation: model.compact,
                 notchSize: model.notchSize,
                 hiddenMusicSlotIDs: model.hiddenMusicSlotIDs,
-                pet: model.pet
+                pet: model.pet?.pet
             )
             .sharingIslandSurface()
             .contentShape(Rectangle())
@@ -320,9 +337,9 @@ final class IslandPresenter {
     /// the primary island has one: a pet is a companion, and a second one on
     /// another display would be a copy, not company.
     private var pet: IslandPet?
-    /// The routine the pet is performing, carried across every refresh so a
-    /// stage change starts from wherever the pet actually is.
-    private var petRoutines = PetRoutineTracker()
+    /// The pet's routine and what it has noticed, carried across every refresh
+    /// so a change starts from wherever the pet actually is.
+    private var petKeeper = IslandPetKeeper()
     private var presentationRefreshTask: Task<Void, Never>?
     private var isDegraded = false
     /// The user's own motion preference, held for the length of one watchdog
@@ -432,23 +449,7 @@ final class IslandPresenter {
         controller.onSynchronize = { [weak self] in
             self?.refreshContent()
         }
-        model.onCollapse = { [weak self] in self?.hoverCoordinator.collapseNow() }
-        model.onExpand = { [weak self] in
-            self?.hoverCoordinator.expandNow()
-            self?.controller.beginInteractiveMode()
-        }
-        model.onBeginInteraction = { [weak self] in
-            self?.controller.beginInteractiveMode()
-        }
-        model.onMusicTransport = { [weak self] command in
-            self?.musicProvider?.send(command)
-        }
-        model.onTimerCommand = { [weak self] command in
-            self?.timerProvider?.handle(command.timerCommand)
-        }
-        model.onPrimaryAction = { [weak self] identity in
-            self?.performPrimaryAction(for: identity)
-        }
+        connectModelCommands()
         panel.onCancel = { [weak self] in self?.hoverCoordinator.collapseNow() }
 
         screenChanges.startObserving { [weak self] change in
@@ -463,6 +464,31 @@ final class IslandPresenter {
         controller.start()
         reconcileSecondaryPresentations()
         refreshContent()
+    }
+
+    /// Where every press, click and pointer rest inside the island goes.
+    private func connectModelCommands() {
+        model.onCollapse = { [weak self] in self?.hoverCoordinator.collapseNow() }
+        model.onExpand = { [weak self] in
+            self?.hoverCoordinator.expandNow()
+            self?.controller.beginInteractiveMode()
+        }
+        model.onBeginInteraction = { [weak self] in
+            self?.controller.beginInteractiveMode()
+        }
+        model.onPetTouched = { [weak self] in
+            self?.petKeeper.notePetting()
+            self?.refreshContent()
+        }
+        model.onMusicTransport = { [weak self] command in
+            self?.musicProvider?.send(command)
+        }
+        model.onTimerCommand = { [weak self] command in
+            self?.timerProvider?.handle(command.timerCommand)
+        }
+        model.onPrimaryAction = { [weak self] identity in
+            self?.performPrimaryAction(for: identity)
+        }
     }
 
     /// Executes the intent the pressed activity's `PrimaryAction` names.
@@ -703,8 +729,15 @@ final class IslandPresenter {
         applyContent(
             compact: compact,
             hiddenMusicSlotIDs: reading.hiddenMusicSlotIDs,
-            pet: petPresentation(
-                beside: compactSlotLayout(for: compact, hiding: reading.hiddenMusicSlotIDs, housing: pet)
+            pet: petKeeper.presentation(
+                on: model.extentInput(
+                    compact: compact,
+                    hiddenMusicSlotIDs: reading.hiddenMusicSlotIDs,
+                    pet: pet,
+                    expanded: manager.expandedActivities
+                ),
+                activities: manager.activeActivities,
+                at: ProcessInfo.processInfo.systemUptime
             ),
             expanded: manager.expandedActivities,
             registrationTimes: manager.registrationTimes
@@ -775,24 +808,6 @@ final class IslandPresenter {
         if narrowsPill || resizesFlank {
             controller.compactLayoutDidChange()
         }
-    }
-
-    /// Moves the pet onto the stage the icons leave it and hands back the
-    /// routine it performs there, or `nil` while there is no pet.
-    ///
-    /// Only a change of stage starts a new routine, so this is free to run on
-    /// every refresh: the routine plays itself out in Core Animation, and
-    /// nothing here wakes the island to keep it going.
-    ///
-    /// Timed by uptime rather than by the wall clock `refreshContent` reads:
-    /// uptime is the clock Core Animation plays the routine on.
-    private func petPresentation(beside layout: CompactSlotLayout) -> IslandPetPresentation? {
-        guard let pet, let stage = layout.petStage else {
-            petRoutines.forget()
-            return nil
-        }
-        petRoutines.follow(stage, at: ProcessInfo.processInfo.systemUptime, geometry: pet.stageGeometry())
-        return petRoutines.performance.map { IslandPetPresentation(pet: pet, performance: $0) }
     }
 
     private func reconcileSecondaryPresentations() {

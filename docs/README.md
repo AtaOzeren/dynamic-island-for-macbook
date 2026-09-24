@@ -24,7 +24,7 @@ This folder is a design specification, not code. Every document here describes w
 | 13 | [Deferred Backlog](13-deferred-backlog.md) | Everything valuable that didn't make V1, and the trigger that revives it |
 | 14 | [Glossary and Conventions](14-glossary-and-conventions.md) | Shared vocabulary, naming rules, and code/git/documentation conventions |
 | 16 | [Discord Application](16-discord-application.md) | KerNotch's Discord Client ID: where it lives, how to change it, forks, and Discord's RPC approval |
-| 17 | [Island Pet](17-island-pet.md) | The optional pixel dog on the compact island: where it stands beside the icons, its art and routine, and what it costs |
+| 17 | [Island Pet](17-island-pet.md) | The optional pixel dog on the island: where it stands beside the icons, its art and routine, how it reacts to what happens, and what it costs |
 
 ## How to use this folder
 

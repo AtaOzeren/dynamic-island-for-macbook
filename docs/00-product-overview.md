@@ -33,7 +33,7 @@ The first release includes:
 - **Charging state** — a brief notification when the charger is plugged in or unplugged, showing the battery's level as a drawn fill, without a persistent battery-percentage display.
 - **AI agent status** — live status for Claude Code, Codex, and OpenCode (terminal-based, best-effort), showing whether the agent is working, needs input, or has finished a task.
 - **Multiple simultaneous activities** — several activities (for example, music plus a timer plus a Discord call) can be visible and prioritized in the same expanded view at once.
-- **Island pet (optional, off by default)** — a small pixel dog that lives on the left of the compact island, walking and sitting, stepping aside when an activity needs the room and leaving when there is none (`docs/17-island-pet.md`).
+- **Island pet (optional, off by default)** — a small pixel dog that lives on the left of the island, walking and sitting, stepping aside when an activity needs the room and leaving when there is none, and reacting to what happens: a question mark while an agent waits on the user, a celebration when one finishes, a nod along to music, a nap when the island has been empty for a while (`docs/17-island-pet.md`).
 
 ## What V1 Deliberately Excludes
 
