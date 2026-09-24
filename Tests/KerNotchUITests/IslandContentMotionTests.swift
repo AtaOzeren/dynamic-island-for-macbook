@@ -203,6 +203,7 @@ struct IslandContentMotionTests {
                 state: state,
                 compact: manager.compactPresentation,
                 hiddenMusicSlotIDs: hiddenMusicSlotIDs,
+                pet: nil,
                 expanded: manager.expandedActivities,
                 disclosedInstances: [],
                 registrationTimes: manager.registrationTimes,

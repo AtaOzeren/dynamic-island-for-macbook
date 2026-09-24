@@ -217,6 +217,7 @@ struct LocalizationTests {
         "KerNotch",
         "Discord",
         "Minimalist",
+        "Pet",
         "activity.accessibility.headlineAndDetail",
         "activity.ai.blockedFootnote",
         "activity.ai.compactTitle",

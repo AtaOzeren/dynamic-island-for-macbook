@@ -174,6 +174,24 @@ struct SettingsStoreTests {
         #expect(store[.enableDiscord])
     }
 
+    /// The pet is opt-in: a store nobody has written to must not put a moving
+    /// picture on an island the user expects to sit still.
+    @Test("persists the pet switch, off until the user turns it on")
+    func roundTripsPetPreferences() throws {
+        let storage = DictionarySettingsStorage()
+        let store = SettingsStore(storage: storage)
+
+        #expect(store.petPreferences == .default)
+        #expect(store.petPreferences.isEnabled == false)
+        #expect(try #require(storage.lastRegisteredDefaults[SettingsKey<Bool>.showIslandPet.name] as? Bool) == false)
+
+        store.petPreferences = PetPreferences(isEnabled: true)
+
+        #expect(store.petPreferences.isEnabled)
+        #expect(store[.showIslandPet])
+        #expect(SettingsKey<Bool>.showIslandPet.name == "com.kernotch.settings.pet.enabled")
+    }
+
     @Test("removes retired keys, and leaves everything else alone")
     func removesRetiredKeys() {
         let storage = DictionarySettingsStorage()

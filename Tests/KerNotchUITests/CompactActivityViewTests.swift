@@ -171,7 +171,8 @@ struct CompactActivityViewTests {
 
         let layout = compactSlotLayout(
             for: manager.compactPresentation,
-            hiding: [MusicActivity.identity.rawValue]
+            hiding: [MusicActivity.identity.rawValue],
+            housing: nil
         )
 
         #expect(Self.ids(layout.leading) == [DiscordCallActivity.identity.rawValue])
@@ -436,11 +437,11 @@ struct CompactActivityViewTests {
         let notch = CGSize(width: 200, height: 32)
 
         let shown = compactPillSize(
-            for: compactSlotLayout(for: presentation, hiding: []),
+            for: compactSlotLayout(for: presentation, hiding: [], housing: nil),
             notchSize: notch
         )
         let hidden = compactPillSize(
-            for: compactSlotLayout(for: presentation, hiding: [musicID]),
+            for: compactSlotLayout(for: presentation, hiding: [musicID], housing: nil),
             notchSize: notch
         )
 
@@ -475,7 +476,7 @@ struct CompactActivityViewTests {
         )
 
         func hitWidth(hiding hiddenIDs: Set<String>) -> CGFloat {
-            let layout = compactSlotLayout(for: presentation, hiding: hiddenIDs)
+            let layout = compactSlotLayout(for: presentation, hiding: hiddenIDs, housing: nil)
             return compactHitRect(
                 for: screen,
                 leadingSlotCount: layout.leading.count,
