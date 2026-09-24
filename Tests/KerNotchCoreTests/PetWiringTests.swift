@@ -28,16 +28,24 @@ struct PetWiringTests {
         let secondary = try Self.source("KerNotch/SecondaryIslandPresentation.swift")
         let app = try Self.source("KerNotch/KerNotchApp.swift")
 
-        // One owner, read by the view and by the extent the surface is sized from.
+        // One owner, read by the island that draws it, by the pill that keeps
+        // its flank open and by the extent the surface is sized from.
         #expect(presenter.contains("@Published var pet: IslandPetPresentation?"))
-        #expect(presenter.contains("pet: model.pet\n"))
+        #expect(presenter.contains("IslandPetStage(\n            pet: model.pet,"))
+        #expect(presenter.contains("pet: model.pet?.pet\n"))
         #expect(presenter.contains("pet: pet?.pet,"))
         // The hover target, re-read when the pet comes or goes.
         #expect(presenter.contains("pet: { [model] in model.pet?.pet }"))
         #expect(presenter.contains("if narrowsPill || resizesFlank {"))
         // Its routine is carried across refreshes rather than restarted, timed
-        // on the clock Core Animation plays it on.
-        #expect(presenter.contains("petRoutines.follow(stage, at: ProcessInfo.processInfo.systemUptime,"))
+        // on the clock Core Animation plays it on, and fed what the island
+        // shows and what the pointer does.
+        #expect(presenter.contains("pet: petKeeper.presentation(\n"))
+        #expect(
+            presenter.contains(
+                "activities: manager.activeActivities,\n                at: ProcessInfo.processInfo.systemUptime"))
+        #expect(presenter.contains("onTouch: model.onPetTouched"))
+        #expect(presenter.contains("self?.petKeeper.notePetting()"))
         // Seeded from the store and switched live from the Pet tab.
         #expect(presenter.contains("pet = settingsStore.petPreferences.pet"))
         #expect(app.contains("settingsStore.petPreferences = preferences"))

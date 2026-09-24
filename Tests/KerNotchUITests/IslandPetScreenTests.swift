@@ -26,7 +26,7 @@ struct IslandPetScreenTests {
     /// pointer rests on the island.
     @Test("the hover peek moves the pet but leaves it at its own size", arguments: [1.03, 1.5])
     func peekLeavesThePetUnscaled(peekScale: CGFloat) throws {
-        let stage = CompactPetStage(pet: PetFixtures.roamingPresentation(), pillHeight: 32, metrics: .default)
+        let stage = IslandPetStage(pet: PetFixtures.roamingPresentation(), pillHeight: 32, metrics: .default)
             .environment(\.islandMotionSuspended, true)
             .environment(\.islandHoverScale, peekScale)
             .frame(width: 200, height: 60, alignment: .topLeading)

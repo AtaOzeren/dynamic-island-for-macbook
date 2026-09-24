@@ -7,8 +7,9 @@ import Testing
 @testable import KerNotchCore
 @testable import KerNotchUI
 
-/// The pet lives on the small island only: the expanded island is the
-/// activities' detail, and a hidden panel has nothing to draw.
+/// The pet lives on the island whether it is compact or open — on the open
+/// island in the strip beside the notch — and a hidden panel has nothing to
+/// draw.
 @Suite("IslandRootView pet")
 @MainActor
 struct IslandRootViewPetTests {
@@ -17,9 +18,9 @@ struct IslandRootViewPetTests {
         #expect(Self.rendersPet(in: .compact))
     }
 
-    @Test("the expanded island draws no pet")
-    func expandedIslandDrawsNoPet() {
-        #expect(Self.rendersPet(in: .expanded) == false)
+    @Test("the open island draws the pet too")
+    func expandedIslandDrawsThePet() {
+        #expect(Self.rendersPet(in: .expanded))
     }
 
     @Test("a hidden island draws no pet")
@@ -45,7 +46,12 @@ struct IslandRootViewPetTests {
         )
         model.state = state
         var tracker = PetRoutineTracker()
-        tracker.follow(.roaming, at: ProcessInfo.processInfo.systemUptime, geometry: IslandPet.shiba.stageGeometry())
+        var dice = PetDice(seed: 1)
+        tracker.follow(
+            PetScene(stage: .roaming, geometry: IslandPet.shiba.stageGeometry()),
+            at: ProcessInfo.processInfo.systemUptime,
+            dice: &dice
+        )
         model.pet = tracker.performance.map { IslandPetPresentation(pet: .shiba, performance: $0) }
         return model
     }

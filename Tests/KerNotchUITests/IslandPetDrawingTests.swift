@@ -122,7 +122,7 @@ struct IslandPetDrawingTests {
 
         // Layer coordinates run up from the bottom.
         #expect(pillHeight - sprite.minY == bandBottomFromTop)
-        let canvasWidth = CGFloat(Self.geometry.edgeInset + Self.geometry.flankWidth)
+        let canvasWidth = CGFloat(Self.geometry.edgeInset + Self.geometry.flankWidth + Self.geometry.notchGap)
         #expect(Self.placement.canvasSize == CGSize(width: canvasWidth, height: 32))
         #expect(sprite.minX == CGFloat(Self.geometry.edgeInset))
         #expect(sprite.size == CGSize(width: 16, height: 12))
@@ -157,7 +157,7 @@ struct IslandPetDrawingTests {
         #expect(keyTimes == keyTimes.sorted())
     }
 
-    @Test("a loop plays as a frame track and a position track, a step at a time, for ever")
+    @Test("a loop plays as a frame track and two position tracks, a step at a time, for ever")
     func loopTracks() throws {
         let loop = try #require(Self.routine(.roaming).loop)
         let group = PetAnimation.repeating(
@@ -172,7 +172,7 @@ struct IslandPetDrawingTests {
         #expect(group.isRemovedOnCompletion == false)
         #expect(group.beginTime == 10)
         #expect(group.duration == loop.duration)
-        #expect(tracks.map(\.keyPath) == ["contents", "position.x"])
+        #expect(tracks.map(\.keyPath) == ["contents", "position.x", "position.y"])
         #expect(tracks.allSatisfy { $0.calculationMode == .discrete })
         #expect(tracks.allSatisfy { $0.values?.count == loop.keyframes.count })
         #expect(
@@ -317,20 +317,32 @@ struct IslandPetDrawingTests {
         #expect(host.hitTest(CGPoint(x: 20, y: 16)) == nil)
     }
 
-    // MARK: - On the pill
+    // MARK: - On the island
 
-    @Test("the compact pill draws the pet only when there is one")
-    func compactPillDrawsThePet() {
+    @Test("the pet's stage draws the pet only when there is one")
+    func stageDrawsThePet() {
         #expect(Self.rendersPet(PetFixtures.roamingPresentation()))
         #expect(Self.rendersPet(nil) == false)
     }
 
-    private static func rendersPet(_ pet: IslandPetPresentation?) -> Bool {
+    /// The island draws the pet, carrying it between the compact and the open
+    /// island; the pill only keeps its flank open for it.
+    @Test("the compact pill itself draws no pet")
+    func compactPillLeavesThePetToTheIsland() {
         let view = CompactActivityView(
             presentation: ActivityManager().compactPresentation,
             notchSize: CGSize(width: 185, height: 32),
-            pet: pet
+            pet: .shiba
         )
+        let hostingView = NSHostingView(rootView: view)
+        hostingView.frame = CGRect(x: 0, y: 0, width: 320, height: 40)
+        hostingView.layoutSubtreeIfNeeded()
+
+        #expect(Self.containsView(named: "PetLayerHostView", in: hostingView) == false)
+    }
+
+    private static func rendersPet(_ pet: IslandPetPresentation?) -> Bool {
+        let view = IslandPetStage(pet: pet, pillHeight: 32)
         let hostingView = NSHostingView(rootView: view)
         hostingView.frame = CGRect(x: 0, y: 0, width: 320, height: 40)
         hostingView.layoutSubtreeIfNeeded()
@@ -351,9 +363,15 @@ struct IslandPetDrawingTests {
         "nothing that draws the pet keeps a clock of its own",
         arguments: [
             "Sources/KerNotchUI/IslandPetView.swift",
+            "Sources/KerNotchUI/PetLayerHostView.swift",
             "Sources/KerNotchUI/PetAnimation.swift",
             "Sources/KerNotchUI/PetSpriteImages.swift",
             "Sources/KerNotchUI/PetSettingsView.swift",
+            "Sources/KerNotchCore/PetChoreographer.swift",
+            "Sources/KerNotchCore/PetCues.swift",
+            "Sources/KerNotchCore/PetLoops.swift",
+            "Sources/KerNotchCore/PetNewsReactionScripts.swift",
+            "Sources/KerNotchCore/PetReactionScripts.swift",
             "Sources/KerNotchCore/PetRoutine.swift",
             "Sources/KerNotchCore/PetRoutineTracker.swift",
         ]

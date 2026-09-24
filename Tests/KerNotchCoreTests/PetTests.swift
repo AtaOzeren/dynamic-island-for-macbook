@@ -84,8 +84,12 @@ struct PetSpriteSheetTests {
     }
 
     /// A frame whose paws stopped short of the bottom row would make the pet
-    /// hop a point every time it switched to it.
-    @Test("every frame stands on the same bottom row", arguments: PetFrame.allCases)
+    /// hop a point every time it switched to it. The hop is the one frame drawn
+    /// in the air, and it is raised by the pose's lift instead.
+    @Test(
+        "every frame on the ground stands on the same bottom row",
+        arguments: PetFrame.allCases.filter { $0.posture != .airborne }
+    )
     func everyFrameReachesTheFloor(frame: PetFrame) {
         let sheet = Self.sheet
         let floor = (0..<sheet.width).compactMap {
@@ -157,7 +161,12 @@ struct PetSpriteSheetTests {
 
     @Test("the sitting frames are the ones on haunches")
     func sittingFrames() {
-        #expect(Set(PetFrame.allCases.filter(\.isSitting)) == [.sit, .sitBlink, .sitPant, .sitWag])
+        #expect(
+            Set(PetFrame.allCases.filter(\.isSitting)) == [
+                .sit, .sitBlink, .sitPant, .sitWag, .sitNod, .bark, .yawn, .curious, .curiousLow, .earsBack,
+                .pawUp, .dazed, .holdBone, .holdBoneWag, .headset, .headsetBlink, .headsetNod,
+            ]
+        )
     }
 
     @Test("a palette colour reads back as its hex")
