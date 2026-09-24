@@ -9,13 +9,13 @@ CHECKLIST_PATH = PROJECT_ROOT / "docs" / "HOMEBREW_SUBMISSION.md"
 
 
 class HomebrewCaskTests(unittest.TestCase):
-    def test_cask_matches_direct_release_artifact(self):
+    def test_cask_matches_release_artifact(self):
         cask = CASK_PATH.read_text(encoding="utf-8")
 
         self.assertIn('cask "kernotch" do', cask)
         self.assertIn('version "1.0.0"', cask)
         self.assertIn(
-            "releases/download/v#{version}/KerNotch-#{version}-direct.dmg", cask
+            "releases/download/v#{version}/KerNotch-#{version}.dmg", cask
         )
         self.assertIn('app "KerNotch.app"', cask)
 

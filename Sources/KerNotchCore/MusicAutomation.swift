@@ -1,11 +1,10 @@
 import Foundation
 
-/// The two scriptable players the App Store build is allowed to talk to.
+/// The two scriptable players the music backend talks to.
 ///
-/// The list is closed on purpose. `docs/06-activity-providers.md` scopes the
-/// `com.apple.security.scripting-targets` entitlement to exactly these two
-/// bundle identifiers, so a third case here would be a case the sandbox refuses
-/// to serve — the enum is the entitlement, expressed in Swift.
+/// The list is closed on purpose. `docs/06-activity-providers.md` scopes Apple
+/// Events consent to exactly these two bundle identifiers, so a third player
+/// needs its own scripting bridge and its own permission row, not just a case.
 public enum MusicPlayerTarget: CaseIterable, Hashable, Sendable {
     case spotify
     case appleMusic

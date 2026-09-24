@@ -34,21 +34,18 @@ jobs:
       - name: Run Asset Guard
         run: ./scripts/check-assets.sh
 
-      - name: Build App Store Configuration
-        run: xcodebuild -scheme "KerNotch (App Store)" -destination "platform=macOS" build
+      - name: Build Release Configuration
+        run: xcodebuild -scheme KerNotch -configuration Release -destination "platform=macOS" build
 
-      - name: Build Direct Configuration
-        run: xcodebuild -scheme "KerNotch (Direct)" -destination "platform=macOS" build
-
-      - name: Assert Music Backend Differs Per Configuration
+      - name: Assert Music Backend Matches Platform
         run: ./scripts/check-music-backend.sh
 
-      - name: Run Forbidden Symbol Guard on App Store Binary
+      - name: Assert MediaRemote Backend Is Linked
         run: |
-          APPSTORE_BIN=$(find ~/Library/Developer/Xcode/DerivedData -name "KerNotch" -path "*/AppStore/*" -type f | head -n 1)
-          if [ -n "$APPSTORE_BIN" ]; then
-            ./scripts/check-forbidden-symbols.sh "$APPSTORE_BIN"
+          RELEASE_BIN=$(find ~/Library/Developer/Xcode/DerivedData -name "KerNotch" -path "*/Release/KerNotch.app/Contents/MacOS/*" -type f | head -n 1)
+          if [ -n "$RELEASE_BIN" ]; then
+            ./scripts/check-media-remote-linked.sh "$RELEASE_BIN"
           else
-            echo "Error: AppStore binary not found"
+            echo "Error: Release binary not found"
             exit 1
           fi

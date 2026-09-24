@@ -35,8 +35,8 @@ public struct NowPlaying: Equatable, Sendable {
     public let artist: String
     public let playbackState: MusicPlaybackState
     /// The human-readable name of the app the audio is coming from, when the
-    /// backend can attribute it. The Direct build's system-wide observation
-    /// cannot always name a source, so this stays optional.
+    /// backend can attribute it. The MediaRemote backend's system-wide
+    /// observation cannot always name a source, so this stays optional.
     public let sourceApplicationName: String?
     /// Encoded artwork bytes, bounded before the long-lived activity manager
     /// retains them. Backends may omit artwork without weakening the rest of
@@ -112,6 +112,10 @@ public struct MusicActivity: Activity, Equatable {
     public var orderBand: ActivityOrderBand { .pinned }
 
     public var priority: ActivityPriority { .low }
+
+    /// First to give up its place in the pill: the expanded panel still shows
+    /// the track, and nothing is missed by not seeing it playing.
+    public var compactRank: CompactRank { .ambient }
 
     /// Music ends when the player stops, never on a clock.
     public var autoDismiss: AutoDismissDescriptor? { nil }

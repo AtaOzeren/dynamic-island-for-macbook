@@ -430,15 +430,15 @@ public struct AIAgentViewMetrics: Equatable, Sendable {
     public let disclosureControlHeight: CGFloat
 
     public init(
-        glyphSize: CGFloat = 24,
-        contentInset: CGFloat = 8,
-        textSpacing: CGFloat = 2,
-        columnSpacing: CGFloat = 8,
-        titleSize: CGFloat = IslandTypeScale.default.title,
-        detailSize: CGFloat = IslandTypeScale.default.detail,
+        glyphSize: CGFloat = IslandRowGrammar.default.iconSize,
+        contentInset: CGFloat = IslandRowGrammar.default.contentInset,
+        textSpacing: CGFloat = IslandRowGrammar.default.textSpacing,
+        columnSpacing: CGFloat = IslandRowGrammar.default.columnSpacing,
+        titleSize: CGFloat = IslandRowGrammar.default.titleSize,
+        detailSize: CGFloat = IslandRowGrammar.default.detailSize,
         progressBarHeight: CGFloat = 3,
-        cornerRadius: CGFloat = 16,
-        width: CGFloat = 276,
+        cornerRadius: CGFloat = IslandRowGrammar.default.cornerRadius,
+        width: CGFloat = IslandRowGrammar.default.width,
         subagentRowHeight: CGFloat = 24,
         subagentSeparatorHeight: CGFloat = 1,
         subagentNameSize: CGFloat = IslandTypeScale.default.nestedTitle,

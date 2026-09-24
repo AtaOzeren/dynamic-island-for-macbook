@@ -13,7 +13,13 @@ CATALOGS=(
 
 python3 - "${CATALOGS[@]}" <<'PYTHON'
 import json
+import re
 import sys
+
+def translatable_words(text):
+    """How many real words a string carries, ignoring format specifiers."""
+    return len([word for word in re.sub(r"%(\d+\$)?[@a-z]+", " ", text).split() if word])
+
 
 paths = sys.argv[1:]
 catalogs = {path: json.load(open(path, encoding="utf-8")) for path in paths}
@@ -42,10 +48,12 @@ for path, catalog in catalogs.items():
 
             if not values or not all(value.strip() for value in values):
                 gaps.append(f"{path}: [{language}] empty — {key!r}")
-            elif language != source and len(values) == 1 and values[0] == key and len(key.split()) > 1:
-                # A single-word key can legitimately be identical across
-                # languages ("KerNotch"); a whole phrase that is byte-identical
-                # to its English is an untranslated entry someone pasted through.
+            elif language != source and len(values) == 1 and values[0] == key and translatable_words(key) > 1:
+                # A single word can legitimately be identical across languages
+                # ("KerNotch", and "%lld agents" in French); a whole phrase that
+                # is byte-identical to its English is an untranslated entry
+                # someone pasted through. Format specifiers are not words: they
+                # are the same in every language by definition.
                 gaps.append(f"{path}: [{language}] untranslated — {key!r}")
 
 if gaps:

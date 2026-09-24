@@ -2,8 +2,8 @@
 
 The repository keeps the proposed cask at `Casks/kernotch.rb`. It is ready for
 local validation, but it must not be submitted to `Homebrew/homebrew-cask` until
-the Direct release is signed with Developer ID, notarized, stapled, and published
-as a stable GitHub Release.
+the release is signed with Developer ID, notarized, stapled, and published as a
+stable GitHub Release.
 
 ## Release gate
 
@@ -11,17 +11,17 @@ as a stable GitHub Release.
       and notarization secrets described in `docs/10-build-and-distribution.md`.
 - [ ] Create a stable `vX.Y.Z` tag whose version matches the app's
       `CFBundleShortVersionString` and the cask's `version` stanza.
-- [ ] Confirm the release workflow publishes
-      `KerNotch-X.Y.Z-direct.dmg` and its `.sha256` file.
+- [ ] Confirm the release workflow (`./scripts/package-release.sh`) publishes
+      `KerNotch-X.Y.Z.dmg` and its `.sha256` file.
 - [ ] Confirm the GitHub Release is public, stable (not a draft or prerelease),
       and uses the matching `vX.Y.Z` tag.
 - [ ] Download the published DMG and verify its notarization and Gatekeeper
       acceptance:
 
   ```bash
-  xcrun stapler validate KerNotch-X.Y.Z-direct.dmg
+  xcrun stapler validate KerNotch-X.Y.Z.dmg
   spctl --assess --type open --context context:primary-signature -vv \
-    KerNotch-X.Y.Z-direct.dmg
+    KerNotch-X.Y.Z.dmg
   ```
 
 Do not continue if any release-gate item fails. An ad-hoc-signed local artifact
@@ -36,7 +36,7 @@ is suitable for developing the cask, but not for submission or user installation
       published DMG:
 
   ```bash
-  shasum -a 256 KerNotch-X.Y.Z-direct.dmg
+  shasum -a 256 KerNotch-X.Y.Z.dmg
   ```
 
 - [ ] Confirm the interpolated `url` downloads that exact asset without

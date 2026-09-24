@@ -72,7 +72,7 @@ struct PresentationControllerRepositionTests {
         let controller = PresentationController(
             panel: panel,
             manager: manager,
-            metrics: metrics,
+            layout: IslandLayout(panel: metrics, items: .default),
             mouse: mouse,
             reduceMotion: RepositionTestReduceMotion(),
             screen: { mutableScreen.current }

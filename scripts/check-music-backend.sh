@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPOSITORY_ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 DERIVED_DATA="$REPOSITORY_ROOT/DerivedData/MusicBackendGuard"
+PRODUCT="$DERIVED_DATA/Build/Products/Release/KerNotch.app/Contents/MacOS/KerNotch"
 FORCE=false
 
 if [ "${1:-}" = "--force" ]; then
@@ -17,56 +18,38 @@ fi
 
 cd "$REPOSITORY_ROOT"
 
-product() {
-    echo "$DERIVED_DATA/Build/Products/$1/KerNotch.app/Contents/MacOS/KerNotch"
-}
-
-APPSTORE_PRODUCT=$(product AppStore)
-DIRECT_PRODUCT=$(product Direct)
-
-build() {
+if [ "$FORCE" = true ] || [ ! -x "$PRODUCT" ]; then
     xcodebuild \
         -project KerNotch.xcodeproj \
-        -scheme "$1" \
-        -configuration "$2" \
+        -scheme KerNotch \
+        -configuration Release \
         -derivedDataPath "$DERIVED_DATA" \
         -destination "generic/platform=macOS" \
         -quiet \
         CODE_SIGNING_ALLOWED=NO \
         CODE_SIGNING_REQUIRED=NO \
         build
-}
-
-if [ "$FORCE" = true ] || [ ! -x "$APPSTORE_PRODUCT" ] || [ ! -x "$DIRECT_PRODUCT" ]; then
-    build "KerNotch (App Store)" AppStore
-    build "KerNotch (Direct)" Direct
 fi
 
-APPSTORE_BACKEND=$("$APPSTORE_PRODUCT" --print-music-backend)
-DIRECT_BACKEND=$("$DIRECT_PRODUCT" --print-music-backend)
-
-echo "AppStore backend: $APPSTORE_BACKEND"
-echo "Direct backend:   $DIRECT_BACKEND"
-
-if [ "$APPSTORE_BACKEND" != "ScriptingBridge" ]; then
-    echo "Music Backend Guard Failure: AppStore must use ScriptingBridge, got '$APPSTORE_BACKEND'."
-    exit 1
-fi
+BACKEND=$("$PRODUCT" --print-music-backend)
+echo "Music backend: $BACKEND"
 
 OS_VERSION=$(sw_vers -productVersion)
 OS_MAJOR=${OS_VERSION%%.*}
 OS_REMAINDER=${OS_VERSION#*.}
 OS_MINOR=${OS_REMAINDER%%.*}
 
+# macOS 15.4 restricted MediaRemote metadata to Apple-signed processes, so
+# newer systems fall back to scripting Spotify and Apple Music directly.
 if [ "$OS_MAJOR" -gt 15 ] || { [ "$OS_MAJOR" -eq 15 ] && [ "$OS_MINOR" -ge 4 ]; }; then
-    DIRECT_EXPECTED="ScriptingBridge"
+    EXPECTED="ScriptingBridge"
 else
-    DIRECT_EXPECTED="MediaRemote"
+    EXPECTED="MediaRemote"
 fi
 
-if [ "$DIRECT_BACKEND" != "$DIRECT_EXPECTED" ]; then
-    echo "Music Backend Guard Failure: Direct must use $DIRECT_EXPECTED on macOS $OS_VERSION, got '$DIRECT_BACKEND'."
+if [ "$BACKEND" != "$EXPECTED" ]; then
+    echo "Music Backend Guard Failure: expected $EXPECTED on macOS $OS_VERSION, got '$BACKEND'."
     exit 1
 fi
 
-echo "Music Backend Guard Passed: both configurations match platform capabilities."
+echo "Music Backend Guard Passed: the backend matches macOS $OS_VERSION."

@@ -23,6 +23,9 @@ public protocol Activity: Sendable {
     var compactAnnouncementWindow: TimeInterval? { get }
     var compactRepresentationPriority: CompactRepresentationPriority { get }
     var compactRegion: CompactActivityRegion { get }
+    /// Which standard icons keep their place when the compact pill has too few
+    /// for everything. Meaningless in the agent region, which draws every agent.
+    var compactRank: CompactRank { get }
     var kind: ActivityKind { get }
     var priority: ActivityPriority { get }
     var orderBand: ActivityOrderBand { get }
@@ -38,6 +41,9 @@ extension Activity {
     public var compactAnnouncementWindow: TimeInterval? { nil }
     public var compactRepresentationPriority: CompactRepresentationPriority { .active }
     public var compactRegion: CompactActivityRegion { .standard }
+    /// An activity that does not say otherwise is work the user is keeping an
+    /// eye on: below anything capturing, calling or alerting, above the music.
+    public var compactRank: CompactRank { .tracking }
     /// Most activities queue by urgency alone. Only media and capture pin
     /// themselves above that.
     public var orderBand: ActivityOrderBand { .standard }

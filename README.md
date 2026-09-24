@@ -14,8 +14,10 @@ For complete technical documentation, architecture decisions, and design specifi
 
 ## Installation
 
-- **Direct Download (Homebrew / Notarized DMG):** *Coming Soon*
-- **Mac App Store:** *Coming Soon*
+KerNotch ships as one Developer ID signed, notarized build, in two packagings:
+
+- **Notarized DMG:** `KerNotch-<version>.dmg` from [GitHub Releases](https://github.com/AtaOzeren/dynamic-island-for-macbook/releases), and later from the project website. *Coming Soon*
+- **Homebrew Cask:** `brew install --cask kernotch`. *Coming Soon*
 
 ## Building from Source
 
@@ -32,18 +34,23 @@ Build the Swift Package and run tests:
 swift test
 ```
 
-Build the Xcode schemes:
+Build the app with the `KerNotch` scheme:
 
 ```bash
-# Debug build
-xcodebuild -scheme KerNotch build
+# Debug build, for development
+xcodebuild -scheme KerNotch -configuration Debug build
 
-# App Store build configuration
-xcodebuild -scheme "KerNotch (App Store)" build
-
-# Direct / Homebrew build configuration
-xcodebuild -scheme "KerNotch (Direct)" build
+# Release build, the configuration that is signed, notarized and packaged
+xcodebuild -scheme KerNotch -configuration Release build
 ```
+
+Package the DMG locally (ad-hoc signed unless Developer ID and notarization credentials are set):
+
+```bash
+./scripts/package-release.sh
+```
+
+See [docs/10-build-and-distribution.md](docs/10-build-and-distribution.md) for signing, notarization and the release workflow.
 
 ### Discord integration in forks
 

@@ -5,7 +5,7 @@ import ScriptingBridge
 
 /// Asks Spotify and Music.app what they are playing, and relays transport back.
 ///
-/// This is the half of the App Store music backend that cannot run in CI: it
+/// This is the half of the scripting music backend that cannot run in CI: it
 /// needs the two apps installed and the Apple Events consent granted, so the
 /// logic worth testing lives above the `MusicPlayerQuerying` seam and this type
 /// stays as thin as the round-trip allows.

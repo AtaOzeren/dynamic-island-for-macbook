@@ -1,30 +1,30 @@
 #!/bin/zsh
-# Measures one row (A-F) of the idle CPU cost matrix from the 2026-09-06
+# Measures one row (A-E) of the idle CPU cost matrix from the 2026-09-06
 # CPU-runaway plan (Task 0.2), using powermetrics' tasks sampler for 60 one-
 # second samples, filtered to the running KerNotch process. Appends a result
 # line to .omo/evidence/cpu-runaway/idle-matrix-baseline.md and keeps the raw
 # powermetrics capture next to it.
 #
-#   Scripts/cpu-idle-matrix.sh <A|B|C|D|E|F>
+#   Scripts/cpu-idle-matrix.sh <A|B|C|D|E>
 #
 # Run it from anywhere; the repo root is derived from this script's location.
 # Requires passwordless sudo (run `sudo -v` first) — see the fallback message
 # otherwise. The island must be compact and the row's condition must hold for
 # the whole minute; the script prints the condition and counts down first.
-# Row F is measured twice: once with Accessibility revoked, once granted.
 set -euo pipefail
 
 readonly EVIDENCE_DIR="$(cd "$(dirname "$0")/.." && pwd)/.omo/evidence/cpu-runaway"
 
-case "${1:-}" in
+readonly row="${1:-}"
+
+case "$row" in
     A) condition="Mouse motionless, single display, no agent" ;;
     B) condition="Mouse moving continuously outside the notch band" ;;
     C) condition="As A, displayTarget = .allDisplays with an external display attached" ;;
     D) condition="As A, one agent working (synthetic session posted to the loopback port)" ;;
     E) condition="As A, expanded island open" ;;
-    F) condition="As A with Accessibility permission revoked for KerNotch, then granted (run this row twice)" ;;
     *)
-        echo "usage: Scripts/cpu-idle-matrix.sh <A|B|C|D|E|F>" >&2
+        echo "usage: Scripts/cpu-idle-matrix.sh <A|B|C|D|E>" >&2
         exit 2
         ;;
 esac

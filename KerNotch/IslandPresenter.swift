@@ -39,7 +39,16 @@ final class IslandViewModel: ObservableObject {
     /// is rebuilt every time the island expands and collapses.
     @Published var attentionGlow: IslandAttentionGlow?
     @Published var notchSize: CGSize
+    /// The island size the user picked, as the metrics the expanded surface is
+    /// drawn with. Published so a change in Settings redraws an open island.
+    @Published var layout: IslandLayout
     @Published var hoverScale: CGFloat = 1
+    /// How the change being drawn right now is animated.
+    ///
+    /// Published rather than decided in the view because the island's shape and
+    /// its contents move on one clock, and only the presenter — which sees the
+    /// island's size before and after a change — knows which way it is moving.
+    @Published var contentMotion: IslandContentMotion = .still
     @Published var transitionMovesGeometry = true
     /// Set only by the CPU watchdog's degrade action, to stand the island's
     /// continuous motion still while the process is over budget.
@@ -59,9 +68,38 @@ final class IslandViewModel: ObservableObject {
     var onTimerCommand: (TimerControlCommand) -> Void = { _ in }
     var onPrimaryAction: (ActivityIdentity) -> Void = { _ in }
 
-    init(compact: CompactActivityPresentation, notchSize: CGSize) {
+    init(compact: CompactActivityPresentation, notchSize: CGSize, layout: IslandLayout) {
         self.compact = compact
         self.notchSize = notchSize
+        self.layout = layout
+    }
+
+    /// Everything that decides how big the island is drawn, as the view draws it
+    /// now. `extentInput(compact:hiddenMusicSlotIDs:expanded:)` answers the same
+    /// question for a change that has not been applied yet.
+    var extentInput: IslandExtentInput {
+        extentInput(
+            compact: compact,
+            hiddenMusicSlotIDs: hiddenMusicSlotIDs,
+            expanded: expanded
+        )
+    }
+
+    func extentInput(
+        compact: CompactActivityPresentation,
+        hiddenMusicSlotIDs: Set<String>,
+        expanded: [any Activity]
+    ) -> IslandExtentInput {
+        IslandExtentInput(
+            state: state,
+            compact: compact,
+            hiddenMusicSlotIDs: hiddenMusicSlotIDs,
+            expanded: expanded,
+            disclosedInstances: disclosedInstances,
+            registrationTimes: registrationTimes,
+            notchSize: notchSize,
+            layout: layout
+        )
     }
 }
 
@@ -97,16 +135,14 @@ struct IslandRootView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
         .environment(\.colorScheme, .dark)
+        .environment(\.islandContentMotion, model.contentMotion)
         .environment(\.islandMotionSuspended, model.isMotionSuspended)
     }
 
     /// The compact pill's own geometry, whose flanks are only as wide as the
     /// slots they carry.
     private var compactPill: CompactPillGeometry {
-        compactPillGeometry(
-            for: compactSlotLayout(for: model.compact, hiding: model.hiddenMusicSlotIDs),
-            notchSize: model.notchSize
-        )
+        islandCompactPillGeometry(model.extentInput)
     }
 
     /// How far to slide the island so the notch region sits on the hardware
@@ -120,39 +156,12 @@ struct IslandRootView: View {
         model.state == .compact ? compactPill.drawingOffset : 0
     }
 
-    /// The expanded surface keeps a *balanced* collar.
-    ///
-    /// Its neck is drawn about the shape's own centre, so feeding it the
-    /// asymmetric compact width would slide the cutout off the hardware notch
-    /// the moment the island opened.
     private var geometry: ConnectedIslandGeometry {
-        let compactSize = balancedCompactPillSize(
-            for: compactSlotLayout(for: model.compact, hiding: model.hiddenMusicSlotIDs),
-            notchSize: model.notchSize
-        )
-        let expandedContentSize = expandedPanelSize(
-            for: model.expanded,
-            disclosedInstances: model.disclosedInstances,
-            registrationTimes: model.registrationTimes,
-            notchSize: model.notchSize,
-            topInset: model.notchSize.height
-        )
-        return ConnectedIslandGeometry(
-            compactSize: compactSize,
-            expandedContentSize: expandedContentSize
-        )
+        islandConnectedGeometry(model.extentInput)
     }
 
-    /// What the island currently is, surface and silhouette alike.
-    ///
-    /// Both states allow for the outward top flare, so the drawn surface is one
-    /// flare wider than the content on each side. Only the top of the shape
-    /// uses that room — the pill's bottom edge is still exactly the pill's
-    /// width — so nothing inside it moves.
     private var surfaceSize: CGSize {
-        model.state == .expanded
-            ? geometry.expandedSize
-            : ConnectedIslandGeometry.compactSurfaceSize(forPillSize: compactPill.size)
+        islandSurfaceSize(model.extentInput)
     }
 
     /// Outside the mask, which would clip the halo to the island, and behind the
@@ -218,6 +227,8 @@ struct IslandRootView: View {
                     registrationTimes: model.registrationTimes,
                     disclosedInstances: $model.disclosedInstances,
                     notchSize: model.notchSize,
+                    metrics: model.layout.items,
+                    panelMetrics: model.layout.panel,
                     topInset: model.notchSize.height,
                     onPrimaryAction: model.onPrimaryAction,
                     onMusicTransport: model.onMusicTransport,
@@ -268,7 +279,9 @@ final class IslandPresenter {
 
     private let manager: ActivityManager
     private let settingsStore: SettingsStore
-    private let metrics: PanelMetrics
+    /// The layout for the island size picked in Settings, before it is fitted
+    /// to the screen the island is on.
+    private var chosenLayout: IslandLayout
     private let model: IslandViewModel
     private let panel: NotchPanel
     private let controller: PresentationController
@@ -291,7 +304,6 @@ final class IslandPresenter {
     init(
         manager: ActivityManager,
         settingsStore: SettingsStore,
-        metrics: PanelMetrics = .default,
         screenChanges: any ScreenChangeObserving = SystemScreenChangeObserver(),
         musicProvider: (any MusicProvider)? = nil,
         timerProvider: TimerProvider? = nil,
@@ -301,7 +313,8 @@ final class IslandPresenter {
     ) {
         self.manager = manager
         self.settingsStore = settingsStore
-        self.metrics = metrics
+        let chosenLayout = IslandLayout(size: settingsStore.generalPreferences.islandSize)
+        self.chosenLayout = chosenLayout
         self.screenChanges = screenChanges
         self.musicProvider = musicProvider
         self.timerProvider = timerProvider
@@ -314,17 +327,17 @@ final class IslandPresenter {
         )
         self.reduceMotion = reduceMotion
 
+        let targetScreen = Self.targetScreen(preference: settingsStore.generalPreferences.displayTarget)
+        let layout = chosenLayout.fitted(to: targetScreen)
         let model = IslandViewModel(
             compact: manager.compactPresentation,
-            notchSize: Self.notchSize(
-                metrics: metrics,
-                preference: settingsStore.generalPreferences.displayTarget
-            )
+            notchSize: resolvedNotchSize(screen: targetScreen, metrics: layout.panel),
+            layout: layout
         )
         self.model = model
 
         panel = NotchPanel(
-            metrics: metrics,
+            metrics: layout.panel,
             appearance: .dark,
             content: IslandRootView(model: model)
         )
@@ -338,7 +351,7 @@ final class IslandPresenter {
         controller = PresentationController(
             panel: panel,
             manager: manager,
-            metrics: metrics,
+            layout: layout,
             mouse: SystemMouseLocationObserver(),
             reduceMotion: reduceMotion,
             screen: { Self.targetScreen(preference: displayTarget()) },
@@ -483,6 +496,27 @@ final class IslandPresenter {
         }
     }
 
+    /// Resizes the island on every display to the size picked in Settings,
+    /// without rebuilding a window — an open island redraws at the new size.
+    func applyIslandSize(_ size: IslandSize) {
+        let chosenLayout = IslandLayout(size: size)
+        guard chosenLayout != self.chosenLayout else { return }
+        self.chosenLayout = chosenLayout
+        fitLayout(to: Self.targetScreen(preference: settingsStore.generalPreferences.displayTarget))
+        for secondary in secondaryPresentations.values {
+            secondary.applyLayout(chosenLayout)
+        }
+    }
+
+    /// Keeps the drawn island, its hover silhouette and its window on the one
+    /// budget the screen it is on can hold.
+    private func fitLayout(to screen: ScreenDescription?) {
+        let layout = chosenLayout.fitted(to: screen)
+        guard model.layout != layout else { return }
+        model.layout = layout
+        controller.applyLayout(layout)
+    }
+
     func applyReducedMotion(_ preferenceOverride: Bool?) {
         reduceMotion.updateOverride(preferenceOverride)
     }
@@ -565,8 +599,8 @@ final class IslandPresenter {
     /// quit, through the same announcement path every other activity uses.
     ///
     /// Registered rather than drawn directly so it expires the way news does:
-    /// the announcement window takes it off the pill and auto-dismiss takes it
-    /// out of the model, without the presenter holding a timer of its own.
+    /// auto-dismiss takes it off the pill and out of the model, without the
+    /// presenter holding a timer of its own.
     @MainActor
     func announceWatchdogNotice(didRelaunch: Bool) {
         manager.register(WatchdogNoticeActivity(didRelaunch: didRelaunch))
@@ -610,21 +644,22 @@ final class IslandPresenter {
             now: now
         )
         let reading = clocks.reading
-        model.compact = compactPresentation(
-            manager.compactPresentation,
-            reconciledWith: manager.expandedActivities,
-            announcementStarts: reading.announcementStarts,
-            registrationTimes: manager.registrationTimes,
-            now: now
+        applyContent(
+            compact: compactPresentation(
+                manager.compactPresentation,
+                reconciledWith: manager.expandedActivities,
+                announcementStarts: reading.announcementStarts,
+                registrationTimes: manager.registrationTimes,
+                now: now
+            ),
+            hiddenMusicSlotIDs: reading.hiddenMusicSlotIDs,
+            expanded: manager.expandedActivities,
+            registrationTimes: manager.registrationTimes
         )
-        hideMusicIcons(reading.hiddenMusicSlotIDs)
         model.attentionGlow = reading.attentionGlow
-        model.expanded = manager.expandedActivities
-        model.registrationTimes = manager.registrationTimes
-        model.notchSize = Self.notchSize(
-            metrics: metrics,
-            preference: settingsStore.generalPreferences.displayTarget
-        )
+        let targetScreen = Self.targetScreen(preference: settingsStore.generalPreferences.displayTarget)
+        model.notchSize = resolvedNotchSize(screen: targetScreen, metrics: chosenLayout.panel)
+        fitLayout(to: targetScreen)
         schedulePresentationRefresh(after: now)
         for secondary in secondaryPresentations.values {
             secondary.follow(reading)
@@ -634,12 +669,54 @@ final class IslandPresenter {
         )
     }
 
-    /// Narrowing the pill has to narrow its hover target too, and nothing else
-    /// tells the controller when an icon leaves on a clock.
-    private func hideMusicIcons(_ hiddenSlotIDs: Set<String>) {
-        guard model.hiddenMusicSlotIDs != hiddenSlotIDs else { return }
-        model.hiddenMusicSlotIDs = hiddenSlotIDs
-        controller.compactLayoutDidChange()
+    /// Puts what the island shows on screen, as one movement.
+    ///
+    /// The island's shape and its contents used to change on two clocks: the
+    /// icons carried their own animation while the black surface behind them,
+    /// the mask that clips it and its offset onto the notch were assigned
+    /// outright. An icon arriving therefore read as the island snapping wider
+    /// and the glyph catching up, and an icon leaving was clipped in half by a
+    /// pill that had already closed over it.
+    ///
+    /// One transaction is the fix, and which way the island is about to move is
+    /// what decides who waits for whom — so the size is measured before and
+    /// after the change rather than guessed from what happened to arrive.
+    private func applyContent(
+        compact: CompactActivityPresentation,
+        hiddenMusicSlotIDs: Set<String>,
+        expanded: [any Activity],
+        registrationTimes: [ActivityIdentity: Date]
+    ) {
+        let narrowsPill = model.hiddenMusicSlotIDs != hiddenMusicSlotIDs
+        let motion = islandContentMotion(
+            in: model.state,
+            change: islandExtentChange(
+                from: islandSurfaceSize(model.extentInput),
+                to: islandSurfaceSize(
+                    model.extentInput(
+                        compact: compact,
+                        hiddenMusicSlotIDs: hiddenMusicSlotIDs,
+                        expanded: expanded
+                    )
+                )
+            ),
+            reduceMotion: reduceMotion.prefersReducedMotion,
+            isMotionSuspended: model.isMotionSuspended
+        )
+
+        model.contentMotion = motion
+        withAnimation(motion.container) {
+            model.compact = compact
+            model.hiddenMusicSlotIDs = hiddenMusicSlotIDs
+            model.expanded = expanded
+            model.registrationTimes = registrationTimes
+        }
+
+        // Narrowing the pill has to narrow its hover target too, and nothing
+        // else tells the controller when an icon leaves on a clock.
+        if narrowsPill {
+            controller.compactLayoutDidChange()
+        }
     }
 
     private func reconcileSecondaryPresentations() {
@@ -667,7 +744,7 @@ final class IslandPresenter {
             let identifier = display.identifier
             let secondary = SecondaryIslandPresentation(
                 manager: manager,
-                metrics: metrics,
+                layout: chosenLayout,
                 reduceMotion: reduceMotion,
                 screen: { Self.screen(identifier: identifier) },
                 onMusicTransport: { [weak self] command in
@@ -739,18 +816,11 @@ final class IslandPresenter {
             DisplayDescription($0).identifier == identifier
         }.map(ScreenDescription.init)
     }
-
-    /// The hardware notch's size, or the fallback pill size on a screen that has
-    /// none — the degraded mode from `docs/03-display-and-notch.md`, not an
-    /// error state.
-    private static func notchSize(
-        metrics: PanelMetrics,
-        preference: DisplayPreference
-    ) -> CGSize {
-        resolvedNotchSize(screen: targetScreen(preference: preference), metrics: metrics)
-    }
 }
 
+/// The hardware notch's size, or the fallback pill size on a screen that has
+/// none — the degraded mode from `docs/03-display-and-notch.md`, not an error
+/// state.
 func resolvedNotchSize(screen: ScreenDescription?, metrics: PanelMetrics) -> CGSize {
     guard
         let screen,

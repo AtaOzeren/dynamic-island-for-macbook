@@ -80,7 +80,7 @@ struct MusicActivityTests {
         #expect(activity.primaryAction?.title == "Open Spotify")
     }
 
-    /// The Direct build's backend reports system-wide now-playing that cannot
+    /// The MediaRemote backend reports system-wide now-playing that cannot
     /// always be attributed to a named application, so the action is optional
     /// rather than a fabricated label.
     @Test("offers no primary action when the source application is unknown")

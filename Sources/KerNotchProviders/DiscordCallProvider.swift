@@ -71,7 +71,14 @@ public final class DiscordCallProvider {
         guard let observer else { return }
 
         let isInCall = isDiscordCapturing || voiceState.channel != nil
-        let next = isInCall ? DiscordCallActivity(channel: voiceState.channel, isMuted: voiceState.isMuted) : nil
+        let next =
+            isInCall
+            ? DiscordCallActivity(
+                channel: voiceState.channel,
+                isMuted: voiceState.isMuted,
+                isDeafened: voiceState.isDeafened
+            )
+            : nil
         guard next != activity else { return }
 
         activity = next

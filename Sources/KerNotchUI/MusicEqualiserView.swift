@@ -21,8 +21,7 @@ struct MusicEqualiserSlotView: View {
 
     var body: some View {
         if reduceMotion || islandMotionSuspended {
-            Image(systemName: symbolName)
-                .font(.system(size: metrics.symbolSize, weight: .medium))
+            IslandSymbolIcon(systemName: symbolName, height: metrics.symbolSize)
                 .foregroundStyle(musicAccentColor(sourceIdentity))
         } else {
             MusicEqualiserLayerView(

@@ -1,4 +1,4 @@
-name: Release Direct
+name: Release
 
 on:
   push:
@@ -12,8 +12,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  release-direct:
-    name: Build & Release Direct
+  release:
+    name: Build & Release
     runs-on: macos-26
     env:
       DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
@@ -72,26 +72,25 @@ jobs:
       - name: Run Swift Package Tests
         run: swift test
 
-      - name: Package Direct App
+      - name: Package App
         env:
           OUTPUT_DIR: ${{ runner.temp }}/release
           DERIVED_DATA_PATH: ${{ runner.temp }}/KerNotch-Release-DerivedData
           NOTARYTOOL_KEYCHAIN: ${{ env.NOTARYTOOL_KEYCHAIN }}
-        run: ./scripts/package-direct.sh
+        run: ./scripts/package-release.sh
 
-      - name: Assert Direct Music Backend Is Present
+      - name: Assert MediaRemote Backend Is Linked
         run: |
-          ./scripts/check-forbidden-symbols.sh \
-            "$RUNNER_TEMP/KerNotch-Release-DerivedData/Build/Products/Direct/KerNotch.app/Contents/MacOS/KerNotch" \
-            --present
+          ./scripts/check-media-remote-linked.sh \
+            "$RUNNER_TEMP/KerNotch-Release-DerivedData/Build/Products/Release/KerNotch.app/Contents/MacOS/KerNotch"
 
-      - name: Upload Direct Artifact
+      - name: Upload Release Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: KerNotch-${{ github.ref_name }}-direct
+          name: KerNotch-${{ github.ref_name }}
           path: |
-            ${{ runner.temp }}/release/KerNotch-*-direct.dmg
-            ${{ runner.temp }}/release/KerNotch-*-direct.dmg.sha256
+            ${{ runner.temp }}/release/KerNotch-*.dmg
+            ${{ runner.temp }}/release/KerNotch-*.dmg.sha256
           if-no-files-found: error
 
       - name: Create GitHub Release
@@ -100,8 +99,8 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           gh release create "$RELEASE_TAG" \
-            "$RUNNER_TEMP"/release/KerNotch-*-direct.dmg \
-            "$RUNNER_TEMP"/release/KerNotch-*-direct.dmg.sha256 \
+            "$RUNNER_TEMP"/release/KerNotch-*.dmg \
+            "$RUNNER_TEMP"/release/KerNotch-*.dmg.sha256 \
             --title "KerNotch $RELEASE_TAG" \
             --generate-notes \
             --verify-tag

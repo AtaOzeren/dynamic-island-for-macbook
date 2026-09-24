@@ -31,10 +31,26 @@ private struct ApplicationLifecycleEdge: Sendable {
 /// distinguishable process is simply not detected, and KerNotch shows no
 /// indicator instead of a fabricated one.
 ///
-/// ReplayKit exposes no public start/stop notification for this system session.
-/// A low-frequency probe therefore runs only while the capture UI exists. Idle
-/// KerNotch has no timer, and opening the screenshot toolbar produces no false
-/// recording activity.
+/// ReplayKit exposes no public start/stop notification for this system session,
+/// so the probe is read when observation starts and whenever the capture UI
+/// comes or goes; while the toolbar is open or a recording is under way, a
+/// low-frequency tick keeps reading it, so both ends of the recording are seen.
+/// Idle KerNotch has no timer, and opening the screenshot toolbar produces no
+/// false recording activity.
+///
+/// Only the probe decides whether a recording is running. The capture UI can
+/// quit while one is under way, and an observer that read its absence as "not
+/// recording" showed nothing for the rest of the session.
+///
+/// What this cannot see is a recording the capture UI was never part of — one
+/// started from the menu bar, or by another application. The folder the system
+/// records into would reveal it, but `~/Library/Group Containers/`
+/// `group.com.apple.screencapture` answers "Operation not permitted" without
+/// Full Disk Access, so neither reading it nor watching it is available; and
+/// the only signal left, the probe, has nothing to wake it. Detecting those
+/// recordings means either polling on a clock or asking for the Screen
+/// Recording permission this app refuses to ask for, and both were weighed and
+/// declined — see `docs/06-activity-providers.md`.
 @MainActor
 public final class SystemScreenRecordingObserver: RecordingObserving {
     /// The system screen-recording UI, which stays running for the duration of
@@ -57,6 +73,7 @@ public final class SystemScreenRecordingObserver: RecordingObserving {
     private var runningApplicationsObservation: NSKeyValueObservation?
     private var sessionObserver: RecordingSessionObserver?
     private var latch = RecordingSessionLatch()
+    private var isCaptureUIRunning = false
 
     public convenience init() {
         let workspace = NSWorkspace.shared
@@ -108,10 +125,12 @@ public final class SystemScreenRecordingObserver: RecordingObserving {
         subscribe(to: NSWorkspace.didLaunchApplicationNotification)
         subscribe(to: NSWorkspace.didTerminateApplicationNotification)
         runningApplicationsObservation = observeRunningApplications { [weak self] in
-            self?.synchronizeCaptureUIState()
+            self?.captureUIStateDidChange()
         }
-
-        synchronizeCaptureUIState()
+        isCaptureUIRunning = isRecorderRunning()
+        // Read once here, because a recording already under way when KerNotch
+        // starts is a recording the user is in the middle of.
+        sampleRecordingState()
     }
 
     public func stopObserving() {
@@ -120,6 +139,7 @@ public final class SystemScreenRecordingObserver: RecordingObserving {
         runningApplicationsObservation = nil
         scheduler.cancel()
         sessionObserver = nil
+        isCaptureUIRunning = false
         latch.reset()
     }
 
@@ -148,43 +168,60 @@ public final class SystemScreenRecordingObserver: RecordingObserving {
             let bundleIdentifier = edge.bundleIdentifier,
             recorderBundleIdentifiers.contains(bundleIdentifier)
         else {
-            synchronizeCaptureUIState()
+            captureUIStateDidChange()
             return
         }
 
         switch edge.notificationName {
         case NSWorkspace.didLaunchApplicationNotification:
-            synchronizeCaptureUI(isRunning: true)
+            isCaptureUIRunning = true
         case NSWorkspace.didTerminateApplicationNotification:
-            synchronizeCaptureUI(isRunning: false)
+            isCaptureUIRunning = false
         default:
-            synchronizeCaptureUIState()
-        }
-    }
-
-    private func synchronizeCaptureUIState() {
-        let isRunning = runningBundleIdentifiers().isDisjoint(with: recorderBundleIdentifiers) == false
-        synchronizeCaptureUI(isRunning: isRunning)
-    }
-
-    private func synchronizeCaptureUI(isRunning: Bool) {
-        guard isRunning else {
-            scheduler.cancel()
-            emit(isRecording: false)
-            return
-        }
-
-        if scheduler.isScheduled == false {
-            scheduler.schedule { [weak self] in
-                self?.sampleRecordingState()
-            }
+            isCaptureUIRunning = isRecorderRunning()
         }
 
         sampleRecordingState()
     }
 
+    /// The running set changes on every application launch and quit, which is
+    /// far too often to read the probe on. Only the capture UI coming or going
+    /// is worth a reading.
+    private func captureUIStateDidChange() {
+        let wasRunning = isCaptureUIRunning
+        isCaptureUIRunning = isRecorderRunning()
+
+        guard isCaptureUIRunning != wasRunning else {
+            synchronizeSampling()
+            return
+        }
+
+        sampleRecordingState()
+    }
+
+    private func isRecorderRunning() -> Bool {
+        runningBundleIdentifiers().isDisjoint(with: recorderBundleIdentifiers) == false
+    }
+
     private func sampleRecordingState() {
         emit(isRecording: isScreenRecording())
+        synchronizeSampling()
+    }
+
+    /// The tick runs only while there is something to watch for: a recording to
+    /// see the end of, or an open toolbar that may start one. Otherwise it is
+    /// cancelled, which is the idle-cost rule in
+    /// `docs/02-performance-contract.md`.
+    private func synchronizeSampling() {
+        guard isCaptureUIRunning || latch.session != nil else {
+            scheduler.cancel()
+            return
+        }
+        guard scheduler.isScheduled == false else { return }
+
+        scheduler.schedule { [weak self] in
+            self?.sampleRecordingState()
+        }
     }
 
     private func emit(isRecording: Bool) {

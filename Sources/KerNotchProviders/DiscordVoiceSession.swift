@@ -4,14 +4,18 @@ import os
 
 /// What the RPC connection knows about the user's voice call.
 public struct DiscordVoiceState: Equatable, Sendable {
-    public static let unknown = DiscordVoiceState(channel: nil, isMuted: nil)
+    public static let unknown = DiscordVoiceState(channel: nil, isMuted: nil, isDeafened: nil)
 
     public let channel: DiscordVoiceChannel?
     public let isMuted: Bool?
+    /// Deafened: neither hearing nor speaking. `nil` while the RPC connection
+    /// is not there to say.
+    public let isDeafened: Bool?
 
-    public init(channel: DiscordVoiceChannel?, isMuted: Bool?) {
+    public init(channel: DiscordVoiceChannel?, isMuted: Bool?, isDeafened: Bool? = nil) {
         self.channel = channel
         self.isMuted = isMuted
+        self.isDeafened = isDeafened
     }
 }
 
@@ -202,7 +206,11 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
                 try await client.perform(.selectVoiceChannel, arguments: DiscordLeaveVoiceChannelArguments())
                 guard generation == self.generation else { return }
                 channelRevision += 1
-                voiceState = DiscordVoiceState(channel: nil, isMuted: voiceState.isMuted)
+                voiceState = DiscordVoiceState(
+                    channel: nil,
+                    isMuted: voiceState.isMuted,
+                    isDeafened: voiceState.isDeafened
+                )
             } catch {
                 let reason = String(describing: error)
                 Self.logger.error("Leaving the Discord voice channel failed: \(reason, privacy: .public)")
@@ -473,7 +481,11 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
         if let settings = try? await client.request(.getVoiceSettings, returning: DiscordVoiceSettingsBody.self),
             generation == self.generation
         {
-            voiceState = DiscordVoiceState(channel: voiceState.channel, isMuted: settings.mute)
+            voiceState = DiscordVoiceState(
+                channel: voiceState.channel,
+                isMuted: settings.mute,
+                isDeafened: settings.deaf
+            )
         }
 
         let revision = channelRevision
@@ -481,7 +493,11 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
             let channel = try await client.request(.getSelectedVoiceChannel, returning: DiscordChannelBody?.self)
             let voiceChannel = await voiceChannel(for: channel)
             guard generation == self.generation, revision == channelRevision else { return }
-            voiceState = DiscordVoiceState(channel: voiceChannel, isMuted: voiceState.isMuted)
+            voiceState = DiscordVoiceState(
+                channel: voiceChannel,
+                isMuted: voiceState.isMuted,
+                isDeafened: voiceState.isDeafened
+            )
         } catch {
             let reason = String(describing: error)
             Self.logger.error("Reading the Discord voice channel failed: \(reason, privacy: .public)")
@@ -498,7 +514,11 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
         case .voiceSettingsUpdate:
             guard let settings = try? decoder.decode(DiscordRPCPayload<DiscordVoiceSettingsBody>.self, from: payload)
             else { return }
-            voiceState = DiscordVoiceState(channel: voiceState.channel, isMuted: settings.data.mute)
+            voiceState = DiscordVoiceState(
+                channel: voiceState.channel,
+                isMuted: settings.data.mute,
+                isDeafened: settings.data.deaf
+            )
         case .ready, .error:
             break
         }
@@ -507,7 +527,11 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
     private func channelDidChange(to channelID: String?) {
         channelRevision += 1
         guard let channelID else {
-            voiceState = DiscordVoiceState(channel: nil, isMuted: voiceState.isMuted)
+            voiceState = DiscordVoiceState(
+                channel: nil,
+                isMuted: voiceState.isMuted,
+                isDeafened: voiceState.isDeafened
+            )
             return
         }
 
@@ -523,7 +547,11 @@ public final class DiscordVoiceSession: DiscordVoiceChannelLeaving {
                 )
                 let voiceChannel = await voiceChannel(for: channel)
                 guard generation == self.generation, revision == channelRevision else { return }
-                voiceState = DiscordVoiceState(channel: voiceChannel, isMuted: voiceState.isMuted)
+                voiceState = DiscordVoiceState(
+                    channel: voiceChannel,
+                    isMuted: voiceState.isMuted,
+                    isDeafened: voiceState.isDeafened
+                )
             } catch {
                 Self.logger.error("Reading the Discord channel failed: \(String(describing: error), privacy: .public)")
             }

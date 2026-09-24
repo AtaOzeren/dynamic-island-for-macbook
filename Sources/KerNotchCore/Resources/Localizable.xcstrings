@@ -1,333 +1,1518 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "%@ control is off because macOS permission was declined. Everything else in KerNotch keeps working. To turn it on, allow KerNotch for %@ in System Settings › Privacy & Security › Automation." : {
-      "comment" : "Activities pane, Apple Events row: shown after the user declined the automation prompt. Placeholders are the player name (Spotify, Music).",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ control is off because macOS permission was declined. Everything else in KerNotch keeps working. To turn it on, allow KerNotch for %2$@ in System Settings › Privacy & Security › Automation."
+  "sourceLanguage": "en",
+  "strings": {
+    "%@ control is off because macOS permission was declined. Everything else in KerNotch keeps working. To turn it on, allow KerNotch for %@ in System Settings › Privacy & Security › Automation.": {
+      "comment": "Activities pane, Apple Events row: shown after the user declined the automation prompt. Placeholders are the player name (Spotify, Music).",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ control is off because macOS permission was declined. Everything else in KerNotch keeps working. To turn it on, allow KerNotch for %2$@ in System Settings › Privacy & Security › Automation."
           }
         },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%1$@ denetimi, macOS izni reddedildiği için kapalı. KerNotch'un geri kalanı çalışmayı sürdürüyor. Açmak için Sistem Ayarları › Gizlilik ve Güvenlik › Otomasyon bölümünden KerNotch'a %2$@ izni verin."
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ denetimi, macOS izni reddedildiği için kapalı. KerNotch'un geri kalanı çalışmayı sürdürüyor. Açmak için Sistem Ayarları › Gizlilik ve Güvenlik › Otomasyon bölümünden KerNotch'a %2$@ izni verin."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Steuerung von %1$@ ist aus, weil die macOS-Berechtigung abgelehnt wurde. Alles andere in KerNotch funktioniert weiter. Zum Aktivieren erlaube KerNotch den Zugriff auf %2$@ unter „Systemeinstellungen › Datenschutz & Sicherheit › Automation“."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "El control de %1$@ está desactivado porque se denegó el permiso de macOS. Todo lo demás en KerNotch sigue funcionando. Para activarlo, permite KerNotch para %2$@ en Ajustes del Sistema › Privacidad y seguridad › Automatización."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Le contrôle de %1$@ est désactivé car l'autorisation macOS a été refusée. Tout le reste de KerNotch continue de fonctionner. Pour l'activer, autorisez KerNotch pour %2$@ dans Réglages Système › Confidentialité et sécurité › Automatisation."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Il controllo di %1$@ è disattivato perché l'autorizzazione di macOS è stata negata. Tutto il resto di KerNotch continua a funzionare. Per attivarlo, consenti KerNotch per %2$@ in Impostazioni di Sistema › Privacy e sicurezza › Automazione."
           }
         }
       }
     },
-    "A reminder while your microphone is in use." : {
-      "comment" : "Activities pane: why the microphone recording switch exists.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "A reminder while your microphone is in use." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Mikrofonunuz kullanımdayken bir hatırlatma." } }
-      }
-    },
-    "A reminder while your screen is being captured." : {
-      "comment" : "Activities pane: why the screen recording switch exists.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "A reminder while your screen is being captured." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ekranınız kaydedilirken bir hatırlatma." } }
-      }
-    },
-    "Allow %@…" : {
-      "comment" : "Activities pane button that triggers the macOS automation prompt. Placeholder is the player name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allow %@…" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ için izin ver…" } }
-      }
-    },
-    "Always reduce" : {
-      "comment" : "General pane, Motion picker: always cross-fade instead of animating.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Always reduce" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Her zaman azalt" } }
-      }
-    },
-    "Automatic" : {
-      "comment" : "General pane, Theme picker: follow the system appearance.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Automatic" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Otomatik" } }
-      }
-    },
-    "Battery level when you plug in or unplug." : {
-      "comment" : "Activities pane: why the charging switch exists.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Battery level when you plug in or unplug." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Fişe taktığınızda veya çıkardığınızda pil düzeyi." } }
-      }
-    },
-    "Charging" : {
-      "comment" : "Activities pane: the charging activity switch.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Charging" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Şarj oluyor" } }
-      }
-    },
-    "Connected" : {
-      "comment" : "Activities pane, Apple Events row: replaces the permission button after access is granted.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connected" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Bağlandı" } }
-      }
-    },
-    "Countdowns and elapsed time." : {
-      "comment" : "Activities pane: why the timer switch exists.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Countdowns and elapsed time." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Geri sayımlar ve geçen süre." } }
-      }
-    },
-    "Dark" : {
-      "comment" : "General pane, Theme picker: force the dark appearance.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dark" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Koyu" } }
-      }
-    },
-    "Follow system" : {
-      "comment" : "General pane, Motion picker: defer to the system Reduce Motion setting.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Follow system" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Sistemi izle" } }
-      }
-    },
-    "Light" : {
-      "comment" : "General pane, Theme picker: force the light appearance.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Light" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Açık" } }
-      }
-    },
-    "Microphone recording" : {
-      "comment" : "Activities pane: the microphone recording activity switch.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Microphone recording" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Mikrofon kaydı" } }
-      }
-    },
-    "Music" : {
-      "comment" : "Activities pane: the music activity switch.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Music" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Müzik" } }
-      }
-    },
-    "Needs input" : {
-      "comment" : "AI Integrations pane: the event class for an agent waiting on the user.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Needs input" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Girdi bekliyor" } }
-      }
-    },
-    "Never reduce" : {
-      "comment" : "General pane, Motion picker: always animate, overriding the system setting.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Never reduce" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Hiçbir zaman azaltma" } }
-      }
-    },
-    "KerNotch can show and control what %@ is playing." : {
-      "comment" : "Activities pane, Apple Events row: shown once permission is granted. Placeholder is the player name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "KerNotch can show and control what %@ is playing." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "KerNotch, %@ uygulamasında çalanı gösterebilir ve denetleyebilir." } }
-      }
-    },
-    "KerNotch could not write this file for you. Copy the text below into %@ to finish setup." : {
-      "comment" : "Manual setup sheet subtitle. Placeholder is the absolute path of the agent's configuration file.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KerNotch could not write this file for you. Copy the text below into %@ to finish setup."
+    "A reminder while your microphone is in use.": {
+      "comment": "Activities pane: why the microphone recording switch exists.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A reminder while your microphone is in use."
           }
         },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KerNotch bu dosyayı sizin için yazamadı. Kurulumu tamamlamak için aşağıdaki metni %@ dosyasına kopyalayın."
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofonunuz kullanımdayken bir hatırlatma."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Hinweis, solange dein Mikrofon benutzt wird."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un aviso mientras se usa tu micrófono."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un rappel pendant que votre micro est utilisé."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un promemoria mentre il tuo microfono è in uso."
           }
         }
       }
     },
-    "KerNotch will ask macOS for permission to control %@, so the notch can show what is playing and its buttons can control playback. Nothing is sent anywhere; KerNotch only talks to %@ on this Mac." : {
-      "comment" : "Activities pane, Apple Events row: the explanation shown before the macOS prompt. Placeholders are the player name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KerNotch will ask macOS for permission to control %1$@, so the notch can show what is playing and its buttons can control playback. Nothing is sent anywhere; KerNotch only talks to %2$@ on this Mac."
+    "A reminder while your screen is being captured.": {
+      "comment": "Activities pane: why the screen recording switch exists.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A reminder while your screen is being captured."
           }
         },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "KerNotch, %1$@ uygulamasını denetlemek için macOS'ten izin isteyecek; böylece çentik çalanı gösterebilir ve düğmeleri çalmayı denetleyebilir. Hiçbir yere veri gönderilmez; KerNotch yalnızca bu Mac'teki %2$@ uygulamasıyla konuşur."
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekranınız kaydedilirken bir hatırlatma."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ein Hinweis, solange dein Bildschirm aufgezeichnet wird."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un aviso mientras se graba tu pantalla."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un rappel pendant l'enregistrement de votre écran."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un promemoria mentre il tuo schermo viene registrato."
           }
         }
       }
     },
-    "Now playing, from Apple Music, Spotify, and system media." : {
-      "comment" : "Activities pane: why the music switch exists.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Now playing, from Apple Music, Spotify, and system media." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Apple Music, Spotify ve sistem ortamından şimdi çalanlar." } }
-      }
-    },
-    "Open %@" : {
-      "comment" : "Expanded activity primary action: brings the source app forward. Placeholder is an app or agent name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open %@" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ uygulamasını aç" } }
-      }
-    },
-    "Open %@ in your editor, creating it if it does not exist." : {
-      "comment" : "Manual setup sheet, step 1. Placeholder is the absolute path of the agent's configuration file.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open %@ in your editor, creating it if it does not exist." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ dosyasını düzenleyicinizde açın; yoksa oluşturun." } }
-      }
-    },
-    "Paste the text below as the file's entire contents." : {
-      "comment" : "Manual setup sheet, step 2 for OpenCode, whose plugin file KerNotch creates outright.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste the text below as the file's entire contents." } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Aşağıdaki metni dosyanın tüm içeriği olarak yapıştırın." } }
-      }
-    },
-    "Replace the file's entire contents with the text below — KerNotch has already merged your existing settings into it." : {
-      "comment" : "Manual setup sheet, step 2 for Claude Code and Codex, whose existing config KerNotch merged into the snippet.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Replace the file's entire contents with the text below — KerNotch has already merged your existing settings into it."
+    "Allow %@…": {
+      "comment": "Activities pane button that triggers the macOS automation prompt. Placeholder is the player name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow %@…"
           }
         },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dosyanın tüm içeriğini aşağıdaki metinle değiştirin — KerNotch var olan ayarlarınızı bu metne zaten birleştirdi."
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ için izin ver…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ erlauben…"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Permitir %@…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Autoriser %@…"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Consenti %@…"
           }
         }
       }
     },
-    "Save the file, then restart %@ so it picks up the change." : {
-      "comment" : "Manual setup sheet, final step. Placeholder is the agent name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save the file, then restart %@ so it picks up the change." } },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dosyayı kaydedin, ardından değişikliği alması için %@ uygulamasını yeniden başlatın."
+    "Always reduce": {
+      "comment": "General pane, Motion picker: always cross-fade instead of animating.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Always reduce"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Her zaman azalt"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Immer reduzieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reducir siempre"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Toujours réduire"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Riduci sempre"
           }
         }
       }
     },
-    "Screen recording" : {
-      "comment" : "Activities pane: the screen recording activity switch.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Screen recording" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Ekran kaydı" } }
-      }
-    },
-    "Set up %@ by hand" : {
-      "comment" : "Manual setup sheet title, shown when KerNotch could not write the config file. Placeholder is the agent name.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Set up %@ by hand" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "%@ kurulumunu elle yapın" } }
-      }
-    },
-    "Task completed" : {
-      "comment" : "AI Integrations pane: the event class for a finished agent task.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task completed" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev tamamlandı" } }
-      }
-    },
-    "Task error" : {
-      "comment" : "AI Integrations pane: the event class for a failed agent task.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task error" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev hatası" } }
-      }
-    },
-    "Task started" : {
-      "comment" : "AI Integrations pane: the event class for a newly started agent task.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Task started" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Görev başladı" } }
-      }
-    },
-    "Timers and stopwatches" : {
-      "comment" : "Activities pane: the timer activity switch.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Timers and stopwatches" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Zamanlayıcılar ve kronometreler" } }
-      }
-    },
-    "Tool activity" : {
-      "comment" : "AI Integrations pane: the event class for an agent running a tool.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tool activity" } },
-        "tr" : { "stringUnit" : { "state" : "translated", "value" : "Araç etkinliği" } }
-      }
-    },
-    "Leave channel" : {
-      "comment" : "Expanded island, Discord call row: button that disconnects Discord from its voice channel.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Leave channel"
+    "Automatic": {
+      "comment": "General pane, Theme picker: follow the system appearance.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatic"
           }
         },
-        "tr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kanaldan çık"
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otomatik"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatisch"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automático"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatique"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatico"
+          }
+        }
+      }
+    },
+    "Battery level when you plug in or unplug.": {
+      "comment": "Activities pane: why the charging switch exists.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Battery level when you plug in or unplug."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fişe taktığınızda veya çıkardığınızda pil düzeyi."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ladestand beim Anschließen und Abziehen des Netzteils."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nivel de batería al conectar o desconectar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Niveau de batterie au branchement et au débranchement."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Livello della batteria quando colleghi o scolleghi l'alimentatore."
+          }
+        }
+      }
+    },
+    "Charging": {
+      "comment": "Activities pane: the charging activity switch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Charging"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şarj oluyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wird geladen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cargando"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En charge"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In carica"
+          }
+        }
+      }
+    },
+    "Connected": {
+      "comment": "Activities pane, Apple Events row: replaces the permission button after access is granted.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connected"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bağlandı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verbunden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conectado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connecté"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connesso"
+          }
+        }
+      }
+    },
+    "Countdowns and elapsed time.": {
+      "comment": "Activities pane: why the timer switch exists.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Countdowns and elapsed time."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri sayımlar ve geçen süre."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Countdowns und vergangene Zeit."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cuentas atrás y tiempo transcurrido."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Comptes à rebours et temps écoulé."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conti alla rovescia e tempo trascorso."
+          }
+        }
+      }
+    },
+    "Dark": {
+      "comment": "General pane, Theme picker: force the dark appearance.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Koyu"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dunkel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oscuro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sombre"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scuro"
+          }
+        }
+      }
+    },
+    "Follow system": {
+      "comment": "General pane, Motion picker: defer to the system Reduce Motion setting.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow system"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sistemi izle"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "System folgen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Seguir el sistema"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suivre le système"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Segui il sistema"
+          }
+        }
+      }
+    },
+    "Light": {
+      "comment": "General pane, Theme picker: force the light appearance.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Açık"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hell"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Claro"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clair"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chiaro"
+          }
+        }
+      }
+    },
+    "Microphone recording": {
+      "comment": "Activities pane: the microphone recording activity switch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Microphone recording"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofon kaydı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mikrofonaufnahme"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grabación del micrófono"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrement du micro"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrazione del microfono"
+          }
+        }
+      }
+    },
+    "Music": {
+      "comment": "Activities pane: the music activity switch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Music"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Müzik"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musik"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Música"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musique"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Musica"
+          }
+        }
+      }
+    },
+    "Needs input": {
+      "comment": "AI Integrations pane: the event class for an agent waiting on the user.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Needs input"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Girdi bekliyor"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eingabe nötig"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Necesita tu respuesta"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saisie requise"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Richiede un input"
+          }
+        }
+      }
+    },
+    "Never reduce": {
+      "comment": "General pane, Motion picker: always animate, overriding the system setting.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Never reduce"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hiçbir zaman azaltma"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie reduzieren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No reducir nunca"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne jamais réduire"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Non ridurre mai"
+          }
+        }
+      }
+    },
+    "KerNotch can show and control what %@ is playing.": {
+      "comment": "Activities pane, Apple Events row: shown once permission is granted. Placeholder is the player name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch can show and control what %@ is playing."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch, %@ uygulamasında çalanı gösterebilir ve denetleyebilir."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch kann anzeigen und steuern, was %@ gerade abspielt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch puede mostrar y controlar lo que %@ está reproduciendo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch peut afficher et contrôler ce que %@ lit."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch può mostrare e controllare ciò che %@ sta riproducendo."
+          }
+        }
+      }
+    },
+    "KerNotch could not write this file for you. Copy the text below into %@ to finish setup.": {
+      "comment": "Manual setup sheet subtitle. Placeholder is the absolute path of the agent's configuration file.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch could not write this file for you. Copy the text below into %@ to finish setup."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch bu dosyayı sizin için yazamadı. Kurulumu tamamlamak için aşağıdaki metni %@ dosyasına kopyalayın."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch konnte diese Datei nicht für dich schreiben. Kopiere den Text unten in %@, um die Einrichtung abzuschließen."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch no pudo escribir este archivo por ti. Copia el texto de abajo en %@ para terminar la configuración."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch n'a pas pu écrire ce fichier pour vous. Copiez le texte ci-dessous dans %@ pour terminer la configuration."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch non è riuscito a scrivere questo file per te. Copia il testo qui sotto in %@ per completare la configurazione."
+          }
+        }
+      }
+    },
+    "KerNotch will ask macOS for permission to control %@, so the notch can show what is playing and its buttons can control playback. Nothing is sent anywhere; KerNotch only talks to %@ on this Mac.": {
+      "comment": "Activities pane, Apple Events row: the explanation shown before the macOS prompt. Placeholders are the player name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch will ask macOS for permission to control %1$@, so the notch can show what is playing and its buttons can control playback. Nothing is sent anywhere; KerNotch only talks to %2$@ on this Mac."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch, %1$@ uygulamasını denetlemek için macOS'ten izin isteyecek; böylece çentik çalanı gösterebilir ve düğmeleri çalmayı denetleyebilir. Hiçbir yere veri gönderilmez; KerNotch yalnızca bu Mac'teki %2$@ uygulamasıyla konuşur."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch fragt macOS um Erlaubnis, %1$@ zu steuern, damit die Notch anzeigen kann, was läuft, und ihre Tasten die Wiedergabe steuern können. Es wird nichts irgendwohin gesendet; KerNotch spricht nur mit %2$@ auf diesem Mac."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch pedirá permiso a macOS para controlar %1$@, de modo que la muesca pueda mostrar lo que suena y sus botones controlen la reproducción. No se envía nada a ningún sitio; KerNotch solo habla con %2$@ en este Mac."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch va demander à macOS l'autorisation de contrôler %1$@, afin que l'encoche puisse afficher ce qui est lu et que ses boutons contrôlent la lecture. Rien n'est envoyé nulle part ; KerNotch communique uniquement avec %2$@ sur ce Mac."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "KerNotch chiederà a macOS l'autorizzazione per controllare %1$@, così il notch può mostrare cosa è in riproduzione e i suoi pulsanti possono controllarla. Nulla viene inviato altrove; KerNotch parla solo con %2$@ su questo Mac."
+          }
+        }
+      }
+    },
+    "Now playing, from Apple Music, Spotify, and system media.": {
+      "comment": "Activities pane: why the music switch exists.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Now playing, from Apple Music, Spotify, and system media."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Music, Spotify ve sistem ortamından şimdi çalanlar."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktuelle Wiedergabe aus Apple Music, Spotify und System-Medien."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reproducción actual de Apple Music, Spotify y los medios del sistema."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lecture en cours depuis Apple Music, Spotify et les médias du système."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "In riproduzione da Apple Music, Spotify e i media di sistema."
+          }
+        }
+      }
+    },
+    "Open %@": {
+      "comment": "Expanded activity primary action: brings the source app forward. Placeholder is an app or agent name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open %@"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ uygulamasını aç"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir %@"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri %@"
+          }
+        }
+      }
+    },
+    "Open %@ in your editor, creating it if it does not exist.": {
+      "comment": "Manual setup sheet, step 1. Placeholder is the absolute path of the agent's configuration file.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open %@ in your editor, creating it if it does not exist."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ dosyasını düzenleyicinizde açın; yoksa oluşturun."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne %@ in deinem Editor und lege die Datei an, falls sie nicht existiert."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abre %@ en tu editor y créalo si no existe."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez %@ dans votre éditeur, en le créant s'il n'existe pas."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri %@ nel tuo editor, creandolo se non esiste."
+          }
+        }
+      }
+    },
+    "Paste the text below as the file's entire contents.": {
+      "comment": "Manual setup sheet, step 2 for OpenCode, whose plugin file KerNotch creates outright.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste the text below as the file's entire contents."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aşağıdaki metni dosyanın tüm içeriği olarak yapıştırın."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Füge den Text unten als gesamten Inhalt der Datei ein."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pega el texto de abajo como contenido completo del archivo."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collez le texte ci-dessous comme contenu intégral du fichier."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Incolla il testo qui sotto come intero contenuto del file."
+          }
+        }
+      }
+    },
+    "Replace the file's entire contents with the text below — KerNotch has already merged your existing settings into it.": {
+      "comment": "Manual setup sheet, step 2 for Claude Code and Codex, whose existing config KerNotch merged into the snippet.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace the file's entire contents with the text below — KerNotch has already merged your existing settings into it."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosyanın tüm içeriğini aşağıdaki metinle değiştirin — KerNotch var olan ayarlarınızı bu metne zaten birleştirdi."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ersetze den gesamten Inhalt der Datei durch den Text unten — KerNotch hat deine vorhandenen Einstellungen bereits eingefügt."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sustituye todo el contenido del archivo por el texto de abajo: KerNotch ya ha combinado en él tus ajustes actuales."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remplacez tout le contenu du fichier par le texte ci-dessous — KerNotch y a déjà intégré vos réglages existants."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sostituisci l'intero contenuto del file con il testo qui sotto: KerNotch vi ha già unito le tue impostazioni esistenti."
+          }
+        }
+      }
+    },
+    "Save the file, then restart %@ so it picks up the change.": {
+      "comment": "Manual setup sheet, final step. Placeholder is the agent name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save the file, then restart %@ so it picks up the change."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dosyayı kaydedin, ardından değişikliği alması için %@ uygulamasını yeniden başlatın."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sichere die Datei und starte %@ neu, damit die Änderung übernommen wird."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guarda el archivo y reinicia %@ para que aplique el cambio."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrez le fichier, puis redémarrez %@ pour qu'il prenne en compte la modification."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salva il file, poi riavvia %@ così da applicare la modifica."
+          }
+        }
+      }
+    },
+    "Screen recording": {
+      "comment": "Activities pane: the screen recording activity switch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screen recording"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ekran kaydı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bildschirmaufnahme"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grabación de pantalla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistrement de l'écran"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Registrazione dello schermo"
+          }
+        }
+      }
+    },
+    "Set up %@ by hand": {
+      "comment": "Manual setup sheet title, shown when KerNotch could not write the config file. Placeholder is the agent name.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set up %@ by hand"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ kurulumunu elle yapın"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ von Hand einrichten"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurar %@ a mano"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurer %@ manuellement"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configura %@ manualmente"
+          }
+        }
+      }
+    },
+    "Task completed": {
+      "comment": "AI Integrations pane: the event class for a finished agent task.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task completed"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görev tamamlandı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgabe abgeschlossen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea completada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tâche terminée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attività completata"
+          }
+        }
+      }
+    },
+    "Task error": {
+      "comment": "AI Integrations pane: the event class for a failed agent task.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task error"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görev hatası"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgabenfehler"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error de tarea"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur de tâche"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Errore nell'attività"
+          }
+        }
+      }
+    },
+    "Task started": {
+      "comment": "AI Integrations pane: the event class for a newly started agent task.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Task started"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Görev başladı"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aufgabe gestartet"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tarea iniciada"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tâche démarrée"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attività avviata"
+          }
+        }
+      }
+    },
+    "Timers and stopwatches": {
+      "comment": "Activities pane: the timer activity switch.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timers and stopwatches"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zamanlayıcılar ve kronometreler"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer und Stoppuhren"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Temporizadores y cronómetros"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minuteurs et chronomètres"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Timer e cronometri"
+          }
+        }
+      }
+    },
+    "Tool activity": {
+      "comment": "AI Integrations pane: the event class for an agent running a tool.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tool activity"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Araç etkinliği"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Werkzeugaktivität"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actividad de herramientas"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Activité des outils"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Attività degli strumenti"
+          }
+        }
+      }
+    },
+    "Leave channel": {
+      "comment": "Expanded island, Discord call row: button that disconnects Discord from its voice channel.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Leave channel"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanaldan çık"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kanal verlassen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Salir del canal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quitter le salon"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Esci dal canale"
+          }
+        }
+      }
+    },
+    "Minimalist": {
+      "comment": "General pane, Island size picker: the compact expanded island.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimalist"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimalist"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimalistisch"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimalista"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimaliste"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimalista"
+          }
+        }
+      }
+    },
+    "Large": {
+      "comment": "General pane, Island size picker: the wider expanded island with larger text and controls.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Large"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Büyük"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Groß"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grande"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grand"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Grande"
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

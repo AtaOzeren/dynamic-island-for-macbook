@@ -31,12 +31,12 @@ struct ExpandedActivityViewTests {
     }
 
     /// The worked example in `docs/05-activity-model.md`: music, a timer, and a
-    /// file transfer active at once, ordered by priority then registration time.
+    /// charging notice active at once, ordered by priority then registration time.
     private static func workedExample() -> ActivityManager {
         let manager = ActivityManager()
         manager.register(activity("music", .music, .low), at: Date(timeIntervalSince1970: 1))
         manager.register(activity("timer", .timer, .high), at: Date(timeIntervalSince1970: 2))
-        manager.register(activity("transfer", .fileTransfer, .normal), at: Date(timeIntervalSince1970: 3))
+        manager.register(activity("charging", .charging, .normal), at: Date(timeIntervalSince1970: 3))
         return manager
     }
 
@@ -44,37 +44,29 @@ struct ExpandedActivityViewTests {
     func rowsFollowManagerOrder() {
         let rows = expandedRows(for: Self.workedExample().expandedActivities)
 
-        #expect(rows.map(\.id) == ["timer", "transfer", "music"])
+        #expect(rows.map(\.id) == ["timer", "charging", "music"])
     }
 
-    @Test("orders rows identically to the compact pill")
-    func rowsMatchCompactOrdering() {
-        let manager = Self.workedExample()
-
-        let rowIDs = expandedRows(for: manager.expandedActivities).map(\.id)
-        let slotIDs = compactSlots(for: manager.compactPresentation)
-            .filter { $0.overflowCount == nil }
-            .map(\.id)
-
-        #expect(Array(rowIDs.prefix(slotIDs.count)) == slotIDs)
-    }
-
-    /// The expanded view never truncates: where the compact pill collapses the
-    /// tail into `+2`, the expanded list still shows all four activities.
-    @Test("lists every activity past the compact capacity without an overflow row")
+    /// The expanded view never truncates: where the compact pill leaves the
+    /// fifth icon out, the expanded list still shows all five activities.
+    @Test("lists every activity the compact pill leaves out")
     func expandedListNeverTruncates() {
         let manager = Self.workedExample()
         manager.register(
             Self.activity("recording", .recording, .high),
             at: Date(timeIntervalSince1970: 4)
         )
+        manager.register(
+            Self.activity("call", .discordCall, .high),
+            at: Date(timeIntervalSince1970: 5)
+        )
 
         let rows = expandedRows(for: manager.expandedActivities)
-        let compact = manager.compactPresentation
+        let layout = compactSlotLayout(for: manager.compactPresentation)
 
-        #expect(compact.overflowCount == 2)
-        #expect(rows.count == 4)
-        #expect(Set(rows.map(\.id)) == ["timer", "recording", "transfer", "music"])
+        #expect(layout.leading.count + layout.trailing.count == 4)
+        #expect(rows.count == 5)
+        #expect(Set(rows.map(\.id)) == ["timer", "recording", "call", "charging", "music"])
     }
 
     @Test("carries the primary action affordance only for activities that offer one")
@@ -90,13 +82,13 @@ struct ExpandedActivityViewTests {
             at: Date(timeIntervalSince1970: 1)
         )
         manager.register(
-            Self.activity("transfer", .fileTransfer, .normal),
+            Self.activity("charging", .charging, .normal),
             at: Date(timeIntervalSince1970: 2)
         )
 
         let rows = expandedRows(for: manager.expandedActivities)
 
-        #expect(rows.first(where: { $0.id == "transfer" })?.primaryAction == nil)
+        #expect(rows.first(where: { $0.id == "charging" })?.primaryAction == nil)
         #expect(rows.first(where: { $0.id == "music" })?.primaryAction?.title == "Open Spotify")
     }
 
@@ -466,7 +458,7 @@ struct ExpandedActivityViewTests {
         (0..<count).map { index in
             StubActivity(
                 identity: ActivityIdentity("scroll.\(index)"),
-                kind: .fileTransfer,
+                kind: .timer,
                 priority: .normal
             ) as any Activity
         }

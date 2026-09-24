@@ -3,80 +3,89 @@ import Testing
 
 @testable import KerNotchCore
 
-/// The charging indicator's value semantics, and — more importantly — what it
-/// structurally cannot say. All of it is pure logic over an injected state, so
-/// none of it needs a battery or an AC adapter.
+/// The charging notification's value semantics. All of it is pure logic over an
+/// injected state, so none of it needs a battery or an AC adapter.
 @Suite("ChargingActivity")
 struct ChargingActivityTests {
+    private static let halfFull = BatteryLevel(fraction: 0.5)
+
     @Test("reports the charging kind and the normal priority for every state")
     func kindAndPriority() {
         for state in ChargingState.allCases {
-            let charging = ChargingActivity(state: state)
+            let charging = ChargingActivity(state: state, level: Self.halfFull)
 
             #expect(charging.kind == .charging)
             #expect(charging.priority == .normal)
         }
     }
 
-    /// One identity across every state, because the three states are three
-    /// readings of one fact — the machine's power situation — rather than three
-    /// concurrent facts. A per-state identity would let `charging` and
-    /// `fullyCharged` sit in the island side by side, claiming the battery is
-    /// both filling and full.
+    /// One identity across every state, because the states are readings of one
+    /// fact — the machine's power situation — rather than concurrent facts. A
+    /// per-state identity would let a plug-in and an unplug sit in the island
+    /// side by side.
     @Test("keeps one identity across the whole state machine")
     func identityIsStableAcrossStates() {
-        let identities = Set(ChargingState.allCases.map { ChargingActivity(state: $0).identity })
+        let identities = Set(
+            ChargingState.allCases.map { ChargingActivity(state: $0, level: Self.halfFull).identity }
+        )
 
         #expect(identities.count == 1)
     }
 
-    /// The priority table in `docs/05-activity-model.md` marks charging
-    /// auto-dismissing, and every state carries the descriptor rather than only
-    /// the terminal one: a `charging` state that never expired would be the
-    /// persistent power display the design forbids, just without the digits.
-    @Test("auto-dismisses from every state")
+    /// Every state carries the descriptor, not only the terminal one: a
+    /// notification that never expired would be the persistent power display
+    /// the design forbids.
+    @Test("auto-dismisses from every state after the documented window")
     func autoDismissesFromEveryState() {
         for state in ChargingState.allCases {
-            #expect(ChargingActivity(state: state).autoDismiss != nil)
+            #expect(
+                ChargingActivity(state: state, level: Self.halfFull).autoDismiss
+                    == AutoDismissDescriptor(after: ChargingActivity.autoDismissAfter)
+            )
         }
     }
 
-    @Test("auto-dismisses after the documented window")
+    @Test("stays on screen for four seconds")
     func autoDismissWindow() {
-        #expect(
-            ChargingActivity(state: .charging).autoDismiss
-                == AutoDismissDescriptor(after: ChargingActivity.autoDismissAfter)
-        )
+        #expect(ChargingActivity.autoDismissAfter == .seconds(4))
     }
 
     /// Charging is ambient information, not an errand: there is nowhere for a
-    /// click to usefully go, so the activity offers no primary action rather
-    /// than inventing a destination.
+    /// click to usefully go.
     @Test("offers no primary action")
     func noPrimaryAction() {
-        #expect(ChargingActivity(state: .pluggedIn).primaryAction == nil)
+        #expect(ChargingActivity(state: .pluggedIn, level: Self.halfFull).primaryAction == nil)
     }
 
-    /// The load-bearing test for this provider's one hard prohibition in
-    /// `docs/06-activity-providers.md`: a persistent battery percentage is never
-    /// displayed. The guarantee is structural rather than a rendering
-    /// convention — the activity has no capacity member for a view to reach
-    /// for, so no view can render one by accident and no later edit can
-    /// reintroduce one without deleting this test.
-    @Test("carries no battery capacity a view could render")
-    func carriesNoCapacity() {
-        let mirror = Mirror(reflecting: ChargingActivity(state: .charging))
-        let storedLabels = mirror.children.compactMap(\.label)
-
-        #expect(storedLabels == ["state"])
+    @Test("only running on battery counts as disconnected")
+    func connection() {
+        #expect(ChargingState.onBattery.isConnectedToPower == false)
+        #expect(ChargingState.pluggedIn.isConnectedToPower)
+        #expect(ChargingState.charging.isConnectedToPower)
+        #expect(ChargingState.fullyCharged.isConnectedToPower)
     }
 
-    /// Two readings of the same state are the same value, which is what lets the
-    /// provider drop the redundant re-reads the power-source callback delivers
-    /// without comparing fields by hand.
-    @Test("compares equal for equal states and unequal across states")
+    @Test(
+        "clamps the battery level to its outline",
+        arguments: [(-0.2, 0.0), (0.0, 0.0), (0.42, 0.42), (1.0, 1.0), (1.3, 1.0), (Double.nan, 0.0)]
+    )
+    func clampsLevel(reading: Double, expected: Double) {
+        #expect(BatteryLevel(fraction: reading).fraction == expected)
+    }
+
+    @Test("compares equal only for the same state at the same level")
     func equatable() {
-        #expect(ChargingActivity(state: .charging) == ChargingActivity(state: .charging))
-        #expect(ChargingActivity(state: .charging) != ChargingActivity(state: .fullyCharged))
+        #expect(
+            ChargingActivity(state: .charging, level: Self.halfFull)
+                == ChargingActivity(state: .charging, level: Self.halfFull)
+        )
+        #expect(
+            ChargingActivity(state: .charging, level: Self.halfFull)
+                != ChargingActivity(state: .fullyCharged, level: Self.halfFull)
+        )
+        #expect(
+            ChargingActivity(state: .charging, level: Self.halfFull)
+                != ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.6))
+        )
     }
 }

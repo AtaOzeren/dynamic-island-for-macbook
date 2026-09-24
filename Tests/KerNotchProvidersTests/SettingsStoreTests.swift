@@ -195,6 +195,7 @@ struct SettingsStoreTests {
             launchAtLogin: true,
             showMenuBarIcon: false,
             appearance: .dark,
+            islandSize: .large,
             reducedMotionOverride: false
         )
 
@@ -204,6 +205,25 @@ struct SettingsStoreTests {
         #expect(store[.displayTarget] == .named("Studio Display"))
         #expect(store[.showMenuBarIcon] == false)
         #expect(store[.appearance] == .dark)
+        #expect(store[.islandSize] == .large)
+    }
+
+    @Test("a store with no island size saved opens the minimalist island")
+    func islandSizeDefaultsToMinimalist() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+
+        #expect(store.generalPreferences.islandSize == .minimalist)
+    }
+
+    /// A value a future build might write must not leave this one without an
+    /// island: an unknown raw value falls back to the default size.
+    @Test("an unrecognised stored island size falls back to minimalist")
+    func unknownIslandSizeFallsBack() {
+        let storage = DictionarySettingsStorage()
+        storage.set("enormous", forKey: SettingsKey<IslandSize>.islandSize.name)
+        let store = SettingsStore(storage: storage)
+
+        #expect(store.generalPreferences.islandSize == .minimalist)
     }
 
     /// Clearing the override must remove the key, not store `false` — `false`

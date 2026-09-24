@@ -15,6 +15,7 @@ public struct GeneralPreferences: Equatable, Sendable {
     public var launchAtLogin: Bool
     public var showMenuBarIcon: Bool
     public var appearance: SettingsAppearance
+    public var islandSize: IslandSize
 
     /// `nil` means follow the system, which is why this is an optional rather
     /// than a `Bool` with a separate "is overridden" flag: two fields would let
@@ -27,12 +28,14 @@ public struct GeneralPreferences: Equatable, Sendable {
         launchAtLogin: Bool = false,
         showMenuBarIcon: Bool = true,
         appearance: SettingsAppearance = .auto,
+        islandSize: IslandSize = .minimalist,
         reducedMotionOverride: Bool? = nil
     ) {
         self.displayTarget = displayTarget
         self.launchAtLogin = launchAtLogin
         self.showMenuBarIcon = showMenuBarIcon
         self.appearance = appearance
+        self.islandSize = islandSize
         self.reducedMotionOverride = reducedMotionOverride
     }
 }

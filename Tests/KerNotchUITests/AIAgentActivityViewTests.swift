@@ -513,12 +513,18 @@ struct AIAgentActivityViewTests {
         #expect(aiAgentCompactSlot(for: first).id == aiAgentCompactSlot(for: second).id)
     }
 
+    /// The card is drawn to the island's shared grammar. A progress bar is the
+    /// one thing that makes it taller than the rest, because it adds a line the
+    /// other cards do not carry.
     @Test("expanded agent card stays inside the minimalist visual budget")
     func expandedViewStaysMinimal() {
-        let size = aiAgentExpandedSize(hasProgress: true)
+        let plain = aiAgentExpandedSize(hasProgress: false)
+        let withProgress = aiAgentExpandedSize(hasProgress: true)
 
-        #expect(size.width <= 280)
-        #expect(size.height <= 64)
+        #expect(plain.width == ExpandedPanelMetrics.default.width)
+        #expect(plain.height == IslandRowGrammar.default.rowHeight)
+        #expect(withProgress.height > plain.height)
+        #expect(withProgress.height <= 64)
     }
 
     // MARK: - One card per instance, sub-agents behind it

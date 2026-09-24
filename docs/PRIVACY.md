@@ -1,6 +1,6 @@
 # KerNotch Privacy Policy
 
-**Effective date:** 2026-09-15
+**Effective date:** 2026-09-16
 
 KerNotch is a macOS app that turns the notch on your MacBook into a live-activity surface. This policy describes what data KerNotch does and does not handle.
 
@@ -23,19 +23,19 @@ Specifically, KerNotch does not collect, store, or transmit:
 
 ## Network activity
 
-The only network socket KerNotch ever opens is a loopback HTTP listener bound to `127.0.0.1`. This listener receives status events from AI coding agents (Claude Code, Codex CLI, OpenCode) running on the same machine. It is unreachable from outside your Mac. No data sent to this listener leaves your device.
+The only listening network socket KerNotch ever opens is a loopback HTTP listener bound to `127.0.0.1`. This listener receives status events from AI coding agents (Claude Code, Codex CLI, OpenCode) running on the same machine. It is unreachable from outside your Mac. No data sent to this listener leaves your device.
 
-KerNotch makes no outbound network connections of its own unless you connect the Discord integration (Direct build only). Then it talks to the Discord app on your Mac through Discord's local socket to read your voice channel and mute state, and contacts `discord.com` only to obtain or renew the authorization you approved. The connection goes through KerNotch's own Discord application, which Discord shows by name when it asks you to approve it; KerNotch sends nothing else to Discord. Update checks are handled entirely by the Mac App Store or Homebrew, not by KerNotch.
+KerNotch makes only two kinds of outbound connection. On macOS 15.4 and later, it downloads the album artwork Spotify reports for its current track, from the web address the Spotify app supplies; KerNotch adds no information about you to that request. And if you connect the Discord integration, it talks to the Discord app on your Mac through Discord's local socket to read your voice channel and mute state, and contacts `discord.com` only to obtain or renew the authorization you approved. The connection goes through KerNotch's own Discord application, which Discord shows by name when it asks you to approve it; KerNotch sends nothing else to Discord. KerNotch does not check for updates; if you installed it with Homebrew, Homebrew handles upgrades.
 
 ---
 
 ## Permissions KerNotch requests
 
-The App Store build requests Apple Events permission lazily, only when you turn on the music feature. The Direct build uses MediaRemote and does not request Apple Events permission. Nothing is requested at first launch.
+Nothing is requested at first launch. On macOS 15.4 and later, KerNotch requests Apple Events permission lazily, only when the music feature first needs it. On earlier macOS releases it reads now playing through a system framework and does not request Apple Events permission.
 
 | Permission | Why it's needed | When it's requested |
 |---|---|---|
-| Apple Events (App Store build only) | To query and control Spotify and Apple Music for the music activity card | The first time you play a track from a supported app after enabling the music provider |
+| Apple Events (macOS 15.4 and later) | To query and control Spotify and Apple Music for the music activity card | The first time you play a track from a supported app after enabling the music provider |
 
 KerNotch does not request and has no code path that would need: Camera, Microphone, Screen Recording, Accessibility, Full Disk Access, Contacts, or Location.
 
@@ -47,8 +47,8 @@ The screen-recording and microphone-recording indicators in KerNotch observe tha
 
 Everything KerNotch knows stays on your Mac:
 
-- **Settings** are stored in one file, `settings.json`, in KerNotch's Application Support folder: inside the app's sandbox container in the App Store build, and at `~/Library/Application Support/KerNotch` in the Direct build. Only your user account can read it.
-- **The Discord authorization token** (Direct build only, and only once you connect Discord) is kept in a file in that same folder, readable only by your user account, and deleted when you disconnect.
+- **Settings** are stored in one file, `settings.json`, in KerNotch's Application Support folder at `~/Library/Application Support/KerNotch`. Only your user account can read it.
+- **The Discord authorization token** (only once you connect Discord) is kept in a file in that same folder, readable only by your user account, and deleted when you disconnect.
 - **No other persistent data** is written, apart from the app language macOS keeps in KerNotch's preferences and CPU diagnostic reports under `~/Library/Logs/KerNotch`.
 
 ---

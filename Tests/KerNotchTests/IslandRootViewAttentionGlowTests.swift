@@ -30,7 +30,8 @@ struct IslandRootViewAttentionGlowTests {
     private static func rendersGlow(in state: PresentationState) -> Bool {
         let model = IslandViewModel(
             compact: ActivityManager().compactPresentation,
-            notchSize: CGSize(width: 200, height: 32)
+            notchSize: CGSize(width: 200, height: 32),
+            layout: .minimalist
         )
         model.state = state
         model.attentionGlow = IslandAttentionGlow(

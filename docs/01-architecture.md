@@ -36,7 +36,7 @@ This is an enforceable invariant, not a convention: **the architecture guard scr
 
 Why this shape:
 - **Testability in headless CI.** `KerNotchCore` has no UI or system-framework dependency, so its state machine, priority resolution, and geometry math run as fast, deterministic unit tests with no window server, no display, no permissions.
-- **Provider swap per build configuration.** Because `KerNotchProviders` depends on `KerNotchCore` and not the reverse, the App Store build and the Homebrew build can link different music providers (see `docs/06-activity-providers.md`) without touching `KerNotchCore` or `KerNotchUI` at all.
+- **Provider swap per macOS release.** Because providers depend on `KerNotchCore` and not the reverse, the composition root can pick a different music provider for the running macOS release — ScriptingBridge on 15.4 and later, MediaRemote below (see `docs/06-activity-providers.md`) — without touching `KerNotchCore` or `KerNotchUI` at all.
 
 ## End-to-end event flow
 

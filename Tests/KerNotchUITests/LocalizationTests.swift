@@ -3,9 +3,9 @@ import Testing
 
 @testable import KerNotchUI
 
-/// Todo 63's acceptance criterion, checked the only way that is honest in a
-/// SwiftPM test: by compiling the catalogs the way Xcode does and resolving
-/// against the result.
+/// The shipped translations, checked the only way that is honest in a SwiftPM
+/// test: by compiling the catalogs the way Xcode does and resolving against the
+/// result.
 ///
 /// SwiftPM copies `.xcstrings` into the bundle without compiling it, so
 /// `String(localized:bundle: .module)` under `swift test` serves the English
@@ -14,8 +14,40 @@ import Testing
 /// `xcstringstool compile` produces the `tr.lproj` an app build produces, which
 /// makes "Turkish resolves end to end" a claim about the shipped artefact
 /// rather than about the source file.
-@Suite("Turkish localization")
-struct TurkishLocalizationTests {
+@Suite("Localization")
+struct LocalizationTests {
+    /// Every language the app ships, checked the same way Turkish is: through a
+    /// compiled catalog rather than through the source file, so the assertion is
+    /// about the artefact the user actually runs.
+    @Test(
+        "every shipped language resolves from every catalog",
+        arguments: [
+            ("de", "Wird geladen", "Inselgröße", "KerNotch beenden"),
+            ("es", "Cargando", "Tamaño de la isla", "Salir de KerNotch"),
+            ("fr", "En charge", "Taille de l'îlot", "Quitter KerNotch"),
+            ("it", "In carica", "Dimensione dell'isola", "Esci da KerNotch"),
+            ("tr", "Şarj oluyor", "Ada boyutu", "KerNotch'dan Çık"),
+        ]
+    )
+    func everyShippedLanguageResolves(
+        language: String,
+        charging: String,
+        islandSize: String,
+        quit: String
+    ) throws {
+        let expectations = [
+            ("Sources/KerNotchCore/Resources/Localizable.xcstrings", "Charging", charging),
+            ("Sources/KerNotchUI/Resources/Localizable.xcstrings", "Island size", islandSize),
+            ("KerNotch/Localizable.xcstrings", "Quit KerNotch", quit),
+        ]
+
+        for (catalog, key, expected) in expectations {
+            try withCompiledBundle(for: catalog, language: language) { bundle in
+                #expect(bundle.localizedString(forKey: key, value: nil, table: nil) == expected)
+            }
+        }
+    }
+
     @Test(
         "every catalog resolves Turkish rather than falling back to English",
         arguments: [
@@ -30,17 +62,15 @@ struct TurkishLocalizationTests {
         }
     }
 
-    /// Turkish is a one/other language in CLDR, but its numeral phrases take the
-    /// singular noun — "3 etkinlik", never "3 etkinlikler". Both forms therefore
-    /// carry the same text, which is a translation decision rather than a
-    /// copy-paste, and only formatting an actual count tells the two apart.
-    @Test("the plural entry formats a count in Turkish")
-    func pluralFormatsInTurkish() throws {
+    @Test("the island size control is fully Turkish")
+    func islandSizeSettingIsTurkish() throws {
         try withTurkishBundle(for: "Sources/KerNotchUI/Resources/Localizable.xcstrings") { bundle in
-            let format = bundle.localizedString(forKey: "%lld more activities", value: nil, table: nil)
-
-            #expect(String(format: format, 1) == "1 etkinlik daha")
-            #expect(String(format: format, 3) == "3 etkinlik daha")
+            #expect(bundle.localizedString(forKey: "Island", value: nil, table: nil) == "Ada")
+            #expect(bundle.localizedString(forKey: "Island size", value: nil, table: nil) == "Ada boyutu")
+        }
+        try withTurkishBundle(for: "Sources/KerNotchCore/Resources/Localizable.xcstrings") { bundle in
+            #expect(bundle.localizedString(forKey: "Minimalist", value: nil, table: nil) == "Minimalist")
+            #expect(bundle.localizedString(forKey: "Large", value: nil, table: nil) == "Büyük")
         }
     }
 
@@ -67,6 +97,24 @@ struct TurkishLocalizationTests {
         let expectedTranslations = [
             "Screen recording in progress": "Ekran kaydı yapılıyor",
             "Microphone in use": "Mikrofon kullanılıyor",
+            "Screen recording and microphone in use": "Ekran kaydı ve mikrofon kullanılıyor",
+        ]
+
+        try withTurkishBundle(
+            for: "Sources/KerNotchUI/Resources/Localizable.xcstrings"
+        ) { bundle in
+            for (key, translation) in expectedTranslations {
+                #expect(bundle.localizedString(forKey: key, value: nil, table: nil) == translation)
+            }
+        }
+    }
+
+    @Test("charging notification copy is fully Turkish")
+    func chargingStatusIsTurkish() throws {
+        let expectedTranslations = [
+            "Unplugged": "Fişten Çekildi",
+            "Plugged In": "Fişe Takılı",
+            "Fully Charged": "Tam Şarj Oldu",
         ]
 
         try withTurkishBundle(
@@ -104,13 +152,19 @@ struct TurkishLocalizationTests {
 
     /// The picker names each language in that language, so a user who cannot
     /// read the current one can still find their own.
-    @Test("the language picker names Turkish in Turkish")
+    @Test("the language picker names every shipped language in that language")
     func languagePickerUsesEndonyms() {
-        let options = LanguageOption.options(forLanguageCodes: ["tr", "en", "Base"])
+        let options = LanguageOption.options(
+            forLanguageCodes: ["tr", "en", "de", "fr", "es", "it", "Base"]
+        )
 
         #expect(
             options == [
+                LanguageOption(code: "de", displayName: "Deutsch"),
                 LanguageOption(code: "en", displayName: "English"),
+                LanguageOption(code: "es", displayName: "Español"),
+                LanguageOption(code: "fr", displayName: "Français"),
+                LanguageOption(code: "it", displayName: "Italiano"),
                 LanguageOption(code: "tr", displayName: "Türkçe"),
             ]
         )
@@ -158,10 +212,11 @@ struct TurkishLocalizationTests {
     /// A key whose Turkish is byte-identical to its English is the shape an
     /// untranslated placeholder takes: present, resolvable, and still English.
     /// The exceptions are brand names and format-only strings, which have no
-    /// words to translate.
+    /// words to translate, and loanwords Turkish spells exactly as English does.
     private static let untranslatableKeys: Set<String> = [
         "KerNotch",
         "Discord",
+        "Minimalist",
         "activity.accessibility.headlineAndDetail",
         "activity.ai.blockedFootnote",
         "activity.ai.compactTitle",
@@ -249,6 +304,14 @@ struct TurkishLocalizationTests {
     /// reads its strings lazily: a helper that cleaned up on return would delete
     /// the compiled `.strings` before the first lookup touched them.
     private func withTurkishBundle(for catalog: String, body: (Bundle) throws -> Void) throws {
+        try withCompiledBundle(for: catalog, language: "tr", body: body)
+    }
+
+    private func withCompiledBundle(
+        for catalog: String,
+        language: String,
+        body: (Bundle) throws -> Void
+    ) throws {
         let repository = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -270,8 +333,8 @@ struct TurkishLocalizationTests {
         #expect(compiler.terminationStatus == 0, "xcstringstool failed for \(catalog)")
 
         let bundle = try #require(
-            Bundle(url: output.appendingPathComponent("tr.lproj")),
-            "\(catalog) compiled without a Turkish bundle"
+            Bundle(url: output.appendingPathComponent("\(language).lproj")),
+            "\(catalog) compiled without a \(language) bundle"
         )
         try body(bundle)
     }

@@ -37,9 +37,17 @@ public struct DiscordCallActivity: Activity, Equatable {
     /// answer this: Discord keeps its input stream open while muted.
     public let isMuted: Bool?
 
-    public init(channel: DiscordVoiceChannel?, isMuted: Bool?) {
+    /// Deafened: the user hears nothing, and Discord switches the microphone
+    /// off with it. Its own fact rather than a kind of mute, because Discord
+    /// leaves the mute flag alone when you deafen — so an island reading mute
+    /// alone showed a live microphone for someone who could neither speak nor
+    /// hear. `nil` while the RPC connection is not there to say.
+    public let isDeafened: Bool?
+
+    public init(channel: DiscordVoiceChannel?, isMuted: Bool?, isDeafened: Bool? = nil) {
         self.channel = channel
         self.isMuted = isMuted
+        self.isDeafened = isDeafened
     }
 
     public var identity: ActivityIdentity { Self.identity }
@@ -51,6 +59,8 @@ public struct DiscordCallActivity: Activity, Equatable {
     public var orderBand: ActivityOrderBand { .pinned }
 
     public var priority: ActivityPriority { .high }
+
+    public var compactRank: CompactRank { .call }
 
     /// Offered only while a channel is known: leaving goes through the same RPC
     /// connection that named the channel, so without one there is nothing a

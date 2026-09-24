@@ -1,20 +1,22 @@
 # Security, Privacy, and Permissions
 
-This document specifies KerNotch's privacy stance, the entitlements each build configuration declares and why, the permission request flow, the threat model for the loopback IPC listener, and the hook installer's trust model. It is a design specification — nothing in this folder is code.
+This document specifies KerNotch's privacy stance, the entitlements its build declares and why, the permission request flow, the threat model for the loopback IPC listener, and the hook installer's trust model. It is a design specification — nothing in this folder is code.
 
 ## Privacy stance
 
-KerNotch collects nothing, sends nothing off-device, and has no analytics. There is no telemetry SDK, no crash reporter that phones home, and no update-check ping beyond what the App Store or Homebrew Cask does on its own. The only listening socket KerNotch ever opens is the loopback HTTP listener described in `07-ai-integration.md`, and that socket is unreachable from outside the local machine. The one outbound connection belongs to the opt-in Discord integration in unsandboxed builds: a local IPC connection to the Discord client, and HTTPS requests to `discord.com/api/oauth2/token` made only when the user connects or a stored token is renewed. No activity content travels over it. KerNotch never reads the screen, never records audio or video itself, and never inspects another app's windows or file contents beyond the narrow, named cases below.
+KerNotch collects nothing, sends nothing off-device, and has no analytics. There is no telemetry SDK, no crash reporter that phones home, and no update check of its own; a Homebrew Cask upgrade is Homebrew's. The only listening socket KerNotch ever opens is the loopback HTTP listener described in `07-ai-integration.md`, and that socket is unreachable from outside the local machine. Outbound traffic is limited to two cases. The opt-in Discord integration makes a local IPC connection to the Discord client, and HTTPS requests to `discord.com/api/oauth2/token` only when the user connects or a stored token is renewed; no activity content travels over it. On macOS 15.4 and later, the music provider downloads the album artwork Spotify reports for the current track from the HTTPS `artworkUrl` Spotify supplies, and sends nothing else. KerNotch never reads the screen, never records audio or video itself, and never inspects another app's windows or file contents beyond the narrow, named cases below.
 
 ## Entitlements
 
-Each entitlement below is requested only where the corresponding feature needs it, and only in the build configuration that needs it.
+KerNotch ships one build, signed with Developer ID under the hardened runtime and notarized (`10-build-and-distribution.md`). `KerNotch.entitlements` is used by both the `Debug` and `Release` configurations and declares exactly one entitlement:
 
-| Entitlement | App Store build | Direct build | Justification | User-visible consequence |
-|---|---|---|---|---|
-| App Sandbox | On | On where possible; hardened runtime is the primary constraint (see `10-build-and-distribution.md`) | Required for App Store distribution; kept on for the Direct build as defense in depth wherever a private-framework dependency doesn't force it off | The app cannot touch files or processes outside its container without one of the entitlements below |
-| `com.apple.security.automation.apple-events` (with `NSAppleEventsUsageDescription`) | On | Not needed — Direct's music path is MediaRemote | Needed for the App Store build's AppleScript music provider to query and control Spotify and Apple Music inside the sandbox; the unsandboxed Direct build neither instantiates that provider nor requires this entitlement | In the App Store build, first control of a supported music app triggers one system Apple Events permission prompt per target app; the Direct build shows no Apple Events prompt |
-| `com.apple.security.network.server` | On | Not needed | The loopback HTTP listener for AI agent IPC needs this entitlement to bind a socket at all inside the sandbox | No visible prompt; the entitlement is declared at build time, not requested at runtime |
+| Entitlement | Justification | User-visible consequence |
+|---|---|---|
+| `com.apple.security.automation.apple-events` (with `NSAppleEventsUsageDescription`) | The hardened runtime refuses to send Apple Events unless this is declared, and the ScriptingBridge music provider used on macOS 15.4 and later needs Apple Events to query and control Spotify and Apple Music | On macOS 15.4 and later, one system Apple Events prompt per target app, preceded by KerNotch's own explanation; below 15.4 the MediaRemote music provider sends no Apple Events and no prompt appears |
+
+### Not sandboxed
+
+KerNotch does not enable the App Sandbox, and three features rely on that: writing agent hook files in the user's home directory after consent (`07-ai-integration.md`), reading the process table to trace a running agent to the application hosting it (see the trust model below), and reaching Discord's IPC socket in the per-user `$TMPDIR` (`06-activity-providers.md`). The loopback listener likewise needs no network entitlement.
 
 ### Not requested
 
@@ -32,7 +34,7 @@ The screen and audio recording indicators (see `00-product-overview.md` and `06-
 
 ## Permission request flow
 
-Nothing is requested at launch. KerNotch's first run shows the notch UI with zero activities and asks for nothing. The App Store build requests Apple Events permission lazily, at the exact moment the user turns on the music feature. The Direct build uses MediaRemote and requests no Apple Events permission.
+Nothing is requested at launch. KerNotch's first run shows the notch UI with zero activities and asks for nothing. On macOS 15.4 and later, KerNotch requests Apple Events permission lazily, per music app, at the moment the music feature first needs to query that app. Below 15.4 the music provider is MediaRemote, and no Apple Events permission is requested.
 
 1. The user enables the feature (for example, plays a track from a supported music app for the first time).
 2. KerNotch shows a plain-language explanation of what is about to be requested and why, in its own UI, before the system prompt appears.
@@ -47,6 +49,10 @@ The `NSAppleEventsUsageDescription` shown in the system prompt, verbatim:
 
 - **English:** "KerNotch uses Apple Events to show now-playing info and let you control playback for Spotify and Apple Music from the notch."
 - **Turkish:** "KerNotch, çentikten şu an çalan şarkı bilgisini göstermek ve Spotify ile Apple Music'i kontrol edebilmek için Apple Events kullanır."
+- **German:** "KerNotch verwendet Apple Events, um in der Notch anzuzeigen, was gerade läuft, und die Wiedergabe von Spotify und Apple Music zu steuern."
+- **Spanish:** "KerNotch usa Apple Events para mostrar en la muesca lo que suena y controlar la reproducción de Spotify y Apple Music."
+- **French:** "KerNotch utilise Apple Events pour afficher dans l'encoche ce qui est en cours de lecture et contrôler la lecture de Spotify et Apple Music."
+- **Italian:** "KerNotch usa gli Apple Events per mostrare nel notch cosa è in riproduzione e controllare la riproduzione di Spotify e Apple Music."
 
 ## Threat model
 
@@ -74,8 +80,8 @@ The hook installer (see `07-ai-integration.md`) modifies configuration files bel
 - **Exact diff shown first.** Before writing, KerNotch shows the precise snippet it will add or remove, in the same format the target file uses, so the user can read exactly what changes before approving.
 - **Backup before write.** KerNotch copies the original file alongside itself (for example, `settings.json.kernotch-backup`) before making any change.
 - **One-click uninstall.** Removing the integration restores the file to its pre-installation state using the backup, and removes only the snippet KerNotch added — it never rewrites the rest of the user's configuration.
-- **Process visibility.** The App Sandbox hides the process table outright: `proc_listallpids` returns zero processes in the sandboxed build, so it cannot tell which application a running agent belongs to. This is not a permission the user can grant — no entitlement unlocks it. See `docs/15-build-configuration-parity.md` for the measurement and the consequence.
-- **Manual fallback.** If the user declines to grant KerNotch write access (relevant in the sandboxed build, see the sandbox note in `07-ai-integration.md`), KerNotch still shows the exact snippet in a copyable text view so the user can add it by hand.
+- **Process visibility.** A card's navigation action reads the process table (`proc_listallpids`, `proc_pidpath`) to trace a running agent's CLI process to the application hosting it. This needs no permission, and works only because KerNotch is not sandboxed: inside the App Sandbox the same calls return zero processes (`12-api-feasibility-matrix.md`, rows 24 and 25).
+- **Manual fallback.** If the user declines the write, or the file system refuses it (see the manual setup note in `07-ai-integration.md`), KerNotch still shows the exact snippet in a copyable text view so the user can add it by hand.
 
 ## Data at rest
 
@@ -83,4 +89,4 @@ KerNotch persists only user preferences, in an owner-only `settings.json` under 
 
 ## Privacy policy source of truth
 
-This document is the source of truth for KerNotch's privacy policy text. The App Store Connect privacy policy and in-app "Privacy" settings page both reuse the **Privacy stance**, **Entitlements**, and **Data at rest** sections above verbatim rather than maintaining a separate description; if this document changes, the App Store Connect listing and in-app text are updated in the same commit.
+This document is the source of truth for KerNotch's privacy policy text. The published privacy policy (`docs/PRIVACY.md`) and the in-app "Privacy" settings page both reuse the **Privacy stance**, **Entitlements**, and **Data at rest** sections above rather than maintaining a separate description; if this document changes, the published policy and in-app text are updated in the same commit.

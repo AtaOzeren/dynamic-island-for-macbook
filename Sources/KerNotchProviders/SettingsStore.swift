@@ -124,6 +124,7 @@ public final class SettingsStore {
                 launchAtLogin: self[.launchAtLogin],
                 showMenuBarIcon: self[.showMenuBarIcon],
                 appearance: self[.appearance],
+                islandSize: self[.islandSize],
                 reducedMotionOverride: self[.reducedMotionOverride]
             )
         }
@@ -132,6 +133,7 @@ public final class SettingsStore {
             self[.launchAtLogin] = newValue.launchAtLogin
             self[.showMenuBarIcon] = newValue.showMenuBarIcon
             self[.appearance] = newValue.appearance
+            self[.islandSize] = newValue.islandSize
             self[.reducedMotionOverride] = newValue.reducedMotionOverride
         }
     }

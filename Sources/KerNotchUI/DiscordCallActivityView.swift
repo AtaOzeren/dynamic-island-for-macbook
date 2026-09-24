@@ -1,13 +1,25 @@
 import KerNotchCore
 import SwiftUI
 
+/// What the call sounds like from the user's side.
+///
+/// Deafened is its own state rather than a kind of mute: Discord switches the
+/// microphone off with it but leaves its mute flag alone, and an island that
+/// read only that flag drew a live microphone for someone who could neither
+/// speak nor hear.
+public enum DiscordCallAudioState: Equatable, Sendable {
+    case live
+    case muted
+    case deafened
+}
+
 /// Everything the Discord call views draw, derived from `DiscordCallActivity`
 /// alone.
 public struct DiscordCallPresentation: Equatable, Sendable {
     public let title: String
     /// The server the channel belongs to, when the RPC connection named one.
     public let detail: String?
-    public let isMuted: Bool
+    public let audioState: DiscordCallAudioState
     public let leaveAction: PrimaryAction?
 
     public init(activity: DiscordCallActivity) {
@@ -15,18 +27,34 @@ public struct DiscordCallPresentation: Equatable, Sendable {
         detail = activity.channel?.serverName
         // Unknown reads as live: without the RPC connection KerNotch cannot tell,
         // and claiming a muted microphone that is not would be the worse lie.
-        isMuted = activity.isMuted ?? false
+        if activity.isDeafened == true {
+            audioState = .deafened
+        } else {
+            audioState = activity.isMuted == true ? .muted : .live
+        }
         leaveAction = activity.primaryAction
     }
 
+    /// Whether the microphone is off, for whichever of the two reasons.
+    public var isMuted: Bool { audioState != .live }
+
     public var microphoneSymbolName: String {
-        isMuted ? "mic.slash.fill" : "mic.fill"
+        switch audioState {
+        case .live: "mic.fill"
+        case .muted: "mic.slash.fill"
+        // Headphones, because deafened is the state where the sound is off too.
+        case .deafened: "headphones.slash"
+        }
     }
 
     public var accessibilityLabel: String {
         let place =
             detail.map { localized("activity.accessibility.headlineAndDetail", default: "\(title), \($0)") } ?? title
-        return isMuted ? localized("Muted: \(place)") : place
+        switch audioState {
+        case .live: return place
+        case .muted: return localized("Muted: \(place)")
+        case .deafened: return localized("Deafened: \(place)")
+        }
     }
 
     private static func title(for channel: DiscordVoiceChannel?) -> String {
@@ -53,14 +81,13 @@ struct DiscordCallIcon: View {
     private static let pulseDuration = Duration.milliseconds(300)
     private static let badgeScale: CGFloat = 0.62
 
-    let isMuted: Bool
+    let presentation: DiscordCallPresentation
     let size: CGFloat
     let animatesArrival: Bool
 
     var body: some View {
-        Image(systemName: isMuted ? "mic.slash.fill" : "mic.fill")
-            .font(.system(size: size, weight: .medium))
-            .foregroundStyle(isMuted ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
+        IslandSymbolIcon(systemName: presentation.microphoneSymbolName, height: size)
+            .foregroundStyle(presentation.isMuted ? AnyShapeStyle(.secondary) : AnyShapeStyle(.red))
             .scaleEffect(symbolScale)
             .overlay(alignment: .bottomTrailing) {
                 DiscordBadge(diameter: size * Self.badgeScale)
@@ -127,19 +154,20 @@ public struct DiscordCallActivityView: View {
         )
 
         HStack(spacing: metrics.columnSpacing) {
-            DiscordCallIcon(isMuted: presentation.isMuted, size: metrics.symbolSize * 0.88, animatesArrival: false)
+            DiscordCallIcon(presentation: presentation, size: metrics.symbolSize, animatesArrival: false)
                 .frame(width: metrics.symbolColumnWidth)
 
-            Text(presentation.title)
-                .font(.system(size: metrics.titleSize, weight: .medium))
-                .lineLimit(1)
-                .layoutPriority(1)
-
-            if let detail = presentation.detail {
-                Text(detail)
-                    .font(.system(size: metrics.detailSize))
-                    .foregroundStyle(.secondary)
+            VStack(alignment: .leading, spacing: IslandRowGrammar.default.textSpacing) {
+                Text(presentation.title)
+                    .font(.system(size: metrics.titleSize, weight: .medium))
                     .lineLimit(1)
+
+                if let detail = presentation.detail {
+                    Text(detail)
+                        .font(.system(size: metrics.detailSize))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
 
             Spacer(minLength: 0)
@@ -147,7 +175,7 @@ public struct DiscordCallActivityView: View {
             if let action = presentation.leaveAction {
                 Button(action: leave) {
                     Image(systemName: action.symbolName)
-                        .font(.system(size: metrics.symbolSize - 4, weight: .semibold))
+                        .font(.system(size: IslandRowGrammar.default.controlSymbolSize, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: metrics.symbolColumnWidth, height: metrics.symbolColumnWidth)
                         .background(Circle().fill(.red))

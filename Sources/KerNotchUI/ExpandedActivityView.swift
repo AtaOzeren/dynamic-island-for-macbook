@@ -73,28 +73,26 @@ public struct ExpandedPanelMetrics: Equatable, Sendable {
     public let contentInset: CGFloat
     public let symbolSize: CGFloat
     public let symbolColumnWidth: CGFloat
-    /// A row's headline, from the panel's shared scale.
+    /// A row's headline, from the island's shared grammar.
     ///
     /// Separate from `symbolSize` because they answer to different things: one
-    /// is how big the glyph is drawn, the other how big its label reads. The row
-    /// used to take both from `symbolSize`, which is why a mic label came out
-    /// three points larger than every card beside it.
+    /// is how big the glyph is drawn, the other how big its label reads.
     public let titleSize: CGFloat
     public let detailSize: CGFloat
     public let cornerRadius: CGFloat
     public let width: CGFloat
 
     public init(
-        rowHeight: CGFloat = 34,
+        rowHeight: CGFloat = IslandRowGrammar.default.rowHeight,
         rowSpacing: CGFloat = 9,
-        columnSpacing: CGFloat = 4,
-        contentInset: CGFloat = 12,
-        symbolSize: CGFloat = 15,
-        symbolColumnWidth: CGFloat = 24,
-        titleSize: CGFloat = IslandTypeScale.default.title,
-        detailSize: CGFloat = IslandTypeScale.default.detail,
-        cornerRadius: CGFloat = 18,
-        width: CGFloat = 320
+        columnSpacing: CGFloat = IslandRowGrammar.default.columnSpacing,
+        contentInset: CGFloat = IslandRowGrammar.default.contentInset,
+        symbolSize: CGFloat = IslandRowGrammar.default.symbolSize,
+        symbolColumnWidth: CGFloat = IslandRowGrammar.default.iconSize,
+        titleSize: CGFloat = IslandRowGrammar.default.titleSize,
+        detailSize: CGFloat = IslandRowGrammar.default.detailSize,
+        cornerRadius: CGFloat = IslandRowGrammar.default.cornerRadius,
+        width: CGFloat = IslandRowGrammar.default.width
     ) {
         self.rowHeight = rowHeight
         self.rowSpacing = rowSpacing
@@ -145,17 +143,21 @@ public struct ExpandedItemMetrics: Equatable, Sendable {
     public let music: MusicViewMetrics
     public let timer: TimerViewMetrics
     public let aiAgent: AIAgentViewMetrics
+    /// The scale the panel's own text — the blocked-agent footnote — is set in.
+    public let typeScale: IslandTypeScale
 
     public init(
         panel: ExpandedPanelMetrics = .default,
         music: MusicViewMetrics = .default,
         timer: TimerViewMetrics = .default,
-        aiAgent: AIAgentViewMetrics = .default
+        aiAgent: AIAgentViewMetrics = .default,
+        typeScale: IslandTypeScale = .default
     ) {
         self.panel = panel
         self.music = music
         self.timer = timer
         self.aiAgent = aiAgent
+        self.typeScale = typeScale
     }
 }
 
@@ -320,7 +322,11 @@ public func expandedPanelSize(
     let footnote = blockedAgentFootnote(for: activities)
     let footnoteHeight =
         footnote.map {
-            blockedFootnoteHeight(hasRecoveryText: $0.hasRecoveryText(), metrics: metrics.panel)
+            blockedFootnoteHeight(
+                hasRecoveryText: $0.hasRecoveryText(),
+                metrics: metrics.panel,
+                scale: metrics.typeScale
+            )
         } ?? 0
     let height =
         heights.reduce(0, +) + spacing + footnoteHeight + metrics.panel.contentInset * 2
@@ -437,7 +443,11 @@ public func expandedPanelOverflowsWindow(
     let spacing = CGFloat(items.count - 1) * metrics.panel.rowSpacing
     let footnoteHeight =
         blockedAgentFootnote(for: activities).map {
-            blockedFootnoteHeight(hasRecoveryText: $0.hasRecoveryText(), metrics: metrics.panel)
+            blockedFootnoteHeight(
+                hasRecoveryText: $0.hasRecoveryText(),
+                metrics: metrics.panel,
+                scale: metrics.typeScale
+            )
         } ?? 0
     let availableHeight = max(panelMetrics.maximumExpandedSize.height - max(topInset, 0), 0)
     return heights.reduce(0, +) + spacing + footnoteHeight + metrics.panel.contentInset * 2
@@ -472,6 +482,17 @@ public struct ExpandedActivityView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
+    /// The clock the island itself is moving on, so a card arriving and the
+    /// island growing to hold it are one movement rather than two.
+    @Environment(\.islandContentMotion) private var islandMotion
+
+    /// Which way the last disclosure press moved the island.
+    ///
+    /// The environment carries the direction of whatever the *presenter* last
+    /// changed, and a list opened from inside the island is not that change. The
+    /// control knows its own direction before anything moves, so it records it
+    /// here for the rows to follow.
+    @State private var disclosureChange: IslandExtentChange = .growing
 
     private let activities: [any Activity]
     private let metrics: ExpandedItemMetrics
@@ -567,7 +588,7 @@ public struct ExpandedActivityView: View {
                 }
             }
             .environment(\.colorScheme, surface.preferredColorScheme)
-            .animation(disclosureAnimation, value: disclosedInstances)
+            .animation(islandMotion.changing(to: disclosureChange).content, value: disclosedInstances)
     }
 
     /// The items, separated the way the surface they sit on calls for.
@@ -593,16 +614,25 @@ public struct ExpandedActivityView: View {
                     IslandItemSeparator(height: metrics.panel.rowSpacing)
                 }
                 itemView(for: item)
+                    .transition(itemTransition)
             }
 
             if let footnote = blockedAgentFootnote(for: activities) {
                 BlockedAgentFootnoteView(
                     footnote: footnote,
                     metrics: metrics.panel,
-                    scale: .default
+                    scale: metrics.typeScale
                 )
             }
         }
+        .animation(islandMotion.content, value: items.map(\.id))
+    }
+
+    /// A card arrives and leaves the way a compact icon does: it grows out of
+    /// the island rather than blinking into a space that is already there.
+    private var itemTransition: AnyTransition {
+        guard reduceMotion == false else { return .opacity }
+        return .opacity.combined(with: .scale(scale: 0.94, anchor: .top))
     }
 
     @ViewBuilder
@@ -621,15 +651,20 @@ public struct ExpandedActivityView: View {
         }
     }
 
-    private var disclosureAnimation: Animation? {
-        reduceMotion ? nil : .easeInOut(duration: 0.18)
-    }
-
+    /// Opening a list makes the island taller and closing it makes it shorter,
+    /// so the press moves the island's own shape — which is why it carries the
+    /// shape's animation rather than leaving the change unanimated for the
+    /// ancestor that draws the surface.
     private func toggleDisclosure(for instance: ActivityIdentity) {
-        if disclosedInstances.contains(instance) {
-            disclosedInstances.remove(instance)
-        } else {
-            disclosedInstances.insert(instance)
+        let isOpening = disclosedInstances.contains(instance) == false
+        disclosureChange = isOpening ? .growing : .shrinking
+
+        withAnimation(islandMotion.changing(to: disclosureChange).container) {
+            if isOpening {
+                disclosedInstances.insert(instance)
+            } else {
+                disclosedInstances.remove(instance)
+            }
         }
     }
 
@@ -725,8 +760,7 @@ private struct GenericActivityRowView: View {
         )
 
         HStack(spacing: metrics.columnSpacing) {
-            Image(systemName: row.symbolName)
-                .font(.system(size: metrics.symbolSize, weight: .medium))
+            IslandSymbolIcon(systemName: row.symbolName, height: metrics.symbolSize)
                 .frame(width: metrics.symbolColumnWidth)
 
             Text(row.title)
@@ -740,7 +774,7 @@ private struct GenericActivityRowView: View {
                     onPrimaryAction(ActivityIdentity(row.id))
                 } label: {
                     Label(action.title, systemImage: action.symbolName)
-                        .font(.system(size: metrics.symbolSize - 2, weight: .semibold))
+                        .font(.system(size: IslandRowGrammar.default.controlSymbolSize, weight: .semibold))
                         .labelStyle(.iconOnly)
                 }
                 .buttonStyle(.plain)

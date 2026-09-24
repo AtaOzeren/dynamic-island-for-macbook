@@ -61,11 +61,9 @@ plan review:
 
 | Fact | Why |
 |---|---|
-| Build flavour: Direct or App Store | The two builds differ in backend and entitlements (`15-build-configuration-parity.md`) |
+| macOS version, and the music backend from Settings › About (`ScriptingBridge` or `MediaRemote`) | The backend is chosen by macOS release and observes players differently (`06-activity-providers.md`) |
 | Display target (built-in only / all displays, external monitor attached?) | Multi-display multiplies per-panel work |
 | Was an agent working at the time? | The agent dot and session state drive the expanded island |
-| Was Clock.app running? | `AppleClockMirror` drives Clock.app via Accessibility when permission is granted |
-| Accessibility permission state for KerNotch (granted / revoked / not asked) | Row F of the idle matrix isolates this path |
 
 ## If `log show` comes back empty
 
@@ -100,12 +98,12 @@ line `CPU watchdog not started: cpuWatchdogDisabled is set` (subsystem
 `com.kernotch.KerNotch`, category `cpu-watchdog`) confirms it was honoured.
 Undo it the same way, with `-bool NO`: by the time KerNotch has launched, the key is no longer in the domain for `defaults delete` to remove.
 
-**On a machine that has run both build flavours**, `defaults` sends the write to
-the sandbox container (`~/Library/Containers/com.kernotch.KerNotch/Data/Library/Preferences/`)
-as soon as that container exists, while a non-sandboxed **Direct** build reads
+**If a sandbox container for `com.kernotch.KerNotch` exists on the machine**
+(`~/Library/Containers/com.kernotch.KerNotch/`), `defaults` sends the write into
+it, while KerNotch, which is not sandboxed, reads
 `~/Library/Preferences/com.kernotch.KerNotch.plist`. The write then lands
-where the running app never looks. For a Direct build, address the file and
-flush the preferences daemon's cache:
+where the running app never looks. Address the file directly and flush the
+preferences daemon's cache:
 
 ```bash
 defaults write "$HOME/Library/Preferences/com.kernotch.KerNotch" "com.kernotch.settings.cpuWatchdog.disabled" -bool YES

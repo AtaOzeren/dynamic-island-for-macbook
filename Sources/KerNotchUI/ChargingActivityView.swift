@@ -3,62 +3,142 @@ import SwiftUI
 
 /// Everything the charging views draw, derived from `ChargingActivity` alone.
 ///
-/// Its shape is the no-persistent-percentage rule made structural at the last
-/// boundary: the presentation exposes a glyph and a label and no numeric field
-/// at all, and it is built from an activity that carries no capacity to begin
-/// with. A view cannot draw a percentage it was never given, and nothing in this
-/// file has anywhere to fetch one from.
+/// The level reaches the screen as the width of a fill, never as digits: the
+/// title is a statement about the transition, and only VoiceOver, which cannot
+/// see the fill, is told the number.
 public struct ChargingPresentation: Equatable, Sendable {
+    /// At or below this, a battery the charger just left is drawn red, as the
+    /// system draws a battery about to run out.
+    static let lowLevelThreshold = 0.2
+
     public let state: ChargingState
+    public let level: BatteryLevel
 
     public init(activity: ChargingActivity) {
         state = activity.state
+        level = activity.level
     }
 
-    /// The glyph carries the whole distinction between the three states, which
-    /// is why the states can be words rather than digits: a bolt reads as "power
-    /// is going in" at a glance, and a full battery reads as done.
-    public var symbolName: String {
-        switch state {
-        case .pluggedIn: "powerplug.fill"
-        case .charging: "battery.100.bolt"
-        case .fullyCharged: "battery.100"
-        }
-    }
-
-    /// What both the island and VoiceOver say. Each is a completed statement
-    /// about a transition rather than a reading that invites watching — the
-    /// difference between a notification and a gauge.
+    /// A completed statement about the transition rather than a reading that
+    /// invites watching — the difference between a notification and a gauge.
     public var title: String {
         switch state {
+        case .onBattery: localized("Unplugged")
         case .pluggedIn: localized("Plugged In")
         case .charging: localized("Charging")
         case .fullyCharged: localized("Fully Charged")
         }
     }
 
-    public var accessibilityLabel: String { title }
+    public var accessibilityLabel: String {
+        let percentage = level.fraction.formatted(.percent.precision(.fractionLength(0)))
+        return localized("activity.accessibility.headlineAndDetail", default: "\(title), \(percentage)")
+    }
+
+    /// Only while the battery is filling: a machine holding at its charge limit
+    /// is connected, but nothing is going in.
+    var showsChargingBolt: Bool { state == .charging }
+
+    var fillTone: BatteryFillTone {
+        if state.isConnectedToPower { return .connected }
+        return level.fraction <= Self.lowLevelThreshold ? .low : .standard
+    }
 }
 
-/// The charging activity's compact slot: the state's own glyph rather than the
-/// shared `.charging` one, so a full battery and an active charge are
-/// distinguishable in the pill without expanding it.
+enum BatteryFillTone: Equatable, Sendable {
+    case connected
+    case standard
+    case low
+}
+
+/// The charging activity's compact slot: the battery at its level, so plugging
+/// in and unplugging are distinguishable in the pill without expanding it.
 public func chargingCompactSlot(for activity: ChargingActivity) -> CompactSlot {
-    let presentation = ChargingPresentation(activity: activity)
-
-    return CompactSlot(
-        activity: activity,
-        symbolName: presentation.symbolName,
-        accessibilityLabel: presentation.accessibilityLabel
-    )
+    CompactSlot(charging: activity, presentation: ChargingPresentation(activity: activity))
 }
 
-/// The charging row: a glyph and a statement, and deliberately nothing else.
+/// The battery drawn the way the menu bar draws it: an outline, a fill as wide
+/// as the charge, and a bolt while it is filling.
+///
+/// Drawn rather than taken from SF Symbols because the battery symbols come in
+/// quarter steps and only the full one has a bolt variant, so a battery charging
+/// at 41% could only be drawn full or without its bolt.
+struct BatteryLevelGlyph: View {
+    /// How much wider than `size` the whole glyph draws: the body, the gap and
+    /// the cap. A battery is the one island icon that cannot be square, so it is
+    /// fitted to the width of the icon box everything else fills.
+    static let widthRatio: CGFloat = 1.6
+
+    static func size(fittingWidth width: CGFloat) -> CGFloat {
+        width / widthRatio
+    }
+
+    let presentation: ChargingPresentation
+    let size: CGFloat
+
+    var body: some View {
+        let bodySize = CGSize(width: size * 1.45, height: size * 0.72)
+        let outlineWidth = max(size * 0.08, 1)
+        let fillInset = outlineWidth + max(size * 0.06, 0.5)
+        let fillHeight = bodySize.height - fillInset * 2
+        let fillWidth = (bodySize.width - fillInset * 2) * presentation.level.fraction
+
+        HStack(spacing: size * 0.05) {
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: bodySize.height * 0.3, style: .continuous)
+                    .strokeBorder(.secondary, lineWidth: outlineWidth)
+                RoundedRectangle(cornerRadius: fillHeight * 0.25, style: .continuous)
+                    .fill(fillStyle)
+                    .frame(width: fillWidth, height: fillHeight)
+                    .padding(.leading, fillInset)
+            }
+            .frame(width: bodySize.width, height: bodySize.height)
+            .overlay {
+                if presentation.showsChargingBolt {
+                    chargingBolt(height: bodySize.height)
+                }
+            }
+
+            UnevenRoundedRectangle(
+                bottomTrailingRadius: size * 0.05,
+                topTrailingRadius: size * 0.05,
+                style: .continuous
+            )
+            .fill(.secondary)
+            .frame(width: size * 0.1, height: bodySize.height * 0.36)
+        }
+        .accessibilityHidden(true)
+    }
+
+    private var fillStyle: AnyShapeStyle {
+        switch presentation.fillTone {
+        case .connected: AnyShapeStyle(Color.green)
+        case .standard: AnyShapeStyle(.primary)
+        case .low: AnyShapeStyle(Color.red)
+        }
+    }
+
+    /// White on a slightly larger black bolt, so it stays legible over the
+    /// green fill and the empty outline alike.
+    private func chargingBolt(height: CGFloat) -> some View {
+        ZStack {
+            Image(systemName: "bolt.fill")
+                .font(.system(size: height * 1.05, weight: .black))
+                .foregroundStyle(.black)
+            Image(systemName: "bolt.fill")
+                .font(.system(size: height * 0.85, weight: .bold))
+                .foregroundStyle(.white)
+        }
+    }
+}
+
+/// The charging row: the battery glyph and a statement, and deliberately nothing
+/// else.
 ///
 /// There is no progress bar and no percentage, per
 /// `docs/06-activity-providers.md` — the activity reports that the power
-/// situation changed, then dismisses itself. A view that grew a gauge would turn
-/// a four-second notification into the permanent battery readout the design
+/// situation changed, then dismisses itself. A view that grew a live gauge would
+/// turn a four-second notification into the permanent battery readout the design
 /// exists to avoid.
 public struct ChargingActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -82,9 +162,11 @@ public struct ChargingActivityView: View {
         )
 
         HStack(spacing: 0) {
-            Image(systemName: presentation.symbolName)
-                .font(.system(size: metrics.symbolSize))
-                .frame(width: metrics.symbolColumnWidth)
+            BatteryLevelGlyph(
+                presentation: presentation,
+                size: BatteryLevelGlyph.size(fittingWidth: metrics.symbolSize)
+            )
+            .frame(width: metrics.symbolColumnWidth)
 
             Text(presentation.title)
                 .font(.system(size: metrics.titleSize, weight: .medium))

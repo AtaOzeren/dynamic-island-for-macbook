@@ -88,8 +88,8 @@ public protocol MusicPlayerQuerying: AnyObject {
     func send(_ command: MusicTransportCommand, to target: MusicPlayerTarget)
 }
 
-/// The App Store build's music backend: ScriptingBridge against Spotify and
-/// Music.app, woken by the distributed notifications those apps post.
+/// The music backend on macOS 15.4 and later: ScriptingBridge against Spotify
+/// and Music.app, woken by the distributed notifications those apps post.
 ///
 /// Nothing here polls, per `docs/06-activity-providers.md`: the provider holds
 /// no timer and reads no player state until a notification arrives, so a machine

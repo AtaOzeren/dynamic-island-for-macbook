@@ -14,14 +14,10 @@ public struct CompactMusicSlotPresentation: Equatable, Sendable {
     }
 }
 
-/// One drawn element of the compact pill: either an activity's icon or the
-/// single overflow indicator that stands in for everything past the capacity in
-/// `docs/05-activity-model.md`.
+/// One drawn element of the compact pill: one compact group's icon.
 public struct CompactSlot: Identifiable, Equatable, Sendable {
     public let id: String
     public let symbolName: String
-    public let label: String?
-    public let overflowCount: Int?
     public let accessibilityLabel: String
 
     /// Draws moving equaliser bars in place of the glyph. Carried as a flag
@@ -29,28 +25,27 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     /// they animate, and only while something is actually playing.
     public let isPlayingMusic: Bool
     public let musicSourceIdentity: MusicSourceIdentity?
-    public let recordingSource: RecordingSource?
+    public let recordingIndicator: CompactRecordingIndicator?
     public let discordCall: DiscordCallPresentation?
+    public let charging: ChargingPresentation?
     let aiAgentPresentation: CompactAIAgentSlotPresentation?
     public var aiAgentID: IPCAgentID? { aiAgentPresentation?.agentID }
 
     fileprivate init(activity: any Activity) {
         id = activity.identity.rawValue
         symbolName = compactSymbolName(activity.kind)
-        label = nil
-        overflowCount = nil
         accessibilityLabel = compactAccessibilityLabel(activity.kind)
         isPlayingMusic = false
         musicSourceIdentity = nil
-        recordingSource = nil
+        recordingIndicator = nil
         discordCall = nil
+        charging = nil
         aiAgentPresentation = nil
     }
 
     /// For activities whose per-instance detail outgrows what the kind alone can
-    /// say — music announces "Windowlicker — Aphex Twin" rather than "Music", and
-    /// charging draws a full battery rather than the shared bolt once the charge
-    /// is done. Omitting `symbolName` keeps the kind's glyph.
+    /// say — music announces "Windowlicker — Aphex Twin" rather than "Music".
+    /// Omitting `symbolName` keeps the kind's glyph.
     init(
         activity: any Activity,
         id: ActivityIdentity? = nil,
@@ -61,29 +56,27 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     ) {
         self.id = (id ?? activity.identity).rawValue
         self.symbolName = symbolName ?? compactSymbolName(activity.kind)
-        label = nil
-        overflowCount = nil
         self.accessibilityLabel = accessibilityLabel
         isPlayingMusic = musicPresentation?.isPlaying ?? false
         musicSourceIdentity = musicPresentation?.sourceIdentity
-        recordingSource = nil
+        recordingIndicator = nil
         discordCall = nil
+        charging = nil
         self.aiAgentPresentation = aiAgentPresentation
     }
 
     init(
         recording activity: RecordingActivity,
-        presentation: RecordingPresentation
+        indicator: CompactRecordingIndicator
     ) {
-        id = activity.identity.rawValue
-        symbolName = presentation.symbolName
-        label = nil
-        overflowCount = nil
-        accessibilityLabel = presentation.accessibilityLabel
+        id = indicator.slotIdentity(for: activity).rawValue
+        symbolName = indicator.symbolName
+        accessibilityLabel = indicator.accessibilityLabel
         isPlayingMusic = false
         musicSourceIdentity = nil
-        recordingSource = activity.source
+        recordingIndicator = indicator
         discordCall = nil
+        charging = nil
         aiAgentPresentation = nil
     }
 
@@ -93,36 +86,34 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
     ) {
         id = activity.identity.rawValue
         symbolName = presentation.microphoneSymbolName
-        label = nil
-        overflowCount = nil
         accessibilityLabel = presentation.accessibilityLabel
         isPlayingMusic = false
         musicSourceIdentity = nil
-        recordingSource = nil
+        recordingIndicator = nil
         discordCall = presentation
+        charging = nil
         aiAgentPresentation = nil
     }
 
-    fileprivate init(overflowCount: Int) {
-        id = Self.overflowIdentifier
-        symbolName = "ellipsis"
-        label = "+\(overflowCount)"
-        self.overflowCount = overflowCount
-        accessibilityLabel = localized("\(overflowCount) more activities")
+    init(
+        charging activity: ChargingActivity,
+        presentation: ChargingPresentation
+    ) {
+        id = activity.identity.rawValue
+        symbolName = compactSymbolName(activity.kind)
+        accessibilityLabel = presentation.accessibilityLabel
         isPlayingMusic = false
         musicSourceIdentity = nil
-        recordingSource = nil
+        recordingIndicator = nil
         discordCall = nil
+        charging = presentation
         aiAgentPresentation = nil
     }
-
-    private static let overflowIdentifier = "kernotch.compact.overflow"
 }
 
 /// How the pill's slots divide around the notch. The notch itself is opaque
-/// hardware, so the pill can only draw to either side of it, and reading order
-/// fills the leading side first — the highest-priority activity is the one the
-/// eye reaches first.
+/// hardware, so the pill can only draw to either side of it; which slots go
+/// where, and which are left out, is `CompactFlankAllocation`'s rule.
 public struct CompactSlotLayout: Equatable, Sendable {
     public let leading: [CompactSlot]
     public let trailing: [CompactSlot]
@@ -219,15 +210,17 @@ public func balancedCompactPillSize(
 /// One activity's slot, routed to the kind that knows how to describe itself.
 ///
 /// Music and charging both announce per-instance detail the shared kind label
-/// cannot carry — the actual track, and a full battery once charging completes.
+/// cannot carry — the actual track, and how full the battery is.
 ///
-/// `groupSize` is how many active activities the slot stands for. Only the AI
-/// agent slot has anything to say about it: every other kind draws one icon per
-/// activity, so its group is always itself.
+/// `groupSize` is how many active activities the slot stands for. Only grouped
+/// kinds have anything to say about it — the AI agent slot counts its sessions,
+/// and the recording slot draws both captures at once — while every other kind
+/// draws one icon per activity, so its group is always itself.
 private func compactSlot(for activity: any Activity, groupSize: Int) -> CompactSlot {
     switch activity {
     case let music as MusicActivity: musicCompactSlot(for: music)
-    case let recording as RecordingActivity: recordingCompactSlot(for: recording)
+    case let recording as RecordingActivity:
+        recordingCompactSlot(for: recording, sourceCount: groupSize)
     case let call as DiscordCallActivity: discordCallCompactSlot(for: call)
     case let charging as ChargingActivity: chargingCompactSlot(for: charging)
     case let aiAgent as AIAgentActivity:
@@ -236,62 +229,53 @@ private func compactSlot(for activity: any Activity, groupSize: Int) -> CompactS
     }
 }
 
-/// The ordered slots for `presentation`, which has already applied the priority
-/// ordering and the capacity limit in `ActivityManager`.
+/// One slot per compact group, in the order `ActivityManager` ranked them.
+/// Every group gets one; which of them are drawn is the layout's decision.
 public func compactSlots(for presentation: CompactActivityPresentation) -> [CompactSlot] {
-    var slots = presentation.activities.map { activity in
+    presentation.activities.map { activity in
         compactSlot(
             for: activity,
             groupSize: presentation.groupSizes[activity.compactGroupIdentity] ?? 1
         )
     }
-    guard presentation.overflowCount > 0 else { return slots }
-    let insertionIndex = slots.firstIndex { $0.aiAgentID != nil } ?? slots.endIndex
-    slots.insert(CompactSlot(overflowCount: presentation.overflowCount), at: insertionIndex)
-    return slots
 }
 
-/// Splits the slots around the notch, filling the leading side first so the
-/// overflow indicator — always last — lands on the trailing side.
+/// Splits the slots around the notch, leaving out the standard slots the pill
+/// has no room for.
 public func compactSlotLayout(for presentation: CompactActivityPresentation) -> CompactSlotLayout {
     compactSlotLayout(for: compactSlots(for: presentation))
 }
 
+/// Allocated from the slots actually drawn, so a slot already taken off the
+/// pill — a track paused long enough — never holds a place another icon needs,
+/// and never pushes one to the other side of the notch.
 private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
     let agentSlots = slots.filter { $0.aiAgentID != nil }
-    if agentSlots.isEmpty == false {
-        return CompactSlotLayout(
-            leading: slots.filter { $0.aiAgentID == nil },
-            trailing: agentSlots
-        )
-    }
+    let standardSlots = slots.filter { $0.aiAgentID == nil }
+    let allocation = CompactFlankAllocation(
+        standardCount: standardSlots.count,
+        agentCount: agentSlots.count
+    )
 
-    let leadingCount = (slots.count + 1) / 2
     return CompactSlotLayout(
-        leading: Array(slots.prefix(leadingCount)),
-        trailing: Array(slots.dropFirst(leadingCount))
+        leading: Array(standardSlots.prefix(allocation.leadingStandardCount)),
+        trailing: Array(
+            standardSlots
+                .dropFirst(allocation.leadingStandardCount)
+                .prefix(allocation.trailingStandardCount)
+        ) + agentSlots
     )
 }
 
-/// The presentation with finished announcements taken out of the pill, and the
-/// slots they were holding given back.
+/// The presentation with finished announcements taken out of the pill.
 ///
-/// Hiding the slot is not enough on two counts.
+/// Hiding the slot is not enough: a group that keeps its slot because *some* of
+/// it is live still has its muted failure speaking for it, which holds an
+/// agent's icon red for hours while another instance of it runs happily.
 ///
-/// The manager picks which agent groups fit the pill by urgency, and a failure
-/// outranks work in flight — so a blocked agent wins a slot, and hiding it
-/// afterwards leaves that slot empty while a third agent that is genuinely
-/// working is never drawn at all. And a group that keeps its slot because
-/// *some* of it is live still has its muted failure speaking for it, which
-/// holds an agent's icon red for hours while another instance of it runs
-/// happily.
-///
-/// Both are the same mistake — deciding who speaks before knowing who has
-/// anything left to say — so the agent side of the pill is re-picked here from
-/// the members that do. The rule mirrors the manager's, and the budget is
-/// whatever the manager already allowed, so nothing about the ordinary case
-/// changes: with no announcement pending this returns the presentation
-/// untouched.
+/// That is deciding who speaks before knowing who has anything left to say, so
+/// the agent side of the pill is re-picked here from the members that do. With
+/// no announcement pending this returns the presentation untouched.
 public func compactPresentation(
     _ presentation: CompactActivityPresentation,
     reconciledWith activities: [any Activity],
@@ -302,8 +286,6 @@ public func compactPresentation(
     guard announcementStarts.isEmpty == false else { return presentation }
 
     let standard = presentation.activities.filter { $0.compactRegion != .agentTrailing }
-    let budget = presentation.activities.count - standard.count
-    guard budget > 0 else { return presentation }
 
     var speakers: [ActivityIdentity: any Activity] = [:]
     var latest: [ActivityIdentity: Date] = [:]
@@ -325,20 +307,11 @@ public func compactPresentation(
 
     let agents =
         speakers
-        .sorted { left, right in
-            let leftKey = (left.value.compactRepresentationPriority, latest[left.key] ?? .distantPast)
-            let rightKey = (
-                right.value.compactRepresentationPriority, latest[right.key] ?? .distantPast
-            )
-            return leftKey > rightKey
-        }
-        .prefix(budget)
         .sorted { (latest[$0.key] ?? .distantPast) < (latest[$1.key] ?? .distantPast) }
         .map(\.value)
 
     return CompactActivityPresentation(
         activities: standard + agents,
-        overflowCount: presentation.overflowCount,
         groupSizes: presentation.groupSizes
     )
 }
@@ -431,7 +404,6 @@ public func compactSymbolName(_ kind: ActivityKind) -> String {
     case .recording: "record.circle"
     case .charging: "bolt.fill"
     case .aiAgent: "sparkles"
-    case .fileTransfer: "arrow.down.circle"
     case .watchdogNotice: "exclamationmark.triangle.fill"
     case .discordCall: "mic.fill"
     }
@@ -444,7 +416,6 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
     case .recording: localized("Recording")
     case .charging: localized("Charging")
     case .aiAgent: localized("AI agent")
-    case .fileTransfer: localized("Transfer")
     case .watchdogNotice: localized("High CPU recovery")
     case .discordCall: localized("Discord call")
     }
@@ -456,11 +427,13 @@ public struct CompactActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
+    /// The clock the island itself is moving on. The pill's own width follows
+    /// the island's shape, and its icons follow a hair behind it.
+    @Environment(\.islandContentMotion) private var islandMotion
 
     private let presentation: CompactActivityPresentation
     private let notchSize: CGSize
     private let metrics: CompactPillMetrics
-    private let motion: IslandMotion
 
     /// Music icons the presenter has taken off the pill. Read, never written:
     /// the presenter's clocks own the countdown, because this view is rebuilt
@@ -471,14 +444,12 @@ public struct CompactActivityView: View {
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
         hiddenMusicSlotIDs: Set<String> = [],
-        metrics: CompactPillMetrics = .default,
-        motion: IslandMotion = .default
+        metrics: CompactPillMetrics = .default
     ) {
         self.presentation = presentation
         self.notchSize = notchSize
         self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
         self.metrics = metrics
-        self.motion = motion
     }
 
     public var body: some View {
@@ -512,7 +483,6 @@ public struct CompactActivityView: View {
             }
         }
         .environment(\.colorScheme, surface.preferredColorScheme)
-        .animation(slotAnimation, value: visibleSlots)
     }
 
     /// The opaque notch plus the gap owed to each occupied flank.
@@ -538,7 +508,7 @@ public struct CompactActivityView: View {
                     .transition(slotTransition)
             }
         }
-        .animation(slotAnimation, value: slots)
+        .animation(islandMotion.content, value: slots)
     }
 
     /// Slots grow out of, and shrink back into, the notch's edge rather than
@@ -549,27 +519,44 @@ public struct CompactActivityView: View {
         return .scale(scale: 0.6).combined(with: .opacity)
     }
 
-    private var slotAnimation: Animation {
-        reduceMotion
-            ? .easeOut(duration: motion.reducedMotionCrossFadeDuration)
-            : .spring(response: motion.springResponse, dampingFraction: motion.springDamping)
-    }
-
+    /// Every icon is drawn in the same band: the agent logo's own, so a
+    /// microphone, a battery and a logo sit at one height and on one centre
+    /// line. Each glyph used to carry a factor of its own, which is why a
+    /// microphone came out taller than the warning triangle beside it and a
+    /// screen mark shorter than both.
     private func slotView(_ slot: CompactSlot) -> some View {
         Group {
-            if let label = slot.label {
-                Text(label)
-                    .font(.system(size: metrics.symbolSize, weight: .semibold, design: .rounded))
-            } else if slot.recordingSource == .screen {
-                AnimatedScreenRecordingIcon(size: metrics.symbolSize * 0.84)
-            } else if slot.recordingSource == .audio {
-                AnimatedMicrophoneRecordingIcon(size: metrics.symbolSize * 0.84)
-            } else if let discordCall = slot.discordCall {
-                DiscordCallIcon(isMuted: discordCall.isMuted, size: metrics.symbolSize * 0.84, animatesArrival: true)
-            } else if let aiAgentPresentation = slot.aiAgentPresentation {
+            if let aiAgentPresentation = slot.aiAgentPresentation {
                 CompactAIAgentIcon(
                     presentation: aiAgentPresentation,
                     iconSize: metrics.symbolSize
+                )
+            } else {
+                slotIcon(slot)
+                    .frame(height: metrics.symbolSize)
+                    .padding(.top, metrics.iconBandTopInset)
+                    .frame(height: metrics.slotHeight, alignment: .top)
+            }
+        }
+        .frame(width: metrics.slotWidth)
+        .accessibilityLabel(slot.accessibilityLabel)
+    }
+
+    @ViewBuilder
+    private func slotIcon(_ slot: CompactSlot) -> some View {
+        Group {
+            if let recordingIndicator = slot.recordingIndicator {
+                CompactRecordingIcon(indicator: recordingIndicator, size: metrics.symbolSize)
+            } else if let charging = slot.charging {
+                BatteryLevelGlyph(
+                    presentation: charging,
+                    size: BatteryLevelGlyph.size(fittingWidth: metrics.wideIconWidth)
+                )
+            } else if let discordCall = slot.discordCall {
+                DiscordCallIcon(
+                    presentation: discordCall,
+                    size: metrics.symbolSize,
+                    animatesArrival: true
                 )
             } else if let sourceIdentity = slot.musicSourceIdentity {
                 if slot.isPlayingMusic {
@@ -579,16 +566,30 @@ public struct CompactActivityView: View {
                         sourceIdentity: sourceIdentity
                     )
                 } else {
-                    Image(systemName: slot.symbolName)
-                        .font(.system(size: metrics.symbolSize, weight: .medium))
+                    IslandSymbolIcon(systemName: slot.symbolName, height: metrics.symbolSize)
                         .foregroundStyle(musicAccentColor(sourceIdentity))
                 }
             } else {
-                Image(systemName: slot.symbolName)
-                    .font(.system(size: metrics.symbolSize, weight: .medium))
+                IslandSymbolIcon(systemName: slot.symbolName, height: metrics.symbolSize)
             }
         }
-        .frame(width: metrics.slotWidth)
-        .accessibilityLabel(slot.accessibilityLabel)
     }
+}
+
+extension CompactPillMetrics {
+    /// How far below the pill's top the icon band begins. The agent slot hangs
+    /// a session-count badge above its logo, and every other icon lines up with
+    /// that logo rather than with the badge's corner.
+    var iconBandTopInset: CGFloat { CompactAIAgentMetrics.default.countBadgeOverhang }
+
+    /// The whole slot: the badge's corner, the icon band, and the room the
+    /// agent's status light hangs in underneath.
+    var slotHeight: CGFloat {
+        iconBandTopInset + CompactAIAgentMetrics.default.statusBaseline(iconSize: symbolSize)
+    }
+
+    /// How wide an icon that cannot be square — the battery — is drawn. Narrower
+    /// than the slot, so it keeps the air its neighbours have around them
+    /// instead of reaching the icon beside it.
+    var wideIconWidth: CGFloat { (slotWidth * 0.8).rounded() }
 }

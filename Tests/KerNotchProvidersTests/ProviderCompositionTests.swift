@@ -50,7 +50,7 @@ struct ProviderCompositionTests {
     func routesActivityIntoManager() {
         let fixture = Self.makeFixture()
 
-        fixture.power.emit(.charging)
+        fixture.power.plugIn()
 
         #expect(fixture.manager.activeActivities.map(\.identity) == [ActivityIdentity("kernotch.charging")])
     }
@@ -58,7 +58,7 @@ struct ProviderCompositionTests {
     @Test("removes the activities of a provider disabled in settings")
     func disablingRemovesActivities() {
         let fixture = Self.makeFixture()
-        fixture.power.emit(.charging)
+        fixture.power.plugIn()
         fixture.sessions.emit(RecordingSession(startedAt: Date(timeIntervalSince1970: 0)))
 
         fixture.registry.setEnabled(false, for: .charging)
@@ -84,7 +84,7 @@ struct ProviderCompositionTests {
         fixture.registry.setEnabled(false, for: .charging)
 
         fixture.registry.setEnabled(true, for: .charging)
-        fixture.power.emit(.charging)
+        fixture.power.plugIn()
 
         #expect(fixture.power.isObserving)
         #expect(fixture.manager.activeActivities.map(\.identity) == [ActivityIdentity("kernotch.charging")])
@@ -113,11 +113,11 @@ struct ProviderCompositionTests {
 
 @MainActor
 private final class FakePowerSourceObserver: PowerSourceObserving {
-    private var observer: PowerSourceStateObserver?
+    private var observer: PowerSourceReadingObserver?
 
     var isObserving: Bool { observer != nil }
 
-    func startObserving(_ observer: @escaping PowerSourceStateObserver) {
+    func startObserving(_ observer: @escaping PowerSourceReadingObserver) {
         self.observer = observer
     }
 
@@ -125,8 +125,15 @@ private final class FakePowerSourceObserver: PowerSourceObserving {
         observer = nil
     }
 
-    func emit(_ state: PowerSourceState) {
-        observer?(state)
+    func emit(_ state: ChargingState) {
+        observer?(PowerSourceReading(state: state, level: BatteryLevel(fraction: 0.5)))
+    }
+
+    /// The first reading is only the provider's baseline, so plugging in is an
+    /// unplugged reading followed by a connected one.
+    func plugIn() {
+        emit(.onBattery)
+        emit(.charging)
     }
 }
 

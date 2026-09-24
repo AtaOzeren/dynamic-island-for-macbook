@@ -74,8 +74,8 @@ struct ActivityManagerTests {
     func removeOnEnd() {
         let manager = ActivityManager()
         let activity = StubManagerActivity(
-            identity: ActivityIdentity("file.transfer"),
-            kind: .fileTransfer,
+            identity: ActivityIdentity("charging.status"),
+            kind: .charging,
             priority: .normal
         )
 
@@ -93,9 +93,9 @@ struct ActivityManagerTests {
             kind: .music,
             priority: .low
         )
-        let transfer = StubManagerActivity(
-            identity: ActivityIdentity("file.copy"),
-            kind: .fileTransfer,
+        let charging = StubManagerActivity(
+            identity: ActivityIdentity("charging.status"),
+            kind: .charging,
             priority: .normal
         )
         let timer = StubManagerActivity(
@@ -105,49 +105,84 @@ struct ActivityManagerTests {
         )
 
         manager.register(music, at: date(1))
-        manager.register(transfer, at: date(2))
+        manager.register(charging, at: date(2))
         manager.register(timer, at: date(3))
 
         let identities = manager.activeActivities.map(\.identity)
         #expect(
             identities == [
                 ActivityIdentity("timer.pomodoro"),
-                ActivityIdentity("file.copy"),
+                ActivityIdentity("charging.status"),
                 ActivityIdentity("music.track"),
             ])
     }
 
-    @Test("enforces compact slot limit and reports overflow count")
-    func compactSlotLimitAndOverflow() {
-        let manager = ActivityManager(compactCapacity: 2)
-        let first = StubManagerActivity(
-            identity: ActivityIdentity("act.1"),
-            kind: .timer,
-            priority: .high
-        )
-        let second = StubManagerActivity(
-            identity: ActivityIdentity("act.2"),
-            kind: .fileTransfer,
-            priority: .normal
-        )
-        let third = StubManagerActivity(
-            identity: ActivityIdentity("act.3"),
-            kind: .music,
-            priority: .low
-        )
+    @Test("hands the pill every standard activity, however many there are")
+    func compactPresentationDropsNothing() {
+        let manager = ActivityManager()
+        for index in 1...6 {
+            manager.register(
+                StubManagerActivity(
+                    identity: ActivityIdentity("act.\(index)"),
+                    kind: .timer,
+                    priority: .normal
+                ),
+                at: date(TimeInterval(index))
+            )
+        }
 
-        manager.register(first, at: date(1))
-        manager.register(second, at: date(2))
-        manager.register(third, at: date(3))
+        #expect(manager.compactPresentation.activities.count == 6)
+    }
 
-        #expect(manager.compactPresentation.activities.count == 1)
-        #expect(manager.compactPresentation.overflowCount == 2)
-        #expect(manager.expandedActivities.count == 3)
+    /// The user's own example: a Discord call, a meeting holding the
+    /// microphone, and a track playing. The expanded list pins media above
+    /// everything; the pill ranks the call and the capture above the music.
+    @Test("orders the pill by compact rank rather than by the expanded list's order")
+    func compactOrderFollowsRank() {
+        let manager = ActivityManager()
+        manager.register(
+            MusicActivity(nowPlaying: NowPlaying(title: "Windowlicker", artist: "Aphex Twin", playbackState: .playing)),
+            at: date(1)
+        )
+        manager.register(ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.4)), at: date(2))
+        manager.register(DiscordCallActivity(channel: nil, isMuted: false), at: date(3))
+        manager.register(RecordingActivity.started(.audio, at: date(4)), at: date(4))
+
+        let kinds = manager.compactPresentation.activities.map(\.kind)
+
+        #expect(kinds == [.recording, .discordCall, .charging, .music])
+        #expect(manager.expandedActivities.first?.kind == .discordCall)
+    }
+
+    @Test("breaks a tie in rank by start time")
+    func compactRankTieFallsBackToStartTime() {
+        let manager = ActivityManager()
+        let later = StubManagerActivity(identity: ActivityIdentity("later"), kind: .timer, priority: .high)
+        let earlier = StubManagerActivity(identity: ActivityIdentity("earlier"), kind: .timer, priority: .low)
+        manager.register(earlier, at: date(1))
+        manager.register(later, at: date(2))
+
+        #expect(manager.compactPresentation.activities.map(\.identity) == [earlier.identity, later.identity])
+    }
+
+    @Test("a screen recording and the microphone share one compact element")
+    func recordingSourcesShareOneCompactElement() throws {
+        let manager = ActivityManager()
+        let screen = RecordingActivity.started(.screen, at: date(1))
+        manager.register(screen, at: date(1))
+        manager.register(RecordingActivity.started(.audio, at: date(2)), at: date(2))
+
+        let presentation = manager.compactPresentation
+        let recording = try #require(presentation.activities.first as? RecordingActivity)
+
+        #expect(presentation.activities.count == 1)
+        #expect(presentation.groupSizes[recording.compactGroupIdentity] == 2)
+        #expect(manager.expandedActivities.count == 2)
     }
 
     @Test("counts concurrent sessions from one agent as one compact activity")
     func compactGroupsSessionsByAgent() {
-        let manager = ActivityManager(compactCapacity: 3)
+        let manager = ActivityManager()
         for index in 0..<4 {
             manager.register(
                 aiAgent(
@@ -161,20 +196,18 @@ struct ActivityManagerTests {
 
         #expect(manager.expandedActivities.count == 4)
         #expect(manager.compactPresentation.activities.count == 1)
-        #expect(manager.compactPresentation.overflowCount == 0)
         #expect((manager.compactPresentation.activities.first as? AIAgentActivity)?.agent == .opencode)
     }
 
     @Test("keeps different agents as separate compact activities")
     func compactKeepsAgentsSeparate() {
-        let manager = ActivityManager(compactCapacity: 3)
+        let manager = ActivityManager()
         manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(1))
         manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(2))
         manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(3))
         manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(4))
 
         #expect(manager.compactPresentation.activities.count == 2)
-        #expect(manager.compactPresentation.overflowCount == 0)
         #expect(
             Set(
                 manager.compactPresentation.activities.compactMap {
@@ -184,9 +217,9 @@ struct ActivityManagerTests {
         )
     }
 
-    @Test("reserves two compact positions for the newest AI agents")
-    func compactReservesNewestAgentPositions() {
-        let manager = ActivityManager(compactCapacity: 3)
+    @Test("draws every agent after the standard activities, oldest first")
+    func compactDrawsEveryAgent() {
+        let manager = ActivityManager()
         for index in 1...4 {
             manager.register(
                 StubManagerActivity(
@@ -203,12 +236,11 @@ struct ActivityManagerTests {
 
         let presentation = manager.compactPresentation
 
-        #expect(presentation.activities.filter { $0.kind != .aiAgent }.count == 2)
+        #expect(presentation.activities.prefix(4).allSatisfy { $0.kind != .aiAgent })
         #expect(
             presentation.activities.compactMap { ($0 as? AIAgentActivity)?.agent }
-                == [.codex, .opencode]
+                == [.claudeCode, .codex, .opencode]
         )
-        #expect(presentation.overflowCount == 2)
     }
 
     @Test("represents an agent group with its most important live state")
@@ -471,37 +503,16 @@ struct ActivityManagerTests {
         #expect(manager.compactPresentation.groupSizes[first.compactGroupIdentity] == 1)
     }
 
-    // MARK: - Which agents survive the compact capacity
+    // MARK: - Agents in the compact pill
 
     /// The reported defect: three agents running, and the one that stopped to
-    /// ask a question is the one the pill drops.
-    ///
-    /// Capacity used to be decided on start time alone, so the agent needing the
-    /// user was pushed out simply for having started first — the island then
-    /// showed two agents working and no sign that a third was blocked.
-    @Test("an agent waiting on the user is never dropped for a newer one")
+    /// ask a question was the one the pill dropped. Every agent now has a place.
+    @Test("an agent waiting on the user is drawn beside two working ones")
     @MainActor
-    func compactCapacityKeepsTheAgentNeedingTheUser() {
-        let manager = ActivityManager()
-        let waiting = aiAgent(agent: .claudeCode, sessionID: UUID(), state: .waitingForUser)
-        manager.register(waiting, at: date(0))
-        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
-        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(20))
-
-        let drawn = manager.compactPresentation.activities
-            .compactMap { ($0 as? AIAgentActivity)?.agent }
-
-        #expect(drawn.count == 2)
-        #expect(drawn.contains(.claudeCode), "the agent waiting on the user was dropped")
-    }
-
-    /// A failure outranks work in flight for the same reason a question does.
-    @Test("a failed agent is never dropped for a newer working one")
-    @MainActor
-    func compactCapacityKeepsTheFailedAgent() {
+    func compactDrawsTheAgentNeedingTheUser() {
         let manager = ActivityManager()
         manager.register(
-            aiAgent(agent: .claudeCode, sessionID: UUID(), state: .error),
+            aiAgent(agent: .claudeCode, sessionID: UUID(), state: .waitingForUser),
             at: date(0)
         )
         manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
@@ -510,23 +521,7 @@ struct ActivityManagerTests {
         let drawn = manager.compactPresentation.activities
             .compactMap { ($0 as? AIAgentActivity)?.agent }
 
-        #expect(drawn.contains(.claudeCode))
-    }
-
-    /// With nothing to separate them on urgency, recency still decides — the
-    /// behaviour the urgency rule refines rather than replaces.
-    @Test("equally urgent agents fall back to the most recent two")
-    @MainActor
-    func compactCapacityFallsBackToRecency() {
-        let manager = ActivityManager()
-        manager.register(aiAgent(agent: .claudeCode, sessionID: UUID()), at: date(0))
-        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
-        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(20))
-
-        let drawn = manager.compactPresentation.activities
-            .compactMap { ($0 as? AIAgentActivity)?.agent }
-
-        #expect(drawn == [.codex, .opencode])
+        #expect(drawn == [.claudeCode, .codex, .opencode])
     }
 
     /// The reported defect: one terminal delegating to four sub-agents badged
@@ -583,26 +578,6 @@ struct ActivityManagerTests {
         manager.register(aiAgent(agent: .opencode, sessionID: second))
 
         #expect(manager.compactPresentation.groupSizes[instance.compactGroupIdentity] == 2)
-    }
-
-    /// A group is judged on its most urgent session, not on whichever one
-    /// happens to have registered last.
-    @Test("a group is admitted on its most urgent session")
-    @MainActor
-    func compactCapacityJudgesAGroupOnItsMostUrgentSession() {
-        let manager = ActivityManager()
-        manager.register(aiAgent(agent: .claudeCode, sessionID: UUID()), at: date(0))
-        manager.register(
-            aiAgent(agent: .claudeCode, sessionID: UUID(), state: .waitingForUser),
-            at: date(1)
-        )
-        manager.register(aiAgent(agent: .codex, sessionID: UUID()), at: date(10))
-        manager.register(aiAgent(agent: .opencode, sessionID: UUID()), at: date(20))
-
-        let drawn = manager.compactPresentation.activities
-            .compactMap { ($0 as? AIAgentActivity)?.agent }
-
-        #expect(drawn.contains(.claudeCode))
     }
 }
 

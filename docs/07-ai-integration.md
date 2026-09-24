@@ -110,8 +110,8 @@ KerNotch accepts the envelope over two transports. Both carry the identical JSON
 
 | Transport | How it's invoked | Entitlement | Availability |
 |---|---|---|---|
-| Custom URL scheme | `open -g "kernotch://ai-status?payload=<url-encoded-json>"` | None | Works in both the App Store and Direct builds |
-| Loopback HTTP listener | `POST` to `http://127.0.0.1:<port>/ai-status` with the envelope as the request body | `com.apple.security.network.server` (sandboxed build only) | Works in both builds; the App Store build must declare the entitlement, the Direct build needs no entitlement |
+| Custom URL scheme | `open -g "kernotch://ai-status?payload=<url-encoded-json>"` | None | Launches KerNotch if it is not running |
+| Loopback HTTP listener | `POST` to `http://127.0.0.1:<port>/ai-status` with the envelope as the request body | None | Reachable only while KerNotch is running |
 
 Generated agent hooks use only the **HTTP listener** and silently drop events when KerNotch is not running, so agent activity can never launch an app the user quit. The custom URL scheme remains available to callers that explicitly choose it.
 
@@ -649,11 +649,9 @@ KerNotch writes an agent configuration only after that agent has been explicitly
 5. **Uninstall.** A one-click "Remove KerNotch hooks" action in Settings reverses the change, restoring the backed-up file or removing exactly the entries KerNotch added.
 6. **Repair.** On later launches, an enabled agent whose generated hook is missing or older is repaired automatically. This reuses the user's existing enablement consent; disabled agents are never changed.
 
-### Sandbox note
+### Manual setup
 
-The measured extent of these restrictions, and the routes that would remove the manual step, are in `docs/15-build-configuration-parity.md`. That document also records a second sandbox limit this section does not cover: the App Store build cannot see the process table at all, so it cannot link a running agent to the application hosting it.
-
-The App Store build's App Sandbox does not permit writing to `~/.claude` or `~/.codex`, and it has no user-selected-file entitlement or file-picker flow. It therefore shows each hook or plugin as a copyable snippet for manual installation. The Direct build has no sandbox restriction on the home directory and may write directly once the user consents in-app; if the user declines, it also leaves the snippet available for manual installation.
+KerNotch is not sandboxed, so once the user consents in-app it writes `~/.claude/settings.json`, `~/.codex/config.toml`, and `~/.config/opencode/plugins/kernotch.ts` directly. If the user declines, or the file system refuses the write, each hook or plugin stays available as a copyable snippet for manual installation.
 
 ## Privacy
 

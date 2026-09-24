@@ -138,8 +138,12 @@ struct SystemScreenRecordingObserverTests {
         #expect(scheduler.isScheduled)
     }
 
-    @Test("ends recording and cancels detection when the capture UI terminates")
-    func terminationEndsRecordingAndCancelsDetection() {
+    /// The reported defect. The screenshot toolbar quits once recording is
+    /// under way — the capture is carried by `screencapture` and `replayd` —
+    /// and treating its absence as "not recording" took the indicator off the
+    /// island for the rest of the session.
+    @Test("a recording outlives the capture UI that started it")
+    func recordingSurvivesCaptureUITermination() {
         let bundleIdentifier = "com.example.screen-recorder"
         let application = FakeRunningApplication(bundleIdentifier: bundleIdentifier)
         let center = NotificationCenter()
@@ -163,9 +167,39 @@ struct SystemScreenRecordingObserverTests {
             userInfo: [NSWorkspace.applicationUserInfoKey: application]
         )
 
+        #expect(emissions == [RecordingSession(startedAt: Self.now)], "the toolbar quitting ended the recording")
+        #expect(scheduler.isScheduled, "nothing was left watching for the recording to end")
+
+        capture.isRecording = false
+        scheduler.fire()
+
         #expect(emissions == [RecordingSession(startedAt: Self.now), nil])
-        #expect(scheduler.isScheduled == false)
+        #expect(scheduler.isScheduled == false, "the tick outlived the recording")
     }
+
+    /// A recording already under way when KerNotch starts is one the user is in
+    /// the middle of, and there is no edge left to wait for.
+    @Test("reports a recording that was already running when observation starts")
+    func recordingInProgressAtStartIsReported() {
+        let capture = CaptureState()
+        capture.isRecording = true
+        let scheduler = FakeTickScheduler()
+        let observer = SystemScreenRecordingObserver(
+            workspaceCenter: NotificationCenter(),
+            runningBundleIdentifiers: { [] },
+            isScreenRecording: { capture.isRecording },
+            scheduler: scheduler,
+            recorderBundleIdentifiers: ["com.example.screen-recorder"],
+            now: { Self.now }
+        )
+        var emissions: [RecordingSession?] = []
+
+        observer.startObserving { emissions.append($0) }
+
+        #expect(emissions == [RecordingSession(startedAt: Self.now)])
+        #expect(scheduler.isScheduled, "a live recording needs watching for its end")
+    }
+
 }
 
 @MainActor

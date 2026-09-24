@@ -126,8 +126,10 @@ public struct TimerViewMetrics: Equatable, Sendable {
     public let contentInset: CGFloat
     public let textSpacing: CGFloat
     public let columnSpacing: CGFloat
+    /// The clock face, which is a card's headline like any other.
     public let timeSize: CGFloat
-    public let titleSize: CGFloat
+    /// The line under it, naming what is being counted.
+    public let labelSize: CGFloat
     public let controlSymbolSize: CGFloat
     public let controlButtonSize: CGFloat
     public let controlSpacing: CGFloat
@@ -135,24 +137,24 @@ public struct TimerViewMetrics: Equatable, Sendable {
     public let width: CGFloat
 
     public init(
-        glyphSize: CGFloat = 44,
-        contentInset: CGFloat = 12,
-        textSpacing: CGFloat = 2,
-        columnSpacing: CGFloat = 12,
-        timeSize: CGFloat = 20,
-        titleSize: CGFloat = IslandTypeScale.default.title,
-        controlSymbolSize: CGFloat = 13,
-        controlButtonSize: CGFloat = 28,
+        glyphSize: CGFloat = IslandRowGrammar.default.iconSize,
+        contentInset: CGFloat = IslandRowGrammar.default.contentInset,
+        textSpacing: CGFloat = IslandRowGrammar.default.textSpacing,
+        columnSpacing: CGFloat = IslandRowGrammar.default.columnSpacing,
+        timeSize: CGFloat = IslandRowGrammar.default.titleSize,
+        labelSize: CGFloat = IslandRowGrammar.default.detailSize,
+        controlSymbolSize: CGFloat = IslandRowGrammar.default.controlSymbolSize,
+        controlButtonSize: CGFloat = IslandRowGrammar.default.controlButtonSize,
         controlSpacing: CGFloat = 4,
-        cornerRadius: CGFloat = 18,
-        width: CGFloat = 320
+        cornerRadius: CGFloat = IslandRowGrammar.default.cornerRadius,
+        width: CGFloat = IslandRowGrammar.default.width
     ) {
         self.glyphSize = glyphSize
         self.contentInset = contentInset
         self.textSpacing = textSpacing
         self.columnSpacing = columnSpacing
         self.timeSize = timeSize
-        self.titleSize = titleSize
+        self.labelSize = labelSize
         self.controlSymbolSize = controlSymbolSize
         self.controlButtonSize = controlButtonSize
         self.controlSpacing = controlSpacing
@@ -244,7 +246,7 @@ public struct TimerExpandedView: View {
             .frame(width: metrics.glyphSize, height: metrics.glyphSize)
             .overlay {
                 Image(systemName: compactSymbolName(.timer))
-                    .font(.system(size: metrics.titleSize, weight: .medium))
+                    .font(.system(size: IslandRowGrammar.default.symbolSize * 0.7, weight: .medium))
             }
             .accessibilityHidden(true)
     }
@@ -259,7 +261,7 @@ public struct TimerExpandedView: View {
                 .lineLimit(1)
 
             Text(presentation.title)
-                .font(.system(size: metrics.titleSize, weight: .regular))
+                .font(.system(size: metrics.labelSize, weight: .regular))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }

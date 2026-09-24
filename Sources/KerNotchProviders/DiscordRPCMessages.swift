@@ -151,20 +151,32 @@ struct DiscordLeaveVoiceChannelArguments: Encodable, Sendable {
 
 struct DiscordVoiceSettingsBody: Decodable, Sendable {
     let mute: Bool
+    /// Deafened: the user hears nothing, and Discord switches the microphone
+    /// off with it. Read separately from `mute`, which Discord leaves alone —
+    /// so an island that only watched `mute` drew a live microphone for a user
+    /// who could neither speak nor hear.
+    let deaf: Bool
 
     private enum CodingKeys: String, CodingKey {
         case mute
+        case deaf
     }
 
-    /// Accepts `1`/`0` as well as `true`/`false`: the flag is documented as a
-    /// boolean, but a client that serialises it numerically must not read as
+    /// Accepts `1`/`0` as well as `true`/`false`: the flags are documented as
+    /// booleans, but a client that serialises them numerically must not read as
     /// "unknown" for the length of a call.
     init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        if let flag = try? container.decode(Bool.self, forKey: .mute) {
-            mute = flag
-        } else {
-            mute = try container.decode(Int.self, forKey: .mute) != 0
-        }
+        mute = Self.flag(in: container, forKey: .mute)
+        deaf = Self.flag(in: container, forKey: .deaf)
+    }
+
+    private static func flag(
+        in container: KeyedDecodingContainer<CodingKeys>,
+        forKey key: CodingKeys
+    ) -> Bool {
+        if let flag = try? container.decode(Bool.self, forKey: key) { return flag }
+        if let number = try? container.decode(Int.self, forKey: key) { return number != 0 }
+        return false
     }
 }

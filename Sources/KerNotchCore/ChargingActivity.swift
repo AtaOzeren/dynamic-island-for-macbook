@@ -1,39 +1,41 @@
 import Foundation
 
-/// Where the machine sits in the charging story the island tells, per the state
-/// machine in `docs/06-activity-providers.md`.
-///
-/// Three states, and deliberately no fourth for "on battery": running on
-/// battery is the *absence* of this activity, not a state of it, which is the
-/// same teardown rule the recording indicators follow. A `.onBattery` case
-/// would be an activity describing absence — and an island element that is
-/// always present is exactly the persistent power display this provider exists
-/// to avoid.
+/// The power situation the island announces, per the state machine in
+/// `docs/06-activity-providers.md`.
 public enum ChargingState: Hashable, CaseIterable, Sendable {
-    /// Power is connected but the system is not reporting a charge in progress —
-    /// the instant after the cable goes in, and the state a machine sits in when
-    /// it is plugged in but holding at its current level.
+    /// The charger came out and the machine runs on its battery.
+    case onBattery
+    /// Power is connected but the battery is not filling: the instant after the
+    /// cable goes in, and a machine holding at its charge limit.
     case pluggedIn
     /// The system reports the battery is filling.
     case charging
     /// The system reports the battery is full.
     case fullyCharged
+
+    public var isConnectedToPower: Bool { self != .onBattery }
 }
 
-/// The charging transition, as a dismissible notification rather than a readout.
+/// How full the battery is, as a fraction of its capacity.
+public struct BatteryLevel: Hashable, Sendable {
+    public let fraction: Double
+
+    /// Clamped to `0...1`, and a reading that is not a number reads as empty
+    /// rather than as a battery drawn past its own outline.
+    public init(fraction: Double) {
+        self.fraction = fraction.isNaN ? 0 : min(max(fraction, 0), 1)
+    }
+}
+
+/// The charger going in or coming out, as a notification rather than a readout.
 ///
-/// The type carries a state and nothing else, and that omission is the feature.
-/// `docs/06-activity-providers.md` forbids displaying a persistent battery
-/// percentage: an island element that continuously reports a number is precisely
-/// the low-value permanent display the whole app is designed against. Enforcing
-/// that as a rendering convention would leave the number one careless view away;
-/// enforcing it structurally — by never carrying a capacity for a view to reach
-/// for — means no view can render one, and the provider never has a reason to
-/// read the capacity key at all.
+/// The level travels with it so the glyph can show how full the battery is, the
+/// way the menu bar's battery does — drawn, never written as a number, and only
+/// for the few seconds the notification lasts. A level the island kept on
+/// screen, or spelled out in digits, would be the persistent power display
+/// `docs/06-activity-providers.md` forbids.
 ///
-/// Every state auto-dismisses, not just the terminal one. A `charging` state
-/// that stayed until the battery filled would be a persistent power display in
-/// all but digits, and the state machine's whole shape is transition →
+/// Every state auto-dismisses. The state machine's whole shape is transition →
 /// notification → gone.
 public struct ChargingActivity: Activity, Equatable {
     /// How long a charging transition stays on screen before the manager ends
@@ -42,15 +44,17 @@ public struct ChargingActivity: Activity, Equatable {
     public static let autoDismissAfter: Duration = .seconds(4)
 
     public let state: ChargingState
+    public let level: BatteryLevel
 
-    public init(state: ChargingState) {
+    public init(state: ChargingState, level: BatteryLevel) {
         self.state = state
+        self.level = level
     }
 
-    /// One identity for the whole state machine, so `charging` becoming
-    /// `fullyCharged` updates the element already on screen instead of adding a
-    /// second one beside it. The three states are three readings of one fact,
-    /// and two of them are never true at once.
+    /// One identity for the whole state machine, so unplugging while the
+    /// plug-in notification is still up replaces it instead of adding a second
+    /// one beside it. The states are readings of one fact, and two of them are
+    /// never true at once.
     public var identity: ActivityIdentity {
         ActivityIdentity("kernotch.charging")
     }
@@ -60,10 +64,12 @@ public struct ChargingActivity: Activity, Equatable {
     /// `normal`, per the V1 priority table in `docs/05-activity-model.md`.
     public var priority: ActivityPriority { .normal }
 
+    public var compactRank: CompactRank { .transition }
+
     /// The manager owns the dismiss timer — per the auto-dismiss row of that
-    /// same table, an `update()` restarts the window, so a `fullyCharged` update
-    /// arriving during the `charging` window is read in full rather than cut
-    /// short by the earlier state's countdown.
+    /// same table, an `update()` restarts the window, so a charge that starts a
+    /// moment after the cable goes in is read in full rather than cut short by
+    /// the plug-in's countdown.
     public var autoDismiss: AutoDismissDescriptor? {
         AutoDismissDescriptor(after: Self.autoDismissAfter)
     }

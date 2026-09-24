@@ -41,7 +41,7 @@ struct AppleScriptMusicProviderTests {
 
     // MARK: - Targets
 
-    @Test("observes exactly the two scriptable players the App Store build may target")
+    @Test("observes exactly the two scriptable players")
     func targetsAreSpotifyAndAppleMusic() {
         #expect(MusicPlayerTarget.allCases == [.spotify, .appleMusic])
         #expect(MusicPlayerTarget.spotify.bundleIdentifier == "com.spotify.client")

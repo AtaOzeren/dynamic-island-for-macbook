@@ -92,6 +92,15 @@ extension SettingsKey where Value == SettingsAppearance {
     }
 }
 
+extension SettingsKey where Value == IslandSize {
+    public static var islandSize: Self {
+        rawRepresentableKey(
+            path: "general.islandSize",
+            defaultValue: IslandSize.minimalist
+        )
+    }
+}
+
 extension SettingsKey where Value == Bool {
     public static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
     public static var cpuWatchdogDisabled: Self {
@@ -176,6 +185,7 @@ public enum SettingsKeys {
         register(.launchAtLogin, in: &defaults)
         register(.showMenuBarIcon, in: &defaults)
         register(.appearance, in: &defaults)
+        register(.islandSize, in: &defaults)
         register(.showMusic, in: &defaults)
         register(.showTimer, in: &defaults)
         register(.showScreenRecording, in: &defaults)

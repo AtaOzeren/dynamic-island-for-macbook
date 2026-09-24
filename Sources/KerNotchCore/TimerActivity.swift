@@ -117,6 +117,10 @@ public struct TimerActivity: Activity, Equatable {
     /// `normal` and lets recording and AI activities outrank it.
     public var priority: ActivityPriority { isExpiring ? .high : .normal }
 
+    /// An expired countdown is waiting for the user; a running one is only
+    /// being watched.
+    public var compactRank: CompactRank { isExpiring ? .alert : .tracking }
+
     /// None. An expired countdown "stays until acknowledged" per the V1 table,
     /// and a running timer has no reason to disappear on its own.
     public var autoDismiss: AutoDismissDescriptor? { nil }

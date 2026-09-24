@@ -7,10 +7,10 @@ OUTPUT_DIR=${OUTPUT_DIR:-"$PROJECT_ROOT/dist"}
 # bundles a packaging run produces never surface beside the installed app in
 # Spotlight and Launchpad. Every stray "KerNotch.app" a user finds there is a
 # build product, and each one is a copy they can launch by mistake.
-DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData.noindex/DirectPackage"}
+DERIVED_DATA_PATH=${DERIVED_DATA_PATH:-"$PROJECT_ROOT/DerivedData.noindex/ReleasePackage"}
 PACKAGE_STAGE_PATH=${PACKAGE_STAGE_PATH:-"$DERIVED_DATA_PATH/PackageStage"}
-APP_PATH="$DERIVED_DATA_PATH/Build/Products/Direct/KerNotch.app"
-ENTITLEMENTS_PATH="$PROJECT_ROOT/KerNotch-Direct.entitlements"
+APP_PATH="$DERIVED_DATA_PATH/Build/Products/Release/KerNotch.app"
+ENTITLEMENTS_PATH="$PROJECT_ROOT/KerNotch.entitlements"
 DEVELOPER_ID_APPLICATION=${DEVELOPER_ID_APPLICATION:-}
 NOTARYTOOL_KEYCHAIN_PROFILE=${NOTARYTOOL_KEYCHAIN_PROFILE:-}
 NOTARYTOOL_KEYCHAIN=${NOTARYTOOL_KEYCHAIN:-}
@@ -41,11 +41,11 @@ unregister_from_launch_services() {
 rm -rf "$DERIVED_DATA_PATH" "$PACKAGE_STAGE_PATH"
 mkdir -p "$OUTPUT_DIR"
 
-echo "==> Building KerNotch (Direct)"
+echo "==> Building KerNotch (Release)"
 xcodebuild \
     -project "$PROJECT_ROOT/KerNotch.xcodeproj" \
-    -scheme "KerNotch (Direct)" \
-    -configuration Direct \
+    -scheme KerNotch \
+    -configuration Release \
     -destination "platform=macOS" \
     -derivedDataPath "$DERIVED_DATA_PATH" \
     CODE_SIGNING_ALLOWED=NO \
@@ -110,7 +110,7 @@ else
     echo "SKIPPED: stapling"
 fi
 
-DISK_IMAGE="$OUTPUT_DIR/KerNotch-$VERSION-direct.dmg"
+DISK_IMAGE="$OUTPUT_DIR/KerNotch-$VERSION.dmg"
 rm -f "$DISK_IMAGE" "$DISK_IMAGE.sha256"
 mkdir -p "$PACKAGE_STAGE_PATH"
 ditto "$APP_PATH" "$PACKAGE_STAGE_PATH/KerNotch.app"

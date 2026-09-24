@@ -3,7 +3,7 @@
 **Status:** NOT STARTED
 **Todos:** 50-58 (Wave 5 in `.omo/plans/kernotch-v1.md`)
 **Depends on:** Phase 2 (Core, under TDD): the IPC core (todo 31) that parses and validates every inbound event, and the `ActivityProvider` protocol the AI provider registers against. Phase 3 (Window and UI): the compact/expanded view containers the AI activity renders into.
-**Unblocks:** Phase 6 (Settings, Localization, Polish): the AI integrations pane and the per-agent/per-event toggles need the receivers, installers, and controls built here. Phase 7 (Performance, Packaging, Distribution): both build configurations must carry the AI surface before the sandbox and packaging checks can run against the real app.
+**Unblocks:** Phase 6 (Settings, Localization, Polish): the AI integrations pane and the per-agent/per-event toggles need the receivers, installers, and controls built here. Phase 7 (Performance, Packaging, Distribution): the `Release` build must carry the AI surface before the entitlement and packaging checks can run against the real app.
 **Parallelism:** 5-wide
 
 ## What this phase delivers
@@ -38,10 +38,10 @@ Compact and expanded renderings for all seven states, the agent label, the tool 
 
 ### 53. Implement agent detection
 
-Detect which of Claude Code, Codex CLI, and OpenCode are present, in a way that works in both builds (and degrades to "unknown, offer manual setup" when the sandbox prevents inspection).
+Detect which of Claude Code, Codex CLI, and OpenCode are present from their configuration files, degrading to "unknown, offer manual setup" when a file cannot be inspected.
 
-- **Acceptance:** Present agents are detected in the Direct build; the App Store build offers manual setup rather than failing.
-- **QA (HW):** Run in both configurations with at least one agent installed; confirm the expected path in each. Evidence: `.omo/evidence/task-53-kernotch-v1.log`.
+- **Acceptance:** Present agents are detected; an agent that cannot be inspected is offered manual setup rather than failing.
+- **QA (HW):** Run with at least one agent installed; confirm it is detected. Evidence: `.omo/evidence/task-53-kernotch-v1.log`.
 - **Commit:** `feat(ai): detect installed agents`
 
 ### 54. Implement the Claude Code hook installer

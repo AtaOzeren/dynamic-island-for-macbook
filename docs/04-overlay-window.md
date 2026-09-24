@@ -29,14 +29,27 @@ The panel has exactly three visual states. Normal runtime uses compact and expan
 |---|---|---|
 | Hidden | Ordered out (`orderOut(_:)`) during suspension, teardown, or while no target screen exists | No content rendered; SwiftUI view tree is suspended, not merely invisible |
 | Compact | Window frame is the same maximum expanded bounds as always (see sizing strategy below); visible content is a pill that hugs the left and right edges of the notch rectangle from `docs/03-display-and-notch.md`, sitting flush against its bottom edge | A narrow horizontal capsule, tall enough to match the notch height, wide enough for the current activity's compact icon(s) plus the notch width itself |
-| Expanded | Same window frame; visible content is a panel of one fixed width, growing downward from the notch | The compact pill carrying two icons on each flank, widened by `expandedPanelWidthGrowth`. Fixed rather than fitted to the widest card: cards share the island's surface and stretch to whatever the panel gives them, so a width that tracked its contents would only make the island a different shape depending on what happened to be running |
+| Expanded | Same window frame; visible content is a panel of one fixed width, growing downward from the notch | The compact pill carrying two icons on each flank, widened by `PanelMetrics.expandedWidthGrowth` (× 1.12 for the Minimalist island size, × 1.4 for Large) and capped at the size budget's width. Fixed rather than fitted to the widest card: cards share the island's surface and stretch to whatever the panel gives them, so a width that tracked its contents would only make the island a different shape depending on what happened to be running |
 | Expanded | Same window frame as compact; visible content grows downward from the notch | A larger rounded rectangle anchored at the top-centre under the notch, tall and wide enough to show full activity detail — track art and transport controls, a running timer face, recording controls, or AI agent detail — sized per-activity but capped at a maximum that keeps it clear of the Dock and any secondary display's menu bar |
 
 ## Sizing strategy: fixed window, animated content
 
-The `NSPanel`'s own frame is set once, at its maximum possible expanded size, and is never resized after that during normal operation (it is only recomputed on a `docs/03`-style display change). What changes between hidden, compact, and expanded is the SwiftUI content's own layout inside that fixed frame — its actual drawn size, opacity, and position — animated with SwiftUI transitions, while `ignoresMouseEvents` (see table above) keeps the parts of the fixed frame that are visually empty from intercepting clicks.
+The `NSPanel`'s own frame is set once, at the maximum expanded size of the current island size budget, and is never resized during an expand or collapse. It is recomputed only on a `docs/03`-style display change, or when the user changes the island size (see below). What changes between hidden, compact, and expanded is the SwiftUI content's own layout inside that fixed frame — its actual drawn size, opacity, and position — animated with SwiftUI transitions, while `ignoresMouseEvents` (see table above) keeps the parts of the fixed frame that are visually empty from intercepting clicks.
 
-The reason: resizing an `NSWindow`'s frame is a compositor-level operation — it has to inform the window server, which is measurably more expensive and more prone to visible stutter than animating a SwiftUI view's size within an already-allocated, unchanging window. Doing this once per activity transition instead of holding the window at a fixed maximum size would mean paying that window-server round trip on every single expand and collapse, which happens far more often than a display's geometry changes.
+The reason: resizing an `NSWindow`'s frame is a compositor-level operation — it has to inform the window server, which is measurably more expensive and more prone to visible stutter than animating a SwiftUI view's size within an already-allocated, unchanging window. Doing this once per activity transition instead of holding the window at a fixed maximum size would mean paying that window-server round trip on every single expand and collapse, which happens far more often than a display's geometry or the island size changes.
+
+### Island size
+
+Settings › General › Island size chooses between two tuned layouts. `IslandLayout` (in `KerNotchUI`) bundles the window budget and the card metrics for each:
+
+| Island size | Window budget | Expanded width | Card metrics |
+|---|---|---|---|
+| Minimalist (default) | `PanelMetrics.default`: 640 × 460 pt | Compact pill with two icons per side × 1.12 | `ExpandedItemMetrics.default` |
+| Large | `PanelMetrics.large`: 760 × 560 pt | Compact pill with two icons per side × 1.4 | `ExpandedItemMetrics.large`: every card metric — type scale, row heights, insets, artwork, controls, glyphs — × 1.2, rounded to whole points |
+
+The island view, `PresentationController`'s hit testing, and `NotchPanel`'s window size all read the same layout, so a large island is never drawn at one size and hovered at another. Changing the setting applies live on every display: `PresentationController.applyLayout` adopts the new metrics, hands the budget to the panel through `NotchPanel.adopt`, and repositions the panel, which resizes its frame to the new budget; a hidden panel picks the budget up on its next order-in. Hover is then re-read against the new silhouette, so a pointer resting just past the old edge counts as over the larger island without moving. This resize happens once per settings change, never per expand or collapse.
+
+Each presenter fits the chosen layout to the screen its island is on before handing it out (`IslandLayout.fitted(to:)`, built on `PanelMetrics.fitted(to:)`). On a screen shorter than the budget plus the Dock inset — a 13" MacBook Air at a larger-text scaling is shorter than Large's 560 pt plus 120 pt — the window is shortened by `panelFrame(for:metrics:)`, and fitting gives the content clamp, the scroll decision and the hover band that same shorter height, so the list scrolls instead of drawing rows past the window's bottom edge.
 
 ## Interaction rules
 
@@ -68,11 +81,14 @@ Everything the island draws is clipped to the island's own silhouette, apart fro
 | Curve | Spring, `response ≈ 0.35s`, `dampingFraction ≈ 0.8` | Tuned to feel snappy without overshoot that would visually collide with the notch's hard edges |
 | Peek transition duration | ~0.15s ease-out | Fast enough to feel like hover feedback, not a committed state change |
 | Expand/collapse transition duration | ~0.35s spring (see curve above) | Matches the primary spring so expand and collapse feel symmetric |
+| Content lead | 0.08s | What the island shows changes on the same spring the island moves with, and only one of the two waits: growing, the shape goes first, so an icon never appears in a space the island has not made yet; shrinking, the contents go first, so the shape never closes across something still drawn inside it. Removed under Reduce Motion, where there is no travel to lead |
 | Hover expansion delay | ~0.25s | Crossing the pill on the way somewhere else must not open the island |
 | Collapse grace period | ~0.5s | The panel is a target the pointer travels to, and the path from the notch to a row crosses the island's own edge. Collapsing the instant the pointer slipped off made a hand that overshot start the hover again from scratch |
 | Attention glow pass | 2s left to right, then a 3s rest; 5 passes (22s) | One Core Animation keyframe animation on a gradient mask; resumes at its elapsed point if the island collapses back mid-glow |
 | Music equaliser stroke | 0.42s, autoreversing, staggered per bar | Runs only while a track plays, as a Core Animation layer animation |
 | Idle-state animation budget | Zero | No animation, timer-driven or otherwise, runs while the empty compact island is idle; this is part of the idle-cost contract from `docs/02-performance-contract.md` |
+
+The island's shape and its contents are one movement, not two: the surface, the mask that clips it, its offset onto the notch and the icons or cards inside it all change in a single transaction, applied by the presenter. Nothing inside the island keeps an animation clock of its own, which is what let the pill's black surface jump to its new width while an arriving icon was still animating into it.
 
 No animation is ever started while the window is ordered out. Returning from suspension orders the window in at resting compact geometry first; only a later user-triggered transition animates.
 

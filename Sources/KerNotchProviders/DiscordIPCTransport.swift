@@ -28,9 +28,8 @@ enum DiscordIPCSocketLocator {
     private static let directoryVariables = ["XDG_RUNTIME_DIR", "TMPDIR", "TMP", "TEMP"]
     private static let fallbackDirectory = "/tmp"
 
-    /// Every path worth trying, most likely first. KerNotch is unsandboxed in the
-    /// builds that carry this integration, so its `TMPDIR` is the same per-user
-    /// directory Discord's is.
+    /// Every path worth trying, most likely first. KerNotch is unsandboxed, so
+    /// its `TMPDIR` is the same per-user directory Discord's is.
     static func candidatePaths(environment: [String: String]) -> [String] {
         var directories: [String] = []
         for variable in directoryVariables {

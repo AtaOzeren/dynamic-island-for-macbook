@@ -5,6 +5,12 @@ import Foundation
 /// permission. The system screenshot toolbar uses the same UI process as video
 /// capture, but it never opens this movie, so this is the narrow signal that
 /// separates a still screenshot from an active system screen recording.
+///
+/// The movie's own folder cannot be read: `~/Library/Group Containers/`
+/// `group.com.apple.screencapture` answers "Operation not permitted" to an
+/// application without Full Disk Access, so neither its contents nor a
+/// file-system watch on it is available. The open file descriptor is read from
+/// the process, which needs no permission at all.
 @MainActor
 final class ReplayScreenRecordingProbe {
     private static let replayDaemonPath = "/usr/libexec/replayd"

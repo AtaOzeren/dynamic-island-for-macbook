@@ -2,113 +2,117 @@ import Foundation
 import IOKit.ps
 import Testing
 
+@testable import KerNotchCore
 @testable import KerNotchProviders
 
 /// The observer half of the charging indicator, with IOKit itself faked. What is
 /// testable in CI is the classification of a power-source description — the
-/// boundary that decides what the island says, and the boundary that drops the
-/// battery percentage. Whether `IOPSNotificationCreateRunLoopSource` actually
-/// fires on a real plug transition is the hardware half, per
-/// `docs/11-testing-strategy.md`.
+/// boundary that decides what the island says. Whether
+/// `IOPSNotificationCreateRunLoopSource` actually fires on a real plug
+/// transition is the hardware half, per `docs/11-testing-strategy.md`.
 @Suite("PowerSourceDescription")
 struct PowerSourceDescriptionTests {
     private static func description(
         powerSource: String,
         isCharging: Bool? = nil,
         isCharged: Bool? = nil,
-        capacity: Int? = 42
+        capacity: Int? = 42,
+        maximumCapacity: Int? = 100
     ) -> [String: Any] {
         var description: [String: Any] = [
             kIOPSTypeKey: kIOPSInternalBatteryType,
             kIOPSPowerSourceStateKey: powerSource,
         ]
 
-        // Present in every fixture precisely because the classifier must never
-        // consult it: a reduction that quietly grew a capacity branch would
-        // still pass every other assertion here.
         if let capacity { description[kIOPSCurrentCapacityKey] = capacity }
+        if let maximumCapacity { description[kIOPSMaxCapacityKey] = maximumCapacity }
         if let isCharging { description[kIOPSIsChargingKey] = isCharging }
         if let isCharged { description[kIOPSIsChargedKey] = isCharged }
 
         return description
     }
 
-    @Test("reports battery power as no activity at all")
-    func batteryPower() {
-        let state = PowerSourceDescription.state(
-            from: Self.description(powerSource: kIOPSBatteryPowerValue, isCharging: false)
-        )
+    private static func state(_ description: [String: Any]) -> ChargingState? {
+        PowerSourceDescription.reading(from: description)?.state
+    }
 
-        #expect(state == .onBattery)
+    @Test("reports battery power")
+    func batteryPower() {
+        #expect(Self.state(Self.description(powerSource: kIOPSBatteryPowerValue, isCharging: false)) == .onBattery)
     }
 
     @Test("reports an active charge")
     func charging() {
-        let state = PowerSourceDescription.state(
-            from: Self.description(powerSource: kIOPSACPowerValue, isCharging: true, isCharged: false)
+        #expect(
+            Self.state(Self.description(powerSource: kIOPSACPowerValue, isCharging: true, isCharged: false))
+                == .charging
         )
-
-        #expect(state == .charging)
     }
 
     @Test("reports a full battery")
     func fullyCharged() {
-        let state = PowerSourceDescription.state(
-            from: Self.description(powerSource: kIOPSACPowerValue, isCharging: false, isCharged: true)
+        #expect(
+            Self.state(Self.description(powerSource: kIOPSACPowerValue, isCharging: false, isCharged: true))
+                == .fullyCharged
         )
-
-        #expect(state == .fullyCharged)
     }
 
     /// A machine holding at full reports charged while briefly topping up, so
-    /// both flags are true at once. "Full" is the more useful of the two
-    /// answers, and reporting the charge instead would flip the island back and
-    /// forth for a battery that is done.
+    /// both flags are true at once. "Full" is the more useful of the two answers.
     @Test("prefers full over charging when the system reports both")
     func fullWinsOverCharging() {
-        let state = PowerSourceDescription.state(
-            from: Self.description(powerSource: kIOPSACPowerValue, isCharging: true, isCharged: true)
+        #expect(
+            Self.state(Self.description(powerSource: kIOPSACPowerValue, isCharging: true, isCharged: true))
+                == .fullyCharged
         )
-
-        #expect(state == .fullyCharged)
     }
 
-    /// The gap the doc's arrow diagram opens with: power is connected but the
-    /// system reports neither charging nor charged — the instant after the cable
-    /// goes in, and a machine plugged in but holding.
+    /// The instant after the cable goes in, and a machine holding at its charge
+    /// limit: power is connected, but the system reports neither charging nor
+    /// charged.
     @Test("reports connected power that is neither charging nor full")
     func pluggedInWithoutCharging() {
-        let state = PowerSourceDescription.state(
-            from: Self.description(powerSource: kIOPSACPowerValue, isCharging: false, isCharged: false)
+        #expect(
+            Self.state(Self.description(powerSource: kIOPSACPowerValue, isCharging: false, isCharged: false))
+                == .pluggedIn
+        )
+    }
+
+    @Test("reads the level against the reported maximum")
+    func readsLevel() throws {
+        let reading = try #require(
+            PowerSourceDescription.reading(
+                from: Self.description(powerSource: kIOPSACPowerValue, capacity: 85, maximumCapacity: 100)
+            )
         )
 
-        #expect(state == .pluggedIn)
+        #expect(reading.level == BatteryLevel(fraction: 0.85))
     }
 
-    /// The load-bearing test for the no-percentage rule at the one boundary that
-    /// can see a percentage. Two descriptions that differ only in capacity must
-    /// classify identically — if the classifier ever read the capacity key, a
-    /// nearly-empty and a nearly-full battery would diverge here.
-    @Test("classifies identically regardless of battery capacity")
-    func ignoresCapacity() {
-        let states = [0, 1, 50, 99, 100].map { capacity in
-            PowerSourceDescription.state(
-                from: Self.description(
-                    powerSource: kIOPSACPowerValue,
-                    isCharging: true,
-                    capacity: capacity
-                )
-            )
-        }
+    /// A reading with no charge to draw is no reading, rather than a battery
+    /// drawn empty or full on a guess.
+    @Test(
+        "gives no reading without a usable capacity",
+        arguments: [(nil, 100), (42, nil), (42, 0)] as [(Int?, Int?)]
+    )
+    func noReadingWithoutCapacity(capacity: Int?, maximum: Int?) {
+        let description = Self.description(
+            powerSource: kIOPSACPowerValue,
+            isCharging: true,
+            capacity: capacity,
+            maximumCapacity: maximum
+        )
 
-        #expect(Set(states) == [.charging])
+        #expect(PowerSourceDescription.reading(from: description) == nil)
     }
 
-    /// A description missing the keys entirely — a power source type IOKit knows
-    /// about but this reduction does not — falls back to the state with no
-    /// activity, rather than guessing a charge that may not be happening.
-    @Test("treats an unreadable description as being on battery")
-    func missingKeys() {
-        #expect(PowerSourceDescription.state(from: [:]) == .onBattery)
+    /// A description missing the power-source key — a type IOKit knows about
+    /// but this reduction does not — reads as disconnected rather than guessing a
+    /// charge that may not be happening.
+    @Test("treats a missing power source as being on battery")
+    func missingPowerSource() {
+        let description: [String: Any] = [kIOPSCurrentCapacityKey: 50, kIOPSMaxCapacityKey: 100]
+
+        #expect(Self.state(description) == .onBattery)
     }
 }

@@ -4,145 +4,166 @@ import Testing
 @testable import KerNotchCore
 @testable import KerNotchProviders
 
-/// The charging state machine, driven by a fake power source. Per
-/// `docs/06-activity-providers.md`, the IOKit registration and real plug
-/// transitions are the hardware half; everything asserted here — the mapping
-/// from power state to activity, the suppression of redundant re-reads, and
-/// teardown on unplug — is pure logic over an injected sequence.
+/// The charging state machine, driven by a fake power source and a fake clock.
+/// Per `docs/06-activity-providers.md`, the IOKit registration and real plug
+/// transitions are the hardware half; everything asserted here — which readings
+/// announce and which stay quiet — is pure logic over an injected sequence.
 @Suite("ChargingProvider")
 @MainActor
 struct ChargingProviderTests {
-    private struct Fixture {
-        let provider: ChargingProvider
-        let source: FakePowerSourceObserver
-        let emissions: Emissions
-    }
+    @MainActor
+    private final class Fixture {
+        let source = FakePowerSourceObserver()
+        private(set) var emissions: [ChargingActivity] = []
+        var now = Date(timeIntervalSince1970: 0)
+        private(set) var provider: ChargingProvider!
 
-    /// Records every emission in order, including the `nil`s: teardown is an
-    /// emission the manager must actually receive, so dropping the `nil`s would
-    /// hide the exact bug these tests exist to catch.
-    private final class Emissions {
-        private(set) var values: [ChargingActivity?] = []
+        init() {
+            provider = ChargingProvider(source: source, now: { [unowned self] in now })
+            provider.startObserving { [unowned self] in emissions.append($0) }
+        }
 
-        var states: [ChargingState?] { values.map { $0?.state } }
-        var count: Int { values.count }
-        var isEmpty: Bool { values.isEmpty }
+        var states: [ChargingState] { emissions.map(\.state) }
 
-        func record(_ activity: ChargingActivity?) {
-            values.append(activity)
+        func read(_ state: ChargingState, level: Double = 0.5) {
+            source.emit(PowerSourceReading(state: state, level: BatteryLevel(fraction: level)))
+        }
+
+        func advance(by seconds: TimeInterval) {
+            now = now.addingTimeInterval(seconds)
         }
     }
 
-    private static func makeProvider() -> Fixture {
-        let source = FakePowerSourceObserver()
-        let emissions = Emissions()
-        let provider = ChargingProvider(source: source)
-        provider.startObserving { emissions.record($0) }
-        return Fixture(provider: provider, source: source, emissions: emissions)
+    /// A Mac already plugged in when KerNotch launches did not just have its
+    /// cable plugged in.
+    @Test("treats the first reading as a baseline, whatever it says")
+    func firstReadingIsABaseline() {
+        for state in ChargingState.allCases {
+            let fixture = Fixture()
+
+            fixture.read(state)
+
+            #expect(fixture.emissions.isEmpty, "announced \(state) on launch")
+        }
     }
 
-    @Test("produces no activity while the machine runs on battery")
-    func idleOnBattery() {
-        let fixture = Self.makeProvider()
+    @Test("announces plugging in, with the battery's level")
+    func announcesPlugIn() {
+        let fixture = Fixture()
 
-        fixture.source.emit(.onBattery)
+        fixture.read(.onBattery, level: 0.41)
+        fixture.read(.charging, level: 0.41)
 
-        #expect(fixture.provider.currentActivity == nil)
-        #expect(fixture.emissions.isEmpty)
+        #expect(fixture.emissions == [ChargingActivity(state: .charging, level: BatteryLevel(fraction: 0.41))])
     }
 
-    /// The whole documented happy path in one pass: connecting power registers
-    /// the activity, the charge starting updates it, and reaching full updates
-    /// it again — one element throughout, because the states share an identity.
-    @Test("walks plugged in to charging to fully charged")
-    func happyPath() {
-        let fixture = Self.makeProvider()
+    @Test("announces unplugging")
+    func announcesUnplug() {
+        let fixture = Fixture()
 
-        fixture.source.emit(.pluggedIn)
-        fixture.source.emit(.charging)
-        fixture.source.emit(.fullyCharged)
+        fixture.read(.fullyCharged, level: 1)
+        fixture.read(.onBattery, level: 1)
 
-        #expect(fixture.emissions.states == [.pluggedIn, .charging, .fullyCharged])
-        #expect(fixture.provider.currentActivity == ChargingActivity(state: .fullyCharged))
+        #expect(fixture.states == [.onBattery])
     }
 
-    /// The load-bearing test for this provider's power behaviour, and for the
-    /// no-persistent-display rule in second-order form.
-    ///
-    /// The IOKit source fires on *every* power-source change, which includes
-    /// each capacity tick while charging. Since `ActivityManager` restarts the
-    /// auto-dismiss window on every `update()`, a provider that re-emitted on
-    /// each callback would hold the island open for the entire charge — a
-    /// persistent power display in all but digits. Dedupe is what makes the
-    /// documented auto-dismiss actually reachable.
-    @Test("ignores repeated callbacks that carry no state change")
-    func suppressesRedundantCallbacks() {
-        let fixture = Self.makeProvider()
+    /// The reported defect. A charge limit pauses and resumes the charge all
+    /// through the day, and each change used to reopen the island — a charging
+    /// battery, then a plugged-in one, then the charging one again.
+    @Test("stays quiet while a connected battery pauses and resumes its charge")
+    func quietThroughChargeLimitCycles() {
+        let fixture = Fixture()
+        fixture.read(.onBattery)
+        fixture.read(.charging)
 
-        fixture.source.emit(.charging)
-        fixture.source.emit(.charging)
-        fixture.source.emit(.charging)
+        fixture.advance(by: 60)
+        fixture.read(.pluggedIn)
+        fixture.advance(by: 60)
+        fixture.read(.charging)
+        fixture.advance(by: 60)
+        fixture.read(.fullyCharged)
+        fixture.advance(by: 60)
+        fixture.read(.charging)
+
+        #expect(fixture.states == [.charging])
+    }
+
+    /// The charge usually starts a moment after the cable goes in. The
+    /// notification still on screen follows it, rather than showing a
+    /// connected battery without its bolt.
+    @Test("refines the notification still on screen")
+    func refinesWithinTheAnnouncement() {
+        let fixture = Fixture()
+        fixture.read(.onBattery)
+
+        fixture.read(.pluggedIn)
+        fixture.advance(by: 1)
+        fixture.read(.charging)
+
+        #expect(fixture.states == [.pluggedIn, .charging])
+    }
+
+    /// Measured from the cable, not from the last refinement, so a charge
+    /// flickering in its first seconds cannot keep the notification alive.
+    @Test("stops refining once the plug-in's window has passed")
+    func refinementWindowRunsFromTheCable() {
+        let fixture = Fixture()
+        fixture.read(.onBattery)
+
+        fixture.read(.pluggedIn)
+        fixture.advance(by: 3)
+        fixture.read(.charging)
+        fixture.advance(by: 1)
+        fixture.read(.pluggedIn)
+
+        #expect(fixture.states == [.pluggedIn, .charging])
+    }
+
+    /// The IOKit source fires on every capacity tick while charging. A level
+    /// change alone is never news.
+    @Test("ignores readings that change only the level")
+    func ignoresLevelTicks() {
+        let fixture = Fixture()
+        fixture.read(.onBattery, level: 0.40)
+        fixture.read(.charging, level: 0.40)
+
+        fixture.read(.charging, level: 0.41)
+        fixture.read(.charging, level: 0.42)
 
         #expect(fixture.emissions.count == 1)
     }
 
-    /// Unplugging is teardown, not a fourth state: the activity disappears at
-    /// once rather than lingering for its dismiss window, because the fact it
-    /// reported has stopped being true.
-    @Test("tears down when power is disconnected")
-    func teardownOnUnplug() {
-        let fixture = Self.makeProvider()
+    @Test("announces every plug-in and unplug of the day")
+    func announcesEveryCableEdge() {
+        let fixture = Fixture()
+        fixture.read(.onBattery)
 
-        fixture.source.emit(.charging)
-        fixture.source.emit(.onBattery)
+        fixture.read(.charging)
+        fixture.advance(by: 600)
+        fixture.read(.onBattery)
+        fixture.advance(by: 600)
+        fixture.read(.pluggedIn)
 
-        #expect(fixture.emissions.states == [.charging, nil])
-        #expect(fixture.provider.currentActivity == nil)
+        #expect(fixture.states == [.charging, .onBattery, .pluggedIn])
     }
 
-    /// A machine that is already on battery when KerNotch launches must not
-    /// produce a teardown for an activity that was never registered.
-    @Test("does not emit a teardown for a state it never registered")
-    func noRedundantTeardown() {
-        let fixture = Self.makeProvider()
+    /// Unplugging while the plug-in notification is still up replaces it; the
+    /// two share one identity, so the island shows the newer fact in place.
+    @Test("announces an unplug that follows the plug-in at once")
+    func unplugInsideThePlugInWindow() {
+        let fixture = Fixture()
+        fixture.read(.onBattery)
 
-        fixture.source.emit(.onBattery)
-        fixture.source.emit(.onBattery)
+        fixture.read(.charging)
+        fixture.advance(by: 1)
+        fixture.read(.onBattery)
 
-        #expect(fixture.emissions.isEmpty)
-    }
-
-    /// Batteries drain below full while still plugged in and resume charging.
-    /// The doc's arrow diagram is the happy path, not a permitted-transition
-    /// table, so the provider reports what the system says rather than refusing
-    /// a state it considers backwards.
-    @Test("reports a resumed charge after reaching full")
-    func resumesChargingAfterFull() {
-        let fixture = Self.makeProvider()
-
-        fixture.source.emit(.fullyCharged)
-        fixture.source.emit(.charging)
-
-        #expect(fixture.emissions.states == [.fullyCharged, .charging])
-    }
-
-    /// Re-plugging after an unplug is a new notification, not a continuation:
-    /// the dedupe must have been cleared by the teardown, or the second charge
-    /// of the day would never appear.
-    @Test("registers again after a teardown")
-    func registersAgainAfterTeardown() {
-        let fixture = Self.makeProvider()
-
-        fixture.source.emit(.charging)
-        fixture.source.emit(.onBattery)
-        fixture.source.emit(.charging)
-
-        #expect(fixture.emissions.states == [.charging, nil, .charging])
+        #expect(fixture.states == [.charging, .onBattery])
     }
 
     @Test("subscribes to the power source only while observing")
     func subscriptionFollowsObservation() {
-        let fixture = Self.makeProvider()
+        let fixture = Fixture()
         #expect(fixture.source.isObserving)
 
         fixture.provider.stopObserving()
@@ -150,35 +171,19 @@ struct ChargingProviderTests {
         #expect(fixture.source.isObserving == false)
     }
 
-    /// Teardown must also clear the remembered state, so a provider restarted
-    /// into the same power state still reports it rather than deduping against
-    /// a reading from its previous life.
-    @Test("re-reports the current state after being restarted")
-    func restartReportsCurrentState() {
-        let fixture = Self.makeProvider()
-        fixture.source.emit(.charging)
+    /// Switching the provider off and on again is not a cable edge either: the
+    /// restarted provider takes a fresh baseline.
+    @Test("takes a fresh baseline after being restarted")
+    func restartTakesAFreshBaseline() {
+        let fixture = Fixture()
+        fixture.read(.onBattery)
 
         fixture.provider.stopObserving()
+        var emissions: [ChargingActivity] = []
+        fixture.provider.startObserving { emissions.append($0) }
+        fixture.read(.charging)
 
-        let emissions = Emissions()
-        fixture.provider.startObserving { emissions.record($0) }
-        fixture.source.emit(.charging)
-
-        #expect(emissions.states == [.charging])
-    }
-
-    /// Nothing in this provider counts, so nothing in it may schedule a wakeup:
-    /// every emission is an edge from the IOKit callback, per the update-cadence
-    /// rule in `docs/06-activity-providers.md`.
-    @Test("emits only in response to a power source callback")
-    func emitsOnlyOnCallbacks() {
-        let fixture = Self.makeProvider()
-
-        #expect(fixture.emissions.isEmpty)
-
-        fixture.source.emit(.pluggedIn)
-
-        #expect(fixture.emissions.count == 1)
+        #expect(emissions.isEmpty)
     }
 }
 
@@ -187,11 +192,11 @@ struct ChargingProviderTests {
 /// only be exercised on a machine with a battery.
 @MainActor
 private final class FakePowerSourceObserver: PowerSourceObserving {
-    private var observer: PowerSourceStateObserver?
+    private var observer: PowerSourceReadingObserver?
 
     var isObserving: Bool { observer != nil }
 
-    func startObserving(_ observer: @escaping PowerSourceStateObserver) {
+    func startObserving(_ observer: @escaping PowerSourceReadingObserver) {
         self.observer = observer
     }
 
@@ -199,7 +204,7 @@ private final class FakePowerSourceObserver: PowerSourceObserving {
         observer = nil
     }
 
-    func emit(_ state: PowerSourceState) {
-        observer?(state)
+    func emit(_ reading: PowerSourceReading) {
+        observer?(reading)
     }
 }

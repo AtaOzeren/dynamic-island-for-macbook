@@ -6,9 +6,10 @@ import SwiftUI
 /// property table in `docs/04-overlay-window.md`.
 ///
 /// Created once at launch and never deallocated. Its frame is allocated at the
-/// maximum expanded size and only recomputed on a display change, so expanding
-/// and collapsing animate SwiftUI content inside an unchanging window instead of
-/// paying a window-server resize on every transition.
+/// maximum expanded size and only recomputed on a display change or an island
+/// size change, so expanding and collapsing animate SwiftUI content inside an
+/// unchanging window instead of paying a window-server resize on every
+/// transition.
 @MainActor
 public final class NotchPanel: NSPanel {
     /// One step above the menu bar: high enough that the menu bar and ordinary
@@ -16,7 +17,7 @@ public final class NotchPanel: NSPanel {
     /// system-critical UI such as the screen-lock overlay.
     public static let level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 1)
 
-    private let metrics: PanelMetrics
+    private var metrics: PanelMetrics
     private var allowsKeyFocus = false
 
     public var onCancel: (() -> Void)?
@@ -93,6 +94,12 @@ public final class NotchPanel: NSPanel {
 
     public override func cancelOperation(_ sender: Any?) {
         onCancel?()
+    }
+
+    /// Adopts a new size budget. The frame follows at the next `reposition`,
+    /// which is also when the panel learns which screen the budget applies to.
+    public func adopt(_ metrics: PanelMetrics) {
+        self.metrics = metrics
     }
 
     /// Moves the panel under the notch of `screen`, or under the centre of its

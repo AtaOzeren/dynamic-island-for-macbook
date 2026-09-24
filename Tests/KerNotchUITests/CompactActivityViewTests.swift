@@ -14,48 +14,61 @@ struct CompactActivityViewTests {
         let identity: ActivityIdentity
         let kind: ActivityKind
         let priority: ActivityPriority
+        let compactRank: CompactRank
     }
 
     private static func activity(
         _ name: String,
         _ kind: ActivityKind,
-        _ priority: ActivityPriority
+        _ priority: ActivityPriority,
+        rank: CompactRank = .tracking
     ) -> StubActivity {
-        StubActivity(identity: ActivityIdentity(name), kind: kind, priority: priority)
+        StubActivity(identity: ActivityIdentity(name), kind: kind, priority: priority, compactRank: rank)
     }
 
-    /// The worked example in `docs/05-activity-model.md`: music, a timer, and a
-    /// file transfer active at once, ordered by priority then registration time.
+    private static func date(_ seconds: TimeInterval) -> Date {
+        Date(timeIntervalSince1970: seconds)
+    }
+
+    /// Music, an expired timer and a charging notice active at once.
     private static func workedExample() -> ActivityManager {
         let manager = ActivityManager()
-        manager.register(activity("music", .music, .low), at: Date(timeIntervalSince1970: 1))
-        manager.register(activity("timer", .timer, .high), at: Date(timeIntervalSince1970: 2))
-        manager.register(activity("transfer", .fileTransfer, .normal), at: Date(timeIntervalSince1970: 3))
+        manager.register(activity("music", .music, .low, rank: .ambient), at: date(1))
+        manager.register(activity("timer", .timer, .high, rank: .alert), at: date(2))
+        manager.register(activity("charging", .charging, .normal, rank: .transition), at: date(3))
         return manager
     }
 
-    @Test("renders one slot per activity in the manager's order")
-    func slotsFollowManagerOrder() {
-        let slots = compactSlots(for: Self.workedExample().compactPresentation)
-
-        #expect(slots.map(\.id) == ["timer", "transfer", "music"])
-        #expect(slots.allSatisfy { $0.overflowCount == nil })
+    private static func playingMusic() -> MusicActivity {
+        MusicActivity(
+            nowPlaying: NowPlaying(
+                title: "Windowlicker",
+                artist: "Aphex Twin",
+                playbackState: .playing,
+                sourceApplicationName: "Spotify"
+            )
+        )
     }
 
-    @Test("replaces the last slot with an overflow indicator past capacity")
-    func overflowSlotReplacesTheLastActivity() {
-        let manager = Self.workedExample()
-        manager.register(
-            Self.activity("recording", .recording, .high),
-            at: Date(timeIntervalSince1970: 4)
-        )
+    /// The user's example: a Discord call, another meeting holding the
+    /// microphone, and a track playing.
+    private static func callMeetingAndMusic() -> ActivityManager {
+        let manager = ActivityManager()
+        manager.register(playingMusic(), at: date(1))
+        manager.register(DiscordCallActivity(channel: nil, isMuted: false), at: date(2))
+        manager.register(RecordingActivity.started(.audio, at: date(3)), at: date(3))
+        return manager
+    }
 
-        let slots = compactSlots(for: manager.compactPresentation)
+    private static func ids(_ slots: [CompactSlot]) -> [String] {
+        slots.map(\.id)
+    }
 
-        #expect(slots.count == 3)
-        #expect(slots.dropLast().map(\.id) == ["timer", "recording"])
-        #expect(slots.last?.overflowCount == 2)
-        #expect(slots.last?.label == "+2")
+    @Test("renders one slot per activity in compact rank order")
+    func slotsFollowCompactRank() {
+        let slots = compactSlots(for: Self.workedExample().compactPresentation)
+
+        #expect(Self.ids(slots) == ["timer", "charging", "music"])
     }
 
     @Test("renders nothing when no activity is active")
@@ -63,39 +76,106 @@ struct CompactActivityViewTests {
         #expect(compactSlots(for: ActivityManager().compactPresentation).isEmpty)
     }
 
-    @Test("splits the slots around the notch, reading order first")
-    func slotsFlankTheNotch() {
-        let layout = compactSlotLayout(for: Self.workedExample().compactPresentation)
+    @Test("keeps a single icon on the leading side")
+    func singleIconLeads() {
+        let manager = ActivityManager()
+        manager.register(Self.playingMusic())
 
-        #expect(layout.leading.map(\.id) == ["timer", "transfer"])
-        #expect(layout.trailing.map(\.id) == ["music"])
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+
+        #expect(layout.leading.count == 1)
+        #expect(layout.trailing.isEmpty)
     }
 
-    @Test("keeps the overflow indicator on the trailing side")
-    func overflowSitsLast() {
-        let manager = Self.workedExample()
-        manager.register(
-            Self.activity("recording", .recording, .high),
-            at: Date(timeIntervalSince1970: 4)
+    @Test("puts the more important of two icons on the leading side")
+    func twoIconsFlankTheNotch() {
+        let manager = ActivityManager()
+        manager.register(Self.playingMusic(), at: Self.date(1))
+        manager.register(RecordingActivity.started(.audio, at: Self.date(2)), at: Self.date(2))
+
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+
+        #expect(Self.ids(layout.leading) == [RecordingActivity.identity(for: .audio).rawValue])
+        #expect(Self.ids(layout.trailing) == [MusicActivity.identity.rawValue])
+    }
+
+    @Test("without agents, the call and the capture lead and the music trails")
+    func callAndCaptureLeadWithoutAgents() {
+        let layout = compactSlotLayout(for: Self.callMeetingAndMusic().compactPresentation)
+
+        #expect(
+            Self.ids(layout.leading) == [
+                RecordingActivity.identity(for: .audio).rawValue,
+                DiscordCallActivity.identity.rawValue,
+            ]
+        )
+        #expect(Self.ids(layout.trailing) == [MusicActivity.identity.rawValue])
+    }
+
+    @Test("draws four icons two to a side, and leaves the fifth out")
+    func fifthIconIsLeftOut() {
+        let manager = ActivityManager()
+        manager.register(Self.activity("music", .music, .low, rank: .ambient), at: Self.date(1))
+        manager.register(Self.activity("timer", .timer, .normal, rank: .tracking), at: Self.date(2))
+        manager.register(Self.activity("charging", .charging, .normal, rank: .transition), at: Self.date(3))
+        manager.register(Self.activity("call", .discordCall, .high, rank: .call), at: Self.date(4))
+        manager.register(Self.activity("capture", .recording, .high, rank: .capture), at: Self.date(5))
+
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+
+        #expect(Self.ids(layout.leading) == ["capture", "call"])
+        #expect(Self.ids(layout.trailing) == ["charging", "timer"])
+    }
+
+    @Test("with agents, the music gives its place up to the call and the capture")
+    func musicGivesWayBesideAgents() {
+        let manager = Self.callMeetingAndMusic()
+        manager.register(Self.aiAgent(.claudeCode), at: Self.date(4))
+        manager.register(Self.aiAgent(.codex), at: Self.date(5))
+
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+
+        #expect(
+            Self.ids(layout.leading) == [
+                RecordingActivity.identity(for: .audio).rawValue,
+                DiscordCallActivity.identity.rawValue,
+            ]
+        )
+        #expect(layout.trailing.compactMap(\.aiAgentID) == [.claudeCode, .codex])
+        #expect(layout.trailing.count == 2)
+    }
+
+    @Test("draws all three agents together at the far right")
+    func threeAgentsShareTheTrailingSide() {
+        let manager = ActivityManager()
+        manager.register(Self.activity("timer", .timer, .high), at: Self.date(1))
+        manager.register(Self.aiAgent(.claudeCode), at: Self.date(2))
+        manager.register(Self.aiAgent(.codex), at: Self.date(3))
+        manager.register(Self.aiAgent(.opencode), at: Self.date(4))
+
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+
+        #expect(Self.ids(layout.leading) == ["timer"])
+        #expect(layout.trailing.compactMap(\.aiAgentID) == [.claudeCode, .codex, .opencode])
+    }
+
+    /// A hidden track is taken out before the sides are counted, so the icon
+    /// that was sharing the pill with it moves back to the leading side
+    /// instead of sitting alone behind an empty one.
+    @Test("a hidden track is not counted when the sides are split")
+    func hiddenMusicIsNotCounted() throws {
+        let manager = ActivityManager()
+        manager.register(Self.playingMusic(), at: Self.date(1))
+        manager.register(DiscordCallActivity(channel: nil, isMuted: false), at: Self.date(2))
+        manager.register(Self.activity("timer", .timer, .normal), at: Self.date(3))
+
+        let layout = compactSlotLayout(
+            for: manager.compactPresentation,
+            hiding: [MusicActivity.identity.rawValue]
         )
 
-        let layout = compactSlotLayout(for: manager.compactPresentation)
-
-        #expect(layout.trailing.last?.overflowCount == 2)
-    }
-
-    @Test("keeps at most two AI agents together at the far right")
-    func agentsUseTrailingRegion() {
-        let manager = ActivityManager()
-        manager.register(Self.activity("timer", .timer, .high), at: Date(timeIntervalSince1970: 1))
-        manager.register(Self.aiAgent(.claudeCode), at: Date(timeIntervalSince1970: 2))
-        manager.register(Self.aiAgent(.codex), at: Date(timeIntervalSince1970: 3))
-        manager.register(Self.aiAgent(.opencode), at: Date(timeIntervalSince1970: 4))
-
-        let layout = compactSlotLayout(for: manager.compactPresentation)
-
-        #expect(layout.leading.map(\.id) == ["timer"])
-        #expect(layout.trailing.compactMap(\.aiAgentID) == [.codex, .opencode])
+        #expect(Self.ids(layout.leading) == [DiscordCallActivity.identity.rawValue])
+        #expect(Self.ids(layout.trailing) == ["timer"])
     }
 
     @Test("gives every activity kind its own symbol and spoken label")
@@ -110,46 +190,54 @@ struct CompactActivityViewTests {
     @Test("screen recording uses a source-specific animated display indicator")
     func screenRecordingUsesDisplayIndicator() throws {
         let manager = ActivityManager()
-        manager.register(
-            RecordingActivity.started(.screen, at: Date(timeIntervalSince1970: 1))
-        )
+        manager.register(RecordingActivity.started(.screen, at: Self.date(1)))
 
         let slot = try #require(compactSlots(for: manager.compactPresentation).first)
 
-        #expect(slot.recordingSource == .screen)
+        #expect(slot.recordingIndicator == .screen)
         #expect(slot.symbolName == "display")
+        #expect(slot.id == RecordingActivity.identity(for: .screen).rawValue)
     }
 
     @Test("microphone recording stays distinct from screen recording")
     func microphoneRecordingUsesAudioIndicator() throws {
         let manager = ActivityManager()
-        manager.register(
-            RecordingActivity.started(.audio, at: Date(timeIntervalSince1970: 1))
-        )
+        manager.register(RecordingActivity.started(.audio, at: Self.date(1)))
 
         let slot = try #require(compactSlots(for: manager.compactPresentation).first)
 
-        #expect(slot.recordingSource == .audio)
+        #expect(slot.recordingIndicator == .microphone)
         #expect(slot.symbolName == "mic.fill")
         #expect(AnimatedMicrophoneRecordingIcon.pulseCount == 3)
     }
 
-    @Test("keeps microphone and screen recording visible at the same time")
-    func concurrentRecordingSourcesUseSeparateSlots() {
+    @Test("a screen recording with the microphone open draws one combined icon")
+    func concurrentRecordingSourcesShareOneSlot() throws {
         let manager = ActivityManager()
-        manager.register(
-            RecordingActivity.started(.audio, at: Date(timeIntervalSince1970: 1)),
-            at: Date(timeIntervalSince1970: 1)
-        )
-        manager.register(
-            RecordingActivity.started(.screen, at: Date(timeIntervalSince1970: 2)),
-            at: Date(timeIntervalSince1970: 2)
-        )
+        manager.register(RecordingActivity.started(.audio, at: Self.date(1)), at: Self.date(1))
+        manager.register(RecordingActivity.started(.screen, at: Self.date(2)), at: Self.date(2))
 
         let slots = compactSlots(for: manager.compactPresentation)
+        let slot = try #require(slots.first)
 
-        #expect(slots.compactMap(\.recordingSource) == [.audio, .screen])
-        #expect(Set(slots.map(\.id)).count == 2)
+        #expect(slots.count == 1)
+        #expect(slot.recordingIndicator == .screenAndMicrophone)
+        #expect(slot.accessibilityLabel == "Screen recording and microphone in use")
+        #expect(slot.id == "kernotch.recording")
+    }
+
+    @Test("the combined recording icon takes a single place")
+    func combinedRecordingTakesOnePlace() {
+        let manager = Self.callMeetingAndMusic()
+        manager.register(RecordingActivity.started(.screen, at: Self.date(4)), at: Self.date(4))
+        manager.register(Self.activity("timer", .timer, .normal), at: Self.date(5))
+
+        let layout = compactSlotLayout(for: manager.compactPresentation)
+
+        #expect(
+            Self.ids(layout.leading) == ["kernotch.recording", DiscordCallActivity.identity.rawValue]
+        )
+        #expect(Self.ids(layout.trailing) == ["timer", MusicActivity.identity.rawValue])
     }
 
     @Test("sizes the pill to the notch height and flanks its width")
@@ -405,5 +493,47 @@ struct CompactActivityViewTests {
             state: .working,
             detail: "Working"
         )
+    }
+}
+
+/// The compact pill's icons are drawn in one band, at one height.
+///
+/// Each glyph used to carry a factor of its own — 0.84 here, the raw symbol size
+/// there — so a microphone came out taller than the warning triangle beside it
+/// and a screen mark shorter than both, while the agent logo sat in a band of
+/// its own above the status light.
+@Suite("Compact icon band")
+@MainActor
+struct CompactIconBandTests {
+    @Test("every icon is drawn in the agent logo's own band")
+    func iconsShareTheAgentBand() {
+        let metrics = CompactPillMetrics.default
+        let agent = CompactAIAgentMetrics.default
+
+        #expect(metrics.iconBandTopInset == agent.countBadgeOverhang)
+        #expect(
+            metrics.slotHeight
+                == agent.countBadgeOverhang + agent.statusBaseline(iconSize: metrics.symbolSize)
+        )
+        #expect(
+            compactAIAgentIconSize(iconSize: metrics.symbolSize, state: .working).height
+                == metrics.slotHeight
+        )
+    }
+
+    /// No glyph may size itself from a factor of its own again: that is exactly
+    /// what let the icons drift apart.
+    @Test("no compact glyph scales the shared icon size by a factor of its own")
+    func noGlyphCarriesItsOwnFactor() throws {
+        let source = try String(
+            contentsOf: URL(fileURLWithPath: #filePath)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+                .appendingPathComponent("Sources/KerNotchUI/CompactActivityView.swift"),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("metrics.symbolSize *") == false)
     }
 }
