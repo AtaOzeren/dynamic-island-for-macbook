@@ -93,6 +93,7 @@ struct KerNotchApp: App {
     @State private var hookStates: [IPCAgentID: HookInstallationState]
     @State private var launchAtLoginNeedsApproval: Bool
     @State private var discordPreferences: DiscordIntegrationPreferences
+    @State private var petPreferences: PetPreferences
     @StateObject private var displayInventory: DisplayInventory
     @StateObject private var discordSettings: DiscordSettingsModel
 
@@ -219,6 +220,7 @@ struct KerNotchApp: App {
         let discordSettings = DiscordSettingsModel(status: discordIntegration.status)
         _discordSettings = StateObject(wrappedValue: discordSettings)
         _discordPreferences = State(initialValue: settingsStore.discordIntegrationPreferences)
+        _petPreferences = State(initialValue: settingsStore.petPreferences)
         discordIntegration.onStatusChange = { status in
             discordSettings.status = status
         }
@@ -607,11 +609,13 @@ struct KerNotchApp: App {
                 status: discordSettings.status
             ),
             onDiscordPreferencesChange: applyDiscordPreferences,
-            onDiscordAction: handleDiscordAction
+            onDiscordAction: handleDiscordAction,
+            petPreferences: $petPreferences
         )
         .onAppear {
             aiPreferences = settingsStore.aiIntegrationPreferences
             discordPreferences = settingsStore.discordIntegrationPreferences
+            petPreferences = settingsStore.petPreferences
             refreshDiscordInstallation()
             hookStates = Self.currentHookStates()
             refreshLaunchAtLoginApprovalState()
@@ -659,6 +663,10 @@ struct KerNotchApp: App {
         }
         .onChange(of: enabledIdentifiers) { _, identifiers in
             settingsStore.enabledProviderIdentifiers = identifiers
+        }
+        .onChange(of: petPreferences) { _, preferences in
+            settingsStore.petPreferences = preferences
+            islandPresenter.applyPetPreferences(preferences)
         }
         .onChange(of: languageOverride) { _, override in
             settingsStore[.languageOverride] = override

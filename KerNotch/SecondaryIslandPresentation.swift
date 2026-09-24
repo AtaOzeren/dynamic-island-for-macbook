@@ -64,7 +64,9 @@ final class SecondaryIslandPresentation {
             screen: screen,
             disclosedInstances: { [model] in model.disclosedInstances },
             registrationTimes: { [model] in model.registrationTimes },
-            hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }
+            hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs },
+            // One pet, on the primary island: this one keeps no flank for it.
+            pet: { nil }
         )
         self.controller = controller
         controller.automaticallyExpandsOnHover = false
@@ -139,6 +141,13 @@ final class SecondaryIslandPresentation {
         set { model.isMotionSuspended = newValue }
     }
 
+    /// KerNotch's own Motion choice, mirrored for the reason above: without it
+    /// this display's continuous motion followed the system setting alone.
+    var reducedMotionOverride: Bool? {
+        get { model.reducedMotionOverride }
+        set { model.reducedMotionOverride = newValue }
+    }
+
     /// Adopts the primary presenter's latest clock reading and redraws from it.
     func follow(_ reading: IslandPresentationClocks.Reading) {
         self.reading = reading
@@ -171,9 +180,11 @@ final class SecondaryIslandPresentation {
             change: islandExtentChange(
                 from: islandSurfaceSize(model.extentInput),
                 to: islandSurfaceSize(
+                    // No pet: it lives on the primary island only, as above.
                     model.extentInput(
                         compact: compact,
                         hiddenMusicSlotIDs: reading.hiddenMusicSlotIDs,
+                        pet: nil,
                         expanded: expanded
                     )
                 )

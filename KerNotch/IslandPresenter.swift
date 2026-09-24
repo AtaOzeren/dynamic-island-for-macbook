@@ -32,6 +32,13 @@ final class IslandViewModel: ObservableObject {
     /// this model. While the view owned it privately, the icon vanished and the
     /// bar behind it stayed at full width.
     @Published var hiddenMusicSlotIDs: Set<String> = []
+    /// The pet on the compact island, and the routine it is performing.
+    ///
+    /// Published rather than kept in the view for the reason the music icons
+    /// are: the pet keeps the leading flank open, which decides how wide the
+    /// pill and its hover target are — and the compact view is rebuilt on every
+    /// expand and collapse, which would start the routine over each time.
+    @Published var pet: IslandPetPresentation?
     /// The light around the compact island while an agent has news.
     ///
     /// Published rather than derived in the view because it is anchored to the
@@ -53,6 +60,10 @@ final class IslandViewModel: ObservableObject {
     /// Set only by the CPU watchdog's degrade action, to stand the island's
     /// continuous motion still while the process is over budget.
     @Published var isMotionSuspended = false
+    /// KerNotch's own Motion choice from the General pane, `nil` to follow the
+    /// system. SwiftUI's reduce-motion value is the system's alone, so the
+    /// choice reaches the views that honour it through the environment.
+    @Published var reducedMotionOverride: Bool?
 
     /// Assigned by the presenter after the controller exists. The content view
     /// is built *before* the controller — the panel's initialiser demands it —
@@ -75,12 +86,13 @@ final class IslandViewModel: ObservableObject {
     }
 
     /// Everything that decides how big the island is drawn, as the view draws it
-    /// now. `extentInput(compact:hiddenMusicSlotIDs:expanded:)` answers the same
-    /// question for a change that has not been applied yet.
+    /// now. `extentInput(compact:hiddenMusicSlotIDs:pet:expanded:)` answers the
+    /// same question for a change that has not been applied yet.
     var extentInput: IslandExtentInput {
         extentInput(
             compact: compact,
             hiddenMusicSlotIDs: hiddenMusicSlotIDs,
+            pet: pet?.pet,
             expanded: expanded
         )
     }
@@ -88,12 +100,14 @@ final class IslandViewModel: ObservableObject {
     func extentInput(
         compact: CompactActivityPresentation,
         hiddenMusicSlotIDs: Set<String>,
+        pet: IslandPet?,
         expanded: [any Activity]
     ) -> IslandExtentInput {
         IslandExtentInput(
             state: state,
             compact: compact,
             hiddenMusicSlotIDs: hiddenMusicSlotIDs,
+            pet: pet,
             expanded: expanded,
             disclosedInstances: disclosedInstances,
             registrationTimes: registrationTimes,
@@ -133,14 +147,21 @@ struct IslandRootView: View {
         }
         .offset(x: compactDrawingOffset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .scaleEffect(model.state == .compact ? model.hoverScale : 1, anchor: .top)
+        .scaleEffect(peekScale, anchor: .top)
+        .environment(\.islandHoverScale, peekScale)
         .environment(\.colorScheme, .dark)
         .environment(\.islandContentMotion, model.contentMotion)
         .environment(\.islandMotionSuspended, model.isMotionSuspended)
+        .environment(\.islandReducedMotionOverride, model.reducedMotionOverride)
+    }
+
+    /// The hover peek's scale, which only the compact island has.
+    private var peekScale: CGFloat {
+        model.state == .compact ? model.hoverScale : 1
     }
 
     /// The compact pill's own geometry, whose flanks are only as wide as the
-    /// slots they carry.
+    /// slots they carry — apart from the pet's, which keeps its full width.
     private var compactPill: CompactPillGeometry {
         islandCompactPillGeometry(model.extentInput)
     }
@@ -210,7 +231,8 @@ struct IslandRootView: View {
             CompactActivityView(
                 presentation: model.compact,
                 notchSize: model.notchSize,
-                hiddenMusicSlotIDs: model.hiddenMusicSlotIDs
+                hiddenMusicSlotIDs: model.hiddenMusicSlotIDs,
+                pet: model.pet
             )
             .sharingIslandSurface()
             .contentShape(Rectangle())
@@ -294,6 +316,13 @@ final class IslandPresenter {
     private let screenConfigurationSettled: @MainActor ([DisplayDescription]) -> Void
     private let hoverCoordinator = SynchronizedHoverCoordinator()
     private var clocks = IslandPresentationClocks()
+    /// The pet the Pet tab puts on the island, or `nil` while it is off. Only
+    /// the primary island has one: a pet is a companion, and a second one on
+    /// another display would be a copy, not company.
+    private var pet: IslandPet?
+    /// The routine the pet is performing, carried across every refresh so a
+    /// stage change starts from wherever the pet actually is.
+    private var petRoutines = PetRoutineTracker()
     private var presentationRefreshTask: Task<Void, Never>?
     private var isDegraded = false
     /// The user's own motion preference, held for the length of one watchdog
@@ -315,6 +344,7 @@ final class IslandPresenter {
         self.settingsStore = settingsStore
         let chosenLayout = IslandLayout(size: settingsStore.generalPreferences.islandSize)
         self.chosenLayout = chosenLayout
+        pet = settingsStore.petPreferences.pet
         self.screenChanges = screenChanges
         self.musicProvider = musicProvider
         self.timerProvider = timerProvider
@@ -334,6 +364,7 @@ final class IslandPresenter {
             notchSize: resolvedNotchSize(screen: targetScreen, metrics: layout.panel),
             layout: layout
         )
+        model.reducedMotionOverride = settingsStore.generalPreferences.reducedMotionOverride
         self.model = model
 
         panel = NotchPanel(
@@ -357,7 +388,8 @@ final class IslandPresenter {
             screen: { Self.targetScreen(preference: displayTarget()) },
             disclosedInstances: { [model] in model.disclosedInstances },
             registrationTimes: { [model] in model.registrationTimes },
-            hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs }
+            hiddenMusicSlotIDs: { [model] in model.hiddenMusicSlotIDs },
+            pet: { [model] in model.pet?.pet }
         )
         controller.automaticallyExpandsOnHover = false
         clocks.showsAttentionGlow = settingsStore.aiIntegrationPreferences.showsAttentionGlow
@@ -423,6 +455,11 @@ final class IslandPresenter {
             self?.screenSetChanged(change)
         }
 
+        // Filled in while the panel is still ordered out, so it is ordered in
+        // at its resting size. Filled in after, the first refresh met an island
+        // already compact and grew it on a spring — with the pet on, sliding
+        // the whole island sideways onto its new offset at every launch.
+        refreshContent()
         controller.start()
         reconcileSecondaryPresentations()
         refreshContent()
@@ -519,6 +556,18 @@ final class IslandPresenter {
 
     func applyReducedMotion(_ preferenceOverride: Bool?) {
         reduceMotion.updateOverride(preferenceOverride)
+        model.reducedMotionOverride = preferenceOverride
+        for secondary in secondaryPresentations.values {
+            secondary.reducedMotionOverride = preferenceOverride
+        }
+    }
+
+    /// Puts the pet on the island or takes it off, as the Pet tab says. The
+    /// pill widens or narrows with it on every change, like an icon arriving.
+    func applyPetPreferences(_ preferences: PetPreferences) {
+        guard preferences.pet != pet else { return }
+        pet = preferences.pet
+        refreshContent()
     }
 
     /// Plays the glow once around the island, for the Settings test button.
@@ -644,15 +693,19 @@ final class IslandPresenter {
             now: now
         )
         let reading = clocks.reading
+        let compact = compactPresentation(
+            manager.compactPresentation,
+            reconciledWith: manager.expandedActivities,
+            announcementStarts: reading.announcementStarts,
+            registrationTimes: manager.registrationTimes,
+            now: now
+        )
         applyContent(
-            compact: compactPresentation(
-                manager.compactPresentation,
-                reconciledWith: manager.expandedActivities,
-                announcementStarts: reading.announcementStarts,
-                registrationTimes: manager.registrationTimes,
-                now: now
-            ),
+            compact: compact,
             hiddenMusicSlotIDs: reading.hiddenMusicSlotIDs,
+            pet: petPresentation(
+                beside: compactSlotLayout(for: compact, hiding: reading.hiddenMusicSlotIDs, housing: pet)
+            ),
             expanded: manager.expandedActivities,
             registrationTimes: manager.registrationTimes
         )
@@ -684,10 +737,12 @@ final class IslandPresenter {
     private func applyContent(
         compact: CompactActivityPresentation,
         hiddenMusicSlotIDs: Set<String>,
+        pet: IslandPetPresentation?,
         expanded: [any Activity],
         registrationTimes: [ActivityIdentity: Date]
     ) {
         let narrowsPill = model.hiddenMusicSlotIDs != hiddenMusicSlotIDs
+        let resizesFlank = model.pet?.pet != pet?.pet
         let motion = islandContentMotion(
             in: model.state,
             change: islandExtentChange(
@@ -696,6 +751,7 @@ final class IslandPresenter {
                     model.extentInput(
                         compact: compact,
                         hiddenMusicSlotIDs: hiddenMusicSlotIDs,
+                        pet: pet?.pet,
                         expanded: expanded
                     )
                 )
@@ -708,15 +764,35 @@ final class IslandPresenter {
         withAnimation(motion.container) {
             model.compact = compact
             model.hiddenMusicSlotIDs = hiddenMusicSlotIDs
+            model.pet = pet
             model.expanded = expanded
             model.registrationTimes = registrationTimes
         }
 
         // Narrowing the pill has to narrow its hover target too, and nothing
-        // else tells the controller when an icon leaves on a clock.
-        if narrowsPill {
+        // else tells the controller when an icon leaves on a clock or the pet
+        // is switched on or off.
+        if narrowsPill || resizesFlank {
             controller.compactLayoutDidChange()
         }
+    }
+
+    /// Moves the pet onto the stage the icons leave it and hands back the
+    /// routine it performs there, or `nil` while there is no pet.
+    ///
+    /// Only a change of stage starts a new routine, so this is free to run on
+    /// every refresh: the routine plays itself out in Core Animation, and
+    /// nothing here wakes the island to keep it going.
+    ///
+    /// Timed by uptime rather than by the wall clock `refreshContent` reads:
+    /// uptime is the clock Core Animation plays the routine on.
+    private func petPresentation(beside layout: CompactSlotLayout) -> IslandPetPresentation? {
+        guard let pet, let stage = layout.petStage else {
+            petRoutines.forget()
+            return nil
+        }
+        petRoutines.follow(stage, at: ProcessInfo.processInfo.systemUptime, geometry: pet.stageGeometry())
+        return petRoutines.performance.map { IslandPetPresentation(pet: pet, performance: $0) }
     }
 
     private func reconcileSecondaryPresentations() {
@@ -771,6 +847,7 @@ final class IslandPresenter {
             }
             secondaryPresentations[identifier] = secondary
             secondary.isMotionSuspended = isDegraded
+            secondary.reducedMotionOverride = reduceMotion.preferenceOverride
             secondary.start()
             if hoverCoordinator.isExpanded {
                 secondary.expand()

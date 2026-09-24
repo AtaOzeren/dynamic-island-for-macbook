@@ -83,7 +83,7 @@ public struct CompactPillMetrics: Equatable, Sendable {
 }
 
 /// Width of one side's slot run, excluding the gap to the notch.
-private func compactSideWidth(slotCount: Int, metrics: CompactPillMetrics) -> CGFloat {
+public func compactSideWidth(slotCount: Int, metrics: CompactPillMetrics) -> CGFloat {
     let slots = max(slotCount, 0)
     guard slots > 0 else { return 0 }
     return CGFloat(slots) * metrics.slotWidth + CGFloat(slots - 1) * metrics.slotSpacing
