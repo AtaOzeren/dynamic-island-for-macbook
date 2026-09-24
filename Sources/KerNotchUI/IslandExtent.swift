@@ -4,7 +4,7 @@ import KerNotchCore
 
 /// Everything that decides how big the island is drawn.
 ///
-/// One value rather than eight arguments, because two places need the answer
+/// One value rather than nine arguments, because two places need the answer
 /// and they must never disagree: the root view draws the island at this size,
 /// and the presenter compares the size before a change with the size after it
 /// to know which way the island is about to move.
@@ -14,6 +14,8 @@ public struct IslandExtentInput {
     /// Music icons already taken off the pill, which are not drawn and so do
     /// not widen it.
     public let hiddenMusicSlotIDs: Set<String>
+    /// The pet on the leading flank, which keeps the whole flank open.
+    public let pet: IslandPet?
     public let expanded: [any Activity]
     public let disclosedInstances: Set<ActivityIdentity>
     public let registrationTimes: [ActivityIdentity: Date]
@@ -24,6 +26,7 @@ public struct IslandExtentInput {
         state: PresentationState,
         compact: CompactActivityPresentation,
         hiddenMusicSlotIDs: Set<String>,
+        pet: IslandPet?,
         expanded: [any Activity],
         disclosedInstances: Set<ActivityIdentity>,
         registrationTimes: [ActivityIdentity: Date],
@@ -33,6 +36,7 @@ public struct IslandExtentInput {
         self.state = state
         self.compact = compact
         self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
+        self.pet = pet
         self.expanded = expanded
         self.disclosedInstances = disclosedInstances
         self.registrationTimes = registrationTimes
@@ -42,12 +46,15 @@ public struct IslandExtentInput {
 }
 
 /// The compact pill's own geometry, whose flanks are only as wide as the slots
-/// they carry.
+/// they carry — apart from the pet's, which keeps its full width.
 public func islandCompactPillGeometry(_ input: IslandExtentInput) -> CompactPillGeometry {
-    compactPillGeometry(
-        for: compactSlotLayout(for: input.compact, hiding: input.hiddenMusicSlotIDs),
-        notchSize: input.notchSize
-    )
+    compactPillGeometry(for: islandCompactSlotLayout(input), notchSize: input.notchSize)
+}
+
+/// The pill's slots as the island draws them: timed-out music icons left out,
+/// and the pet, when there is one, keeping the leading flank open.
+public func islandCompactSlotLayout(_ input: IslandExtentInput) -> CompactSlotLayout {
+    compactSlotLayout(for: input.compact, hiding: input.hiddenMusicSlotIDs, housing: input.pet)
 }
 
 /// The connected silhouette, compact neck and expanded body alike.
@@ -58,7 +65,7 @@ public func islandCompactPillGeometry(_ input: IslandExtentInput) -> CompactPill
 public func islandConnectedGeometry(_ input: IslandExtentInput) -> ConnectedIslandGeometry {
     ConnectedIslandGeometry(
         compactSize: balancedCompactPillSize(
-            for: compactSlotLayout(for: input.compact, hiding: input.hiddenMusicSlotIDs),
+            for: islandCompactSlotLayout(input),
             notchSize: input.notchSize
         ),
         expandedContentSize: expandedPanelSize(

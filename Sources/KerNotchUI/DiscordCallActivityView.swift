@@ -74,7 +74,7 @@ public func discordCallCompactSlot(for activity: DiscordCallActivity) -> Compact
 /// anyone can hear. Three breaths announce the call, then the glyph holds still
 /// so a long call keeps no render loop.
 struct DiscordCallIcon: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @State private var symbolScale: CGFloat = 1
 
     private static let pulseCount = 3

@@ -12,7 +12,7 @@ import SwiftUI
 /// evaluated once. That is the same arrangement the agent's working dot uses,
 /// for the same measured reason.
 struct MusicEqualiserSlotView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @Environment(\.islandMotionSuspended) private var islandMotionSuspended
 
     let metrics: CompactPillMetrics

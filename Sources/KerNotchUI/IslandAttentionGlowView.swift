@@ -151,7 +151,7 @@ enum IslandAttentionGlowAnimation {
 /// the inner half of the rim, so the pill stays the notch's own black and only
 /// the light around it shows.
 public struct IslandAttentionGlowView: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @Environment(\.islandMotionSuspended) private var islandMotionSuspended
 
     private let glow: IslandAttentionGlow
