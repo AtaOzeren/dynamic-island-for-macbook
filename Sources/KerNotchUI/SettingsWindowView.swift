@@ -6,6 +6,7 @@ import SwiftUI
 public enum SettingsTab: String, CaseIterable, Equatable, Hashable, Sendable {
     case general
     case activities
+    case pet
     case aiIntegrations
     case integrations
     case about
@@ -14,6 +15,7 @@ public enum SettingsTab: String, CaseIterable, Equatable, Hashable, Sendable {
         switch self {
         case .general: localized("General")
         case .activities: localized("Activities")
+        case .pet: localized("Pet")
         case .aiIntegrations: localized("AI Integrations")
         case .integrations: localized("Integrations")
         case .about: localized("About")
@@ -24,6 +26,7 @@ public enum SettingsTab: String, CaseIterable, Equatable, Hashable, Sendable {
         switch self {
         case .general: "gearshape"
         case .activities: "square.stack"
+        case .pet: "pawprint"
         case .aiIntegrations: "sparkles"
         case .integrations: "puzzlepiece.extension"
         case .about: "info.circle"
@@ -44,6 +47,7 @@ public struct SettingsWindowView: View {
     @Binding private var languageOverride: String?
     @Binding private var musicAutomation: [MusicAutomationAccess]
     @Binding private var discordPreferences: DiscordIntegrationPreferences
+    @Binding private var petPreferences: PetPreferences
 
     private let availableDisplays: [DisplayDescription]
     private let information: AboutInformation
@@ -87,7 +91,8 @@ public struct SettingsWindowView: View {
         discordPreferences: Binding<DiscordIntegrationPreferences> = .constant(.default),
         discordSettings: DiscordSettingsState? = nil,
         onDiscordPreferencesChange: @escaping (DiscordIntegrationPreferences) -> Void = { _ in },
-        onDiscordAction: @escaping (DiscordSettingsAction) -> Void = { _ in }
+        onDiscordAction: @escaping (DiscordSettingsAction) -> Void = { _ in },
+        petPreferences: Binding<PetPreferences> = .constant(.default)
     ) {
         self._general = general
         self._enabledIdentifiers = enabledIdentifiers
@@ -111,6 +116,7 @@ public struct SettingsWindowView: View {
         self.discordSettings = discordSettings
         self.onDiscordPreferencesChange = onDiscordPreferencesChange
         self.onDiscordAction = onDiscordAction
+        self._petPreferences = petPreferences
     }
 
     /// Every tab this build has something to show in.
@@ -153,6 +159,9 @@ public struct SettingsWindowView: View {
                 automationRequestsInProgress: automationRequestsInProgress,
                 onRequestAutomation: onRequestAutomation
             )
+        case .pet:
+            PetSettingsView(preferences: $petPreferences, metrics: metrics)
+                .environment(\.islandReducedMotionOverride, general.reducedMotionOverride)
         case .aiIntegrations:
             AIIntegrationsSettingsView(
                 preferences: $aiPreferences,

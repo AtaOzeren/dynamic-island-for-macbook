@@ -6258,6 +6258,216 @@
           }
         }
       }
+    },
+    "Pet": {
+      "comment": "Settings window tab: the pixel pet that lives on the compact island.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haustier"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mascota"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compagnon"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animaletto"
+          }
+        }
+      }
+    },
+    "Island pet": {
+      "comment": "Pet pane: section title.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Island pet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adadaki pet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haustier auf der Insel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mascota de la isla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compagnon de l'îlot"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animaletto dell'isola"
+          }
+        }
+      }
+    },
+    "Show the pet on the island": {
+      "comment": "Pet pane: switch that puts the pet on the compact island.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the pet on the island"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peti adada göster"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haustier auf der Insel zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar la mascota en la isla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le compagnon sur l'îlot"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra l'animaletto sull'isola"
+          }
+        }
+      }
+    },
+    "The pet sits still while motion is reduced.": {
+      "comment": "Pet pane: footnote under the animated preview.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pet sits still while motion is reduced."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hareket azaltıldığında pet yerinde oturur."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei reduzierter Bewegung sitzt das Haustier still."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con el movimiento reducido, la mascota se queda sentada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand les animations sont réduites, le compagnon reste assis."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con il movimento ridotto, l'animaletto resta seduto."
+          }
+        }
+      }
+    },
+    "A small pixel dog lives on the island's left side. It steps aside for an activity and leaves when no room is left.": {
+      "comment": "Pet pane: section caption describing how the pet shares the island's left side with activity icons.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A small pixel dog lives on the island's left side. It steps aside for an activity and leaves when no room is left."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adanın sol tarafında küçük bir piksel köpek yaşar. Bir etkinliğe yer açmak için kenara çekilir, yer kalmadığında adadan ayrılır."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf der linken Seite der Insel wohnt ein kleiner Pixelhund. Er macht einer Aktivität Platz und geht, wenn kein Platz mehr frei ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un pequeño perro de píxeles vive en el lado izquierdo de la isla. Se aparta ante una actividad y se marcha cuando no queda sitio."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un petit chien en pixels vit sur le côté gauche de l'îlot. Il laisse la place à une activité et s'en va quand il n'en reste plus."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un piccolo cane in pixel vive sul lato sinistro dell'isola. Si fa da parte per un'attività e se ne va quando non c'è più spazio."
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -147,7 +147,7 @@ struct MicrophoneRecordingBadge: View {
 /// Three short pulses announce capture start; it then becomes static so a long
 /// recording does not retain a render loop.
 struct AnimatedScreenRecordingIcon: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @State private var dotScale: CGFloat = 1
 
     private static let pulseDuration = Duration.milliseconds(420)
@@ -186,7 +186,7 @@ struct AnimatedScreenRecordingIcon: View {
 /// breaths, then a static glyph. Motion announces the privacy-sensitive edge
 /// without competing with the screen-recording indicator beside it.
 struct AnimatedMicrophoneRecordingIcon: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @State private var symbolScale: CGFloat = 1
 
     static let pulseCount = 3

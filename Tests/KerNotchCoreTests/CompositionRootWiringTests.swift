@@ -89,7 +89,7 @@ struct CompositionRootWiringTests {
         #expect(presenter.contains("islandSurfaceSize(model.extentInput)"))
         #expect(
             extent.contains(
-                "compactSlotLayout(for: input.compact, hiding: input.hiddenMusicSlotIDs)"
+                "compactSlotLayout(for: input.compact, hiding: input.hiddenMusicSlotIDs, housing: input.pet)"
             )
         )
         // And handed to the controller, which owns the hover target — on every

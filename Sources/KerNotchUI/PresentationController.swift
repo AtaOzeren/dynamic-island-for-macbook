@@ -131,6 +131,12 @@ public final class PresentationController {
     /// pointer as over an island that had already shrunk away from under it.
     private let hiddenMusicSlotIDs: @MainActor () -> Set<String>
 
+    /// The pet on the leading flank, read for the same reason: while there is
+    /// one the flank keeps its full width, so a hover target sized without it
+    /// would end at the icons and leave the pet's side of the pill dead to the
+    /// pointer.
+    private let pet: @MainActor () -> IslandPet?
+
     public init(
         panel: NotchPanel,
         manager: ActivityManager,
@@ -141,7 +147,8 @@ public final class PresentationController {
         screen: @escaping ScreenProvider,
         disclosedInstances: @escaping @MainActor () -> Set<ActivityIdentity> = { [] },
         registrationTimes: @escaping @MainActor () -> [ActivityIdentity: Date] = { [:] },
-        hiddenMusicSlotIDs: @escaping @MainActor () -> Set<String> = { [] }
+        hiddenMusicSlotIDs: @escaping @MainActor () -> Set<String> = { [] },
+        pet: @escaping @MainActor () -> IslandPet? = { nil }
     ) {
         self.panel = panel
         self.manager = manager
@@ -153,6 +160,7 @@ public final class PresentationController {
         self.disclosedInstances = disclosedInstances
         self.registrationTimes = registrationTimes
         self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
+        self.pet = pet
     }
 
     public func start() {
@@ -322,11 +330,12 @@ public final class PresentationController {
     private func updateHitRect(on screen: ScreenDescription) {
         let slots = compactSlotLayout(
             for: manager.compactPresentation,
-            hiding: hiddenMusicSlotIDs()
+            hiding: hiddenMusicSlotIDs(),
+            housing: pet()
         )
         hitRect = compactHitRect(
             for: screen,
-            leadingSlotCount: slots.leading.count,
+            leadingSlotCount: slots.leadingPlaceCount,
             trailingSlotCount: slots.trailing.count,
             metrics: layout.panel
         )
@@ -361,7 +370,8 @@ public final class PresentationController {
         let compactSize = balancedCompactPillSize(
             for: compactSlotLayout(
                 for: manager.compactPresentation,
-                hiding: hiddenMusicSlotIDs()
+                hiding: hiddenMusicSlotIDs(),
+                housing: pet()
             ),
             notchSize: notchSize
         )
