@@ -864,7 +864,7 @@ func aiAgentIconArtworkScale(for agentID: IPCAgentID) -> CGFloat {
 }
 
 struct CompactAIAgentIcon: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @Environment(\.islandMotionSuspended) private var islandMotionSuspended
 
     let presentation: CompactAIAgentSlotPresentation

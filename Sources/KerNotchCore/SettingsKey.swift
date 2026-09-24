@@ -143,6 +143,7 @@ extension SettingsKey where Value == Bool {
     public static var enableDiscord: Self {
         boolKey(path: "integrations.discord.enabled", defaultValue: false)
     }
+    public static var showIslandPet: Self { boolKey(path: "pet.enabled", defaultValue: false) }
 }
 
 extension SettingsKey where Value == Bool? {
@@ -203,6 +204,7 @@ public enum SettingsKeys {
         register(.hasCompletedOnboarding, in: &defaults)
         register(.cpuWatchdogDisabled, in: &defaults)
         register(.enableDiscord, in: &defaults)
+        register(.showIslandPet, in: &defaults)
         return defaults
     }
 

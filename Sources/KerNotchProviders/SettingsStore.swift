@@ -147,6 +147,15 @@ public final class SettingsStore {
         }
     }
 
+    public var petPreferences: PetPreferences {
+        get {
+            PetPreferences(isEnabled: self[.showIslandPet])
+        }
+        set {
+            self[.showIslandPet] = newValue.isEnabled
+        }
+    }
+
     /// Written as a whole set rather than one switch at a time so the pane and
     /// the registry cannot disagree mid-edit: every absent identifier is off,
     /// which is the same rule `enabledProviderIdentifiers` reads back.
