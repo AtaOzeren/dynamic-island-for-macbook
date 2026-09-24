@@ -8,20 +8,86 @@ public enum PetFrame: String, CaseIterable, Sendable {
     case standBlink
     case strideA
     case strideB
+    /// Shaking itself dry: the head and tail thrown to one side, then the other.
+    case shakeLeft
+    case shakeRight
     case crouch
+    /// In the air, legs tucked under — drawn raised by the pose's lift.
+    case hop
     case sit
     case sitBlink
     case sitPant
     case sitWag
+    /// The head dipped a row, for nodding along to music.
+    case sitNod
+    case bark
+    case yawn
+    /// One ear flopped forward and the eye turned up: asking something.
+    case curious
+    case curiousLow
+    /// Ears flattened back and the head low: sorry about something.
+    case earsBack
+    case pawUp
+    /// Crossed-out eye, seeing stars.
+    case dazed
+    case holdBone
+    case holdBoneWag
+    case headset
+    case headsetBlink
+    case headsetNod
+    case lie
+    case lieBlink
+    case sleep
+    /// Lying with the chin on the paws and the ears back.
+    case lieSad
+    /// Flat out, crossed-out eye, tongue out.
+    case lieDazed
+    /// Front down, rear up: the stretch dogs make on waking, and the start of
+    /// digging.
+    case playBow
+    case digA
+    case digB
+
+    /// How the pet holds itself in this frame, which decides how it gets from
+    /// here to any other frame.
+    public var posture: PetPosture {
+        switch self {
+        case .stand, .standBlink, .strideA, .strideB, .shakeLeft, .shakeRight:
+            .standing
+        case .crouch:
+            .crouching
+        case .hop:
+            .airborne
+        case .sit, .sitBlink, .sitPant, .sitWag, .sitNod, .bark, .yawn, .curious, .curiousLow, .earsBack,
+            .pawUp, .dazed, .holdBone, .holdBoneWag, .headset, .headsetBlink, .headsetNod:
+            .sitting
+        case .lie, .lieBlink, .sleep, .lieSad, .lieDazed:
+            .lying
+        case .playBow, .digA, .digB:
+            .bowing
+        }
+    }
 
     /// On its haunches. `crouch` is the step between standing and sitting and
     /// counts as neither.
     public var isSitting: Bool {
-        switch self {
-        case .sit, .sitBlink, .sitPant, .sitWag: true
-        case .stand, .standBlink, .strideA, .strideB, .crouch: false
-        }
+        posture == .sitting
     }
+}
+
+/// How the pet holds itself.
+///
+/// Each posture has one way into it and out of it — sitting and lying pass
+/// through the crouch, a pet in the air lands before anything else — so a
+/// routine can start from whatever frame the pet was caught in and still move
+/// the way a dog does.
+public enum PetPosture: Sendable {
+    case standing
+    case crouching
+    case airborne
+    case sitting
+    case lying
+    case bowing
 }
 
 /// Which way the pet looks, and walks.
@@ -110,207 +176,11 @@ public struct PetSpriteSheet: Hashable, Sendable {
 extension PetSpriteSheet {
     /// A Shiba Inu puppy: orange coat, cream cheeks, bib and paws, and a tail
     /// curled over its back — 32 × 24 pixels, drawn in 16 × 12 points.
-    ///
-    /// `O` coat, `H` the coat where the light falls, `D` the coat in shadow —
-    /// the far legs, the belly, the haunch — and `R` its deepest folds, inside
-    /// the ears. `C` cream and `c` cream in shadow, `K` eye and nose, `W` the
-    /// eye's catchlight, `P` tongue and `p` the open mouth. Orange rather than
-    /// white because the island's icons are white, and a white dog beside them
-    /// read as one more glyph.
     public static let shiba = PetSpriteSheet(
         width: 32,
         height: 24,
         pixelsPerPoint: 2,
-        palette: [
-            "O": PetColor(hex: 0xE8983E),
-            "H": PetColor(hex: 0xF6B967),
-            "D": PetColor(hex: 0xC0702C),
-            "R": PetColor(hex: 0x8A4A1C),
-            "C": PetColor(hex: 0xFCEBCD),
-            "c": PetColor(hex: 0xE2C699),
-            "K": PetColor(hex: 0x22150D),
-            "W": PetColor(hex: 0xFFFFFF),
-            "P": PetColor(hex: 0xF07C95),
-            "p": PetColor(hex: 0xC4506A),
-        ],
-        frames: [
-            .stand: shibaStandingTop + shibaStandingBody + shibaStandingLegs,
-            .standBlink: painting(shibaStandingTop, shibaShutEye) + shibaStandingBody + shibaStandingLegs,
-            .strideA: shibaStandingTop + shibaStandingBody + shibaStrideALegs,
-            .strideB: shibaStandingTop + shibaStandingBody + shibaStrideBLegs,
-            .crouch: shibaCrouching,
-            .sit: shibaSittingTop + shibaSittingBody,
-            .sitBlink: painting(shibaSittingTop, shibaShutEye) + shibaSittingBody,
-            .sitPant: painting(shibaSittingTop + shibaSittingBody, shibaPantingMouth),
-            .sitWag: shibaSittingTop + shibaWaggingBody,
-        ]
+        palette: ShibaArt.palette,
+        frames: ShibaArt.frames
     )
-
-    /// The head is the same in every frame — only the body moves under it — so
-    /// the eye and the mouth are always at these pixels.
-    private static let shibaShutEye: [ArtPixel] = [
-        ArtPixel(column: 26, row: 6, key: "O"),
-        ArtPixel(column: 27, row: 6, key: "O"),
-        ArtPixel(column: 26, row: 7, key: "R"),
-        ArtPixel(column: 27, row: 7, key: "R"),
-    ]
-
-    /// The mouth open under the nose, and the tongue hanging past the chin.
-    private static let shibaPantingMouth: [ArtPixel] = [
-        ArtPixel(column: 29, row: 10, key: "p"),
-        ArtPixel(column: 30, row: 10, key: "p"),
-        ArtPixel(column: 29, row: 11, key: "P"),
-        ArtPixel(column: 30, row: 11, key: "P"),
-        ArtPixel(column: 29, row: 12, key: "P"),
-        ArtPixel(column: 30, row: 12, key: "p"),
-    ]
-
-    /// Ears to chin, with the curled tail, shared by every standing frame.
-    private static let shibaStandingTop = [
-        "......................O.....O...",
-        ".....................OOO...OOO..",
-        ".....................ORO...ORRO.",
-        "....HHHH............OORRO.OORRO.",
-        "...HOOOOOO..........OHHOOOOOOOO.",
-        "..HOOCCCOOO........OOHOOOCOOOOO.",
-        "..OOCCCCCOO........OOOOOOOWKOOOO",
-        "..OOCCOOCOD........OOOOOOOKKOOOO",
-        "..OOCCOOCOD........OOOOOOOOOOOKK",
-        "...OOCCCODD........OOOOOCCCCCCCC",
-        "....DOOODD.........CCCCCCCCCCCc.",
-        ".....DOOD...........cCCCCCCCCc..",
-    ]
-
-    /// Back to belly, shared by every standing frame: only the legs move.
-    private static let shibaStandingBody = [
-        "....OOHHHHHHHHHHHOOCCCCCCCCC....",
-        "....OOOOOOOOOOOOOOOOOCCCCCCC....",
-        "....OOOOOOOOOOOOOOOOOOCCCCC.....",
-        "....OOOOOOOOOOOOOOOOOOOCCCC.....",
-        "....DOOOOOOOOOOOOOOOOOOCCC......",
-        ".....DDOOOOOOOOOOOOOOODCC.......",
-        "......DCCCCCCCCCCCCCCCCC........",
-        ".......cccccccccccccccc.........",
-    ]
-
-    /// Standing square. Each pair is the far leg, in shadow, and the near leg
-    /// beside it.
-    private static let shibaStandingLegs = [
-        "......DDDOOO.........DDDOOO.....",
-        "......DDDOOO.........DDDOOO.....",
-        "......cccCCC.........cccCCC.....",
-        "......cccCCc.........cccCCc.....",
-    ]
-
-    /// Mid-stride: each paw a point ahead of or behind where its leg joins the
-    /// body, the two legs of a pair going opposite ways, which is what makes a
-    /// leg read as reaching.
-    private static let shibaStrideALegs = [
-        "......DDDOOO.........DDDOOO.....",
-        ".......DOOO.........DDD..OOO....",
-        ".......CCCc........ccc....CCC...",
-        ".......CCcc........ccc....CCc...",
-    ]
-
-    /// The other half of the stride.
-    private static let shibaStrideBLegs = [
-        "......DDDOOO.........DDDOOO.....",
-        ".....DDD..OOO.........DOOO......",
-        "....ccc....CCC........CCCc......",
-        "....ccc....CCc........CCcc......",
-    ]
-
-    /// Half-way between standing and sitting: the rear lowered, the front
-    /// still standing, the tail still over the back.
-    private static let shibaCrouching = [
-        "......................O.....O...",
-        ".....................OOO...OOO..",
-        ".....................ORO...ORRO.",
-        "....................OORRO.OORRO.",
-        "....................OHHOOOOOOOO.",
-        "...................OOHOOOCOOOOO.",
-        "...................OOOOOOOWKOOOO",
-        "...................OOOOOOOKKOOOO",
-        "....HHH............OOOOOOOOOOOKK",
-        "...HOOOOO..........OOOOOCCCCCCCC",
-        "..HOCCCOOO.........CCCCCCCCCCCc.",
-        "..OOCOOCOD..........cCCCCCCCCc..",
-        "..OOCOOCOD.......OOOCCCCCCCCC...",
-        "..DOOCCODD.....OHHOOOCCCCCCC....",
-        "...DDOOOD...OHHOOOOOOOCCCCCC....",
-        "....DOOD..OHOOOOOOOOOOOCCCC.....",
-        "......OOOHOOOOOOOOOOOOOCCC......",
-        ".....OHOOOOOOOODDOOOOOOCCC......",
-        ".....OOOOOODDDDOOOOOOOCCCC......",
-        "....DOOOOODOOOOOOOODDCCCC.......",
-        "....DOOOODOOOO.......DDDOOO.....",
-        "....DDOOOOOOD........DDDOOO.....",
-        "....cCCCCCCCc........cccCCC.....",
-        ".....cccCCcc.........cccCCc.....",
-    ]
-
-    /// Ears to chin, and the neck where the back starts sloping down.
-    private static let shibaSittingTop = [
-        "......................O.....O...",
-        ".....................OOO...OOO..",
-        ".....................ORO...ORRO.",
-        "....................OORRO.OORRO.",
-        "....................OHHOOOOOOOO.",
-        "...................OOHOOOCOOOOO.",
-        "...................OOOOOOOWKOOOO",
-        "...................OOOOOOOKKOOOO",
-        "...................OOOOOOOOOOOKK",
-        "...................OOOOOCCCCCCCC",
-        "..................OCCCCCCCCCCCc.",
-        ".................OHOcCCCCCCCCc..",
-    ]
-
-    /// On its haunches: the back sloping to the rump, the front legs straight
-    /// under the bib, the tail curled on the floor behind.
-    private static let shibaSittingBody = [
-        "................OHOOCCCCCCCCC...",
-        "...............OHOOOCCCCCCCCC...",
-        "..............OHOOOOOCCCCCCC....",
-        ".............OHOOOOOOOCCCCCC....",
-        "............OHOOOOOOOOOCCCCC....",
-        "...........OHOOOOOODDOODOCCC....",
-        "....HHH...OHOOOODOOOODDOOOCC....",
-        "...HOOOO..OOOODOOOOOODDOOOOC....",
-        "..HOCCOO.OOOODOOOOOODDDOOOOC....",
-        "..OOCCOO.OOOODOOOOOODDDOOOOC....",
-        "..OOCCCOOcCCCCCCCCc.cccCCCCC....",
-        "...DOOOOccCCCCCCCc..cccCCCCc....",
-    ]
-
-    /// The same, with the tail flicked up off the floor.
-    private static let shibaWaggingBody = [
-        "................OHOOCCCCCCCCC...",
-        "...............OHOOOCCCCCCCCC...",
-        "..............OHOOOOOCCCCCCC....",
-        ".............OHOOOOOOOCCCCCC....",
-        "............OHOOOOOOOOOCCCCC....",
-        "...O.......OHOOOOOODDOODOCCC....",
-        "..OHO.....OHOOOODOOOODDOOOCC....",
-        "..OCO.....OOOODOOOOOODDOOOOC....",
-        "..OCO....OOOODOOOOOODDDOOOOC....",
-        "..OCOO...OOOODOOOOOODDDOOOOC....",
-        "...OCOOOOcCCCCCCCCc.cccCCCCC....",
-        "....DOOOccCCCCCCCc..cccCCCCc....",
-    ]
-
-    /// One pixel of art, placed over a frame: how a blink or a pant is drawn on
-    /// a pose without copying the whole frame.
-    private struct ArtPixel {
-        let column: Int
-        let row: Int
-        let key: Character
-    }
-
-    private static func painting(_ rows: [String], _ pixels: [ArtPixel]) -> [String] {
-        var grid = rows.map(Array.init)
-        for pixel in pixels where grid.indices.contains(pixel.row) && grid[pixel.row].indices.contains(pixel.column) {
-            grid[pixel.row][pixel.column] = pixel.key
-        }
-        return grid.map { String($0) }
-    }
 }

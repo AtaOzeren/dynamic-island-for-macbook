@@ -23,28 +23,58 @@ public enum PetStage: Equatable, Sendable {
     }
 }
 
-/// Where on the leading flank the pet can stand, in whole points from the
-/// flank's outer edge.
+/// Where on the island the pet can stand, in whole points from its outer edge.
 ///
-/// Whole points because the art is drawn one point per pixel: a pet standing
-/// between two points would have every pixel straddle a device-pixel boundary
-/// and shimmer as it walked.
+/// On the compact pill that is the leading flank; on the open island it is the
+/// strip beside the notch, above the cards, which is wider. Whole points
+/// because every frame and every step of the pet's routine lands on one: at
+/// two image pixels to a point, a point is a whole device pixel on a Retina
+/// panel, and the art never straddles one.
 public struct PetStageGeometry: Equatable, Sendable {
     public let spriteWidth: Int
     /// One icon place on the pill.
     public let placeWidth: Int
-    /// The whole leading flank: every place and the gaps between them.
+    /// Where the pet can be: every place of the flank and the gaps between
+    /// them, or the open island's strip.
     public let flankWidth: Int
-    /// The pill's own margin, outside the flank.
+    /// The island's own margin, outside the flank.
     public let edgeInset: Int
+    /// The gap between the flank and the notch, where nothing stands but a
+    /// reaction's effects still show.
+    public let notchGap: Int
 
     public init(pill: CompactPillMetrics, spriteWidth: Int) {
-        self.spriteWidth = spriteWidth
-        placeWidth = Int(pill.slotWidth.rounded())
-        flankWidth = Int(
-            compactSideWidth(slotCount: CompactFlankAllocation.slotsPerSide, metrics: pill).rounded()
+        self.init(
+            spriteWidth: spriteWidth,
+            placeWidth: Int(pill.slotWidth.rounded()),
+            flankWidth: Int(
+                compactSideWidth(slotCount: CompactFlankAllocation.slotsPerSide, metrics: pill).rounded()
+            ),
+            edgeInset: Int(pill.edgeInset.rounded()),
+            notchGap: Int(pill.slotSpacing.rounded())
         )
-        edgeInset = Int(pill.edgeInset.rounded())
+    }
+
+    /// The open island's strip, `stripWidth` points from its outer edge to the
+    /// notch's, with the pill's own margin and gap at either end.
+    public init(openIslandStripWidth stripWidth: Int, pill: CompactPillMetrics, spriteWidth: Int) {
+        let edgeInset = Int(pill.edgeInset.rounded())
+        let notchGap = Int(pill.slotSpacing.rounded())
+        self.init(
+            spriteWidth: spriteWidth,
+            placeWidth: Int(pill.slotWidth.rounded()),
+            flankWidth: max(stripWidth - edgeInset - notchGap, spriteWidth),
+            edgeInset: edgeInset,
+            notchGap: notchGap
+        )
+    }
+
+    private init(spriteWidth: Int, placeWidth: Int, flankWidth: Int, edgeInset: Int, notchGap: Int) {
+        self.spriteWidth = spriteWidth
+        self.placeWidth = placeWidth
+        self.flankWidth = flankWidth
+        self.edgeInset = edgeInset
+        self.notchGap = notchGap
     }
 
     /// Every position that keeps the pet wholly on the flank.
@@ -58,8 +88,14 @@ public struct PetStageGeometry: Equatable, Sendable {
         max((placeWidth - spriteWidth) / 2, 0)
     }
 
-    /// Just past the pill's outer edge, where nothing of the pet is drawn.
+    /// Just past the island's outer edge, where nothing of the pet is drawn.
     public var offstagePosition: Int {
         -(edgeInset + spriteWidth)
+    }
+
+    /// Everything the pet's view has to cover: the margin it walks out
+    /// through, the flank, and the gap to the notch its effects may reach into.
+    public var canvasWidth: Int {
+        edgeInset + flankWidth + notchGap
     }
 }

@@ -467,15 +467,16 @@ public struct CompactActivityView: View {
     /// every time the island expands and collapses.
     private let hiddenMusicSlotIDs: Set<String>
 
-    /// The pet on the leading flank, and the routine the presenter keeps for
-    /// it — kept there for the same reason as the music countdown.
-    private let pet: IslandPetPresentation?
+    /// The pet on the leading flank, which keeps the flank open. The pet itself
+    /// is drawn by the island, which carries it between the compact and the
+    /// open island; the icons only make room for it.
+    private let pet: IslandPet?
 
     public init(
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
         hiddenMusicSlotIDs: Set<String> = [],
-        pet: IslandPetPresentation? = nil,
+        pet: IslandPet? = nil,
         metrics: CompactPillMetrics = .default
     ) {
         self.presentation = presentation
@@ -488,7 +489,7 @@ public struct CompactActivityView: View {
     public var body: some View {
         let slots = compactSlots(for: presentation)
         let visibleSlots = visibleCompactSlots(slots, hiding: hiddenMusicSlotIDs)
-        let layout = compactSlotLayout(for: visibleSlots, housing: pet?.pet)
+        let layout = compactSlotLayout(for: visibleSlots, housing: pet)
         let size = compactPillSize(for: layout, notchSize: notchSize, metrics: metrics)
 
         let surface = islandCompactSurface(scheme: colorScheme.islandColorScheme)
@@ -505,11 +506,6 @@ public struct CompactActivityView: View {
         }
         .padding(.horizontal, metrics.edgeInset)
         .frame(width: size.width, height: size.height)
-        // Behind the icons, so an icon arriving on the spot the pet is leaving
-        // is drawn over it rather than under it.
-        .background(alignment: .leading) {
-            CompactPetStage(pet: pet, pillHeight: size.height, metrics: metrics)
-        }
         .foregroundStyle(surface.foreground.style)
         .background {
             if drawsOwnSurface {
