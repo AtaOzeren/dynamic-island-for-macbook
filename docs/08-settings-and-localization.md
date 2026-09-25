@@ -17,6 +17,7 @@ Every setting below has a type, a default, a persistence key, and the screen or 
 | Menu bar icon visible | Bool | `true` | `general.showMenuBarIcon` | General, Appearance |
 | Appearance | enum: `auto` \| `light` \| `dark` | `auto` | `general.appearance` | General |
 | Island size | enum: `minimalist` \| `large` (an unrecognised stored value reads as `minimalist`) | `minimalist` | `general.islandSize` | General |
+| Hide in full screen and Mission Control (per display; see `docs/04-overlay-window.md`) | Bool | `false` | `general.hideInFullScreen` | General, Island |
 | Reduced motion override (every island animation — transitions, equaliser, glow, working dot, pet — on every display) | Bool? (nil = follow system) | `nil` | `general.reducedMotionOverride` | General |
 | Music provider enabled | Bool | `true` | `providers.music.enabled` | Activities |
 | Timer/Stopwatch provider enabled ("Timers and stopwatches"; also shows or hides the menu bar timer entries) | Bool | `true` | `providers.timer.enabled` | Activities |
