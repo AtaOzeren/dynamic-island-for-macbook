@@ -12,15 +12,17 @@ Which animal the pet is, is its species (`PetSpecies`): it decides the sprite sh
 
 ## Where the pet stands
 
-On the compact island the pet lives in the places the activities' icons leave free on the leading flank. The icons keep every rule from `05-activity-model.md` — the pet never takes a place an icon needs, and never moves an icon to the other side of the notch.
+On the compact island the pet has one place of its own — one icon's width, 22 points — at the outer end of the leading flank. The icons keep every rule from `05-activity-model.md` — the pet never takes a place an icon needs, and never moves an icon to the other side of the notch — and take their places beside it from the notch side.
 
-| Leading icons | Stage | What the pet does |
-|---|---|---|
-| None | `roaming` | Walks the whole flank — both places and the gap between them — and sits at points along it |
-| One | `resting` | Runs to the outer place, the one the icon does not use, and sits there |
-| Two | `away` | Runs out past the island's outer edge and is no longer drawn |
+| Leading icons | Stage | Leading flank | What the pet does |
+|---|---|---|---|
+| None | `roaming` | 1 place | Walks about its place — the 16-point pet has six points to walk — and sits at points along it |
+| One | `resting` | 2 places | Steps to the middle of its place and keeps to it, the icon in the place beside it |
+| Two | `away` | 2 places | Runs out past the island's outer edge and is no longer drawn |
 
-While a pet is switched on, the leading flank is always drawn two places wide (`CompactSlotLayout.leadingPlaceCount`). The icons take the flank from the notch side and the pet lives in what they leave, so an icon arriving beside the pet takes the pet's place rather than widening the island: the pill keeps one width while icons come and go beside the pet. Without a pet the flank is exactly as wide as its icons, as before.
+The pet widens the pill by its one place and never more (`CompactSlotLayout.leadingPlaceCount`): an icon arriving beside it gets a place of its own and widens the pill by it, exactly as it would without a pet, and with the flank full of icons the pet has gone and the pill is as wide as without it. Without a pet the flank is exactly as wide as its icons, as before.
+
+Everything the pet does on the compact island stays in its place: its walks, every reaction, and the effects beside it, which reach no further than the island's margin on one side and the gap after its place on the other — never over the icon beside it. Reactions written for room — zoomies, a dash out and back when the charger goes in — run the length of the place instead, in more and shorter laps. The open island's strip is much wider, and there the pet has all of it.
 
 Everything that sizes the compact pill reads the same answer — the icons, the black surface behind them, the mask that clips them, the offset onto the notch, the attention glow, and the hover target in `PresentationController`. The island reaches all of them through `compactSlotLayout(for:hiding:housing:)`, which takes the pet without a default; the secondary islands pass `nil` for it explicitly.
 
@@ -94,14 +96,14 @@ The loop follows the pet's **mood** (`PetMood`), read from the island at every r
 
 | Stage loop | Length | What happens |
 |---|---|---|
-| Roaming | About 21 s | Sits, strolls to the far end, sits, strolls back part-way, sits, walks to the near end, turns, sits, walks home. A blink, a wag or a pant in every sit |
+| Roaming | About 21 s | Sits, strolls to the far end of its stage, sits, strolls back part-way, sits, walks to the near end, turns, sits, walks home — a few steps each way in its place on the pill, the length of the strip on the open island. A blink, a wag or a pant in every sit |
 | Resting | About 16 s | Sits with a blink and a wag, stands to look back towards the island's edge, turns back, sits and pants |
 
 The penguin's stage loops follow the same plan: it waddles where the dog strolls, and between sits it stands for a flap of its flippers or to preen. On an empty island it now and then spends a loop out in the snow — flakes drifting down around it until it looks up and catches one in its beak — about once a minute (`PenguinLoops.idleLoop`).
 
 Where the penguin knows more than one way of spending a mood — music heard nodding or swaying, an agent kept company at the laptop or over the ice — the tracker picks one at random when the mood begins and keeps it while the mood lasts (`PetPastime`). A mood spent only one way rolls no die, so the dog's choices are exactly what they were before the penguin came.
 
-Every loop sits for most of its length. A pet that never stopped moving would be a distraction on the edge of the screen, and sitting is when the pet asks nothing of the display. Beside a single icon every loop and every reaction stays in the one place left; with the flank to itself the pet sits at a home a little in from the edge.
+Every loop sits for most of its length. A pet that never stopped moving would be a distraction on the edge of the screen, and sitting is when the pet asks nothing of the display. Beside a single icon every loop and every reaction keeps to the middle of the pet's place; with the flank to itself the pet sits at a home a little in from the edge.
 
 **The nap.** When the island empties, the routine planned at that moment plays the stage's loop for five minutes (`PetRoutineTracker.napDelay`) — counted from the island emptying, or from the pet last being petted, and rounded up to the end of the loop it is in, so up to twenty seconds more, or a little over a minute for the penguin's snowy loop — then lies the pet down and loops it asleep. The five minutes are part of the entrance Core Animation plays, so no timer puts the pet to sleep. Anything arriving on the island wakes it: it blinks, gets up, stretches — into a bow, or with its flippers swept back — and yawns before its new routine; news wakes it straight into its reaction instead.
 
@@ -116,7 +118,7 @@ Something happening on the island (`PetMoment`) is answered with a reaction (`Pe
 | An agent asks something | A flopped ear and a tilted head · barking for the user · a raised paw · looking one way, then the other — each with a question mark |
 | An agent fails | Ears back, then lying down under a rain cloud · seeing stars · keeling over, then shaking it off |
 | An agent runs out of quota | Ears back, a yawn, and off to sleep until the quota is back |
-| An agent finishes (not a sub-agent) | Two hops for joy among sparkles · zoomies across the flank · catching a bone that drops from above |
+| An agent finishes (not a sub-agent) | Two hops for joy among sparkles · zoomies end to end of its stage — three short laps in its place on the pill · catching a bone that drops from above |
 | A countdown runs out | Barking at a bell ringing over its head |
 | The charger goes in | A bolt, a hop and a dash out and back |
 | The CPU watchdog's notice | Panting with a bead of sweat |
