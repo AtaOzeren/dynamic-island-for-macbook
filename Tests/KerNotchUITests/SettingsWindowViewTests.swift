@@ -92,12 +92,22 @@ struct SettingsWindowViewTests {
         view.menuBarIconVisibility.wrappedValue = false
         view.appearance.wrappedValue = .dark
         view.islandSize.wrappedValue = .large
+        view.hidesInFullScreen.wrappedValue = true
 
         #expect(box.value.displayTarget == .named("Studio Display"))
         #expect(box.value.launchAtLogin)
         #expect(box.value.showMenuBarIcon == false)
         #expect(box.value.appearance == .dark)
         #expect(box.value.islandSize == .large)
+        #expect(box.value.hidesInFullScreen)
+    }
+
+    @Test("the full-screen switch starts off, keeping the island over full-screen apps")
+    func fullScreenHidingStartsOff() {
+        let box = Box(GeneralPreferences.default)
+        let view = GeneralSettingsView(preferences: box.binding, availableDisplays: [])
+
+        #expect(view.hidesInFullScreen.wrappedValue == false)
     }
 
     @Test("the island size picker starts on the minimalist island")

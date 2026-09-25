@@ -6217,6 +6217,48 @@
         }
       }
     },
+    "Hide in full screen and Mission Control": {
+      "comment": "General pane, Island section toggle: the island steps aside while an app is in full screen or Mission Control is open.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide in full screen and Mission Control"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tam ekranda ve Mission Control'de gizle"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Vollbildmodus und in Mission Control ausblenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar en pantalla completa y en Mission Control"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer en plein écran et dans Mission Control"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi a schermo intero e in Mission Control"
+          }
+        }
+      }
+    },
     "Large widens the island that opens on hover and enlarges its text and controls.": {
       "comment": "General pane, Island section caption: what the Large island size changes.",
       "extractionState": "manual",

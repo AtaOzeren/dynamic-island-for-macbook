@@ -18,6 +18,7 @@ struct SettingsStoreTests {
         #expect(store[.launchAtLogin] == false)
         #expect(store[.showMenuBarIcon])
         #expect(store[.appearance] == SettingsAppearance.auto)
+        #expect(store[.hideInFullScreen] == false)
         #expect(store[.reducedMotionOverride] == nil)
         #expect(store[.showMusic])
         #expect(store[.showTimer])
@@ -230,6 +231,7 @@ struct SettingsStoreTests {
             showMenuBarIcon: false,
             appearance: .dark,
             islandSize: .large,
+            hidesInFullScreen: true,
             reducedMotionOverride: false
         )
 
@@ -240,6 +242,14 @@ struct SettingsStoreTests {
         #expect(store[.showMenuBarIcon] == false)
         #expect(store[.appearance] == .dark)
         #expect(store[.islandSize] == .large)
+        #expect(store[.hideInFullScreen])
+    }
+
+    @Test("a store with nothing saved keeps the island over full-screen apps")
+    func fullScreenHidingDefaultsOff() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+
+        #expect(store.generalPreferences.hidesInFullScreen == false)
     }
 
     @Test("a store with no island size saved opens the minimalist island")

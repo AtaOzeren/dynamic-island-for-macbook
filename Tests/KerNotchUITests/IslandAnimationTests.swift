@@ -89,6 +89,7 @@ struct IslandAnimationTests {
     func animatedCurvesCarryAnAnimation() {
         #expect(IslandAnimationCurve.spring(response: 0.35, dampingFraction: 0.8).animation != nil)
         #expect(IslandAnimationCurve.easeOut(duration: 0.15).animation != nil)
+        #expect(IslandAnimationCurve.easeIn(duration: 0.2).animation != nil)
         #expect(IslandAnimationCurve.crossFade(duration: 0.1).animation != nil)
     }
 
@@ -96,8 +97,43 @@ struct IslandAnimationTests {
     func geometryMovingCurves() {
         #expect(IslandAnimationCurve.spring(response: 0.35, dampingFraction: 0.8).movesGeometry)
         #expect(IslandAnimationCurve.easeOut(duration: 0.15).movesGeometry)
+        #expect(IslandAnimationCurve.easeIn(duration: 0.2).movesGeometry)
         #expect(IslandAnimationCurve.crossFade(duration: 0.1).movesGeometry == false)
         #expect(IslandAnimationCurve.none.movesGeometry == false)
+    }
+
+    @Test("a timed curve runs for its duration, a spring settles, and no curve takes no time")
+    func curveDurations() {
+        #expect(IslandAnimationCurve.easeIn(duration: 0.2).duration == 0.2)
+        #expect(IslandAnimationCurve.easeOut(duration: 0.15).duration == 0.15)
+        #expect(IslandAnimationCurve.crossFade(duration: 0.1).duration == 0.1)
+        #expect(IslandAnimationCurve.spring(response: 0.35, dampingFraction: 0.8).duration == nil)
+        #expect(IslandAnimationCurve.none.duration == 0)
+    }
+
+    @Test("stepping aside for full screen eases the island into the notch")
+    func withdrawalEasesIn() {
+        #expect(islandWithdrawalCurve() == .easeIn(duration: 0.2))
+    }
+
+    /// The full-screen Space slides in about half a second after an app asks
+    /// for it; an island still on its way out then would be drawn over it.
+    @Test("stepping aside is over well before the full-screen Space arrives")
+    func withdrawalFinishesBeforeTheSpaceArrives() throws {
+        let duration = try #require(islandWithdrawalCurve().duration)
+
+        #expect(duration <= 0.25)
+    }
+
+    @Test("the island grows back on its own spring")
+    func returnSprings() {
+        #expect(islandReturnCurve() == .spring(response: 0.35, dampingFraction: 0.8))
+    }
+
+    @Test("Reduce Motion fades the island aside and back without shrinking it")
+    func withdrawalUnderReduceMotion() {
+        #expect(islandWithdrawalCurve(reduceMotion: true) == .crossFade(duration: 0.1))
+        #expect(islandReturnCurve(reduceMotion: true) == .crossFade(duration: 0.1))
     }
 
     @Test("a retuned motion budget reaches the curves")
@@ -114,6 +150,7 @@ struct IslandAnimationTests {
                 == .spring(response: 0.5, dampingFraction: 0.6)
         )
         #expect(islandPeekCurve(in: .compact, motion: slow) == .easeOut(duration: 0.2))
+        #expect(islandWithdrawalCurve(motion: IslandMotion(withdrawalDuration: 0.1)) == .easeIn(duration: 0.1))
         #expect(
             islandAnimationCurve(from: .compact, to: .expanded, motion: slow, reduceMotion: true)
                 == .crossFade(duration: 0.05)

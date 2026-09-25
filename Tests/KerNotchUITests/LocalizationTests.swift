@@ -74,6 +74,16 @@ struct LocalizationTests {
         }
     }
 
+    @Test("the full-screen switch is fully Turkish")
+    func fullScreenHidingSettingIsTurkish() throws {
+        try withTurkishBundle(for: "Sources/KerNotchUI/Resources/Localizable.xcstrings") { bundle in
+            #expect(
+                bundle.localizedString(forKey: "Hide in full screen and Mission Control", value: nil, table: nil)
+                    == "Tam ekranda ve Mission Control'de gizle"
+            )
+        }
+    }
+
     @Test("the General multi-display control is fully Turkish")
     func generalMultiDisplaySettingIsTurkish() throws {
         let expectedTranslations = [

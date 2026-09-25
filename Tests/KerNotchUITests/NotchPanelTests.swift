@@ -59,7 +59,29 @@ struct NotchPanelTests {
 
     @Test("joins every Space, survives full screen, and ignores Mission Control")
     func collectionBehavior() {
-        #expect(Self.makePanel().collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary])
+        let panel = Self.makePanel()
+
+        #expect(panel.hidesDuringMissionControl == false)
+        #expect(panel.collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary])
+    }
+
+    @Test("lets Mission Control take the island away while still joining every Space")
+    func hidesDuringMissionControl() {
+        let panel = Self.makePanel()
+
+        panel.hidesDuringMissionControl = true
+
+        #expect(panel.collectionBehavior == [.canJoinAllSpaces, .transient])
+    }
+
+    @Test("pins the island over the notch again once Mission Control hiding is switched off")
+    func pinsAgainAfterMissionControlHiding() {
+        let panel = Self.makePanel()
+        panel.hidesDuringMissionControl = true
+
+        panel.hidesDuringMissionControl = false
+
+        #expect(panel.collectionBehavior == [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary])
     }
 
     @Test("never steals keyboard focus")

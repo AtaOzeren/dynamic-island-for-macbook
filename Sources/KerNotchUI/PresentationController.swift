@@ -93,6 +93,36 @@ public final class PresentationController {
         }
     }
 
+    /// Whether the island has stepped aside for an app in full screen on its
+    /// display.
+    ///
+    /// Stepping aside is drawn on `withdrawal` and the window is ordered out
+    /// once it has run; while withdrawn the window stays out whatever the
+    /// activities do. Clearing it orders the island back in at its resting
+    /// compact geometry, the way returning from sleep does, and then lets it
+    /// grow back into view.
+    public var isWithdrawn = false {
+        didSet {
+            guard isWithdrawn != oldValue else { return }
+            if isWithdrawn {
+                stepAside()
+            } else if isStarted {
+                comeBack()
+            }
+        }
+    }
+
+    /// How the most recent step aside or return should be drawn, on the same
+    /// assigned-before-the-callback contract as `transition`.
+    public private(set) var withdrawal: IslandAnimationCurve = .none
+
+    /// Fired as the island starts stepping aside (`true`) or coming back
+    /// (`false`), for the presenter to draw on `withdrawal`.
+    public var onWithdrawalChange: ((Bool) -> Void)?
+
+    /// Orders the window out once the island has finished stepping aside.
+    private var withdrawalTimer: Timer?
+
     /// How the most recent hover change should be drawn, on the same
     /// assigned-before-the-callback contract as `transition`.
     public private(set) var peek: IslandAnimationCurve = .none
@@ -171,6 +201,10 @@ public final class PresentationController {
         synchronize()
     }
 
+    private var isStarted: Bool {
+        activitiesObserverID != nil
+    }
+
     public func stop() {
         if let activitiesObserverID {
             manager.removeActivitiesObserver(activitiesObserverID)
@@ -188,7 +222,7 @@ public final class PresentationController {
     /// activity arriving off screen orders the window in at its resting compact
     /// geometry first, and only a later transition animates.
     public func expand() {
-        guard state == .compact, manager.activeActivities.isEmpty == false else { return }
+        guard state == .compact, isWithdrawn == false, manager.activeActivities.isEmpty == false else { return }
         state = .expanded
     }
 
@@ -208,7 +242,7 @@ public final class PresentationController {
 
     /// Re-evaluates visibility and geometry after display topology changes.
     public func screenConfigurationDidChange() {
-        guard let targetScreen = screen(), targetScreen.isUsableForPresentation else {
+        guard isWithdrawn == false, let targetScreen = screen(), targetScreen.isUsableForPresentation else {
             hide()
             return
         }
@@ -275,7 +309,10 @@ public final class PresentationController {
 
     private func synchronize() {
         defer { onSynchronize?() }
-        guard let targetScreen = screen() else {
+        // The island on its way out orders the window out itself once the
+        // animation has run; hiding it here would cut the animation short.
+        guard isSteppingAside == false else { return }
+        guard isWithdrawn == false, let targetScreen = screen() else {
             hide()
             return
         }
@@ -296,23 +333,81 @@ public final class PresentationController {
         updateHitRect(on: screen)
         panel.orderFrontRegardless()
         state = .compact
-        mouse.startObserving { [weak self] location in
-            self?.pointerMoved(to: location)
-        }
+        observePointer()
     }
 
     /// Hidden is entered before hover is dropped so the hover release resolves
     /// its curve against `.hidden` and animates nothing. Clearing hover first
     /// would schedule a peek-out on a window that has already been ordered out.
     private func hide() {
-        hoverExpansionTimer?.invalidate()
-        hoverExpansionTimer = nil
-        mouse.stopObserving()
-        panel.endInteractiveMode()
+        withdrawalTimer?.invalidate()
+        withdrawalTimer = nil
+        stopObservingPointer()
         panel.orderOut(nil)
         state = .hidden
         isHovered = false
         lastPointerLocation = nil
+    }
+
+    private var isSteppingAside: Bool {
+        withdrawalTimer != nil
+    }
+
+    /// Lets the island shrink away on screen, then orders the window out.
+    ///
+    /// The pointer is let go at once, so an island on its way out can neither
+    /// be hovered open nor hold the menu bar's clicks. A hidden island has
+    /// nothing to draw and simply stays out.
+    private func stepAside() {
+        withdrawal =
+            state == .hidden
+            ? .none
+            : islandWithdrawalCurve(motion: motion, reduceMotion: reduceMotion.prefersReducedMotion)
+        onWithdrawalChange?(true)
+        guard let duration = withdrawal.duration, duration > 0 else {
+            hide()
+            return
+        }
+
+        stopObservingPointer()
+        isHovered = false
+        lastPointerLocation = nil
+        withdrawalTimer = Timer.scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.hide()
+            }
+        }
+    }
+
+    /// Orders the island back in at its resting compact geometry, still drawn
+    /// stepped aside, and then lets it grow back. An island caught on its way
+    /// out turns around where it is.
+    private func comeBack() {
+        if isSteppingAside {
+            withdrawalTimer?.invalidate()
+            withdrawalTimer = nil
+            observePointer()
+        } else {
+            synchronize()
+        }
+        withdrawal =
+            state == .hidden
+            ? .none
+            : islandReturnCurve(motion: motion, reduceMotion: reduceMotion.prefersReducedMotion)
+        onWithdrawalChange?(false)
+    }
+
+    private func observePointer() {
+        mouse.startObserving { [weak self] location in
+            self?.pointerMoved(to: location)
+        }
+    }
+
+    private func stopObservingPointer() {
+        hoverExpansionTimer?.invalidate()
+        hoverExpansionTimer = nil
+        mouse.stopObserving()
+        panel.endInteractiveMode()
     }
 
     /// Tracks the exact drawn silhouette in both states. The panel window keeps

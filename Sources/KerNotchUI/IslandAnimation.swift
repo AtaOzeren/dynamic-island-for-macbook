@@ -52,6 +52,13 @@ public struct IslandMotion: Equatable, Sendable {
     /// which let the desktop show through what has to read as the notch's own
     /// black — so hovering made the island visibly grey beside the hardware.
     public let peekScale: CGFloat
+    /// How long the island takes to step aside for a full-screen app. Short
+    /// enough to be over well before the full-screen Space has slid in, about
+    /// half a second after the app asks for it.
+    public let withdrawalDuration: Double
+    /// How small the island shrinks into the notch as it steps aside, and so
+    /// what it grows back from as it returns.
+    public let withdrawnScale: CGFloat
 
     public init(
         springResponse: Double = 0.35,
@@ -61,7 +68,9 @@ public struct IslandMotion: Equatable, Sendable {
         hoverExpansionDelay: Double = 0.25,
         hoverCollapseGrace: Double = 0.5,
         contentLead: Double = 0.08,
-        peekScale: CGFloat = 1.03
+        peekScale: CGFloat = 1.03,
+        withdrawalDuration: Double = 0.2,
+        withdrawnScale: CGFloat = 0.6
     ) {
         self.springResponse = springResponse
         self.springDamping = springDamping
@@ -71,6 +80,8 @@ public struct IslandMotion: Equatable, Sendable {
         self.hoverCollapseGrace = hoverCollapseGrace
         self.contentLead = contentLead
         self.peekScale = peekScale
+        self.withdrawalDuration = withdrawalDuration
+        self.withdrawnScale = withdrawnScale
     }
 }
 
@@ -88,6 +99,8 @@ public enum IslandAnimationCurve: Equatable, Sendable {
     case spring(response: Double, dampingFraction: Double)
     /// The hover peek.
     case easeOut(duration: Double)
+    /// The island stepping aside: quickly out of the way once it starts.
+    case easeIn(duration: Double)
     /// The Reduce Motion substitute: opacity only, no geometry travel.
     case crossFade(duration: Double)
 
@@ -104,6 +117,8 @@ public enum IslandAnimationCurve: Equatable, Sendable {
             .spring(response: response, dampingFraction: dampingFraction)
         case .easeOut(let duration):
             .easeOut(duration: duration)
+        case .easeIn(let duration):
+            .easeIn(duration: duration)
         case .crossFade(let duration):
             .linear(duration: duration)
         }
@@ -114,8 +129,18 @@ public enum IslandAnimationCurve: Equatable, Sendable {
     /// travel, not change.
     public var movesGeometry: Bool {
         switch self {
-        case .spring, .easeOut: true
+        case .spring, .easeOut, .easeIn: true
         case .none, .crossFade: false
+        }
+    }
+
+    /// How long the curve runs, or `nil` for a spring, which settles rather
+    /// than ends at a set time.
+    public var duration: Double? {
+        switch self {
+        case .none: 0
+        case .spring: nil
+        case .easeOut(let duration), .easeIn(let duration), .crossFade(let duration): duration
         }
     }
 }
@@ -244,6 +269,31 @@ public func islandAnimationCurve(
 ) -> IslandAnimationCurve {
     guard oldState != newState else { return .none }
     guard oldState != .hidden, newState != .hidden else { return .none }
+    guard reduceMotion == false else {
+        return .crossFade(duration: motion.reducedMotionCrossFadeDuration)
+    }
+    return .spring(response: motion.springResponse, dampingFraction: motion.springDamping)
+}
+
+/// The curve for the island stepping aside for a full-screen app: shrinking
+/// into the notch as it fades, or only fading under Reduce Motion.
+public func islandWithdrawalCurve(
+    motion: IslandMotion = .default,
+    reduceMotion: Bool = false
+) -> IslandAnimationCurve {
+    guard reduceMotion == false else {
+        return .crossFade(duration: motion.reducedMotionCrossFadeDuration)
+    }
+    return .easeIn(duration: motion.withdrawalDuration)
+}
+
+/// The curve for the island coming back once the full-screen app has gone:
+/// growing out of the notch on the island's own spring, or only fading in
+/// under Reduce Motion.
+public func islandReturnCurve(
+    motion: IslandMotion = .default,
+    reduceMotion: Bool = false
+) -> IslandAnimationCurve {
     guard reduceMotion == false else {
         return .crossFade(duration: motion.reducedMotionCrossFadeDuration)
     }
