@@ -2,8 +2,8 @@ import KerNotchCore
 import ServiceManagement
 import SwiftUI
 
-/// The General pane: display target, island size, menu bar visibility, launch
-/// at login, appearance, and reduced motion.
+/// The General pane: display target, island size, hiding in full screen, menu
+/// bar visibility, launch at login, appearance, and reduced motion.
 ///
 /// Like the AI Integrations pane, it owns no state — it edits the binding the
 /// composition root hands it, so the window and the store never hold two
@@ -89,6 +89,13 @@ public struct GeneralSettingsView: View {
         )
     }
 
+    public var hidesInFullScreen: Binding<Bool> {
+        Binding(
+            get: { preferences.hidesInFullScreen },
+            set: { preferences.hidesInFullScreen = $0 }
+        )
+    }
+
     public var menuBarIconVisibility: Binding<Bool> {
         Binding(
             get: { preferences.showMenuBarIcon },
@@ -151,6 +158,7 @@ public struct GeneralSettingsView: View {
                     Text(size.displayName).tag(size)
                 }
             }
+            Toggle(localized("Hide in full screen and Mission Control"), isOn: hidesInFullScreen)
         }
     }
 

@@ -91,6 +91,10 @@ final class SecondaryIslandPresentation {
         controller.onSynchronize = { [weak self] in
             self?.refreshContent()
         }
+        controller.onWithdrawalChange = { [weak controller, weak model] isWithdrawn in
+            guard let controller, let model else { return }
+            model.applyWithdrawal(isWithdrawn, curve: controller.withdrawal)
+        }
         model.onCollapse = { [weak self] in
             self?.requestCollapse()
         }
@@ -146,6 +150,19 @@ final class SecondaryIslandPresentation {
     var reducedMotionOverride: Bool? {
         get { model.reducedMotionOverride }
         set { model.reducedMotionOverride = newValue }
+    }
+
+    /// Whether this display's island has stepped aside for an app in full
+    /// screen here. Each display answers for itself: an app filling one screen
+    /// leaves the islands on the others in place.
+    var isWithdrawn: Bool {
+        get { controller.isWithdrawn }
+        set { controller.isWithdrawn = newValue }
+    }
+
+    var hidesDuringMissionControl: Bool {
+        get { panel.hidesDuringMissionControl }
+        set { panel.hidesDuringMissionControl = newValue }
     }
 
     /// Adopts the primary presenter's latest clock reading and redraws from it.

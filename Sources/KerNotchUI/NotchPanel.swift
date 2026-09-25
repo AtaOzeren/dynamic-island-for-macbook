@@ -17,10 +17,35 @@ public final class NotchPanel: NSPanel {
     /// system-critical UI such as the screen-lock overlay.
     public static let level = NSWindow.Level(rawValue: NSWindow.Level.mainMenu.rawValue + 1)
 
+    /// Joins every Space, full-screen ones included, and stays pinned over the
+    /// notch while Mission Control gathers the windows.
+    static let pinnedCollectionBehavior: NSWindow.CollectionBehavior = [
+        .canJoinAllSpaces, .fullScreenAuxiliary, .stationary,
+    ]
+
+    /// Joins every Space, but lets Mission Control take the island away with
+    /// the windows it gathers. Full-screen Spaces are left to the presenter,
+    /// because the window server shows a panel this high over them regardless.
+    static let missionControlHiddenCollectionBehavior: NSWindow.CollectionBehavior = [
+        .canJoinAllSpaces, .transient,
+    ]
+
     private var metrics: PanelMetrics
     private var allowsKeyFocus = false
 
     public var onCancel: (() -> Void)?
+
+    /// Whether Mission Control hides the island instead of leaving it over the
+    /// notch. Applied to the live window, which picks it up without being
+    /// ordered out.
+    public var hidesDuringMissionControl = false {
+        didSet {
+            collectionBehavior =
+                hidesDuringMissionControl
+                ? Self.missionControlHiddenCollectionBehavior
+                : Self.pinnedCollectionBehavior
+        }
+    }
 
     public init(
         metrics: PanelMetrics = .default,
@@ -43,7 +68,7 @@ public final class NotchPanel: NSPanel {
         hidesOnDeactivate = false
         isMovable = false
         isMovableByWindowBackground = false
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        collectionBehavior = Self.pinnedCollectionBehavior
         ignoresMouseEvents = true
 
         // The panel outlives every close and is positioned only by `reposition`,

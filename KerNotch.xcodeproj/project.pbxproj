@@ -20,6 +20,7 @@
 		F10000012C8100000000001E /* WatchdogLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C8100000000001E /* WatchdogLaunch.swift */; };
 		F10000012C8100000000001F /* WatchdogLaunchNotice.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C8100000000001F /* WatchdogLaunchNotice.swift */; };
 		F10000012C81000000000020 /* TimerMenuControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000020 /* TimerMenuControls.swift */; };
+		F10000012C81000000000021 /* WindowServerSpaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000021 /* WindowServerSpaces.swift */; };
 		F10000012C81000000000010 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000011 /* Localizable.xcstrings */; };
 		F10000012C81000000000011 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000012 /* Assets.xcassets */; };
 		F10000012C81000000000012 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F10000022C81000000000013 /* AppIntents.framework */; };
@@ -59,6 +60,7 @@
 		F10000022C8100000000001E /* WatchdogLaunch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchdogLaunch.swift; sourceTree = "<group>"; };
 		F10000022C8100000000001F /* WatchdogLaunchNotice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchdogLaunchNotice.swift; sourceTree = "<group>"; };
 		F10000022C81000000000020 /* TimerMenuControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimerMenuControls.swift; sourceTree = "<group>"; };
+		F10000022C81000000000021 /* WindowServerSpaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowServerSpaces.swift; sourceTree = "<group>"; };
 		F10000022C81000000000011 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		F10000022C81000000000012 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F10000022C81000000000013 /* AppIntents.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppIntents.framework; path = System/Library/Frameworks/AppIntents.framework; sourceTree = SDKROOT; };
@@ -121,6 +123,7 @@
 				F10000022C8100000000001E /* WatchdogLaunch.swift */,
 				F10000022C8100000000001F /* WatchdogLaunchNotice.swift */,
 				F10000022C81000000000020 /* TimerMenuControls.swift */,
+				F10000022C81000000000021 /* WindowServerSpaces.swift */,
 				F10000022C81000000000011 /* Localizable.xcstrings */,
 				F10000052C81000000000005 /* InfoPlist.strings */,
 				F10000022C81000000000012 /* Assets.xcassets */,
@@ -284,6 +287,7 @@
 				F10000012C8100000000001E /* WatchdogLaunch.swift in Sources */,
 				F10000012C8100000000001F /* WatchdogLaunchNotice.swift in Sources */,
 				F10000012C81000000000020 /* TimerMenuControls.swift in Sources */,
+				F10000012C81000000000021 /* WindowServerSpaces.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

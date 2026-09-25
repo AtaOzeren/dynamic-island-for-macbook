@@ -118,6 +118,9 @@ extension SettingsKey where Value == Bool {
     public static var showMenuBarIcon: Self {
         boolKey(path: "general.showMenuBarIcon", defaultValue: true)
     }
+    public static var hideInFullScreen: Self {
+        boolKey(path: "general.hideInFullScreen", defaultValue: false)
+    }
     public static var showMusic: Self { boolKey(path: "providers.music.enabled", defaultValue: true) }
     public static var showTimer: Self { boolKey(path: "providers.timer.enabled", defaultValue: true) }
     public static var showScreenRecording: Self {
@@ -196,6 +199,7 @@ public enum SettingsKeys {
         register(.showMenuBarIcon, in: &defaults)
         register(.appearance, in: &defaults)
         register(.islandSize, in: &defaults)
+        register(.hideInFullScreen, in: &defaults)
         register(.showMusic, in: &defaults)
         register(.showTimer, in: &defaults)
         register(.showScreenRecording, in: &defaults)

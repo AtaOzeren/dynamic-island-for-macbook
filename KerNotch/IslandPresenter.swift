@@ -65,6 +65,12 @@ final class IslandViewModel: ObservableObject {
     /// system. SwiftUI's reduce-motion value is the system's alone, so the
     /// choice reaches the views that honour it through the environment.
     @Published var reducedMotionOverride: Bool?
+    /// Whether the island is drawn stepped aside for a full-screen app:
+    /// shrunk into the notch and faded out.
+    @Published var isWithdrawn = false
+    /// Whether stepping aside shrinks the island as well as fading it. Only
+    /// the fade is left under Reduce Motion.
+    @Published var withdrawalMovesGeometry = true
 
     /// Assigned by the presenter after the controller exists. The content view
     /// is built *before* the controller — the panel's initialiser demands it —
@@ -86,6 +92,15 @@ final class IslandViewModel: ObservableObject {
         self.compact = compact
         self.notchSize = notchSize
         self.layout = layout
+    }
+
+    /// Draws the island stepping aside or coming back on the controller's
+    /// curve.
+    func applyWithdrawal(_ isWithdrawn: Bool, curve: IslandAnimationCurve) {
+        withdrawalMovesGeometry = curve.movesGeometry
+        withAnimation(curve.animation) {
+            self.isWithdrawn = isWithdrawn
+        }
     }
 
     /// Everything that decides how big the island is drawn, as the view draws it
@@ -152,6 +167,8 @@ struct IslandRootView: View {
         .offset(x: compactDrawingOffset)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .scaleEffect(peekScale, anchor: .top)
+        .scaleEffect(withdrawalScale, anchor: .top)
+        .opacity(model.isWithdrawn ? 0 : 1)
         .environment(\.islandHoverScale, peekScale)
         .environment(\.colorScheme, .dark)
         .environment(\.islandContentMotion, model.contentMotion)
@@ -162,6 +179,13 @@ struct IslandRootView: View {
     /// The hover peek's scale, which only the compact island has.
     private var peekScale: CGFloat {
         model.state == .compact ? model.hoverScale : 1
+    }
+
+    /// How far the island has shrunk into the notch on its way out of a
+    /// full-screen app's way. Anchored on the notch, so it leaves into the
+    /// cutout it grew from.
+    private var withdrawalScale: CGFloat {
+        model.isWithdrawn && model.withdrawalMovesGeometry ? IslandMotion.default.withdrawnScale : 1
     }
 
     /// The compact pill's own geometry, whose flanks are only as wide as the
@@ -326,6 +350,13 @@ final class IslandPresenter {
     private let controller: PresentationController
     private let reduceMotion: ConfigurableReduceMotion
     private let screenChanges: any ScreenChangeObserving
+    private let fullScreenSpaces: any FullScreenSpaceObserving
+    /// Whether the island steps aside for full-screen apps and Mission
+    /// Control, as the General pane says.
+    private var hidesInFullScreen: Bool
+    /// The displays showing an app in full screen, as last reported. Empty
+    /// whenever the island is not stepping aside for them.
+    private var fullScreenDisplayIdentifiers: Set<String> = []
     private let musicProvider: (any MusicProvider)?
     private let timerProvider: TimerProvider?
     private let discordVoice: (any DiscordVoiceChannelLeaving)?
@@ -351,6 +382,9 @@ final class IslandPresenter {
         manager: ActivityManager,
         settingsStore: SettingsStore,
         screenChanges: any ScreenChangeObserving = SystemScreenChangeObserver(),
+        fullScreenSpaces: any FullScreenSpaceObserving = SystemFullScreenSpaceObserver(
+            currentSpaces: WindowServerSpaces.currentSpaces
+        ),
         musicProvider: (any MusicProvider)? = nil,
         timerProvider: TimerProvider? = nil,
         discordVoice: (any DiscordVoiceChannelLeaving)? = nil,
@@ -363,6 +397,8 @@ final class IslandPresenter {
         self.chosenLayout = chosenLayout
         pet = settingsStore.petPreferences.pet
         self.screenChanges = screenChanges
+        self.fullScreenSpaces = fullScreenSpaces
+        hidesInFullScreen = settingsStore.generalPreferences.hidesInFullScreen
         self.musicProvider = musicProvider
         self.timerProvider = timerProvider
         self.discordVoice = discordVoice
@@ -389,6 +425,7 @@ final class IslandPresenter {
             appearance: .dark,
             content: IslandRootView(model: model)
         )
+        panel.hidesDuringMissionControl = hidesInFullScreen
 
         // Re-read on every order-in rather than captured once, so a display
         // change or a new display-target preference lands the panel on the
@@ -449,11 +486,20 @@ final class IslandPresenter {
         controller.onSynchronize = { [weak self] in
             self?.refreshContent()
         }
+        controller.onWithdrawalChange = { [weak self] isWithdrawn in
+            guard let self else { return }
+            model.applyWithdrawal(isWithdrawn, curve: controller.withdrawal)
+        }
         connectModelCommands()
         panel.onCancel = { [weak self] in self?.hoverCoordinator.collapseNow() }
 
         screenChanges.startObserving { [weak self] change in
             self?.screenSetChanged(change)
+        }
+        // Before the first order-in, so a launch into a full-screen app never
+        // flashes the island over it.
+        if hidesInFullScreen {
+            observeFullScreenSpaces()
         }
 
         // Filled in while the panel is still ordered out, so it is ordered in
@@ -540,6 +586,7 @@ final class IslandPresenter {
             }
         case .screenParametersChanged, .systemDidWake:
             screenConfigurationSettled(change.displays)
+            applyFullScreenWithdrawal()
             reconcileSecondaryPresentations()
             controller.screenConfigurationDidChange()
             for secondary in secondaryPresentations.values {
@@ -585,6 +632,48 @@ final class IslandPresenter {
         model.reducedMotionOverride = preferenceOverride
         for secondary in secondaryPresentations.values {
             secondary.reducedMotionOverride = preferenceOverride
+        }
+    }
+
+    /// Takes the General pane's full-screen switch into effect at once, on
+    /// every display: switched on over a full-screen app, the island leaves;
+    /// switched off, every island that had stepped aside comes back.
+    func applyFullScreenHiding(_ hidesInFullScreen: Bool) {
+        guard hidesInFullScreen != self.hidesInFullScreen else { return }
+        self.hidesInFullScreen = hidesInFullScreen
+        panel.hidesDuringMissionControl = hidesInFullScreen
+        for secondary in secondaryPresentations.values {
+            secondary.hidesDuringMissionControl = hidesInFullScreen
+        }
+        if hidesInFullScreen {
+            observeFullScreenSpaces()
+        } else {
+            fullScreenSpaces.stopObserving()
+            fullScreenDisplaysChanged([])
+        }
+    }
+
+    private func observeFullScreenSpaces() {
+        fullScreenSpaces.startObserving { [weak self] identifiers in
+            self?.fullScreenDisplaysChanged(identifiers)
+        }
+    }
+
+    private func fullScreenDisplaysChanged(_ identifiers: Set<String>) {
+        fullScreenDisplayIdentifiers = identifiers
+        applyFullScreenWithdrawal()
+    }
+
+    /// Steps each island aside while its own display shows an app in full
+    /// screen, and brings it back once the display shows anything else.
+    private func applyFullScreenWithdrawal() {
+        let primaryDisplay = selectDisplay(
+            from: NSScreen.screens.map(DisplayDescription.init),
+            preference: settingsStore.generalPreferences.displayTarget
+        )
+        controller.isWithdrawn = primaryDisplay.map { fullScreenDisplayIdentifiers.contains($0.identifier) } ?? false
+        for (identifier, secondary) in secondaryPresentations {
+            secondary.isWithdrawn = fullScreenDisplayIdentifiers.contains(identifier)
         }
     }
 
@@ -682,6 +771,7 @@ final class IslandPresenter {
     }
 
     func applyDisplayTarget() {
+        applyFullScreenWithdrawal()
         controller.screenConfigurationDidChange()
         reconcileSecondaryPresentations()
         refreshContent()
@@ -863,6 +953,8 @@ final class IslandPresenter {
             secondaryPresentations[identifier] = secondary
             secondary.isMotionSuspended = isDegraded
             secondary.reducedMotionOverride = reduceMotion.preferenceOverride
+            secondary.hidesDuringMissionControl = hidesInFullScreen
+            secondary.isWithdrawn = fullScreenDisplayIdentifiers.contains(identifier)
             secondary.start()
             if hoverCoordinator.isExpanded {
                 secondary.expand()

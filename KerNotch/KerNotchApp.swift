@@ -653,6 +653,7 @@ struct KerNotchApp: App {
             islandPresenter.applyAppearance(preferences.appearance)
             islandPresenter.applyIslandSize(preferences.islandSize)
             islandPresenter.applyReducedMotion(preferences.reducedMotionOverride)
+            islandPresenter.applyFullScreenHiding(preferences.hidesInFullScreen)
             islandPresenter.applyDisplayTarget()
         }
         .onChange(of: displayInventory.displays) { _, displays in

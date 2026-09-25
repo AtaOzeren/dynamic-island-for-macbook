@@ -125,6 +125,7 @@ public final class SettingsStore {
                 showMenuBarIcon: self[.showMenuBarIcon],
                 appearance: self[.appearance],
                 islandSize: self[.islandSize],
+                hidesInFullScreen: self[.hideInFullScreen],
                 reducedMotionOverride: self[.reducedMotionOverride]
             )
         }
@@ -134,6 +135,7 @@ public final class SettingsStore {
             self[.showMenuBarIcon] = newValue.showMenuBarIcon
             self[.appearance] = newValue.appearance
             self[.islandSize] = newValue.islandSize
+            self[.hideInFullScreen] = newValue.hidesInFullScreen
             self[.reducedMotionOverride] = newValue.reducedMotionOverride
         }
     }

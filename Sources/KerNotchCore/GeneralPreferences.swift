@@ -17,6 +17,11 @@ public struct GeneralPreferences: Equatable, Sendable {
     public var appearance: SettingsAppearance
     public var islandSize: IslandSize
 
+    /// Whether the island steps aside while an app fills its display or
+    /// Mission Control is open. Off by default: the island is an
+    /// always-available overlay unless the user asks otherwise.
+    public var hidesInFullScreen: Bool
+
     /// `nil` means follow the system, which is why this is an optional rather
     /// than a `Bool` with a separate "is overridden" flag: two fields would let
     /// the pane express a state — overridden but with no value — that the
@@ -29,6 +34,7 @@ public struct GeneralPreferences: Equatable, Sendable {
         showMenuBarIcon: Bool = true,
         appearance: SettingsAppearance = .auto,
         islandSize: IslandSize = .minimalist,
+        hidesInFullScreen: Bool = false,
         reducedMotionOverride: Bool? = nil
     ) {
         self.displayTarget = displayTarget
@@ -36,6 +42,7 @@ public struct GeneralPreferences: Equatable, Sendable {
         self.showMenuBarIcon = showMenuBarIcon
         self.appearance = appearance
         self.islandSize = islandSize
+        self.hidesInFullScreen = hidesInFullScreen
         self.reducedMotionOverride = reducedMotionOverride
     }
 }
