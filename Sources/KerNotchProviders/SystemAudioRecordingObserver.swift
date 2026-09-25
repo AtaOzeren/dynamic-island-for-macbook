@@ -46,7 +46,8 @@ public final class SystemAudioRecordingObserver: RecordingObserving {
             isDeviceRunning: isDeviceRunning,
             processIdentifiers: { nil },
             processBundleIdentifier: { _ in nil },
-            isProcessRunningInput: { _ in false }
+            isProcessRunningInput: { _ in false },
+            processInputDevices: { _ in [] }
         )
         self.init(
             monitor: MicrophoneActivityMonitor(hardware: hardware, listeners: listeners),
