@@ -63,9 +63,13 @@ public struct PetRoutineTracker: Equatable, Sendable {
     /// How long the island stays empty before the pet lies down for a nap.
     public static let napDelay: TimeInterval = 300
 
+    /// Which pet this is. A different pet is a different life: it gets a
+    /// tracker of its own and walks in afresh.
+    public let species: PetSpecies
     public private(set) var performance: PetPerformance?
     private var scene: PetScene?
     private var askingStyle: PetReaction?
+    private var pastime: PetPastime?
     private var isWatching = false
     private var runningUrgency: PetUrgency?
     private var reactionEndsAt: TimeInterval?
@@ -73,7 +77,9 @@ public struct PetRoutineTracker: Equatable, Sendable {
     private var lastOccasionalAt: TimeInterval?
     private var lastPettedAt: TimeInterval?
 
-    public init() {}
+    public init(species: PetSpecies) {
+        self.species = species
+    }
 
     /// Follows the pet into `scene` at uptime `now`, reacting to the strongest
     /// of `moments` it will answer. Nothing changed and nothing to react to
@@ -120,12 +126,17 @@ public struct PetRoutineTracker: Equatable, Sendable {
         }
 
         let moodChanged = self.scene?.mood != resolved.mood
+        if moodChanged {
+            pastime = choosePastime(for: resolved.mood, dice: &dice)
+        }
         guard performance == nil || stageChanged || islandChanged || moodChanged || pick != nil else { return }
 
         var direction = PetDirection(
+            species: species,
             mood: resolved.mood,
             reaction: pick?.reaction,
             askingStyle: askingStyle,
+            pastime: pastime,
             isWatching: isWatching,
             napDelay: napDelay(in: resolved.mood, at: now)
         )
@@ -147,7 +158,7 @@ public struct PetRoutineTracker: Equatable, Sendable {
     /// comes back it enters from beyond the edge again rather than resuming a
     /// routine nobody saw finish.
     public mutating func forget() {
-        self = PetRoutineTracker()
+        self = PetRoutineTracker(species: species)
     }
 
     /// What is left at `now` of the reaction still playing, if it lives
@@ -208,11 +219,20 @@ public struct PetRoutineTracker: Equatable, Sendable {
             askingStyle = nil
             return
         }
-        if let picked, PetMoment.agentAsked.reactions.contains(picked) {
+        let gestures = species.reactions(to: .agentAsked)
+        if let picked, gestures.contains(picked) {
             askingStyle = picked
         } else if askingStyle == nil {
-            askingStyle = dice.pick(from: PetMoment.agentAsked.reactions)
+            askingStyle = dice.pick(from: gestures)
         }
+    }
+
+    /// How the pet spends `mood`, picked when the mood begins and kept while
+    /// it lasts: music heard nodding or swaying, an agent kept company at a
+    /// laptop or over the ice. A mood spent only one way rolls no die.
+    private func choosePastime(for mood: PetMood, dice: inout PetDice) -> PetPastime? {
+        let pastimes = species.pastimes(for: mood)
+        return pastimes.count > 1 ? dice.pick(from: pastimes) : pastimes.first
     }
 
     /// The reaction to the most urgent of `moments` the pet answers, leaving
@@ -243,7 +263,7 @@ public struct PetRoutineTracker: Equatable, Sendable {
         at now: TimeInterval,
         dice: inout PetDice
     ) -> PetReaction? {
-        let options = moment.reactions.filter { $0.needsRoom == false || stage == .roaming }
+        let options = species.reactions(to: moment).filter { $0.needsRoom == false || stage == .roaming }
         guard options.isEmpty == false else { return nil }
 
         if moment.isOccasional {

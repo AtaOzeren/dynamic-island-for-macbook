@@ -17,10 +17,36 @@ struct PetEffectAnchor {
     static let heldBone = PetEffectAnchor(effect: .bone, inset: 12, height: 6)
 }
 
+/// How a pet calls out: the pose it calls from, the frame with its mouth
+/// open, and where the lines of the call hang in the air.
+struct PetCall {
+    let resting: PetFrame
+    let calling: PetFrame
+    let lines: PetEffectAnchor
+
+    /// Sitting, barking past the muzzle.
+    static let bark = PetCall(resting: .sit, calling: .bark, lines: .barkLines)
+    /// Standing, squawking past the beak.
+    static let squawk = PetCall(
+        resting: .stand,
+        calling: .squawk,
+        lines: PetEffectAnchor(effect: .barkLines, inset: 13, height: 5)
+    )
+}
+
 extension PetChoreographer {
-    /// Plays `reaction` where the pet is, on `stage`. Ends on the floor —
-    /// sitting, lying or standing — ready for the loop that follows.
+    /// Plays `reaction` where the pet is, on `stage`, the way its species
+    /// does. Ends on the floor — sitting, lying or standing — ready for the
+    /// loop that follows.
     mutating func perform(_ reaction: PetReaction, on stage: PetStage, in geometry: PetStageGeometry) {
+        switch species {
+        case .dog: performAsDog(reaction, on: stage, in: geometry)
+        case .penguin: performAsPenguin(reaction, on: stage, in: geometry)
+        }
+    }
+
+    /// A reaction outside the dog's repertoire plays nothing.
+    private mutating func performAsDog(_ reaction: PetReaction, on stage: PetStage, in geometry: PetStageGeometry) {
         switch reaction {
         case .surprisedHop, .runAlongEdge, .lieAndWatch, .shakeOff, .stretch, .relief:
             performIslandReaction(reaction, in: geometry)
@@ -30,6 +56,8 @@ extension PetChoreographer {
             performAgentNews(reaction, in: geometry)
         case .timerAlarm, .powerRush, .petted, .sweat, .dozeOff:
             performNews(reaction, on: stage, in: geometry)
+        case .wave, .preen, .tapFoot, .slip, .dance:
+            return
         }
     }
 
@@ -73,23 +101,106 @@ extension PetChoreographer {
         }
     }
 
-    /// Barks `times` times, the lines of each bark in the air before the muzzle
-    /// and `mark` over the head while it lasts.
-    mutating func bark(times: Int, marking mark: PetEffectAnchor? = nil) {
-        sitDown()
-        let barkLength = 0.2
+    /// Calls out `times` times — barks, squawks — the lines of each call in
+    /// the air before the mouth and `mark` over the head while it lasts.
+    mutating func callOut(_ call: PetCall, times: Int, marking mark: PetEffectAnchor? = nil) {
+        if call.resting.isSitting {
+            sitDown()
+        } else {
+            standUp()
+        }
+        show(call.resting)
+        let callLength = 0.2
         let pause = 0.15
         if let mark {
-            emit(mark.effect, at: besidePet(mark), for: Double(times) * (barkLength + pause))
+            emit(mark.effect, at: besidePet(mark), for: Double(times) * (callLength + pause))
         }
         for _ in 0..<times {
-            emit(.barkLines, at: besidePet(.barkLines), for: barkLength, mirrored: pose.facing == .left)
-            show(.bark)
-            hold(barkLength)
-            show(.sit)
+            emit(.barkLines, at: besidePet(call.lines), for: callLength, mirrored: pose.facing == .left)
+            show(call.calling)
+            hold(callLength)
+            show(call.resting)
             hold(pause)
         }
         hold(0.3)
+    }
+
+    /// Three stars circling `anchor` — the head — for `duration` seconds.
+    mutating func circleStars(around anchor: PetEffectAnchor, for duration: TimeInterval) {
+        for phase in [0.0, 2.1, 4.2] {
+            var path: [PetEffectStep] = []
+            var moment = 0.0
+            while moment < duration {
+                let angle = 2 * Double.pi * moment / 0.9 + phase
+                path.append(
+                    PetEffectStep(
+                        after: moment,
+                        point: besidePet(
+                            .star,
+                            inset: anchor.inset + Int((5 * cos(angle)).rounded()),
+                            height: anchor.height + Int((2 * sin(angle)).rounded())
+                        )
+                    )
+                )
+                moment += Self.frameInterval
+            }
+            emit(.star, along: path, lasting: duration)
+        }
+    }
+
+    /// Sparkles and stars going off on either side for `duration` seconds.
+    mutating func sparkle(for duration: TimeInterval) {
+        let sparkles = [
+            PetEffectAnchor(effect: .sparkle, inset: -3, height: 10),
+            PetEffectAnchor(effect: .sparkle, inset: 16, height: 13),
+            PetEffectAnchor(effect: .star, inset: -5, height: 4),
+            PetEffectAnchor(effect: .star, inset: 18, height: 7),
+        ]
+        for (index, sparkle) in sparkles.enumerated() {
+            emit(
+                sparkle.effect,
+                along: twinkling(at: besidePet(sparkle), for: duration, flashing: 0.2, after: Double(index) * 0.1),
+                lasting: duration
+            )
+        }
+    }
+
+    /// Two small hearts and a big one floating up from `anchor`, the first
+    /// heart's place, a little apart.
+    mutating func floatHearts(from anchor: PetEffectAnchor) {
+        let hearts = [
+            (PetEffectAnchor(effect: .smallHeart, inset: anchor.inset, height: anchor.height), 0.0),
+            (PetEffectAnchor(effect: .smallHeart, inset: anchor.inset + 3, height: anchor.height + 1), 0.4),
+            (PetEffectAnchor(effect: .heart, inset: anchor.inset - 1, height: anchor.height), 0.8),
+        ]
+        for (heart, delay) in hearts {
+            emit(
+                heart.effect,
+                along: drifting(
+                    heart.effect,
+                    fromInset: heart.inset,
+                    height: heart.height,
+                    steps: 5,
+                    every: 0.15,
+                    after: delay
+                ),
+                lasting: delay + 0.75
+            )
+        }
+    }
+
+    /// Two beads of sweat sliding down from `anchor`, a little over a second
+    /// apart.
+    mutating func sweatDrops(from anchor: PetEffectAnchor) {
+        for start in [0.0, 1.2] {
+            let path = (0..<4).map { step in
+                PetEffectStep(
+                    after: start + Double(step) * 0.2,
+                    point: besidePet(.sweat, inset: anchor.inset, height: anchor.height - step)
+                )
+            }
+            emit(.sweat, along: path, lasting: start + 0.8)
+        }
     }
 
     func besidePet(_ anchor: PetEffectAnchor, raisedBy lift: Int = 0) -> PetPoint {
@@ -136,8 +247,8 @@ extension PetChoreographer {
 
     /// The question mark over the head, bobbing a point every quarter second.
     mutating func askQuestion(for duration: TimeInterval) {
-        let low = besidePet(.question)
-        let high = besidePet(.question, raisedBy: 1)
+        let low = besidePet(species.questionAnchor)
+        let high = besidePet(species.questionAnchor, raisedBy: 1)
         let bobs = Int((duration / 0.25).rounded(.up))
         emit(
             .question,
@@ -165,7 +276,7 @@ private struct PetDroplet {
     ]
 }
 
-/// The reactions to the island opening and closing, and to an agent's
+/// The dog's reactions to the island opening and closing, and to an agent's
 /// question.
 extension PetChoreographer {
     private mutating func performIslandReaction(_ reaction: PetReaction, in geometry: PetStageGeometry) {
@@ -197,7 +308,7 @@ extension PetChoreographer {
         case .headTilt:
             tiltHead()
         case .barkForAttention:
-            bark(times: 3, marking: .exclamation)
+            callOut(.bark, times: 3, marking: .exclamation)
         case .raisePaw:
             sitDown()
             askQuestion(for: 2.1)
@@ -219,7 +330,8 @@ extension PetChoreographer {
         alternate([.sitWag, .sit], every: 0.15, times: 2)
     }
 
-    private mutating func shakeOff() {
+    /// Shaking itself dry, drops flying off both sides.
+    mutating func shakeOff() {
         standUp()
         show(.stand)
         hold(0.13)

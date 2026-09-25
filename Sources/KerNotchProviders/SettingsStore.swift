@@ -149,10 +149,11 @@ public final class SettingsStore {
 
     public var petPreferences: PetPreferences {
         get {
-            PetPreferences(isEnabled: self[.showIslandPet])
+            PetPreferences(isEnabled: self[.showIslandPet], species: self[.petSpecies])
         }
         set {
             self[.showIslandPet] = newValue.isEnabled
+            self[.petSpecies] = newValue.species
         }
     }
 

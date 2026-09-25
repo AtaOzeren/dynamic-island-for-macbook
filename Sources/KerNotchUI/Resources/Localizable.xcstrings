@@ -6427,44 +6427,86 @@
         }
       }
     },
-    "A small pixel dog lives on the island's left side. It steps aside for an activity and leaves when no room is left.": {
+    "A small pixel pet lives on the island's left side. It steps aside for an activity and leaves when no room is left.": {
       "comment": "Pet pane: section caption describing how the pet shares the island's left side with activity icons.",
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "A small pixel dog lives on the island's left side. It steps aside for an activity and leaves when no room is left."
+            "value": "A small pixel pet lives on the island's left side. It steps aside for an activity and leaves when no room is left."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Adanın sol tarafında küçük bir piksel köpek yaşar. Bir etkinliğe yer açmak için kenara çekilir, yer kalmadığında adadan ayrılır."
+            "value": "Adanın sol tarafında küçük bir piksel pet yaşar. Bir etkinliğe yer açmak için kenara çekilir, yer kalmadığında adadan ayrılır."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Auf der linken Seite der Insel wohnt ein kleiner Pixelhund. Er macht einer Aktivität Platz und geht, wenn kein Platz mehr frei ist."
+            "value": "Auf der linken Seite der Insel wohnt ein kleines Pixel-Haustier. Es macht einer Aktivität Platz und geht, wenn kein Platz mehr frei ist."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un pequeño perro de píxeles vive en el lado izquierdo de la isla. Se aparta ante una actividad y se marcha cuando no queda sitio."
+            "value": "Una pequeña mascota de píxeles vive en el lado izquierdo de la isla. Se aparta ante una actividad y se marcha cuando no queda sitio."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un petit chien en pixels vit sur le côté gauche de l'îlot. Il laisse la place à une activité et s'en va quand il n'en reste plus."
+            "value": "Un petit compagnon en pixels vit sur le côté gauche de l'îlot. Il laisse la place à une activité et s'en va quand il n'en reste plus."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Un piccolo cane in pixel vive sul lato sinistro dell'isola. Si fa da parte per un'attività e se ne va quando non c'è più spazio."
+            "value": "Un piccolo animaletto in pixel vive sul lato sinistro dell'isola. Si fa da parte per un'attività e se ne va quando non c'è più spazio."
+          }
+        }
+      }
+    },
+    "Animal": {
+      "comment": "Pet pane: picker choosing which pet lives on the island, a dog or a penguin.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animal"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayvan"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tier"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animal"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animale"
           }
         }
       }

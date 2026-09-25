@@ -101,6 +101,15 @@ extension SettingsKey where Value == IslandSize {
     }
 }
 
+extension SettingsKey where Value == PetSpecies {
+    public static var petSpecies: Self {
+        rawRepresentableKey(
+            path: "pet.species",
+            defaultValue: PetSpecies.dog
+        )
+    }
+}
+
 extension SettingsKey where Value == Bool {
     public static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
     public static var cpuWatchdogDisabled: Self {
@@ -205,6 +214,7 @@ public enum SettingsKeys {
         register(.cpuWatchdogDisabled, in: &defaults)
         register(.enableDiscord, in: &defaults)
         register(.showIslandPet, in: &defaults)
+        register(.petSpecies, in: &defaults)
         return defaults
     }
 

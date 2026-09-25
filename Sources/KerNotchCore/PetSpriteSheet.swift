@@ -1,8 +1,13 @@
-/// One pose the pet can be drawn in.
+/// One pose a pet can be drawn in.
 ///
 /// Every frame is drawn facing right. Facing left is the same art mirrored,
 /// which is why it is a separate value rather than a second set of frames that
 /// would have to be kept in step with the first.
+///
+/// One catalogue for every pet: the poses they share — standing, the walk, the
+/// crouch, sitting, lying, asleep — carry the same name, so moving from one to
+/// another works the same for all of them, and each pet's sheet draws the
+/// poses of its own on top.
 public enum PetFrame: String, CaseIterable, Sendable {
     case stand
     case standBlink
@@ -47,21 +52,82 @@ public enum PetFrame: String, CaseIterable, Sendable {
     case playBow
     case digA
     case digB
+    /// Flippers held out level, and raised: the two strokes of a flap.
+    case flippersOut
+    case flippersUp
+    /// The same, beaming: flapping for joy.
+    case cheerOut
+    case cheerUp
+    /// Standing with the eyes curved shut with delight.
+    case beam
+    /// A flipper up and waving, beaming: hello.
+    case waveLow
+    case waveHigh
+    /// A flipper raised high, like a hand: asking something.
+    case flipperRaised
+    /// A flipper on the hip and a foot tapping: waiting, impatiently.
+    case footTapUp
+    case footTapDown
+    /// Beak wide open, calling out.
+    case squawk
+    /// Standing with the beak open as far as it goes and the eyes shut.
+    case standYawn
+    /// Flippers swept back and eyes shut: the stretch on waking.
+    case stretch
+    /// A flipper fanning the face, up and down.
+    case fanUp
+    case fanDown
+    /// The beak in the chest feathers, combing them.
+    case preenA
+    case preenB
+    /// Looking up with the beak open, ready to catch something.
+    case lookUp
+    case holdFish
+    /// Swallowing, beaming.
+    case gulp
+    /// Leaning one way and the other with the flippers up: dancing.
+    case danceLeft
+    case danceRight
+    /// Leaning one way and the other, beaming: swaying to music.
+    case swayLeft
+    case swayRight
+    /// Leaning back as the feet go from under it: the start of a fall.
+    case slip
+    /// Sitting, beaming.
+    case sitBeam
+    /// At a tiny laptop: a flipper on the keys with the cursor lit, the
+    /// flipper lifted with the cursor out, and a blink.
+    case typing
+    case typingLift
+    case typingBlink
+    /// Sitting with a rod over a hole in the ice, the rod bent by a bite, and
+    /// a blink.
+    case fishing
+    case fishingBite
+    case fishingBlink
+    /// Flat on its belly, head forward: sliding.
+    case slide
+    /// On its back with its feet in the air: the end of a fall.
+    case onBack
 
     /// How the pet holds itself in this frame, which decides how it gets from
     /// here to any other frame.
     public var posture: PetPosture {
         switch self {
-        case .stand, .standBlink, .strideA, .strideB, .shakeLeft, .shakeRight:
+        case .stand, .standBlink, .strideA, .strideB, .shakeLeft, .shakeRight, .flippersOut, .flippersUp,
+            .cheerOut, .cheerUp, .beam, .waveLow, .waveHigh, .flipperRaised, .footTapUp, .footTapDown, .squawk,
+            .standYawn, .stretch, .fanUp, .fanDown, .preenA, .preenB, .lookUp, .holdFish, .gulp, .danceLeft,
+            .danceRight, .swayLeft, .swayRight, .slip:
             .standing
         case .crouch:
             .crouching
         case .hop:
             .airborne
         case .sit, .sitBlink, .sitPant, .sitWag, .sitNod, .bark, .yawn, .curious, .curiousLow, .earsBack,
-            .pawUp, .dazed, .holdBone, .holdBoneWag, .headset, .headsetBlink, .headsetNod:
+            .pawUp, .dazed, .holdBone, .holdBoneWag, .headset, .headsetBlink, .headsetNod, .sitBeam, .typing,
+            .typingLift, .typingBlink, .fishing, .fishingBite, .fishingBlink:
             .sitting
-        case .lie, .lieBlink, .sleep, .lieSad, .lieDazed:
+        case .lie, .lieBlink, .sleep, .lieSad, .lieDazed, .slide, .onBack:
             .lying
         case .playBow, .digA, .digB:
             .bowing
@@ -80,7 +146,7 @@ public enum PetFrame: String, CaseIterable, Sendable {
 /// Each posture has one way into it and out of it — sitting and lying pass
 /// through the crouch, a pet in the air lands before anything else — so a
 /// routine can start from whatever frame the pet was caught in and still move
-/// the way a dog does.
+/// the way an animal does.
 public enum PetPosture: Sendable {
     case standing
     case crouching
@@ -182,5 +248,17 @@ extension PetSpriteSheet {
         pixelsPerPoint: 2,
         palette: ShibaArt.palette,
         frames: ShibaArt.frames
+    )
+}
+
+extension PetSpriteSheet {
+    /// A penguin in the likeness of Tux: slate coat, white front, yellow beak
+    /// and feet — 32 × 24 pixels, drawn in 16 × 12 points like the Shiba.
+    public static let penguin = PetSpriteSheet(
+        width: 32,
+        height: 24,
+        pixelsPerPoint: 2,
+        palette: PenguinArt.palette,
+        frames: PenguinArt.frames
     )
 }

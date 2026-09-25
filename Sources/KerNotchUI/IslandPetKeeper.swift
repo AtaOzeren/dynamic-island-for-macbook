@@ -10,7 +10,8 @@ import KerNotchCore
 /// call: the island as it is about to be drawn goes in, the pet as it will be
 /// drawn comes out.
 public struct IslandPetKeeper: Sendable {
-    private var routines = PetRoutineTracker()
+    /// `nil` until a pet is first shown.
+    private var routines: PetRoutineTracker?
     private var cues = PetCueReader()
     private var dice: PetDice
     private var pendingMoments: [PetMoment] = []
@@ -40,6 +41,7 @@ public struct IslandPetKeeper: Sendable {
         }
         let isOpen = island.state == .expanded
         let noticed = cues.read(activities: activities, isExpanded: isOpen, at: now)
+        var routines = routinesFollowing(pet)
         routines.follow(
             PetScene(
                 stage: isOpen ? .roaming : compactStage,
@@ -50,7 +52,18 @@ public struct IslandPetKeeper: Sendable {
             at: now,
             dice: &dice
         )
+        self.routines = routines
         pendingMoments = []
         return routines.performance.map { IslandPetPresentation(pet: pet, performance: $0) }
+    }
+
+    /// The routines of `pet`: the ones kept so far, or a fresh start when the
+    /// Pet tab has just swapped one pet for another, which walks in from the
+    /// island's edge rather than taking over the other's pose.
+    private func routinesFollowing(_ pet: IslandPet) -> PetRoutineTracker {
+        guard let routines, routines.species == pet.species else {
+            return PetRoutineTracker(species: pet.species)
+        }
+        return routines
     }
 }
