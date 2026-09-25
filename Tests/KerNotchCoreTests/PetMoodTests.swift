@@ -88,11 +88,11 @@ struct PetMoodTests {
 
     @Test("asleep, the pet stays where it lay down")
     func nappingStaysPut() throws {
-        let spot = PetPose(position: 20, facing: .left, frame: .sit)
+        let spot = PetPose(position: 5, facing: .left, frame: .sit)
         let routine = Self.routine(.napping, from: spot)
         let loop = try #require(routine.loop)
 
-        #expect(loop.firstPose == PetPose(position: 20, facing: .left, frame: .sleep))
+        #expect(loop.firstPose == PetPose(position: 5, facing: .left, frame: .sleep))
         #expect(loop.keyframes.allSatisfy { $0.pose.frame == .sleep })
     }
 

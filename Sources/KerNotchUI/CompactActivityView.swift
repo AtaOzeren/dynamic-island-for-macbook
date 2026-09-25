@@ -117,18 +117,19 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
 public struct CompactSlotLayout: Equatable, Sendable {
     public let leading: [CompactSlot]
     public let trailing: [CompactSlot]
-    /// How much of the leading flank the pet has, or `nil` when no pet lives
-    /// on the pill.
+    /// Where the pet is on the leading flank, or `nil` when no pet lives on
+    /// the pill.
     public let petStage: PetStage?
 
     /// How many places the leading flank is drawn with.
     ///
-    /// A pet keeps every place open: the icons take the flank from the notch
-    /// side and the pet lives in what they leave. The pill therefore keeps one
-    /// width as icons come and go beside the pet, instead of twitching wider
-    /// and narrower under it.
+    /// A pet on the pill has one place of its own, at the flank's outer end,
+    /// and the icons take theirs beside it from the notch side: the pet alone
+    /// widens the pill by one place, never more. With the flank full of icons
+    /// the pet has left, and the flank is as wide as its icons.
     public var leadingPlaceCount: Int {
-        petStage == nil ? leading.count : CompactFlankAllocation.slotsPerSide
+        guard let petStage, petStage != .away else { return leading.count }
+        return leading.count + 1
     }
 }
 
@@ -532,7 +533,7 @@ public struct CompactActivityView: View {
     }
 
     /// The whole leading flank while a pet lives there, so the icons sit
-    /// against the notch and the pet has the outer places; `nil` without one,
+    /// against the notch and the pet has the outer place; `nil` without one,
     /// leaving the flank exactly as wide as its icons.
     private func petFlankWidth(for layout: CompactSlotLayout) -> CGFloat? {
         guard layout.petStage != nil else { return nil }

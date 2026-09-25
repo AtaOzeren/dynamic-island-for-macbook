@@ -128,11 +128,10 @@ public struct PetRoutine: Equatable, Sendable {
     }
 
     /// Goes to `target` a point at a time and takes up its posture there.
-    /// Hurrying only to get out of an icon's way or off the island; coming
-    /// onto the island there is nothing to hurry for.
+    /// Hurrying only off the island; coming onto it, or across the pet's own
+    /// place, there is nothing to hurry for.
     private static func settle(_ choreographer: inout PetChoreographer, into target: PetPose, on stage: PetStage) {
-        let hurries = stage == .away || (stage == .resting && choreographer.pose.position >= 0)
-        choreographer.travel(to: target.position, gait: hurries ? .run : .walk)
+        choreographer.travel(to: target.position, gait: stage == .away ? .run : .walk)
         choreographer.turn(target.facing)
         switch target.frame.posture {
         case .sitting:
@@ -148,9 +147,11 @@ public struct PetRoutine: Equatable, Sendable {
         choreographer.show(target.frame)
     }
 
-    /// Onto the stage before anything else: into the one place beside an icon,
-    /// or back inside the flank from wherever the pet was — beyond its edge,
-    /// or further in than a narrower island reaches.
+    /// Onto the stage before anything else: to the middle of its place beside
+    /// an icon, or back onto its stage from wherever the pet was — beyond the
+    /// island's edge, or further in than a narrower island reaches. Only the
+    /// island shrinking out from under it hurries the pet: an icon arriving
+    /// beside it takes a place of its own, so the pet just steps aside.
     private static func takeItsPlace(
         _ choreographer: inout PetChoreographer,
         on stage: PetStage,
@@ -159,7 +160,8 @@ public struct PetRoutine: Equatable, Sendable {
         let position = choreographer.pose.position
         switch stage {
         case .resting:
-            choreographer.travel(to: geometry.restingPosition, gait: position < 0 ? .walk : .run)
+            let isBeyondItsPlace = position > geometry.roamingRange.upperBound
+            choreographer.travel(to: geometry.restingPosition, gait: isBeyondItsPlace ? .run : .walk)
         case .roaming:
             let range = geometry.roamingRange
             if position < range.lowerBound {

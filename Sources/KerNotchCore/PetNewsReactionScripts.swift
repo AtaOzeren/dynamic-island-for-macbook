@@ -108,17 +108,24 @@ extension PetChoreographer {
         hold(0.4)
     }
 
-    /// Tears to the far end of the flank, back to the near end, and home again,
-    /// then sits panting.
+    /// Tears to the far end of its stage, back to the near end, and home again,
+    /// then sits panting. In its one place on the pill the dashes are a few
+    /// points long, so it makes three laps of them rather than one.
     private mutating func zoomies(in geometry: PetStageGeometry) {
         let home = pose.position
-        for end in [geometry.roamingRange.upperBound, geometry.roamingRange.lowerBound, home] {
+        let range = geometry.roamingRange
+        let laps = range.count < Self.zoomiesLapLength ? 3 : 1
+        let ends = (0..<laps).flatMap { _ in [range.upperBound, range.lowerBound] } + [home]
+        for end in ends {
             travel(to: end, gait: .run)
             emit(.dust, at: besidePet(.dust, inset: 2, height: 0), for: 0.2)
         }
         sitDown()
         alternate([.sitPant, .sit], every: 0.2, times: 3)
     }
+
+    /// The shortest stage one lap of zoomies is worth running on.
+    private static let zoomiesLapLength = 12
 
     /// Looks up, and a bone drops into its mouth. It wags with it, then it is
     /// gone.

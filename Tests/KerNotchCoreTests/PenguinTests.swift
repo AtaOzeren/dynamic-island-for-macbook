@@ -98,6 +98,24 @@ struct PenguinMovementTests {
         #expect(frames.contains(.slide) == false)
     }
 
+    /// An icon arriving beside the pet has a place of its own: the pet only
+    /// steps to the middle of its place, with nothing to hurry for.
+    @Test("an icon arriving beside it has the penguin step aside, not slide", arguments: [0, 6])
+    func iconArrivingIsAStep(position: Int) {
+        let geometry = IslandPet.penguin.stageGeometry()
+        let routine = PetRoutine(
+            stage: .resting,
+            from: PetPose(position: position, facing: .right, frame: .stand),
+            geometry: geometry,
+            species: .penguin
+        )
+        let frames = Set(routine.entrance.keyframes.map(\.pose.frame))
+
+        #expect(frames.contains(.slide) == false)
+        #expect(frames.contains(.strideA) || frames.contains(.strideB))
+        #expect(routine.entrance.lastPose.position == geometry.restingPosition)
+    }
+
     @Test("a dog in a hurry still runs")
     func dogsRun() {
         var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16, species: .dog)
@@ -110,7 +128,7 @@ struct PenguinMovementTests {
 /// The penguin's own ways of answering the island's moments.
 @Suite("Penguin reactions")
 struct PenguinReactionTests {
-    private static let home = PetPose(position: 6, facing: .right, frame: .sit)
+    private static let home = PetPose(position: 1, facing: .right, frame: .sit)
 
     private static func routine(_ reaction: PetReaction, from pose: PetPose = home) -> PetRoutine {
         PetReactionTests.routine(reaction, of: .penguin, on: .roaming, from: pose)
@@ -175,7 +193,7 @@ struct PenguinReactionTests {
             PetFacing.right, .left,
         ])
     func questionOverTheHead(facing: PetFacing) throws {
-        let position = 10
+        let position = 3
         let routine = Self.routine(.raisePaw, from: PetPose(position: position, facing: facing, frame: .stand))
         let question = try #require(routine.entrance.effects.first { $0.effect == .question })
         let mark = try #require(question.keyframes.compactMap(\.point).first)
@@ -192,19 +210,29 @@ struct PenguinReactionTests {
 
     @Test("a squawk's lines point the way the penguin faces")
     func squawkLinesAreMirroredFacingLeft() throws {
-        let left = Self.routine(.barkForAttention, from: PetPose(position: 10, facing: .left, frame: .stand))
+        let left = Self.routine(.barkForAttention, from: PetPose(position: 3, facing: .left, frame: .stand))
         let lines = try #require(left.entrance.effects.first { $0.effect == .barkLines })
 
         #expect(lines.isMirrored)
     }
 
-    @Test("with the flank to itself a charging penguin slides out and back")
-    func powerRushSlidesOutAndBack() {
-        let entrance = Self.routine(.powerRush).entrance
-        let positions = entrance.keyframes.map(\.pose.position)
+    /// In its one place on the pill the slide is as long as the place allows;
+    /// on the open island's strip it goes the full twelve points.
+    @Test("with the flank to itself a charging penguin slides out and back, as far as its stage allows")
+    func powerRushSlidesOutAndBack() throws {
+        let geometries = [PetReactionTests.geometry, PetReactionTests.openGeometry]
+        for geometry in geometries {
+            let routine = PetReactionTests.routine(
+                .powerRush, of: .penguin, on: .roaming, from: Self.home, geometry: geometry
+            )
+            let end = try #require(routine.reactionEnd)
+            let reaction = routine.entrance.keyframes.filter { $0.time <= end }
 
-        #expect(positions.max() == Self.home.position + 12)
-        #expect(entrance.lastPose.position == Self.home.position)
+            #expect(
+                reaction.map(\.pose.position).max() == min(Self.home.position + 12, geometry.roamingRange.upperBound))
+            #expect(routine.entrance.pose(at: end).position == Self.home.position)
+            #expect(reaction.contains { $0.pose.frame == .slide })
+        }
     }
 }
 

@@ -57,13 +57,23 @@ struct IslandPetLayoutTests {
         )
     }
 
-    @Test("an empty flank is the pet's to roam")
+    @Test("an empty flank is the pet's one place to roam")
     func emptyFlankIsRoamed() {
         let layout = Self.layout(standardCount: 0, pet: .shiba)
 
         #expect(layout.petStage == .roaming)
         #expect(layout.leading.isEmpty)
-        #expect(layout.leadingPlaceCount == CompactFlankAllocation.slotsPerSide)
+        #expect(layout.leadingPlaceCount == 1)
+    }
+
+    /// The pet's place comes on top of the icons' own, and goes with it once
+    /// the icons fill the flank.
+    @Test(
+        "the flank is its icons and the pet's one place",
+        arguments: [(0, 1), (1, 2), (2, 2), (3, 2), (4, 2)]
+    )
+    func flankIsIconsPlusThePet(standardCount: Int, places: Int) {
+        #expect(Self.layout(standardCount: standardCount, pet: .shiba).leadingPlaceCount == places)
     }
 
     @Test(
@@ -102,23 +112,32 @@ struct IslandPetLayoutTests {
         #expect(layout.leadingPlaceCount == layout.leading.count)
     }
 
-    /// An icon arriving beside the pet takes the pet's place, not new room, so
-    /// the island does not twitch wider under it.
-    @Test("the pill keeps one width as an icon comes and goes beside the pet")
-    func pillKeepsItsWidthBesideThePet() {
+    /// An icon arriving beside the pet gets a place of its own, as it would
+    /// without a pet; the pet never holds a second, empty place open for it.
+    @Test("an icon beside the pet widens the pill by its own place, as without a pet")
+    func iconBesideThePetWidensByItsPlace() {
         let empty = compactPillSize(for: Self.layout(standardCount: 0, pet: .shiba), notchSize: Self.notch)
         let oneIcon = compactPillSize(for: Self.layout(standardCount: 1, pet: .shiba), notchSize: Self.notch)
+        let place = CompactPillMetrics.default.slotWidth + CompactPillMetrics.default.slotSpacing
 
-        #expect(empty == oneIcon)
+        #expect(oneIcon.width - empty.width == place)
     }
 
-    @Test("the pet widens the empty island by one full flank and its gap")
+    @Test("with the flank full the pet has left, and the pill is as wide as without it")
+    func fullFlankIsAsWideAsWithoutThePet() {
+        let withPet = compactPillSize(for: Self.layout(standardCount: 3, pet: .shiba), notchSize: Self.notch)
+        let without = compactPillSize(for: Self.layout(standardCount: 3, pet: nil), notchSize: Self.notch)
+
+        #expect(withPet == without)
+    }
+
+    @Test("the pet widens the empty island by one place and its gap")
     func petWidensTheEmptyIsland() {
         let without = compactPillSize(for: Self.layout(standardCount: 0, pet: nil), notchSize: Self.notch)
         let with = compactPillSize(for: Self.layout(standardCount: 0, pet: .shiba), notchSize: Self.notch)
-        let flank = compactSideWidth(slotCount: CompactFlankAllocation.slotsPerSide, metrics: .default)
+        let place = compactSideWidth(slotCount: 1, metrics: .default)
 
-        #expect(with.width - without.width == flank + CompactPillMetrics.default.slotSpacing)
+        #expect(with.width - without.width == place + CompactPillMetrics.default.slotSpacing)
         #expect(with.height == without.height)
     }
 
@@ -144,7 +163,7 @@ struct IslandPetLayoutTests {
                 to: islandSurfaceSize(input(pet: .shiba))
             ) == .growing
         )
-        #expect(islandCompactSlotLayout(input(pet: .shiba)).leadingPlaceCount == CompactFlankAllocation.slotsPerSide)
+        #expect(islandCompactSlotLayout(input(pet: .shiba)).leadingPlaceCount == 1)
     }
 }
 
@@ -208,7 +227,7 @@ struct IslandPetHoverTests {
 
         let withPet = compactHitRect(
             for: Self.notchedScreen,
-            leadingSlotCount: CompactFlankAllocation.slotsPerSide,
+            leadingSlotCount: 1,
             trailingSlotCount: 0,
             metrics: Self.metrics
         )

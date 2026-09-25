@@ -309,9 +309,10 @@ struct PetRoutineTests {
         #expect(routine.entrance.duration == 0)
     }
 
-    /// An icon arriving on the pet's spot is growing into it, so the pet
-    /// hurries; coming back onto the island there is nothing to hurry for.
-    @Test("making room is a run, coming back is a walk")
+    /// The island closing onto a pet out on the open island's strip leaves it
+    /// beyond its place, so it hurries back; coming onto the island there is
+    /// nothing to hurry for.
+    @Test("getting back into its place is a run, coming onto the island is a walk")
     func hurriesOnlyToMakeRoom() {
         let target = Self.geometry.restingPosition
         let distance = 27

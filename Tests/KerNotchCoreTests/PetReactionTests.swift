@@ -235,13 +235,13 @@ struct PetReactionTests {
 
     @Test("an effect beside the pet swaps sides when the pet faces the other way")
     func effectsFollowTheFacing() throws {
-        let right = Self.routine(.headTilt, on: .roaming, from: PetPose(position: 10, facing: .right, frame: .sit))
-        let left = Self.routine(.headTilt, on: .roaming, from: PetPose(position: 10, facing: .left, frame: .sit))
+        let right = Self.routine(.headTilt, on: .roaming, from: PetPose(position: 3, facing: .right, frame: .sit))
+        let left = Self.routine(.headTilt, on: .roaming, from: PetPose(position: 3, facing: .left, frame: .sit))
         let rightMark = try #require(right.entrance.effects.first?.keyframes.compactMap(\.point).first)
         let leftMark = try #require(left.entrance.effects.first?.keyframes.compactMap(\.point).first)
 
-        #expect(rightMark.position > 10 + Self.geometry.spriteWidth / 2)
-        #expect(leftMark.position < 10 + Self.geometry.spriteWidth / 2)
+        #expect(rightMark.position > 3 + Self.geometry.spriteWidth / 2)
+        #expect(leftMark.position < 3 + Self.geometry.spriteWidth / 2)
         #expect(rightMark.height == leftMark.height)
     }
 

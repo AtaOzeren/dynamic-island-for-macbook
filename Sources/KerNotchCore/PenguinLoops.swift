@@ -237,7 +237,9 @@ enum PenguinLoops {
     /// catches a flake in its beak, then flaps for joy and sits back down.
     private static func catchSnow(_ choreographer: inout PetChoreographer) {
         choreographer.standUp()
-        let flakes = [(2, 0), (25, 4), (-4, 8), (12, 2), (30, 11), (7, 14)]
+        // Insets from the penguin, and frames of delay: spread over its place
+        // on the pill and the margin and gap either side, where they are seen.
+        let flakes = [(-6, 0), (15, 4), (-1, 8), (9, 2), (19, 11), (4, 14)]
         for (inset, delay) in flakes {
             choreographer.emit(
                 .snowflake,

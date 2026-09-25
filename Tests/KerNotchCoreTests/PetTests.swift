@@ -20,25 +20,22 @@ struct PetStageTests {
         #expect(PetStage(freePlaceCount: freePlaces) == stage)
     }
 
-    @Test("the stage is measured in the pill's own places")
+    @Test("the stage is one of the pill's own places")
     func stageGeometryFollowsThePill() {
         let geometry = PetStageGeometry(pill: .default, spriteWidth: 16)
 
-        // Two 22-point places and the 6-point gap between them.
-        #expect(geometry.flankWidth == 50)
-        #expect(geometry.roamingRange == 0...34)
+        // One 22-point place: the 16-point pet has six points to walk.
+        #expect(geometry.flankWidth == 22)
+        #expect(geometry.roamingRange == 0...6)
         #expect(geometry.restingPosition == 3)
         #expect(geometry.offstagePosition == -26)
     }
 
-    @Test("the flank is exactly as wide as the pill draws two icons")
-    func flankMatchesThePill() {
-        let geometry = IslandPet.shiba.stageGeometry()
+    @Test("the stage is exactly as wide as the place the pill draws for it", arguments: PetSpecies.allCases)
+    func flankMatchesThePill(species: PetSpecies) {
+        let geometry = IslandPet(species: species).stageGeometry()
 
-        #expect(
-            CGFloat(geometry.flankWidth)
-                == compactSideWidth(slotCount: CompactFlankAllocation.slotsPerSide, metrics: .default)
-        )
+        #expect(CGFloat(geometry.flankWidth) == compactSideWidth(slotCount: 1, metrics: .default))
     }
 
     @Test("a pet wider than the flank still has somewhere to stand")
