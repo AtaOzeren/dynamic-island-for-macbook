@@ -54,25 +54,32 @@ struct PetStageTests {
 struct PetSpriteSheetTests {
     private static let sheet = PetSpriteSheet.shiba
 
-    @Test("every frame is drawn, at the sheet's size", arguments: PetFrame.allCases)
-    func everyFrameHasTheSheetsSize(frame: PetFrame) throws {
-        let rows = try #require(Self.sheet.frames[frame])
-
-        #expect(rows.count == Self.sheet.height)
-        #expect(rows.allSatisfy { $0.count == Self.sheet.width })
+    /// Every frame each pet's sheet draws, with the pet drawing it.
+    static let drawnFrames: [(PetSpecies, PetFrame)] = PetSpecies.allCases.flatMap { species in
+        PetFrame.allCases.filter { species.sprites.frames[$0] != nil }.map { (species, $0) }
     }
 
-    @Test("every pixel is either empty or a palette colour", arguments: PetFrame.allCases)
-    func everyPixelIsInThePalette(frame: PetFrame) throws {
-        let rows = try #require(Self.sheet.frames[frame])
-        let keys = Set(Self.sheet.palette.keys).union([PetSpriteSheet.transparentKey])
+    @Test("every frame is drawn, at the sheet's size", arguments: drawnFrames)
+    func everyFrameHasTheSheetsSize(species: PetSpecies, frame: PetFrame) throws {
+        let sheet = species.sprites
+        let rows = try #require(sheet.frames[frame])
+
+        #expect(rows.count == sheet.height)
+        #expect(rows.allSatisfy { $0.count == sheet.width })
+    }
+
+    @Test("every pixel is either empty or a palette colour", arguments: drawnFrames)
+    func everyPixelIsInThePalette(species: PetSpecies, frame: PetFrame) throws {
+        let sheet = species.sprites
+        let rows = try #require(sheet.frames[frame])
+        let keys = Set(sheet.palette.keys).union([PetSpriteSheet.transparentKey])
 
         #expect(rows.joined().allSatisfy(keys.contains))
     }
 
-    @Test("facing left is facing right in a mirror", arguments: PetFrame.allCases)
-    func leftIsTheMirrorOfRight(frame: PetFrame) {
-        let sheet = Self.sheet
+    @Test("facing left is facing right in a mirror", arguments: drawnFrames)
+    func leftIsTheMirrorOfRight(species: PetSpecies, frame: PetFrame) {
+        let sheet = species.sprites
         for row in 0..<sheet.height {
             for column in 0..<sheet.width {
                 #expect(
@@ -83,20 +90,32 @@ struct PetSpriteSheetTests {
         }
     }
 
-    /// A frame whose paws stopped short of the bottom row would make the pet
+    /// A frame whose feet stopped short of the bottom row would make the pet
     /// hop a point every time it switched to it. The hop is the one frame drawn
     /// in the air, and it is raised by the pose's lift instead.
     @Test(
         "every frame on the ground stands on the same bottom row",
-        arguments: PetFrame.allCases.filter { $0.posture != .airborne }
+        arguments: drawnFrames.filter { $0.1.posture != .airborne }
     )
-    func everyFrameReachesTheFloor(frame: PetFrame) {
-        let sheet = Self.sheet
+    func everyFrameReachesTheFloor(species: PetSpecies, frame: PetFrame) {
+        let sheet = species.sprites
         let floor = (0..<sheet.width).compactMap {
             sheet.color(of: frame, facing: .right, column: $0, row: sheet.height - 1)
         }
 
         #expect(floor.isEmpty == false)
+    }
+
+    /// Standing up, sitting down, lying down, walking and landing go through
+    /// the same poses whichever pet makes them, so every pet draws them.
+    @Test("every pet draws the poses every pet moves through", arguments: PetSpecies.allCases)
+    func sharedPosesAreDrawn(species: PetSpecies) {
+        let shared: [PetFrame] = [
+            .stand, .standBlink, .strideA, .strideB, .shakeLeft, .shakeRight, .crouch, .hop, .sit, .sitBlink,
+            .sitNod, .dazed, .headset, .headsetBlink, .headsetNod, .lie, .lieBlink, .sleep,
+        ]
+
+        #expect(shared.filter { species.sprites.frames[$0] == nil } == [])
     }
 
     @Test("nothing is drawn outside the art")
@@ -164,7 +183,8 @@ struct PetSpriteSheetTests {
         #expect(
             Set(PetFrame.allCases.filter(\.isSitting)) == [
                 .sit, .sitBlink, .sitPant, .sitWag, .sitNod, .bark, .yawn, .curious, .curiousLow, .earsBack,
-                .pawUp, .dazed, .holdBone, .holdBoneWag, .headset, .headsetBlink, .headsetNod,
+                .pawUp, .dazed, .holdBone, .holdBoneWag, .headset, .headsetBlink, .headsetNod, .sitBeam, .typing,
+                .typingLift, .typingBlink, .fishing, .fishingBite, .fishingBlink,
             ]
         )
     }
@@ -192,5 +212,21 @@ struct PetPreferencesTests {
     @Test("switching the pet on puts the Shiba on the island")
     func switchedOnIsTheShiba() {
         #expect(PetPreferences(isEnabled: true).pet == .shiba)
+        #expect(SettingsKey<PetSpecies>.petSpecies.defaultValue == .dog)
+        #expect(SettingsKeys.registeredDefaults[SettingsKey<PetSpecies>.petSpecies.name] as? String == "dog")
+    }
+
+    @Test("picking the penguin puts the penguin on the island, once it is switched on")
+    func pickedPenguinIsThePenguin() {
+        #expect(PetPreferences(isEnabled: true, species: .penguin).pet == .penguin)
+        #expect(PetPreferences(isEnabled: false, species: .penguin).pet == nil)
+    }
+
+    @Test("each pet is drawn from its own sheet, at the same size", arguments: PetSpecies.allCases)
+    func eachPetHasItsSheet(species: PetSpecies) {
+        let pet = IslandPet(species: species)
+
+        #expect(pet.sprites == species.sprites)
+        #expect(pet.stageGeometry() == IslandPet.shiba.stageGeometry())
     }
 }

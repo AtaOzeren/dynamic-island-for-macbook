@@ -9,7 +9,7 @@ struct PetTimelineTests {
 
     @Test("a pose holds until the next keyframe, and the ends are clamped")
     func posesHoldBetweenKeyframes() {
-        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16)
+        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16, species: .dog)
         choreographer.hold(1)
         choreographer.show(.standBlink)
         choreographer.hold(1)
@@ -32,7 +32,7 @@ struct PetChoreographerTests {
 
     @Test("walking covers fifteen points a second, one point per step")
     func walkingPace() {
-        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16)
+        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16, species: .dog)
         choreographer.walk(to: 15)
         let timeline = choreographer.timeline()
 
@@ -43,9 +43,9 @@ struct PetChoreographerTests {
 
     @Test("running covers the same ground in half the time")
     func runningPace() {
-        var walker = PetChoreographer(startingAt: Self.standing, spriteWidth: 16)
+        var walker = PetChoreographer(startingAt: Self.standing, spriteWidth: 16, species: .dog)
         walker.walk(to: 15)
-        var runner = PetChoreographer(startingAt: Self.standing, spriteWidth: 16)
+        var runner = PetChoreographer(startingAt: Self.standing, spriteWidth: 16, species: .dog)
         runner.travel(to: 15, gait: .run)
 
         #expect(runner.timeline().duration < walker.timeline().duration * 0.6)
@@ -54,7 +54,7 @@ struct PetChoreographerTests {
 
     @Test("the legs cycle through both strides on the way")
     func legsCycle() {
-        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16)
+        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16, species: .dog)
         choreographer.walk(to: 12)
         let frames = Set(choreographer.timeline().keyframes.map(\.pose.frame))
 
@@ -64,7 +64,7 @@ struct PetChoreographerTests {
     @Test("a pet turns towards where it is going before it sets off")
     func facesTheWayItWalks() {
         var choreographer = PetChoreographer(
-            startingAt: PetPose(position: 10, facing: .right, frame: .stand), spriteWidth: 16)
+            startingAt: PetPose(position: 10, facing: .right, frame: .stand), spriteWidth: 16, species: .dog)
         choreographer.walk(to: 0)
         let moving = choreographer.timeline().keyframes.filter { $0.pose.position != 10 }
 
@@ -76,7 +76,7 @@ struct PetChoreographerTests {
     /// instant: a pose held for no time is never a keyframe of its own.
     @Test("sitting down and standing up pass through the crouch")
     func crouchBetweenPostures() {
-        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16)
+        var choreographer = PetChoreographer(startingAt: Self.standing, spriteWidth: 16, species: .dog)
         choreographer.sitDown()
         choreographer.hold(1)
         choreographer.standUp()
@@ -89,7 +89,7 @@ struct PetChoreographerTests {
     @Test("a sitting pet stands before it turns round")
     func turnsOnlyOnItsFeet() throws {
         var choreographer = PetChoreographer(
-            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16)
+            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16, species: .dog)
         choreographer.turn(.left)
         let turned = try #require(
             choreographer.timeline().keyframes.first { $0.pose.facing == .left }
@@ -106,7 +106,7 @@ struct PetChoreographerTests {
     )
     func turnsFromAStandingFrame(frame: PetFrame) throws {
         var choreographer = PetChoreographer(
-            startingAt: PetPose(position: 10, facing: .right, frame: frame), spriteWidth: 16)
+            startingAt: PetPose(position: 10, facing: .right, frame: frame), spriteWidth: 16, species: .dog)
         choreographer.hold(0.2)
         choreographer.turn(.left)
         let turned = try #require(
@@ -119,7 +119,7 @@ struct PetChoreographerTests {
     @Test("every gesture in a sit ends back in the sitting pose")
     func gesturesReturnToSitting() {
         var choreographer = PetChoreographer(
-            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16)
+            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16, species: .dog)
         choreographer.sit(
             for: 4,
             beats: [
@@ -138,7 +138,7 @@ struct PetChoreographerTests {
     @Test("a gesture running past the end of a sit lengthens it")
     func lateGestureLengthensTheSit() {
         var choreographer = PetChoreographer(
-            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16)
+            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16, species: .dog)
         choreographer.sit(for: 0.2, beats: [PetBeat(offset: 0.1, gesture: .pant)])
         let pantLength = PetGesture.pant.sequence.reduce(0) { $0 + $1.duration }
 
@@ -151,7 +151,7 @@ struct PetChoreographerTests {
     @Test("keyframes never share an instant")
     func keyframesAreDistinctInTime() {
         var choreographer = PetChoreographer(
-            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16)
+            startingAt: PetPose(position: 3, facing: .right, frame: .sit), spriteWidth: 16, species: .dog)
         choreographer.turn(.left)
         choreographer.walk(to: 0)
         let times = choreographer.timeline().keyframes.map(\.time)
@@ -190,7 +190,7 @@ struct PetRoutineTests {
 
     private static var everyRoutine: [PetRoutine] {
         stages.flatMap { stage in
-            startingPoses.map { PetRoutine(stage: stage, from: $0, geometry: geometry) }
+            startingPoses.map { PetRoutine(stage: stage, from: $0, geometry: geometry, species: .dog) }
         }
     }
 
@@ -201,7 +201,7 @@ struct PetRoutineTests {
     @Test("every entrance begins where the pet was", arguments: stages)
     func entranceBeginsInPlace(stage: PetStage) {
         for pose in Self.startingPoses {
-            let routine = PetRoutine(stage: stage, from: pose, geometry: Self.geometry)
+            let routine = PetRoutine(stage: stage, from: pose, geometry: Self.geometry, species: .dog)
             #expect(routine.entrance.firstPose.position == pose.position)
         }
     }
@@ -209,7 +209,7 @@ struct PetRoutineTests {
     @Test("every entrance ends exactly where its loop begins", arguments: [PetStage.roaming, .resting])
     func entranceEndsWhereTheLoopBegins(stage: PetStage) throws {
         for pose in Self.startingPoses {
-            let routine = PetRoutine(stage: stage, from: pose, geometry: Self.geometry)
+            let routine = PetRoutine(stage: stage, from: pose, geometry: Self.geometry, species: .dog)
             let loop = try #require(routine.loop)
             #expect(routine.entrance.lastPose == loop.firstPose)
         }
@@ -254,7 +254,7 @@ struct PetRoutineTests {
 
     @Test("a loop comes back round to the pose it began in", arguments: [PetStage.roaming, .resting])
     func loopsCloseSeamlessly(stage: PetStage) throws {
-        let routine = PetRoutine(stage: stage, from: Self.startingPoses[0], geometry: Self.geometry)
+        let routine = PetRoutine(stage: stage, from: Self.startingPoses[0], geometry: Self.geometry, species: .dog)
         let loop = try #require(routine.loop)
 
         #expect(loop.lastPose.position == loop.firstPose.position)
@@ -268,7 +268,8 @@ struct PetRoutineTests {
 
     @Test("roaming covers the whole flank and never leaves it")
     func roamingStaysOnTheFlank() throws {
-        let loop = try #require(PetRoutine(stage: .roaming, from: Self.startingPoses[0], geometry: Self.geometry).loop)
+        let loop = try #require(
+            PetRoutine(stage: .roaming, from: Self.startingPoses[0], geometry: Self.geometry, species: .dog).loop)
         let positions = Set(loop.keyframes.map(\.pose.position))
 
         #expect(positions.allSatisfy(Self.geometry.roamingRange.contains))
@@ -278,7 +279,8 @@ struct PetRoutineTests {
 
     @Test("resting never leaves the outer place")
     func restingStaysInItsPlace() throws {
-        let loop = try #require(PetRoutine(stage: .resting, from: Self.startingPoses[0], geometry: Self.geometry).loop)
+        let loop = try #require(
+            PetRoutine(stage: .resting, from: Self.startingPoses[0], geometry: Self.geometry, species: .dog).loop)
 
         #expect(loop.keyframes.allSatisfy { $0.pose.position == Self.geometry.restingPosition })
     }
@@ -287,7 +289,8 @@ struct PetRoutineTests {
     /// more than it sat would keep the compositor busier than the pet is worth.
     @Test("the pet sits more than it moves", arguments: [PetStage.roaming, .resting])
     func sitsMostOfTheTime(stage: PetStage) throws {
-        let loop = try #require(PetRoutine(stage: stage, from: Self.startingPoses[0], geometry: Self.geometry).loop)
+        let loop = try #require(
+            PetRoutine(stage: stage, from: Self.startingPoses[0], geometry: Self.geometry, species: .dog).loop)
         let boundaries = loop.keyframes.map(\.time) + [loop.duration]
         let sitting = zip(loop.keyframes, boundaries.dropFirst())
             .filter { $0.0.pose.frame.isSitting }
@@ -299,8 +302,9 @@ struct PetRoutineTests {
 
     @Test("a pet already in its place has no entrance to make", arguments: [PetStage.roaming, .resting])
     func noEntranceWhenAlreadyThere(stage: PetStage) throws {
-        let loop = try #require(PetRoutine(stage: stage, from: Self.startingPoses[0], geometry: Self.geometry).loop)
-        let routine = PetRoutine(stage: stage, from: loop.firstPose, geometry: Self.geometry)
+        let loop = try #require(
+            PetRoutine(stage: stage, from: Self.startingPoses[0], geometry: Self.geometry, species: .dog).loop)
+        let routine = PetRoutine(stage: stage, from: loop.firstPose, geometry: Self.geometry, species: .dog)
 
         #expect(routine.entrance.duration == 0)
     }
@@ -314,12 +318,14 @@ struct PetRoutineTests {
         let fromInside = PetRoutine(
             stage: .resting,
             from: PetPose(position: target + distance, facing: .left, frame: .stand),
-            geometry: Self.geometry
+            geometry: Self.geometry,
+            species: .dog
         )
         let fromOutside = PetRoutine(
             stage: .resting,
             from: PetPose(position: target - distance, facing: .right, frame: .stand),
-            geometry: Self.geometry
+            geometry: Self.geometry,
+            species: .dog
         )
 
         #expect(fromInside.entrance.duration < fromOutside.entrance.duration)
@@ -330,7 +336,8 @@ struct PetRoutineTests {
         let routine = PetRoutine(
             stage: .away,
             from: PetPose(position: 10, facing: .right, frame: .sit),
-            geometry: Self.geometry
+            geometry: Self.geometry,
+            species: .dog
         )
 
         let offstage = PetPose(position: Self.geometry.offstagePosition, facing: .left, frame: .stand)
@@ -343,7 +350,7 @@ struct PetRoutineTests {
 
     @Test("the pose keeps pace with the loop however long it has run")
     func poseWrapsWithTheLoop() throws {
-        let routine = PetRoutine(stage: .roaming, from: Self.startingPoses[0], geometry: Self.geometry)
+        let routine = PetRoutine(stage: .roaming, from: Self.startingPoses[0], geometry: Self.geometry, species: .dog)
         let loop = try #require(routine.loop)
 
         for offset in stride(from: 0.0, to: loop.duration, by: 0.37) {
@@ -356,7 +363,7 @@ struct PetRoutineTests {
 
     @Test("held still, the pet sits where its loop rests")
     func stillPoseIsTheLoopsRest() throws {
-        let routine = PetRoutine(stage: .roaming, from: Self.startingPoses[4], geometry: Self.geometry)
+        let routine = PetRoutine(stage: .roaming, from: Self.startingPoses[4], geometry: Self.geometry, species: .dog)
         let still = try #require(routine.stillPose)
 
         #expect(still == routine.loop?.firstPose)
@@ -377,7 +384,7 @@ struct PetRoutineTrackerTests {
 
     @Test("a pet just switched on walks in from beyond the island's edge")
     func newPetEntersFromOffstage() throws {
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
 
         Self.follow(&tracker, .roaming, at: Self.start)
         let performance = try #require(tracker.performance)
@@ -388,7 +395,7 @@ struct PetRoutineTrackerTests {
 
     @Test("staying on a stage keeps the routine it is in the middle of")
     func sameStageKeepsTheRoutine() {
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         Self.follow(&tracker, .roaming, at: Self.start)
         let first = tracker.performance
 
@@ -399,7 +406,7 @@ struct PetRoutineTrackerTests {
 
     @Test("a stage change starts from wherever the pet is at that moment")
     func stageChangeStartsInPlace() throws {
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         Self.follow(&tracker, .roaming, at: Self.start)
         let later = Self.start + 9.3
         let pose = try #require(tracker.performance).pose(at: later)
@@ -415,7 +422,7 @@ struct PetRoutineTrackerTests {
 
     @Test("switching the pet off forgets its routine")
     func forgettingStartsOver() throws {
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         Self.follow(&tracker, .roaming, at: Self.start)
 
         tracker.forget()
@@ -427,7 +434,7 @@ struct PetRoutineTrackerTests {
 
     @Test("a clock read before the routine began shows its opening pose")
     func elapsedNeverNegative() throws {
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         Self.follow(&tracker, .roaming, at: Self.start)
         let performance = try #require(tracker.performance)
 

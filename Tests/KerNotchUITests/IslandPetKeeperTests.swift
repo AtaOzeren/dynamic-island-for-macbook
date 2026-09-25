@@ -55,6 +55,23 @@ struct IslandPetKeeperTests {
         #expect(open.performance.startedAt == Self.start + 1)
     }
 
+    /// Swapping one pet for another in the Pet tab is a new pet walking in,
+    /// not the old one's routine played in the new one's poses.
+    @Test("a different pet walks in afresh")
+    func swappedPetWalksIn() throws {
+        var keeper = IslandPetKeeper(dice: PetDice(seed: 1))
+        _ = keeper.presentation(on: Self.island(.compact), activities: [], at: Self.start)
+
+        let swapped = keeper.presentation(on: Self.island(.compact, pet: .penguin), activities: [], at: Self.start + 30)
+        let again = keeper.presentation(on: Self.island(.compact, pet: .penguin), activities: [], at: Self.start + 31)
+
+        let penguin = try #require(swapped)
+        #expect(penguin.pet == .penguin)
+        #expect(penguin.performance.startedAt == Self.start + 30)
+        #expect(penguin.performance.routine.entrance.firstPose.position < 0)
+        #expect(again == penguin)
+    }
+
     @Test("the pointer moving onto the pet is answered on the next refresh")
     func pettingIsAnswered() throws {
         var keeper = IslandPetKeeper(dice: PetDice(seed: 1))

@@ -13,7 +13,7 @@ struct PetInterruptionTests {
     private static let start: TimeInterval = 1_000
 
     private static func settled(on stage: PetStage, dice: inout PetDice) -> PetRoutineTracker {
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         tracker.follow(PetScene(stage: stage, geometry: geometry), at: start - 120, dice: &dice)
         return tracker
     }
@@ -48,7 +48,7 @@ struct PetInterruptionTests {
     @Test("a change of mood while the pet is still walking on lets it finish")
     func moodChangeDuringTheWalkOnCarriesOn() throws {
         var dice = PetDice(seed: 5)
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         tracker.follow(
             PetScene(stage: .roaming, geometry: Self.geometry, mood: .asking),
             moments: [.agentAsked],
@@ -147,7 +147,7 @@ struct PetInterruptionTests {
     @Test("a pet caught high in the air comes down two points a frame", arguments: [2, 3, 4, 5])
     func caughtMidHopComesDownGently(lift: Int) {
         let airborne = PetPose(position: 10, lift: lift, facing: .right, frame: .hop)
-        let routine = PetRoutine(stage: .roaming, from: airborne, geometry: Self.geometry)
+        let routine = PetRoutine(stage: .roaming, from: airborne, geometry: Self.geometry, species: .dog)
         let lifts = [airborne.lift] + routine.entrance.keyframes.map(\.pose.lift)
 
         for (before, after) in zip(lifts, lifts.dropFirst()) {

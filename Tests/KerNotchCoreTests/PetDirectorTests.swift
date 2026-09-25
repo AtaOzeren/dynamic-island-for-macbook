@@ -20,7 +20,7 @@ struct PetDirectorTests {
 
     /// A pet settled on its flank long enough that its entrance is over.
     private static func settledTracker(dice: inout PetDice) -> PetRoutineTracker {
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         tracker.follow(scene(), at: start - 120, dice: &dice)
         return tracker
     }
@@ -93,7 +93,7 @@ struct PetDirectorTests {
             }
         }
 
-        #expect(Set(played) == Set(PetMoment.islandClosed.reactions))
+        #expect(Set(played) == Set(PetSpecies.dog.reactions(to: .islandClosed)))
     }
 
     /// Which closing reaction a routine plays, told apart by the frame only it
@@ -240,7 +240,7 @@ struct PetDirectorTests {
     @Test("lying down to watch the open island lasts until the island changes")
     func watchingLastsTheStage() throws {
         var dice = PetDice(seed: 3)
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         tracker.follow(Self.scene(geometry: Self.openGeometry), at: Self.start - 120, dice: &dice)
         var watched = false
         for step in 0..<60 where watched == false {
@@ -262,7 +262,7 @@ struct PetDirectorTests {
 
         tracker.forget()
 
-        #expect(tracker == PetRoutineTracker())
+        #expect(tracker == PetRoutineTracker(species: .dog))
     }
 
     @Test("the same seed makes the same choices")

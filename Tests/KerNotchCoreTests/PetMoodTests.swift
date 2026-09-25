@@ -21,7 +21,7 @@ struct PetMoodTests {
             stage: stage,
             from: pose,
             geometry: geometry,
-            direction: PetDirection(mood: mood, askingStyle: askingStyle, napDelay: napDelay)
+            direction: PetDirection(species: .dog, mood: mood, askingStyle: askingStyle, napDelay: napDelay)
         )
     }
 
@@ -75,7 +75,7 @@ struct PetMoodTests {
 
     /// The question mark is how the user sees the pet is waiting on them, so
     /// it never leaves while the loop runs, whichever gesture the pet makes.
-    @Test("while an agent waits there is always a question mark", arguments: PetMoment.agentAsked.reactions)
+    @Test("while an agent waits there is always a question mark", arguments: PetSpecies.dog.reactions(to: .agentAsked))
     func askingKeepsTheQuestion(style: PetReaction) throws {
         let loop = try #require(Self.routine(.asking, askingStyle: style).loop)
         let questions = loop.effects.filter { $0.effect == .question }
@@ -138,7 +138,7 @@ struct PetMoodTests {
             stage: .roaming,
             from: PetPose(position: 6, facing: .right, frame: .sleep),
             geometry: Self.geometry,
-            direction: PetDirection(mood: .asking, reaction: .headTilt, askingStyle: .headTilt)
+            direction: PetDirection(species: .dog, mood: .asking, reaction: .headTilt, askingStyle: .headTilt)
         )
 
         #expect(routine.entrance.keyframes.contains { $0.pose.frame == .playBow } == false)
@@ -161,7 +161,7 @@ struct PetMoodTests {
             stage: .roaming,
             from: Self.home,
             geometry: Self.geometry,
-            direction: PetDirection(reaction: .celebrate)
+            direction: PetDirection(species: .dog, reaction: .celebrate)
         )
         let end = try #require(celebrating.reactionEnd)
         let rest = celebrating.entrance.cut(from: 0.4, to: end)
@@ -169,7 +169,7 @@ struct PetMoodTests {
             stage: .roaming,
             from: rest.firstPose,
             geometry: Self.geometry,
-            direction: PetDirection(mood: .listening, unfinished: rest)
+            direction: PetDirection(species: .dog, mood: .listening, unfinished: rest)
         )
 
         #expect(carried.reactionEnd == rest.duration)
@@ -185,7 +185,7 @@ struct PetMoodTests {
             stage: .roaming,
             from: Self.home,
             geometry: Self.geometry,
-            direction: PetDirection(reaction: .celebrate)
+            direction: PetDirection(species: .dog, reaction: .celebrate)
         )
         let end = try #require(celebrating.reactionEnd)
         let rest = celebrating.entrance.cut(from: 1.0, to: end)

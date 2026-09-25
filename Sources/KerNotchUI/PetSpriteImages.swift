@@ -4,15 +4,16 @@ import KerNotchCore
 
 /// A sprite sheet's frames as images, facing both ways.
 ///
-/// Each image is the art at one pixel per art pixel — 32 by 24 for the Shiba,
+/// Each image is the art at one pixel per art pixel — 32 by 24 for either pet,
 /// three kilobytes — shown at its own size on a Retina panel, so the whole pet
-/// costs less memory than a single artwork thumbnail.
+/// costs less memory than a single artwork thumbnail. Only the frames the
+/// sheet draws are made: the other pet's poses are never shown.
 struct PetSpriteImageSet {
     private let images: [Key: CGImage]
 
     init(sheet: PetSpriteSheet) {
         var images: [Key: CGImage] = [:]
-        for frame in PetFrame.allCases {
+        for frame in sheet.frames.keys {
             for facing in [PetFacing.left, .right] {
                 images[Key(frame: frame, facing: facing)] = petSpriteImage(of: sheet, frame: frame, facing: facing)
             }

@@ -45,7 +45,7 @@ struct IslandRootViewPetTests {
             layout: .minimalist
         )
         model.state = state
-        var tracker = PetRoutineTracker()
+        var tracker = PetRoutineTracker(species: .dog)
         var dice = PetDice(seed: 1)
         tracker.follow(
             PetScene(stage: .roaming, geometry: IslandPet.shiba.stageGeometry()),

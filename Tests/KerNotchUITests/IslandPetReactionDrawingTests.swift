@@ -25,7 +25,7 @@ struct IslandPetReactionDrawingTests {
             stage: .roaming,
             from: PetPose(position: 6, facing: .right, frame: .sit),
             geometry: geometry,
-            direction: PetDirection(mood: .asking, reaction: .headTilt, askingStyle: .headTilt)
+            direction: PetDirection(species: .dog, mood: .asking, reaction: .headTilt, askingStyle: .headTilt)
         )
         return PetPerformance(routine: reaction, startedAt: startedAt)
     }
@@ -143,7 +143,8 @@ struct IslandPetReactionDrawingTests {
         let routine = PetRoutine(
             stage: .roaming,
             from: PetPose(position: 6, facing: .right, frame: .sit),
-            geometry: Self.geometry
+            geometry: Self.geometry,
+            species: .dog
         )
 
         host.configure(

@@ -15,7 +15,8 @@ enum PetFixtures {
         let routine = PetRoutine(
             stage: .roaming,
             from: PetPose(position: geometry.offstagePosition, facing: .right, frame: .stand),
-            geometry: geometry
+            geometry: geometry,
+            species: .dog
         )
         return IslandPetPresentation(
             pet: .shiba,

@@ -28,7 +28,8 @@ struct IslandPetDrawingTests {
         PetRoutine(
             stage: stage,
             from: PetPose(position: geometry.offstagePosition, facing: .right, frame: .stand),
-            geometry: geometry
+            geometry: geometry,
+            species: .dog
         )
     }
 
@@ -98,17 +99,29 @@ struct IslandPetDrawingTests {
         }
     }
 
-    @Test("every frame is drawn once, facing both ways, and kept")
-    func imagesAreDrawnOnce() {
-        let first = PetSpriteImages.images(for: Self.pet.sprites)
-        let second = PetSpriteImages.images(for: Self.pet.sprites)
+    @Test("every frame is drawn once, facing both ways, and kept", arguments: PetSpecies.allCases)
+    func imagesAreDrawnOnce(species: PetSpecies) {
+        let first = PetSpriteImages.images(for: species.sprites)
+        let second = PetSpriteImages.images(for: species.sprites)
 
-        for frame in PetFrame.allCases {
+        for frame in PetFrame.allCases where species.sprites.frames[frame] != nil {
             for facing in [PetFacing.left, .right] {
                 #expect(first.image(for: frame, facing: facing) != nil)
                 #expect(first.image(for: frame, facing: facing) === second.image(for: frame, facing: facing))
             }
         }
+    }
+
+    /// A pet's images are only the poses it takes: the other pet's are never
+    /// shown, so they are never drawn.
+    @Test("a pet's images are only its own poses")
+    func onlyItsOwnPosesAreDrawn() {
+        let dog = PetSpriteImages.images(for: PetSpriteSheet.shiba)
+        let penguin = PetSpriteImages.images(for: PetSpriteSheet.penguin)
+
+        #expect(dog.image(for: .slide, facing: .right) == nil)
+        #expect(penguin.image(for: .playBow, facing: .right) == nil)
+        #expect(penguin.image(for: .slide, facing: .right) != nil)
     }
 
     // MARK: - Placement
@@ -413,6 +426,19 @@ struct PetSettingsViewTests {
 
         view.isEnabled.wrappedValue = false
         #expect(box.value.isEnabled == false)
+    }
+
+    @Test("the picker writes straight through to the preferences")
+    func pickerWritesThrough() {
+        let box = Box(PetPreferences.default)
+        let view = PetSettingsView(preferences: box.binding)
+
+        view.species.wrappedValue = .penguin
+        #expect(box.value.species == .penguin)
+        #expect(box.value.isEnabled == false)
+
+        view.species.wrappedValue = .dog
+        #expect(box.value.species == .dog)
     }
 
     @Test("the pane shows the pet it would put on the island, switched on or not", arguments: [false, true])
