@@ -7,13 +7,16 @@ public struct PetPreferences: Equatable, Sendable {
     /// walking across it is a change to that the user opts into rather than one
     /// made for them.
     public var isEnabled: Bool
+    /// Which pet lives on the island: the Shiba unless the user picks another.
+    public var species: PetSpecies
 
-    public init(isEnabled: Bool = false) {
+    public init(isEnabled: Bool = false, species: PetSpecies = .dog) {
         self.isEnabled = isEnabled
+        self.species = species
     }
 
     /// The pet these choices put on the island, or `nil` for none.
     public var pet: IslandPet? {
-        isEnabled ? .shiba : nil
+        isEnabled ? IslandPet(species: species) : nil
     }
 }

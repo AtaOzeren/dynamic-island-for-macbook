@@ -1,7 +1,8 @@
 import Foundation
 
 /// The loops the pet repeats between reactions: the stage's own — strolling
-/// the flank, or sitting beside an icon — and one for each mood.
+/// the flank, or sitting beside an icon — and one for each mood. The dog's are
+/// here; the penguin's are in `PenguinLoops`.
 ///
 /// Every loop ends in the pose it began with, so Core Animation can repeat it
 /// without a seam, and every loop sits for most of its length: a pet that
@@ -28,6 +29,7 @@ enum PetLoops {
     ) -> PetTimeline? {
         guard let home = home(on: stage, in: geometry) else { return nil }
         let width = geometry.spriteWidth
+        let species = direction.species
         let bed = PetPose(
             position: min(max(spot.position, geometry.roamingRange.lowerBound), geometry.roamingRange.upperBound),
             facing: spot.facing,
@@ -35,25 +37,58 @@ enum PetLoops {
         )
         switch direction.mood {
         case .napping:
-            return napping(at: stage == .resting ? home : bed, spriteWidth: width)
-        case .asking:
-            return asking(style: direction.askingStyle ?? .headTilt, at: home, spriteWidth: width)
-        case .listening:
-            return listening(at: home, spriteWidth: width)
-        case .digging:
-            return digging(at: home, spriteWidth: width)
+            return napping(at: stage == .resting ? home : bed, spriteWidth: width, species: species)
         case .onCall:
-            return onCall(at: home, spriteWidth: width)
+            return onCall(at: home, spriteWidth: width, species: species)
         case .calm, .idle, .hiding:
             if direction.isWatching {
-                return watching(at: bed, spriteWidth: width)
+                return watching(at: bed, spriteWidth: width, species: species)
             }
-            return stageLoop(on: stage, in: geometry)
+            return stageLoop(on: stage, in: geometry, species: species)
+        case .asking, .listening, .digging:
+            return activityLoop(for: direction, at: home, spriteWidth: width)
+        }
+    }
+
+    /// The moods each pet spends its own way: waiting on the user, music, an
+    /// agent at work. `nil` for any other mood.
+    private static func activityLoop(for direction: PetDirection, at home: PetPose, spriteWidth: Int) -> PetTimeline? {
+        switch (direction.species, direction.mood) {
+        case (.dog, .asking):
+            asking(style: direction.askingStyle ?? .headTilt, at: home, spriteWidth: spriteWidth)
+        case (.dog, .listening):
+            listening(at: home, spriteWidth: spriteWidth)
+        case (.dog, .digging):
+            digging(at: home, spriteWidth: spriteWidth)
+        case (.penguin, .asking):
+            PenguinLoops.asking(style: direction.askingStyle ?? .raisePaw, at: home, spriteWidth: spriteWidth)
+        case (.penguin, .listening):
+            PenguinLoops.listening(direction.pastime ?? .nodding, at: home, spriteWidth: spriteWidth)
+        case (.penguin, .digging):
+            PenguinLoops.working(direction.pastime ?? .typing, at: home, spriteWidth: spriteWidth)
+        default:
+            nil
         }
     }
 
     /// The stage's own loop, whatever the mood.
-    static func stageLoop(on stage: PetStage, in geometry: PetStageGeometry) -> PetTimeline? {
+    static func stageLoop(on stage: PetStage, in geometry: PetStageGeometry, species: PetSpecies) -> PetTimeline? {
+        switch species {
+        case .dog: dogStageLoop(on: stage, in: geometry)
+        case .penguin: PenguinLoops.stageLoop(on: stage, in: geometry)
+        }
+    }
+
+    /// What the pet does while the island stays empty, until it naps: the
+    /// stage's own loop, which the penguin now and then spends out in the snow.
+    static func idleLoop(on stage: PetStage, in geometry: PetStageGeometry, species: PetSpecies) -> PetTimeline? {
+        switch species {
+        case .dog: dogStageLoop(on: stage, in: geometry)
+        case .penguin: PenguinLoops.idleLoop(on: stage, in: geometry)
+        }
+    }
+
+    private static func dogStageLoop(on stage: PetStage, in geometry: PetStageGeometry) -> PetTimeline? {
         switch stage {
         case .roaming: roaming(in: geometry)
         case .resting: resting(in: geometry)
@@ -62,12 +97,24 @@ enum PetLoops {
     }
 
     /// Asleep in place, the Zs drifting up from its head.
-    static func napping(at spot: PetPose, spriteWidth: Int) -> PetTimeline {
-        var choreographer = PetChoreographer(startingAt: bedded(spot, in: .sleep), spriteWidth: spriteWidth)
+    static func napping(at spot: PetPose, spriteWidth: Int, species: PetSpecies) -> PetTimeline {
+        var choreographer = PetChoreographer(
+            startingAt: bedded(spot, in: .sleep),
+            spriteWidth: spriteWidth,
+            species: species
+        )
+        let snore = species.snoreAnchor
         for (effect, start) in [(PetEffect.smallZ, 0.2), (.bigZ, 1.4), (.smallZ, 2.6)] {
             choreographer.emit(
                 effect,
-                along: choreographer.drifting(effect, fromInset: 14, height: 8, steps: 5, every: 0.25, after: start),
+                along: choreographer.drifting(
+                    effect,
+                    fromInset: snore.inset,
+                    height: snore.height,
+                    steps: 5,
+                    every: 0.25,
+                    after: start
+                ),
                 lasting: start + 1.25
             )
         }
@@ -77,8 +124,12 @@ enum PetLoops {
 
     /// Lying where it is, blinking now and then, for as long as the island
     /// stays open.
-    static func watching(at spot: PetPose, spriteWidth: Int) -> PetTimeline {
-        var choreographer = PetChoreographer(startingAt: bedded(spot, in: .lie), spriteWidth: spriteWidth)
+    static func watching(at spot: PetPose, spriteWidth: Int, species: PetSpecies) -> PetTimeline {
+        var choreographer = PetChoreographer(
+            startingAt: bedded(spot, in: .lie),
+            spriteWidth: spriteWidth,
+            species: species
+        )
         choreographer.hold(3)
         choreographer.show(.lieBlink)
         choreographer.hold(0.15)
@@ -93,12 +144,12 @@ enum PetLoops {
     /// Waiting on the user with a question mark over its head, and every few
     /// seconds the gesture it chose when the question came.
     static func asking(style: PetReaction, at home: PetPose, spriteWidth: Int) -> PetTimeline {
-        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth)
+        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth, species: .dog)
         switch style {
         case .barkForAttention:
             choreographer.askQuestion(for: 2.5)
             choreographer.hold(2.5)
-            choreographer.bark(times: 2)
+            choreographer.callOut(.bark, times: 2)
             choreographer.askQuestion(for: 2.5)
             choreographer.hold(2.5)
         case .raisePaw:
@@ -129,7 +180,7 @@ enum PetLoops {
 
     /// Sitting with the music, and every few seconds nodding along to it.
     static func listening(at home: PetPose, spriteWidth: Int) -> PetTimeline {
-        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth)
+        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth, species: .dog)
         choreographer.sit(for: 3, beats: [PetBeat(offset: 1.5, gesture: .blink)])
         for start in [0.1, 0.9] {
             choreographer.emit(
@@ -148,7 +199,7 @@ enum PetLoops {
     /// between its hind legs, as the agent it keeps company digs through its
     /// task.
     static func digging(at home: PetPose, spriteWidth: Int) -> PetTimeline {
-        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth)
+        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth, species: .dog)
         choreographer.sit(
             for: 4.5,
             beats: [PetBeat(offset: 1.2, gesture: .blink), PetBeat(offset: 2.6, gesture: .pant)]
@@ -175,8 +226,8 @@ enum PetLoops {
     }
 
     /// Headset on, listening to the call, nodding along now and then.
-    static func onCall(at home: PetPose, spriteWidth: Int) -> PetTimeline {
-        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth)
+    static func onCall(at home: PetPose, spriteWidth: Int, species: PetSpecies) -> PetTimeline {
+        var choreographer = PetChoreographer(startingAt: home, spriteWidth: spriteWidth, species: species)
         choreographer.show(.headset)
         for (frame, seconds) in [
             (PetFrame.headset, 3.0), (.headsetNod, 0.25), (.headset, 0.25), (.headsetNod, 0.25), (.headset, 2.0),
@@ -188,11 +239,11 @@ enum PetLoops {
         return choreographer.loop()
     }
 
-    private static func bedded(_ spot: PetPose, in frame: PetFrame) -> PetPose {
+    static func bedded(_ spot: PetPose, in frame: PetFrame) -> PetPose {
         PetPose(position: spot.position, facing: spot.facing, frame: frame)
     }
 
-    private static func spot(_ fraction: Double, in geometry: PetStageGeometry) -> Int {
+    static func spot(_ fraction: Double, in geometry: PetStageGeometry) -> Int {
         let range = geometry.roamingRange
         return range.lowerBound + Int((Double(range.upperBound - range.lowerBound) * fraction).rounded())
     }
@@ -204,7 +255,7 @@ extension PetLoops {
     static func roaming(in geometry: PetStageGeometry) -> PetTimeline {
         let home = PetPose(position: spot(0.18, in: geometry), facing: .right, frame: .sit)
 
-        var choreographer = PetChoreographer(startingAt: home, spriteWidth: geometry.spriteWidth)
+        var choreographer = PetChoreographer(startingAt: home, spriteWidth: geometry.spriteWidth, species: .dog)
         choreographer.sit(
             for: 3.2,
             beats: [PetBeat(offset: 1.2, gesture: .blink), PetBeat(offset: 2.0, gesture: .pant)]
@@ -239,7 +290,7 @@ extension PetLoops {
     static func resting(in geometry: PetStageGeometry) -> PetTimeline {
         let home = PetPose(position: geometry.restingPosition, facing: .right, frame: .sit)
 
-        var choreographer = PetChoreographer(startingAt: home, spriteWidth: geometry.spriteWidth)
+        var choreographer = PetChoreographer(startingAt: home, spriteWidth: geometry.spriteWidth, species: .dog)
         choreographer.sit(
             for: 7.0,
             beats: [PetBeat(offset: 2.0, gesture: .blink), PetBeat(offset: 4.5, gesture: .wag)]

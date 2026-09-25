@@ -52,9 +52,11 @@ struct PetBeat: Equatable, Sendable {
 /// reads as a script rather than as a table of keyframes.
 ///
 /// Every action starts from whatever pose the pet is in. Getting to its feet,
-/// down on its haunches or onto the floor goes through the moves a dog makes —
-/// a pet caught in the air lands first, a lying one pushes up through the
-/// crouch — which is what lets a new routine begin mid-way through any other.
+/// down on its haunches or onto the floor goes through the moves an animal
+/// makes — a pet caught in the air lands first, a lying one pushes up through
+/// the crouch — which is what lets a new routine begin mid-way through any
+/// other. What the pet is decides the rest: a penguin in a hurry slides on its
+/// belly, and each species plays a reaction its own way.
 struct PetChoreographer {
     /// How long a turn on the spot takes, so the pet is seen facing the new way
     /// before it sets off.
@@ -70,26 +72,31 @@ struct PetChoreographer {
 
     /// The leg frames of one stride, reaching and passing on each side.
     static let strideCycle: [PetFrame] = [.strideA, .stand, .strideB, .stand]
+    /// How long a sliding penguin lies where it stopped before getting up.
+    static let slideCoast: TimeInterval = 0.2
 
     /// The sprite's width in points, which is how far an effect beside the pet
     /// has to be mirrored when the pet turns round.
     let spriteWidth: Int
+    let species: PetSpecies
 
     private(set) var time: TimeInterval = 0
     private(set) var pose: PetPose
     private var keyframes: [PetKeyframe]
     private var effects: [PetEffectTrack] = []
 
-    init(startingAt pose: PetPose, spriteWidth: Int) {
+    init(startingAt pose: PetPose, spriteWidth: Int, species: PetSpecies) {
         self.pose = pose
         self.spriteWidth = spriteWidth
+        self.species = species
         keyframes = [PetKeyframe(time: 0, pose: pose)]
     }
 
     /// Carries on from the end of `timeline`, which is kept as the start of
     /// what gets written.
-    init(continuing timeline: PetTimeline, spriteWidth: Int) {
+    init(continuing timeline: PetTimeline, spriteWidth: Int, species: PetSpecies) {
         self.spriteWidth = spriteWidth
+        self.species = species
         keyframes = timeline.keyframes
         effects = timeline.effects
         time = timeline.duration
@@ -212,12 +219,20 @@ struct PetChoreographer {
     }
 
     /// Stands, turns towards `position` if it has to, and goes there a point
-    /// at a time. Arrives standing.
+    /// at a time — on its belly, for a penguin in a hurry. Arrives standing.
     mutating func travel(to position: Int, gait: PetGait) {
         guard position != pose.position else { return }
         standUp()
         turn(position > pose.position ? .right : .left)
 
+        if gait == .run, species.slidesWhenHurrying {
+            slide(to: position, gait: gait)
+        } else {
+            stride(to: position, gait: gait)
+        }
+    }
+
+    private mutating func stride(to position: Int, gait: PetGait) {
         let direction = position > pose.position ? 1 : -1
         var step = 0
         while pose.position != position {
@@ -229,6 +244,21 @@ struct PetChoreographer {
         }
         hold(gait.stepInterval)
         show(.stand)
+    }
+
+    /// Down through the crouch onto its belly, across at the gait's pace, and
+    /// back up onto its feet.
+    private mutating func slide(to position: Int, gait: PetGait) {
+        crouch()
+        let direction = position > pose.position ? 1 : -1
+        while pose.position != position {
+            time += gait.stepInterval
+            pose.position += direction
+            pose.frame = .slide
+            mark()
+        }
+        hold(Self.slideCoast)
+        standUp()
     }
 
     mutating func walk(to position: Int) {

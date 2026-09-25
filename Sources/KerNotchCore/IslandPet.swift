@@ -1,12 +1,16 @@
 /// The companion that lives on the compact island.
 public struct IslandPet: Hashable, Sendable {
-    /// The one pet KerNotch ships so far.
-    public static let shiba = IslandPet(sprites: .shiba)
+    /// A Shiba Inu puppy.
+    public static let shiba = IslandPet(species: .dog)
+    /// A penguin in the likeness of Tux.
+    public static let penguin = IslandPet(species: .penguin)
 
+    public let species: PetSpecies
     public let sprites: PetSpriteSheet
 
-    public init(sprites: PetSpriteSheet) {
-        self.sprites = sprites
+    public init(species: PetSpecies) {
+        self.species = species
+        sprites = species.sprites
     }
 
     /// Where this pet can stand on a pill drawn with `pill`.

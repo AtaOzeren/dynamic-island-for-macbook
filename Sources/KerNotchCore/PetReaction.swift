@@ -1,53 +1,69 @@
 import Foundation
 
 /// Something the pet does in answer to what happens on the island: a hop when
-/// the island opens, a tilt of the head when an agent asks something, a
+/// the island opens, a call for the user when an agent asks something, a
 /// celebration when one finishes.
 ///
 /// A reaction is a few seconds long and played where the pet is. It never
 /// leaves the stage it is given, so an icon beside the pet is never walked
 /// through, and it ends on the floor — sitting, or standing to set off — so the
 /// routine that follows can take over from it without a jump.
+///
+/// Each species plays a reaction its own way (`PetSpecies.reactions(to:)`
+/// says which it knows): a dog barks for attention, a penguin squawks.
 public enum PetReaction: String, CaseIterable, Sendable {
     /// The island opening: startled into a hop, with an exclamation mark.
     case surprisedHop
-    /// The island opening: running with its edge to the new corner.
+    /// The island opening: off with its edge to the new corner — a dog runs,
+    /// a penguin slides.
     case runAlongEdge
     /// The island opening: lying down to watch for as long as it stays open.
     case lieAndWatch
-    /// The island closing: shaking itself off like a wet dog.
+    /// The island opening: a flipper waved hello.
+    case wave
+    /// The island closing: shaking itself off, water flying.
     case shakeOff
     /// The island closing: a long stretch, then a yawn.
     case stretch
-    /// The island closing: panting with relief.
+    /// The island closing: relief — a dog pants, a penguin fans itself.
     case relief
+    /// The island closing: combing its chest feathers with its beak.
+    case preen
     /// An agent asking something: ear flopped, head tilted, question mark.
     case headTilt
-    /// An agent asking something: barking to fetch the user.
+    /// An agent asking something: calling the user — a dog barks, a penguin
+    /// squawks.
     case barkForAttention
-    /// An agent asking something: a paw raised, like a hand.
+    /// An agent asking something: a paw or a flipper raised, like a hand.
     case raisePaw
     /// An agent asking something: looking one way, then the other.
     case lookAround
+    /// An agent asking something: a foot tapping, impatiently.
+    case tapFoot
     /// An agent failing: lying down with its ears back under a rain cloud.
     case sulk
     /// An agent failing: seeing stars.
     case dazed
     /// An agent failing: keeling over, then shaking it off.
     case faint
+    /// An agent failing: feet gone from under it, flat on its back.
+    case slip
     /// An agent finishing: hopping for joy among sparkles.
     case celebrate
     /// An agent finishing: tearing back and forth across the flank.
     case zoomies
-    /// An agent finishing: catching a bone that drops from above.
+    /// An agent finishing: catching a treat that drops from above — a bone,
+    /// or a fish.
     case treat
-    /// A countdown running out: barking at the bell.
+    /// An agent finishing: a dance, flippers up.
+    case dance
+    /// A countdown running out: calling out at the bell.
     case timerAlarm
     /// The charger going in: a jolt, a hop and a dash.
     case powerRush
-    /// The pointer moving onto the pet: wagging, with hearts.
+    /// The pointer moving onto the pet: delight, with hearts.
     case petted
-    /// The CPU watchdog's notice: panting, with a bead of sweat.
+    /// The CPU watchdog's notice: too hot, with a bead of sweat.
     case sweat
     /// An agent out of quota: a yawn, then off to sleep until it is back.
     case dozeOff
@@ -60,7 +76,7 @@ public enum PetReaction: String, CaseIterable, Sendable {
 }
 
 /// Something that happened, which the pet may answer with a reaction.
-public enum PetMoment: Hashable, Sendable {
+public enum PetMoment: Hashable, CaseIterable, Sendable {
     case islandOpened
     case islandClosed
     case agentAsked
@@ -71,22 +87,6 @@ public enum PetMoment: Hashable, Sendable {
     case chargerConnected
     case cpuStrained
     case petted
-
-    /// The reactions the pet chooses between, at random, for this moment.
-    public var reactions: [PetReaction] {
-        switch self {
-        case .islandOpened: [.surprisedHop, .runAlongEdge, .lieAndWatch]
-        case .islandClosed: [.shakeOff, .stretch, .relief]
-        case .agentAsked: [.headTilt, .barkForAttention, .raisePaw, .lookAround]
-        case .agentFailed: [.sulk, .dazed, .faint]
-        case .quotaExhausted: [.dozeOff]
-        case .agentCompleted: [.celebrate, .zoomies, .treat]
-        case .timerExpired: [.timerAlarm]
-        case .chargerConnected: [.powerRush]
-        case .cpuStrained: [.sweat]
-        case .petted: [.petted]
-        }
-    }
 
     /// How much the moment matters: a reaction to a moment that matters as much
     /// or more cuts in on one already playing, anything less is let go.

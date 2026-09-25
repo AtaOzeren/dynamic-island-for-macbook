@@ -1,7 +1,7 @@
 import Foundation
 
-/// The reactions to news: an agent failing or finishing, a countdown running
-/// out, the charger, the watchdog, and the pointer moving onto the pet.
+/// The dog's reactions to news: an agent failing or finishing, a countdown
+/// running out, the charger, the watchdog, and the pointer moving onto the pet.
 extension PetChoreographer {
     mutating func performAgentNews(_ reaction: PetReaction, in geometry: PetStageGeometry) {
         switch reaction {
@@ -68,26 +68,7 @@ extension PetChoreographer {
     private mutating func seeStars() {
         sitDown()
         show(.dazed)
-        let duration = 2.25
-        for phase in [0.0, 2.1, 4.2] {
-            var path: [PetEffectStep] = []
-            var moment = 0.0
-            while moment < duration {
-                let angle = 2 * Double.pi * moment / 0.9 + phase
-                path.append(
-                    PetEffectStep(
-                        after: moment,
-                        point: besidePet(
-                            .star,
-                            inset: 11 + Int((5 * cos(angle)).rounded()),
-                            height: 13 + Int((2 * sin(angle)).rounded())
-                        )
-                    )
-                )
-                moment += Self.frameInterval
-            }
-            emit(.star, along: path, lasting: duration)
-        }
+        circleStars(around: PetEffectAnchor(effect: .star, inset: 11, height: 13), for: 2.25)
         for offset in [1, -1, -1, 1, 1, -1, -1, 1] {
             hold(0.25)
             sway(by: offset)
@@ -119,19 +100,7 @@ extension PetChoreographer {
 
     /// Two hops for joy with sparkles going off around it.
     private mutating func celebrate() {
-        let sparkles = [
-            PetEffectAnchor(effect: .sparkle, inset: -3, height: 10),
-            PetEffectAnchor(effect: .sparkle, inset: 16, height: 13),
-            PetEffectAnchor(effect: .star, inset: -5, height: 4),
-            PetEffectAnchor(effect: .star, inset: 18, height: 7),
-        ]
-        for (index, sparkle) in sparkles.enumerated() {
-            emit(
-                sparkle.effect,
-                along: twinkling(at: besidePet(sparkle), for: 1.6, flashing: 0.2, after: Double(index) * 0.1),
-                lasting: 1.6
-            )
-        }
+        sparkle(for: 1.6)
         hop(height: 4)
         hop(height: 4)
         sitDown()
@@ -185,7 +154,7 @@ extension PetChoreographer {
             PetPoint(position: bell.position + (step.isMultiple(of: 2) ? 0 : 1), height: bell.height)
         }
         emit(.bell, at: ringing, every: Self.frameInterval)
-        bark(times: 3)
+        callOut(.bark, times: 3)
     }
 
     /// A bolt over its head, a hop, and — with the flank to itself — a dash
@@ -207,25 +176,7 @@ extension PetChoreographer {
     /// Wags hard with hearts floating up, then shuts its eyes a moment.
     private mutating func enjoyPetting() {
         sitDown()
-        let hearts = [
-            (PetEffectAnchor(effect: .smallHeart, inset: 11, height: 12), 0.0),
-            (PetEffectAnchor(effect: .smallHeart, inset: 14, height: 13), 0.4),
-            (PetEffectAnchor(effect: .heart, inset: 10, height: 12), 0.8),
-        ]
-        for (heart, delay) in hearts {
-            emit(
-                heart.effect,
-                along: drifting(
-                    heart.effect,
-                    fromInset: heart.inset,
-                    height: heart.height,
-                    steps: 5,
-                    every: 0.15,
-                    after: delay
-                ),
-                lasting: delay + 0.75
-            )
-        }
+        floatHearts(from: PetEffectAnchor(effect: .smallHeart, inset: 11, height: 12))
         alternate([.sitWag, .sit], every: 0.13, times: 6)
         show(.sitBlink)
         hold(0.5)
@@ -236,15 +187,7 @@ extension PetChoreographer {
     /// Pants with a bead of sweat sliding down the back of its head.
     private mutating func sweat() {
         sitDown()
-        for start in [0.0, 1.2] {
-            let path = (0..<4).map { step in
-                PetEffectStep(
-                    after: start + Double(step) * 0.2,
-                    point: besidePet(.sweat, inset: 10, height: 10 - step)
-                )
-            }
-            emit(.sweat, along: path, lasting: start + 0.8)
-        }
+        sweatDrops(from: PetEffectAnchor(effect: .sweat, inset: 10, height: 10))
         alternate([.sitPant, .sit], every: 0.2, times: 6)
     }
 

@@ -22,6 +22,8 @@ public enum PetEffect: String, CaseIterable, Sendable {
     case bell
     case sweat
     case dirt
+    case fish
+    case snowflake
 }
 
 /// The art the effects are drawn from: each one as rows of palette keys, at
@@ -117,6 +119,8 @@ extension PetEffectArt {
             .bell: ["..Y..", ".YYY.", ".YYY.", "YYYYY", "..y.."],
             .sweat: [".B.", "BBB", "BbB", ".b."],
             .dirt: ["Nn", "nN"],
+            .fish: ["..BBB.b", ".BWBBbb", "BBBBBbb", "..bbb.b"],
+            .snowflake: [".B.", "BWB", ".B."],
         ]
     )
 }

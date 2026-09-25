@@ -2,11 +2,15 @@ import Foundation
 
 /// Everything besides the stage that shapes a routine.
 struct PetDirection: Equatable, Sendable {
+    /// Which pet performs it.
+    var species: PetSpecies
     var mood: PetMood = .calm
     /// Played first, where the pet is.
     var reaction: PetReaction?
     /// The gesture the pet repeats while an agent waits on the user.
     var askingStyle: PetReaction?
+    /// How the pet spends a mood it knows more than one way of spending.
+    var pastime: PetPastime?
     /// Lying to watch the open island, for as long as the stage lasts.
     var isWatching = false
     /// Seconds from the routine's start until the pet lies down for a nap on
@@ -43,17 +47,20 @@ public struct PetRoutine: Equatable, Sendable {
     /// island.
     public let stillPose: PetPose?
 
-    /// The stage's own routine, with nothing to react to.
-    public init(stage: PetStage, from pose: PetPose, geometry: PetStageGeometry) {
-        self.init(stage: stage, from: pose, geometry: geometry, direction: PetDirection())
+    /// The stage's own routine for `species`, with nothing to react to.
+    public init(stage: PetStage, from pose: PetPose, geometry: PetStageGeometry, species: PetSpecies) {
+        self.init(stage: stage, from: pose, geometry: geometry, direction: PetDirection(species: species))
     }
 
     init(stage: PetStage, from pose: PetPose, geometry: PetStageGeometry, direction: PetDirection) {
         self.stage = stage
         self.geometry = geometry
+        let species = direction.species
         var choreographer =
-            direction.unfinished.map { PetChoreographer(continuing: $0, spriteWidth: geometry.spriteWidth) }
-            ?? PetChoreographer(startingAt: pose, spriteWidth: geometry.spriteWidth)
+            direction.unfinished.map {
+                PetChoreographer(continuing: $0, spriteWidth: geometry.spriteWidth, species: species)
+            }
+            ?? PetChoreographer(startingAt: pose, spriteWidth: geometry.spriteWidth, species: species)
 
         guard stage != .away else {
             Self.settle(
@@ -80,7 +87,7 @@ public struct PetRoutine: Equatable, Sendable {
         self.reactionEnd = reactionEnd
 
         if let napDelay = direction.napDelay, direction.isWatching == false,
-            let awake = PetLoops.stageLoop(on: stage, in: geometry)
+            let awake = PetLoops.idleLoop(on: stage, in: geometry, species: species)
         {
             Self.settle(&choreographer, into: awake.firstPose, on: stage)
             let awakeFor = napDelay - choreographer.time
@@ -92,7 +99,7 @@ public struct PetRoutine: Equatable, Sendable {
             }
             Self.fallAsleep(&choreographer)
             entrance = choreographer.timeline()
-            loop = PetLoops.napping(at: choreographer.pose, spriteWidth: geometry.spriteWidth)
+            loop = PetLoops.napping(at: choreographer.pose, spriteWidth: geometry.spriteWidth, species: species)
             stillPose = awake.firstPose
             return
         }
@@ -176,14 +183,29 @@ public struct PetRoutine: Equatable, Sendable {
         choreographer.show(.lie)
         choreographer.hold(0.4)
         choreographer.standUp()
-        choreographer.show(.playBow)
-        choreographer.hold(0.8)
-        choreographer.show(.stand)
-        choreographer.hold(0.15)
-        choreographer.sitDown()
-        choreographer.show(.yawn)
-        choreographer.hold(0.6)
-        choreographer.show(.sit)
+        switch choreographer.species {
+        case .dog:
+            choreographer.show(.playBow)
+            choreographer.hold(0.8)
+            choreographer.show(.stand)
+            choreographer.hold(0.15)
+            choreographer.sitDown()
+            choreographer.show(.yawn)
+            choreographer.hold(0.6)
+            choreographer.show(.sit)
+        case .penguin:
+            choreographer.show(.stretch)
+            choreographer.hold(0.9)
+            choreographer.show(.stand)
+            choreographer.hold(0.15)
+            choreographer.show(.standYawn)
+            choreographer.hold(0.6)
+            choreographer.show(.standBlink)
+            choreographer.hold(0.13)
+            choreographer.show(.stand)
+            choreographer.hold(0.2)
+            choreographer.sitDown()
+        }
         choreographer.hold(0.2)
     }
 
