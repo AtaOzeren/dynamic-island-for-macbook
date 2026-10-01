@@ -111,8 +111,8 @@ enum PenguinArt {
     /// shaking the water off.
     private static func shaking(by columns: Int) -> [String] {
         let flapping = flappingOut(head, over: bareBody + feet)
-        return shifting(head, by: columns) + shifting(Array(flapping[9..<15]), by: columns) + body.dropFirst(6)
-            + feet
+        return shifting(head, by: columns) + shifting(Array(flapping[9..<15]), by: columns)
+            + Array(body.dropFirst(6)) + feet
     }
 
     /// Leaning back as the feet go from under it: the higher a row, the

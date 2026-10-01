@@ -266,6 +266,15 @@ private struct PetDroplet {
     let sideways: Int
     let upwards: Int
 
+    func inset(after step: Int) -> Int {
+        inset + sideways * step
+    }
+
+    /// Rising for the first two steps, then falling a point each step.
+    func height(after step: Int) -> Int {
+        height + upwards * min(step, 2) - max(step - 2, 0)
+    }
+
     static let shaken = [
         PetDroplet(inset: 2, height: 9, sideways: -1, upwards: 1),
         PetDroplet(inset: 15, height: 9, sideways: 1, upwards: 1),
@@ -336,17 +345,14 @@ extension PetChoreographer {
         show(.stand)
         hold(0.13)
         for (index, droplet) in PetDroplet.shaken.enumerated() {
+            let start = Double(index) * 0.1
             let path = (0..<5).map { step in
                 PetEffectStep(
-                    after: Double(index) * 0.1 + Double(step) * Self.frameInterval,
-                    point: besidePet(
-                        .droplet,
-                        inset: droplet.inset + droplet.sideways * step,
-                        height: droplet.height + droplet.upwards * min(step, 2) - max(step - 2, 0)
-                    )
+                    after: start + Double(step) * Self.frameInterval,
+                    point: besidePet(.droplet, inset: droplet.inset(after: step), height: droplet.height(after: step))
                 )
             }
-            emit(.droplet, along: path, lasting: Double(index) * 0.1 + 5 * Self.frameInterval)
+            emit(.droplet, along: path, lasting: start + 5 * Self.frameInterval)
         }
         alternate([.shakeLeft, .shakeRight], every: 0.1, times: 4)
         show(.stand)
