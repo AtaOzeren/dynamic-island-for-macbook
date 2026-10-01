@@ -125,6 +125,7 @@ public final class SettingsStore {
                 showMenuBarIcon: self[.showMenuBarIcon],
                 appearance: self[.appearance],
                 islandSize: self[.islandSize],
+                hidesInFullScreen: self[.hideInFullScreen],
                 reducedMotionOverride: self[.reducedMotionOverride]
             )
         }
@@ -134,6 +135,7 @@ public final class SettingsStore {
             self[.showMenuBarIcon] = newValue.showMenuBarIcon
             self[.appearance] = newValue.appearance
             self[.islandSize] = newValue.islandSize
+            self[.hideInFullScreen] = newValue.hidesInFullScreen
             self[.reducedMotionOverride] = newValue.reducedMotionOverride
         }
     }
@@ -144,6 +146,16 @@ public final class SettingsStore {
         }
         set {
             self[.enableDiscord] = newValue.isEnabled
+        }
+    }
+
+    public var petPreferences: PetPreferences {
+        get {
+            PetPreferences(isEnabled: self[.showIslandPet], species: self[.petSpecies])
+        }
+        set {
+            self[.showIslandPet] = newValue.isEnabled
+            self[.petSpecies] = newValue.species
         }
     }
 

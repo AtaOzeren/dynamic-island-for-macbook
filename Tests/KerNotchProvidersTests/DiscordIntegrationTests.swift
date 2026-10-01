@@ -7,6 +7,7 @@ import Testing
 
 private let discordHelper: AudioObjectID = 101
 private let browser: AudioObjectID = 102
+private let speechRecognizer: AudioObjectID = 103
 
 @MainActor
 private final class IdleTickScheduler: TickScheduling {
@@ -38,6 +39,9 @@ struct DiscordIntegrationTests {
         let workspace = FakeDiscordWorkspace()
         let reconnect = FakeDiscordReconnectScheduler()
         var capturing: Set<AudioObjectID> = []
+        /// Processes reporting running input with no input device behind it, the
+        /// way `corespeechd` does while it listens for "Siri".
+        var runningDevicelessInput: Set<AudioObjectID> = []
         var inVoiceChannel = false
         var builtInClientID: DiscordClientID? = .testApplication
 
@@ -45,12 +49,19 @@ struct DiscordIntegrationTests {
             hardware: MicrophoneHardware(
                 inputDeviceIdentifiers: { [1] },
                 isDeviceRunning: { [unowned self] _ in MainActor.assumeIsolated { capturing.isEmpty == false } },
-                processIdentifiers: { [discordHelper, browser] },
+                processIdentifiers: { [discordHelper, browser, speechRecognizer] },
                 processBundleIdentifier: { process in
-                    process == discordHelper ? "com.hnc.Discord.helper.Renderer" : "com.google.Chrome.helper"
+                    switch process {
+                    case discordHelper: "com.hnc.Discord.helper.Renderer"
+                    case speechRecognizer: "com.apple.CoreSpeech"
+                    default: "com.google.Chrome.helper"
+                    }
                 },
                 isProcessRunningInput: { [unowned self] process in
-                    MainActor.assumeIsolated { capturing.contains(process) }
+                    MainActor.assumeIsolated { capturing.union(runningDevicelessInput).contains(process) }
+                },
+                processInputDevices: { [unowned self] process in
+                    MainActor.assumeIsolated { capturing.contains(process) ? [1] : [] }
                 }
             ),
             listeners: listeners
@@ -147,6 +158,19 @@ struct DiscordIntegrationTests {
         fixture.capture(by: [discordHelper, browser])
 
         #expect(fixture.activeKinds == [.discordCall, .recording])
+    }
+
+    /// Measured on macOS 26 during a Discord call: `corespeechd`, listening for
+    /// "Siri", reported running input with no input device behind it.
+    @Test("while on, Siri listening without a microphone leaves the call on its own")
+    func devicelessListenerBesideCallShowsCallOnly() {
+        let fixture = Fixture()
+        fixture.integration.apply(Self.enabled)
+        fixture.runningDevicelessInput = [speechRecognizer]
+
+        fixture.capture(by: [discordHelper])
+
+        #expect(fixture.activeKinds == [.discordCall])
     }
 
     @Test("while on, another app alone is the ordinary microphone indicator")
@@ -281,7 +305,8 @@ struct DiscordCallProviderTests {
                 isDeviceRunning: { _ in false },
                 processIdentifiers: { nil },
                 processBundleIdentifier: { _ in nil },
-                isProcessRunningInput: { _ in false }
+                isProcessRunningInput: { _ in false },
+                processInputDevices: { _ in [] }
             ),
             listeners: FakeAudioPropertyListeners()
         )
@@ -305,7 +330,8 @@ struct DiscordCallProviderTests {
                 isDeviceRunning: { _ in false },
                 processIdentifiers: { [] },
                 processBundleIdentifier: { _ in nil },
-                isProcessRunningInput: { _ in false }
+                isProcessRunningInput: { _ in false },
+                processInputDevices: { _ in [] }
             ),
             listeners: listeners
         )

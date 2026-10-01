@@ -12,3 +12,6 @@ dist/
 .omo
 .serena
 .claude
+
+# Project documentation, kept local only
+docs/

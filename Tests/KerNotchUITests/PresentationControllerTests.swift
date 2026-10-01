@@ -220,6 +220,179 @@ struct PresentationControllerTests {
         #expect(harness.panel.isVisible == false)
     }
 
+    /// A step aside short enough to wait out inside a test.
+    private static let quickWithdrawal = IslandMotion(withdrawalDuration: 0.01)
+
+    @Test("stepping aside keeps the island on screen until its animation has run")
+    func steppingAsideAnimatesBeforeOrderingOut() {
+        let harness = Self.makeHarness(motion: Self.quickWithdrawal)
+
+        harness.controller.isWithdrawn = true
+
+        #expect(harness.panel.isVisible)
+        #expect(harness.controller.withdrawal == .easeIn(duration: 0.01))
+
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .hidden)
+        #expect(harness.panel.isVisible == false)
+    }
+
+    @Test("an island on its way out lets go of the pointer at once")
+    func steppingAsideReleasesThePointer() {
+        let harness = Self.makeHarness(motion: IslandMotion(withdrawalDuration: 10))
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.mouse.move(to: Self.insideTheHitRect)
+
+        harness.controller.isWithdrawn = true
+
+        #expect(harness.mouse.isObserving == false)
+        #expect(harness.controller.isHovered == false)
+        #expect(harness.panel.ignoresMouseEvents)
+    }
+
+    @Test("an island on its way out never opens")
+    func steppingAsideRefusesToExpand() {
+        let harness = Self.makeHarness(motion: IslandMotion(withdrawalDuration: 10))
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.controller.isWithdrawn = true
+
+        harness.controller.expand()
+
+        #expect(harness.controller.state == .compact)
+    }
+
+    @Test("withdrawing an open island takes it off screen once the animation has run")
+    func withdrawingClosesAnOpenIsland() {
+        let harness = Self.makeHarness(motion: Self.quickWithdrawal)
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.controller.expand()
+
+        harness.controller.isWithdrawn = true
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .hidden)
+        #expect(harness.panel.isVisible == false)
+        #expect(harness.mouse.isObserving == false)
+    }
+
+    @Test("an activity arriving on the way out lets the animation finish")
+    func activityWhileSteppingAsideKeepsAnimating() {
+        let harness = Self.makeHarness(motion: IslandMotion(withdrawalDuration: 10))
+        harness.controller.isWithdrawn = true
+
+        harness.manager.register(Self.activity("timer.focus"))
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+    }
+
+    @Test("an activity arriving while withdrawn leaves the island off screen")
+    func activityWhileWithdrawnStaysHidden() {
+        let harness = Self.makeHarness(motion: Self.quickWithdrawal)
+        harness.controller.isWithdrawn = true
+        Self.runMainRunLoop(for: 0.05)
+
+        harness.manager.register(Self.activity("timer.focus"))
+
+        #expect(harness.controller.state == .hidden)
+        #expect(harness.panel.isVisible == false)
+    }
+
+    @Test("a screen change while withdrawn leaves the island off screen")
+    func screenChangeWhileWithdrawnStaysHidden() {
+        let harness = Self.makeHarness()
+        harness.controller.isWithdrawn = true
+
+        harness.controller.screenConfigurationDidChange()
+
+        #expect(harness.controller.state == .hidden)
+        #expect(harness.panel.isVisible == false)
+    }
+
+    @Test("returning from full screen orders the island in at rest, then grows it back")
+    func returningOrdersBackInCompact() {
+        let harness = Self.makeHarness(motion: Self.quickWithdrawal)
+        harness.manager.register(Self.activity("timer.focus"))
+        harness.controller.isWithdrawn = true
+        Self.runMainRunLoop(for: 0.05)
+
+        harness.controller.isWithdrawn = false
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+        #expect(harness.panel.frame == panelFrame(for: Self.notchedScreen, metrics: Self.metrics))
+        #expect(harness.controller.transition == .none)
+        #expect(harness.controller.withdrawal == .spring(response: 0.35, dampingFraction: 0.8))
+        #expect(harness.mouse.isObserving)
+    }
+
+    @Test("an island caught on its way out turns around without leaving the screen")
+    func returningMidWayTurnsAround() {
+        let harness = Self.makeHarness(motion: Self.quickWithdrawal)
+        harness.controller.isWithdrawn = true
+
+        harness.controller.isWithdrawn = false
+        Self.runMainRunLoop(for: 0.05)
+
+        #expect(harness.controller.state == .compact)
+        #expect(harness.panel.isVisible)
+        #expect(harness.mouse.isObserving)
+    }
+
+    @Test("Reduce Motion only fades the island aside and back")
+    func reduceMotionFadesOnly() {
+        let harness = Self.makeHarness(reduceMotion: true, motion: Self.quickWithdrawal)
+
+        harness.controller.isWithdrawn = true
+        #expect(harness.controller.withdrawal == .crossFade(duration: 0.1))
+        Self.runMainRunLoop(for: 0.2)
+
+        harness.controller.isWithdrawn = false
+        #expect(harness.controller.withdrawal == .crossFade(duration: 0.1))
+    }
+
+    @Test("an island already off screen steps aside and comes back without animating")
+    func hiddenIslandDoesNotAnimate() {
+        let harness = Self.makeHarness(screen: nil)
+
+        harness.controller.isWithdrawn = true
+        #expect(harness.controller.withdrawal == .none)
+
+        harness.controller.isWithdrawn = false
+        #expect(harness.controller.withdrawal == .none)
+        #expect(harness.panel.isVisible == false)
+    }
+
+    @Test("each step aside and return is published once, with its curve already set")
+    func publishesWithdrawalChanges() {
+        let harness = Self.makeHarness(motion: Self.quickWithdrawal)
+        var observed: [(Bool, IslandAnimationCurve)] = []
+        harness.controller.onWithdrawalChange = { [controller = harness.controller] isWithdrawn in
+            observed.append((isWithdrawn, controller.withdrawal))
+        }
+
+        harness.controller.isWithdrawn = true
+        harness.controller.isWithdrawn = true
+        Self.runMainRunLoop(for: 0.05)
+        harness.controller.isWithdrawn = false
+
+        #expect(observed.map(\.0) == [true, false])
+        #expect(observed.map(\.1) == [.easeIn(duration: 0.01), .spring(response: 0.35, dampingFraction: 0.8)])
+    }
+
+    @Test("a torn-down controller stays off screen when full screen ends")
+    func stoppedControllerStaysHiddenOnReturn() {
+        let harness = Self.makeHarness(motion: IslandMotion(withdrawalDuration: 10))
+        harness.controller.isWithdrawn = true
+        harness.controller.stop()
+
+        harness.controller.isWithdrawn = false
+
+        #expect(harness.controller.state == .hidden)
+        #expect(harness.panel.isVisible == false)
+    }
+
     @Test("an empty compact island stays click-through away from the pill")
     func emptyCompactIslandIsClickThrough() {
         let harness = Self.makeHarness()

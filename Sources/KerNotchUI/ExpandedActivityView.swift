@@ -479,7 +479,7 @@ public func expandedPanelOverflowsWindow(
 /// view keep the generic row so nothing ever renders as blank space.
 public struct ExpandedActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
     /// The clock the island itself is moving on, so a card arriving and the

@@ -16,9 +16,9 @@ public struct MicrophoneActivity: Equatable, Sendable {
     /// Whether any input device is running for any process.
     public let isRunning: Bool
 
-    /// Who is running the input, or `nil` when that is not known: nobody asked,
-    /// the microphone is idle, or the system cannot say — per-process input
-    /// state arrived in macOS 14.2.
+    /// Who is running input on an input device, or `nil` when that is not
+    /// known: nobody asked, the microphone is idle, or the system cannot say —
+    /// per-process input state arrived in macOS 14.2.
     public let clients: Set<MicrophoneClient>?
 
     public init(isRunning: Bool, clients: Set<MicrophoneClient>?) {
@@ -36,13 +36,15 @@ struct MicrophoneHardware: Sendable {
     var processIdentifiers: @Sendable () -> [AudioObjectID]?
     var processBundleIdentifier: @Sendable (AudioObjectID) -> String?
     var isProcessRunningInput: @Sendable (AudioObjectID) -> Bool
+    var processInputDevices: @Sendable (AudioObjectID) -> [AudioObjectID]
 
     static let system = MicrophoneHardware(
         inputDeviceIdentifiers: { CoreAudioSystem.inputDeviceIdentifiers() },
         isDeviceRunning: { CoreAudioSystem.isRunningSomewhere($0) },
         processIdentifiers: { CoreAudioSystem.processIdentifiers() },
         processBundleIdentifier: { CoreAudioSystem.bundleIdentifier(ofProcess: $0) },
-        isProcessRunningInput: { CoreAudioSystem.isRunningInput(process: $0) }
+        isProcessRunningInput: { CoreAudioSystem.isRunningInput(process: $0) },
+        processInputDevices: { CoreAudioSystem.inputDevices(ofProcess: $0) }
     )
 }
 
@@ -53,8 +55,8 @@ struct MicrophoneHardware: Sendable {
 /// `kAudioDevicePropertyDeviceIsRunningSomewhere` on every input device: public,
 /// documented, permission-free, and read by listener, never by polling. Which
 /// application is running it comes from the per-process input state CoreAudio
-/// added in macOS 14.2 (`kAudioProcessPropertyIsRunningInput`), equally
-/// permission-free. KerNotch opens no stream and reads no audio content either
+/// added in macOS 14.2 (`kAudioProcessPropertyIsRunningInput`, together with the
+/// input devices the process holds), equally permission-free. KerNotch opens no stream and reads no audio content either
 /// way, so no microphone prompt is ever triggered.
 ///
 /// Attribution is paid for only while it is wanted. The process listeners go on
@@ -287,11 +289,19 @@ public final class MicrophoneActivityMonitor {
         )
 
         return Set(
-            processes.filter(hardware.isProcessRunningInput).map { process in
+            processes.filter(isCapturingFromInputDevice).map { process in
                 hardware.processBundleIdentifier(process).map { .application(bundleIdentifier: $0) }
                     ?? .unidentifiedProcess
             }
         )
+    }
+
+    /// Running input alone does not make a process a client of the microphone.
+    /// On macOS 26 `corespeechd`, listening for "Siri", reports running input
+    /// for minutes at a time while holding no input device at all; counted, it
+    /// put the ordinary microphone indicator beside every Discord call.
+    private func isCapturingFromInputDevice(_ process: AudioObjectID) -> Bool {
+        hardware.isProcessRunningInput(process) && hardware.processInputDevices(process).isEmpty == false
     }
 
     private func stopWatchingProcesses() {
@@ -411,6 +421,14 @@ enum CoreAudioSystem {
         flag(.processIsRunningInput, of: process)
     }
 
+    /// The input devices a process is running on. The list is kept per scope:
+    /// read in the global scope, it comes back empty for every process.
+    static func inputDevices(ofProcess process: AudioObjectID) -> [AudioObjectID] {
+        var address = AudioProperty.processDevices.address
+        address.mScope = kAudioObjectPropertyScopeInput
+        return objectList(at: address, of: process) ?? []
+    }
+
     static func bundleIdentifier(ofProcess process: AudioObjectID) -> String? {
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioProcessPropertyBundleID,
@@ -439,10 +457,14 @@ enum CoreAudioSystem {
     }
 
     private static func objectList(_ property: AudioProperty) -> [AudioObjectID]? {
-        var address = property.address
+        objectList(at: property.address, of: systemObject)
+    }
+
+    private static func objectList(at address: AudioObjectPropertyAddress, of object: AudioObjectID) -> [AudioObjectID]? {
+        var address = address
         var size: UInt32 = 0
 
-        guard AudioObjectGetPropertyDataSize(systemObject, &address, 0, nil, &size) == noErr else {
+        guard AudioObjectGetPropertyDataSize(object, &address, 0, nil, &size) == noErr else {
             return nil
         }
 
@@ -451,7 +473,7 @@ enum CoreAudioSystem {
         guard count > 0 else { return [] }
 
         var objects = [AudioObjectID](repeating: 0, count: count)
-        let status = AudioObjectGetPropertyData(systemObject, &address, 0, nil, &size, &objects)
+        let status = AudioObjectGetPropertyData(object, &address, 0, nil, &size, &objects)
 
         return status == noErr ? objects : nil
     }

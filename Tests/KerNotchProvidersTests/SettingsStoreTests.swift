@@ -18,6 +18,7 @@ struct SettingsStoreTests {
         #expect(store[.launchAtLogin] == false)
         #expect(store[.showMenuBarIcon])
         #expect(store[.appearance] == SettingsAppearance.auto)
+        #expect(store[.hideInFullScreen] == false)
         #expect(store[.reducedMotionOverride] == nil)
         #expect(store[.showMusic])
         #expect(store[.showTimer])
@@ -174,6 +175,40 @@ struct SettingsStoreTests {
         #expect(store[.enableDiscord])
     }
 
+    /// The pet is opt-in: a store nobody has written to must not put a moving
+    /// picture on an island the user expects to sit still.
+    @Test("persists the pet switch, off until the user turns it on")
+    func roundTripsPetPreferences() throws {
+        let storage = DictionarySettingsStorage()
+        let store = SettingsStore(storage: storage)
+
+        #expect(store.petPreferences == .default)
+        #expect(store.petPreferences.isEnabled == false)
+        #expect(try #require(storage.lastRegisteredDefaults[SettingsKey<Bool>.showIslandPet.name] as? Bool) == false)
+
+        store.petPreferences = PetPreferences(isEnabled: true)
+
+        #expect(store.petPreferences.isEnabled)
+        #expect(store[.showIslandPet])
+        #expect(SettingsKey<Bool>.showIslandPet.name == "com.kernotch.settings.pet.enabled")
+    }
+
+    @Test("persists which pet lives on the island, the Shiba until another is picked")
+    func roundTripsPetSpecies() throws {
+        let storage = DictionarySettingsStorage()
+        let store = SettingsStore(storage: storage)
+
+        #expect(store.petPreferences.species == .dog)
+        #expect(
+            try #require(storage.lastRegisteredDefaults[SettingsKey<PetSpecies>.petSpecies.name] as? String) == "dog")
+
+        store.petPreferences = PetPreferences(isEnabled: true, species: .penguin)
+
+        #expect(store.petPreferences == PetPreferences(isEnabled: true, species: .penguin))
+        #expect(store[.petSpecies] == .penguin)
+        #expect(SettingsKey<PetSpecies>.petSpecies.name == "com.kernotch.settings.pet.species")
+    }
+
     @Test("removes retired keys, and leaves everything else alone")
     func removesRetiredKeys() {
         let storage = DictionarySettingsStorage()
@@ -196,6 +231,7 @@ struct SettingsStoreTests {
             showMenuBarIcon: false,
             appearance: .dark,
             islandSize: .large,
+            hidesInFullScreen: true,
             reducedMotionOverride: false
         )
 
@@ -206,6 +242,14 @@ struct SettingsStoreTests {
         #expect(store[.showMenuBarIcon] == false)
         #expect(store[.appearance] == .dark)
         #expect(store[.islandSize] == .large)
+        #expect(store[.hideInFullScreen])
+    }
+
+    @Test("a store with nothing saved keeps the island over full-screen apps")
+    func fullScreenHidingDefaultsOff() {
+        let store = SettingsStore(storage: DictionarySettingsStorage())
+
+        #expect(store.generalPreferences.hidesInFullScreen == false)
     }
 
     @Test("a store with no island size saved opens the minimalist island")

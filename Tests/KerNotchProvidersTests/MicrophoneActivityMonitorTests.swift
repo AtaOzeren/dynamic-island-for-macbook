@@ -17,6 +17,7 @@ struct MicrophoneActivityMonitorTests {
     private static let discordHelper: AudioObjectID = 101
     private static let browser: AudioObjectID = 102
     private static let recorderTool: AudioObjectID = 103
+    private static let speechRecognizer: AudioObjectID = 105
 
     @MainActor
     private final class AudioSystem {
@@ -24,11 +25,15 @@ struct MicrophoneActivityMonitorTests {
         var runningDevices: Set<AudioObjectID> = []
         var processes: [AudioObjectID]? = [discordHelper, browser, recorderTool]
         var processesRunningInput: Set<AudioObjectID> = []
+        /// Processes reporting running input with no input device behind it, the
+        /// way `corespeechd` does while it listens for "Siri".
+        var processesRunningDevicelessInput: Set<AudioObjectID> = []
         var processReads = 0
         var settlingReads: [@MainActor () -> Void] = []
         let bundleIdentifiers: [AudioObjectID: String] = [
             discordHelper: "com.hnc.Discord.helper.Renderer",
             browser: "com.google.Chrome.helper",
+            speechRecognizer: "com.apple.CoreSpeech",
         ]
 
         var hardware: MicrophoneHardware {
@@ -43,7 +48,12 @@ struct MicrophoneActivityMonitorTests {
                 },
                 processBundleIdentifier: { process in MainActor.assumeIsolated { self.bundleIdentifiers[process] } },
                 isProcessRunningInput: { process in
-                    MainActor.assumeIsolated { self.processesRunningInput.contains(process) }
+                    MainActor.assumeIsolated {
+                        self.processesRunningInput.union(self.processesRunningDevicelessInput).contains(process)
+                    }
+                },
+                processInputDevices: { process in
+                    MainActor.assumeIsolated { self.processesRunningInput.contains(process) ? self.inputDevices : [] }
                 }
             )
         }
@@ -148,6 +158,36 @@ struct MicrophoneActivityMonitorTests {
             )
         }
         #expect(fixture.listeners.isListening(to: .processList, on: Self.systemObject))
+    }
+
+    /// Measured on macOS 26 during a Discord call: `corespeechd`, listening for
+    /// "Siri", reported running input for minutes with no input device.
+    @Test("leaves out a process running input on no input device")
+    func ignoresDevicelessInput() {
+        let fixture = Self.makeFixture()
+        fixture.system.processes?.append(Self.speechRecognizer)
+        fixture.system.processesRunningDevicelessInput = [Self.speechRecognizer]
+        fixture.monitor.observeClients { _ in }
+
+        fixture.startRecording(by: [Self.discordHelper])
+
+        #expect(fixture.monitor.activity.clients == [.application(bundleIdentifier: "com.hnc.Discord.helper.Renderer")])
+    }
+
+    @Test("names an application once its input device arrives after its input state")
+    func attributesOnceInputDeviceArrives() {
+        let fixture = Self.makeFixture()
+        fixture.monitor.observeClients { _ in }
+        fixture.system.processesRunningDevicelessInput = [Self.browser]
+        fixture.system.runningDevices = [1]
+        fixture.listeners.fire(.isRunningSomewhere, on: 1)
+        #expect(fixture.monitor.activity.clients == [])
+
+        fixture.system.processesRunningDevicelessInput = []
+        fixture.system.processesRunningInput = [Self.browser]
+        fixture.listeners.fire(.processDevices, on: Self.browser)
+
+        #expect(fixture.monitor.activity.clients == [.application(bundleIdentifier: "com.google.Chrome.helper")])
     }
 
     @Test("reports a process with no bundle as a client rather than dropping it")

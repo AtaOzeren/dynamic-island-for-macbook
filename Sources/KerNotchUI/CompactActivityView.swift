@@ -117,6 +117,20 @@ public struct CompactSlot: Identifiable, Equatable, Sendable {
 public struct CompactSlotLayout: Equatable, Sendable {
     public let leading: [CompactSlot]
     public let trailing: [CompactSlot]
+    /// Where the pet is on the leading flank, or `nil` when no pet lives on
+    /// the pill.
+    public let petStage: PetStage?
+
+    /// How many places the leading flank is drawn with.
+    ///
+    /// A pet on the pill has one place of its own, at the flank's outer end,
+    /// and the icons take theirs beside it from the notch side: the pet alone
+    /// widens the pill by one place, never more. With the flank full of icons
+    /// the pet has left, and the flank is as wide as its icons.
+    public var leadingPlaceCount: Int {
+        guard let petStage, petStage != .away else { return leading.count }
+        return leading.count + 1
+    }
 }
 
 /// The pill's drawn size for `layout`, allocating each flank the width of the
@@ -128,7 +142,7 @@ public func compactPillSize(
     metrics: CompactPillMetrics = .default
 ) -> CGSize {
     compactPillSize(
-        leadingSlotCount: layout.leading.count,
+        leadingSlotCount: layout.leadingPlaceCount,
         trailingSlotCount: layout.trailing.count,
         notchSize: notchSize,
         metrics: metrics
@@ -156,7 +170,7 @@ public func compactPillGeometry(
     metrics: CompactPillMetrics = .default
 ) -> CompactPillGeometry {
     compactPillGeometry(
-        leadingSlotCount: layout.leading.count,
+        leadingSlotCount: layout.leadingPlaceCount,
         trailingSlotCount: layout.trailing.count,
         notchSize: notchSize,
         metrics: metrics
@@ -184,7 +198,7 @@ public func balancedCompactPillSize(
     metrics: CompactPillMetrics = .default
 ) -> CGSize {
     balancedCompactPillSize(
-        leadingSlotCount: layout.leading.count,
+        leadingSlotCount: layout.leadingPlaceCount,
         trailingSlotCount: layout.trailing.count,
         notchSize: notchSize,
         metrics: metrics
@@ -198,10 +212,8 @@ public func balancedCompactPillSize(
     notchSize: CGSize,
     metrics: CompactPillMetrics = .default
 ) -> CGSize {
-    let layout = compactSlotLayout(for: presentation)
-    return balancedCompactPillSize(
-        leadingSlotCount: layout.leading.count,
-        trailingSlotCount: layout.trailing.count,
+    balancedCompactPillSize(
+        for: compactSlotLayout(for: presentation),
         notchSize: notchSize,
         metrics: metrics
     )
@@ -243,13 +255,16 @@ public func compactSlots(for presentation: CompactActivityPresentation) -> [Comp
 /// Splits the slots around the notch, leaving out the standard slots the pill
 /// has no room for.
 public func compactSlotLayout(for presentation: CompactActivityPresentation) -> CompactSlotLayout {
-    compactSlotLayout(for: compactSlots(for: presentation))
+    compactSlotLayout(for: compactSlots(for: presentation), housing: nil)
 }
 
 /// Allocated from the slots actually drawn, so a slot already taken off the
 /// pill — a track paused long enough — never holds a place another icon needs,
 /// and never pushes one to the other side of the notch.
-private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
+///
+/// A pet changes nothing about where the icons go. It is given the leading
+/// places they leave free.
+private func compactSlotLayout(for slots: [CompactSlot], housing pet: IslandPet?) -> CompactSlotLayout {
     let agentSlots = slots.filter { $0.aiAgentID != nil }
     let standardSlots = slots.filter { $0.aiAgentID == nil }
     let allocation = CompactFlankAllocation(
@@ -263,7 +278,12 @@ private func compactSlotLayout(for slots: [CompactSlot]) -> CompactSlotLayout {
             standardSlots
                 .dropFirst(allocation.leadingStandardCount)
                 .prefix(allocation.trailingStandardCount)
-        ) + agentSlots
+        ) + agentSlots,
+        petStage: pet.map { _ in
+            PetStage(
+                freePlaceCount: CompactFlankAllocation.slotsPerSide - allocation.leadingStandardCount
+            )
+        }
     )
 }
 
@@ -387,13 +407,21 @@ public func visibleCompactSlots(
     return slots.filter { !hiddenSlotIDs.contains($0.id) }
 }
 
-/// The pill's layout for `presentation`, with timed-out music icons removed.
+/// The pill's layout for `presentation`, with timed-out music icons removed and
+/// the pet, when there is one, given the leading places the icons leave free.
+///
+/// `pet` has no default on purpose. Everything that sizes the pill — the icons,
+/// the surface behind them, the hover target — has to agree on whether a pet
+/// is keeping the leading flank open, and a default would let one of them
+/// quietly size the pill without it.
 public func compactSlotLayout(
     for presentation: CompactActivityPresentation,
-    hiding hiddenSlotIDs: Set<String>
+    hiding hiddenSlotIDs: Set<String>,
+    housing pet: IslandPet?
 ) -> CompactSlotLayout {
     compactSlotLayout(
-        for: visibleCompactSlots(compactSlots(for: presentation), hiding: hiddenSlotIDs)
+        for: visibleCompactSlots(compactSlots(for: presentation), hiding: hiddenSlotIDs),
+        housing: pet
     )
 }
 
@@ -425,7 +453,7 @@ public func compactAccessibilityLabel(_ kind: ActivityKind) -> String {
 /// notch's own width held open between them.
 public struct CompactActivityView: View {
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.prefersReducedIslandMotion) private var reduceMotion
     @Environment(\.drawsOwnIslandSurface) private var drawsOwnSurface
     /// The clock the island itself is moving on. The pill's own width follows
     /// the island's shape, and its icons follow a hair behind it.
@@ -440,22 +468,29 @@ public struct CompactActivityView: View {
     /// every time the island expands and collapses.
     private let hiddenMusicSlotIDs: Set<String>
 
+    /// The pet on the leading flank, which keeps the flank open. The pet itself
+    /// is drawn by the island, which carries it between the compact and the
+    /// open island; the icons only make room for it.
+    private let pet: IslandPet?
+
     public init(
         presentation: CompactActivityPresentation,
         notchSize: CGSize,
         hiddenMusicSlotIDs: Set<String> = [],
+        pet: IslandPet? = nil,
         metrics: CompactPillMetrics = .default
     ) {
         self.presentation = presentation
         self.notchSize = notchSize
         self.hiddenMusicSlotIDs = hiddenMusicSlotIDs
+        self.pet = pet
         self.metrics = metrics
     }
 
     public var body: some View {
         let slots = compactSlots(for: presentation)
         let visibleSlots = visibleCompactSlots(slots, hiding: hiddenMusicSlotIDs)
-        let layout = compactSlotLayout(for: visibleSlots)
+        let layout = compactSlotLayout(for: visibleSlots, housing: pet)
         let size = compactPillSize(for: layout, notchSize: notchSize, metrics: metrics)
 
         let surface = islandCompactSurface(scheme: colorScheme.islandColorScheme)
@@ -466,6 +501,7 @@ public struct CompactActivityView: View {
         // layout exists to avoid.
         HStack(spacing: 0) {
             slotRow(layout.leading)
+                .frame(width: petFlankWidth(for: layout), alignment: .trailing)
             Color.clear.frame(width: notchWidthWithGaps(for: layout))
             slotRow(layout.trailing)
         }
@@ -492,8 +528,16 @@ public struct CompactActivityView: View {
     /// no gap.
     private func notchWidthWithGaps(for layout: CompactSlotLayout) -> CGFloat {
         notchSize.width
-            + (layout.leading.isEmpty ? 0 : metrics.slotSpacing)
+            + (layout.leadingPlaceCount == 0 ? 0 : metrics.slotSpacing)
             + (layout.trailing.isEmpty ? 0 : metrics.slotSpacing)
+    }
+
+    /// The whole leading flank while a pet lives there, so the icons sit
+    /// against the notch and the pet has the outer place; `nil` without one,
+    /// leaving the flank exactly as wide as its icons.
+    private func petFlankWidth(for layout: CompactSlotLayout) -> CGFloat? {
+        guard layout.petStage != nil else { return nil }
+        return compactSideWidth(slotCount: layout.leadingPlaceCount, metrics: metrics)
     }
 
     /// One flank, at exactly the width of the slots it holds.

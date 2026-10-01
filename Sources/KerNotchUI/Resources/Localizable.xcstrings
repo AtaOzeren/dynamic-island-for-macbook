@@ -6217,6 +6217,48 @@
         }
       }
     },
+    "Hide in full screen and Mission Control": {
+      "comment": "General pane, Island section toggle: the island steps aside while an app is in full screen or Mission Control is open.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide in full screen and Mission Control"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tam ekranda ve Mission Control'de gizle"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Im Vollbildmodus und in Mission Control ausblenden"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ocultar en pantalla completa y en Mission Control"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masquer en plein écran et dans Mission Control"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nascondi a schermo intero e in Mission Control"
+          }
+        }
+      }
+    },
     "Large widens the island that opens on hover and enlarges its text and controls.": {
       "comment": "General pane, Island section caption: what the Large island size changes.",
       "extractionState": "manual",
@@ -6255,6 +6297,258 @@
           "stringUnit": {
             "state": "translated",
             "value": "“Grande” allarga l'isola che si apre al passaggio del puntatore e ingrandisce testo e controlli."
+          }
+        }
+      }
+    },
+    "Pet": {
+      "comment": "Settings window tab: the pixel pet that lives on the compact island.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haustier"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mascota"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compagnon"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animaletto"
+          }
+        }
+      }
+    },
+    "Island pet": {
+      "comment": "Pet pane: section title.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Island pet"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adadaki pet"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haustier auf der Insel"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mascota de la isla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compagnon de l'îlot"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animaletto dell'isola"
+          }
+        }
+      }
+    },
+    "Show the pet on the island": {
+      "comment": "Pet pane: switch that puts the pet on the compact island.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show the pet on the island"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Peti adada göster"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Haustier auf der Insel zeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar la mascota en la isla"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher le compagnon sur l'îlot"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra l'animaletto sull'isola"
+          }
+        }
+      }
+    },
+    "The pet sits still while motion is reduced.": {
+      "comment": "Pet pane: footnote under the animated preview.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The pet sits still while motion is reduced."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hareket azaltıldığında pet yerinde oturur."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bei reduzierter Bewegung sitzt das Haustier still."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con el movimiento reducido, la mascota se queda sentada."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand les animations sont réduites, le compagnon reste assis."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Con il movimento ridotto, l'animaletto resta seduto."
+          }
+        }
+      }
+    },
+    "A small pixel pet lives on the island's left side. It steps aside for an activity and leaves when no room is left.": {
+      "comment": "Pet pane: section caption describing how the pet shares the island's left side with activity icons.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "A small pixel pet lives on the island's left side. It steps aside for an activity and leaves when no room is left."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Adanın sol tarafında küçük bir piksel pet yaşar. Bir etkinliğe yer açmak için kenara çekilir, yer kalmadığında adadan ayrılır."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf der linken Seite der Insel wohnt ein kleines Pixel-Haustier. Es macht einer Aktivität Platz und geht, wenn kein Platz mehr frei ist."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Una pequeña mascota de píxeles vive en el lado izquierdo de la isla. Se aparta ante una actividad y se marcha cuando no queda sitio."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un petit compagnon en pixels vit sur le côté gauche de l'îlot. Il laisse la place à une activité et s'en va quand il n'en reste plus."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Un piccolo animaletto in pixel vive sul lato sinistro dell'isola. Si fa da parte per un'attività e se ne va quando non c'è più spazio."
+          }
+        }
+      }
+    },
+    "Animal": {
+      "comment": "Pet pane: picker choosing which pet lives on the island, a dog or a penguin.",
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animal"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hayvan"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tier"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animal"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animal"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Animale"
           }
         }
       }

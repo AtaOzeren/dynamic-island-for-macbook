@@ -49,6 +49,9 @@ struct SystemAudioRecordingObserverExclusionTests {
             processBundleIdentifier: { process in MainActor.assumeIsolated { system.bundleIdentifiers[process] } },
             isProcessRunningInput: { process in
                 MainActor.assumeIsolated { system.processesRunningInput.contains(process) }
+            },
+            processInputDevices: { process in
+                MainActor.assumeIsolated { system.processesRunningInput.contains(process) ? [1] : [] }
             }
         )
         let observer = SystemAudioRecordingObserver(

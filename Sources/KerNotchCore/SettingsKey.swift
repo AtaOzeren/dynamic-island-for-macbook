@@ -101,6 +101,15 @@ extension SettingsKey where Value == IslandSize {
     }
 }
 
+extension SettingsKey where Value == PetSpecies {
+    public static var petSpecies: Self {
+        rawRepresentableKey(
+            path: "pet.species",
+            defaultValue: PetSpecies.dog
+        )
+    }
+}
+
 extension SettingsKey where Value == Bool {
     public static var launchAtLogin: Self { boolKey(path: "general.launchAtLogin", defaultValue: false) }
     public static var cpuWatchdogDisabled: Self {
@@ -108,6 +117,9 @@ extension SettingsKey where Value == Bool {
     }
     public static var showMenuBarIcon: Self {
         boolKey(path: "general.showMenuBarIcon", defaultValue: true)
+    }
+    public static var hideInFullScreen: Self {
+        boolKey(path: "general.hideInFullScreen", defaultValue: false)
     }
     public static var showMusic: Self { boolKey(path: "providers.music.enabled", defaultValue: true) }
     public static var showTimer: Self { boolKey(path: "providers.timer.enabled", defaultValue: true) }
@@ -143,6 +155,7 @@ extension SettingsKey where Value == Bool {
     public static var enableDiscord: Self {
         boolKey(path: "integrations.discord.enabled", defaultValue: false)
     }
+    public static var showIslandPet: Self { boolKey(path: "pet.enabled", defaultValue: false) }
 }
 
 extension SettingsKey where Value == Bool? {
@@ -186,6 +199,7 @@ public enum SettingsKeys {
         register(.showMenuBarIcon, in: &defaults)
         register(.appearance, in: &defaults)
         register(.islandSize, in: &defaults)
+        register(.hideInFullScreen, in: &defaults)
         register(.showMusic, in: &defaults)
         register(.showTimer, in: &defaults)
         register(.showScreenRecording, in: &defaults)
@@ -203,6 +217,8 @@ public enum SettingsKeys {
         register(.hasCompletedOnboarding, in: &defaults)
         register(.cpuWatchdogDisabled, in: &defaults)
         register(.enableDiscord, in: &defaults)
+        register(.showIslandPet, in: &defaults)
+        register(.petSpecies, in: &defaults)
         return defaults
     }
 
