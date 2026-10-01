@@ -16,7 +16,7 @@ For complete technical documentation, architecture decisions, and design specifi
 
 KerNotch ships as one Developer ID signed, notarized build, in two packagings:
 
-- **Notarized DMG:** `KerNotch-<version>.dmg` from [GitHub Releases](https://github.com/AtaOzeren/dynamic-island-for-macbook/releases), and later from the project website. *Coming Soon*
+- **Notarized DMG:** `KerNotch-<version>.dmg` from [GitHub Releases](https://github.com/AtaOzeren/KerNotch/releases), and later from the project website. *Coming Soon*
 - **Homebrew Cask:** `brew install --cask kernotch`. *Coming Soon*
 
 ## Building from Source

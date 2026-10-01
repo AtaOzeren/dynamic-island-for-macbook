@@ -2,10 +2,10 @@ cask "kernotch" do
   version "1.0.0"
   sha256 "REPLACE_WITH_NOTARIZED_DMG_SHA256"
 
-  url "https://github.com/AtaOzeren/dynamic-island-for-macbook/releases/download/v#{version}/KerNotch-#{version}.dmg"
+  url "https://github.com/AtaOzeren/KerNotch/releases/download/v#{version}/KerNotch-#{version}.dmg"
   name "KerNotch"
   desc "Live activities and AI agent status in the MacBook notch"
-  homepage "https://github.com/AtaOzeren/dynamic-island-for-macbook"
+  homepage "https://github.com/AtaOzeren/KerNotch"
 
   livecheck do
     url :url

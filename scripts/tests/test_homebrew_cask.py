@@ -26,7 +26,7 @@ class HomebrewCaskTests(unittest.TestCase):
             'sha256 "REPLACE_WITH_NOTARIZED_DMG_SHA256"',
             'name "KerNotch"',
             'desc "Live activities and AI agent status in the MacBook notch"',
-            'homepage "https://github.com/AtaOzeren/dynamic-island-for-macbook"',
+            'homepage "https://github.com/AtaOzeren/KerNotch"',
             "strategy :github_latest",
             "depends_on macos: :sonoma",
             '"~/Library/Application Support/KerNotch"',
